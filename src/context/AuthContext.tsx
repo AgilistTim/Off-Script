@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { 
-  User, 
+  User as FirebaseUser, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut, 
@@ -9,16 +9,18 @@ import {
   updateProfile
 } from 'firebase/auth';
 import { auth, googleProvider } from '../services/firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
-import { db } from '../services/firebase';
+import { createUserDocument, getUserById } from '../services/userService';
+import { User } from '../models/User';
 
 interface AuthContextType {
-  currentUser: User | null;
+  currentUser: FirebaseUser | null;
+  userData: User | null;
   loading: boolean;
-  signUp: (email: string, password: string, displayName: string) => Promise<User>;
-  signIn: (email: string, password: string) => Promise<User>;
-  signInWithGoogle: () => Promise<User>;
+  signUp: (email: string, password: string, displayName: string) => Promise<FirebaseUser>;
+  signIn: (email: string, password: string) => Promise<FirebaseUser>;
+  signInWithGoogle: () => Promise<FirebaseUser>;
   logout: () => Promise<void>;
+  refreshUserData: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -32,73 +34,92 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [currentUser, setCurrentUser] = useState<FirebaseUser | null>(null);
+  const [userData, setUserData] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
+  // Fetch user data from Firestore
+  const fetchUserData = async (user: FirebaseUser) => {
+    try {
+      const userData = await getUserById(user.uid);
+      setUserData(userData);
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    }
+  };
+
+  // Refresh user data
+  const refreshUserData = async () => {
+    if (currentUser) {
+      await fetchUserData(currentUser);
+    }
+  };
+
   // Create a new user with email and password
-  const signUp = async (email: string, password: string, displayName: string): Promise<User> => {
+  const signUp = async (email: string, password: string, displayName: string): Promise<FirebaseUser> => {
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     
     // Update profile with display name
     await updateProfile(userCredential.user, { displayName });
     
     // Create user document in Firestore
-    await setDoc(doc(db, 'users', userCredential.user.uid), {
-      email,
+    await createUserDocument(
+      userCredential.user.uid,
+      userCredential.user.email,
       displayName,
-      createdAt: new Date(),
-      lastLogin: new Date(),
-      role: 'user'
-    });
+      userCredential.user.photoURL
+    );
     
     return userCredential.user;
   };
 
   // Sign in with email and password
-  const signIn = async (email: string, password: string): Promise<User> => {
+  const signIn = async (email: string, password: string): Promise<FirebaseUser> => {
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     
-    // Update last login time
-    const userRef = doc(db, 'users', userCredential.user.uid);
-    await setDoc(userRef, { lastLogin: new Date() }, { merge: true });
+    // Update user document in Firestore
+    await createUserDocument(
+      userCredential.user.uid,
+      userCredential.user.email,
+      userCredential.user.displayName,
+      userCredential.user.photoURL
+    );
     
     return userCredential.user;
   };
 
   // Sign in with Google
-  const signInWithGoogle = async (): Promise<User> => {
+  const signInWithGoogle = async (): Promise<FirebaseUser> => {
     const userCredential = await signInWithPopup(auth, googleProvider);
     
-    // Check if user document exists
-    const userRef = doc(db, 'users', userCredential.user.uid);
-    const userDoc = await getDoc(userRef);
-    
-    if (!userDoc.exists()) {
-      // Create new user document if it doesn't exist
-      await setDoc(userRef, {
-        email: userCredential.user.email,
-        displayName: userCredential.user.displayName,
-        createdAt: new Date(),
-        lastLogin: new Date(),
-        role: 'user'
-      });
-    } else {
-      // Update last login time
-      await setDoc(userRef, { lastLogin: new Date() }, { merge: true });
-    }
+    // Update user document in Firestore
+    await createUserDocument(
+      userCredential.user.uid,
+      userCredential.user.email,
+      userCredential.user.displayName,
+      userCredential.user.photoURL
+    );
     
     return userCredential.user;
   };
 
   // Sign out
   const logout = async (): Promise<void> => {
+    setUserData(null);
     return await signOut(auth);
   };
 
   // Listen for auth state changes
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
+      
+      if (user) {
+        await fetchUserData(user);
+      } else {
+        setUserData(null);
+      }
+      
       setLoading(false);
     });
 
@@ -107,11 +128,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const value = {
     currentUser,
+    userData,
     loading,
     signUp,
     signIn,
     signInWithGoogle,
-    logout
+    logout,
+    refreshUserData
   };
 
   return (

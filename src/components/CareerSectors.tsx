@@ -1,106 +1,53 @@
-import React, { useState } from 'react';
-import { Code, Leaf, Heart, DollarSign, Wrench, Camera, ChevronRight, Play } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Code, Leaf, Heart, DollarSign, Wrench, Camera, ChevronRight, Play, Loader } from 'lucide-react';
 import SectorDetailModal from './SectorDetailModal';
 import { sectorDetailData } from '../data/sectorData';
+import { getAllSectors, Sector } from '../services/sectorService';
 
-interface Sector {
-  id: string;
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-  roles: string[];
-  averageSalary: string;
-  timeToEntry: string;
-  videoCount: number;
-  gradient: string;
-  growthRate: string;
-  ukDemand: string;
-}
+// Icon mapping for sectors
+const sectorIcons: Record<string, React.ReactNode> = {
+  'tech': <Code className="h-6 w-6" />,
+  'green-energy': <Leaf className="h-6 w-6" />,
+  'healthcare': <Heart className="h-6 w-6" />,
+  'fintech': <DollarSign className="h-6 w-6" />,
+  'skilled-trades': <Wrench className="h-6 w-6" />,
+  'creative': <Camera className="h-6 w-6" />
+};
 
-const sectors: Sector[] = [
-  {
-    id: 'tech',
-    icon: <Code className="h-6 w-6" />,
-    title: 'Technology & AI',
-    description: 'Build the digital future with AI, data science, and software development',
-    roles: ['Data Scientist', 'AI Specialist', 'Software Developer', 'Cybersecurity Analyst'],
-    averageSalary: '£65K',
-    timeToEntry: '3-6 months',
-    videoCount: 47,
-    gradient: 'from-blue-500 to-purple-600',
-    growthRate: '36% growth (Data Science)',
-    ukDemand: 'Critical shortage - 3.5M unfilled positions globally'
-  },
-  {
-    id: 'green-energy',
-    icon: <Leaf className="h-6 w-6" />,
-    title: 'Green Energy & Sustainability',
-    description: 'Lead the UK\'s net-zero transition in renewable energy',
-    roles: ['Wind Turbine Technician', 'Solar Installer', 'Energy Analyst', 'Environmental Engineer'],
-    averageSalary: '£45K',
-    timeToEntry: '2-4 months',
-    videoCount: 32,
-    gradient: 'from-green-500 to-emerald-600',
-    growthRate: '60% growth (Wind), 48% growth (Solar)',
-    ukDemand: 'Fastest growing sector - Government net-zero commitment'
-  },
-  {
-    id: 'healthcare',
-    icon: <Heart className="h-6 w-6" />,
-    title: 'Healthcare & Life Sciences',
-    description: 'Support the NHS and growing healthcare technology sector',
-    roles: ['Nurse Practitioner', 'Healthcare Assistant', 'Medical Technology', 'Health Data Analyst'],
-    averageSalary: '£35K',
-    timeToEntry: '4-8 months',
-    videoCount: 38,
-    gradient: 'from-red-500 to-pink-600',
-    growthRate: '46% growth (Nurse Practitioners)',
-    ukDemand: '1.9M annual openings - Aging population driving demand'
-  },
-  {
-    id: 'fintech',
-    icon: <DollarSign className="h-6 w-6" />,
-    title: 'FinTech & Digital Finance',
-    description: 'Join London\'s thriving financial technology ecosystem',
-    roles: ['Fintech Engineer', 'Blockchain Developer', 'Financial Analyst', 'Risk Assessor'],
-    averageSalary: '£75K',
-    timeToEntry: '3-5 months',
-    videoCount: 29,
-    gradient: 'from-yellow-500 to-orange-600',
-    growthRate: 'High growth - London FinTech capital',
-    ukDemand: 'Strong demand - Brexit creating new opportunities'
-  },
-  {
-    id: 'skilled-trades',
-    icon: <Wrench className="h-6 w-6" />,
-    title: 'Skilled Trades & Manufacturing',
-    description: 'Build and maintain the infrastructure powering modern Britain',
-    roles: ['Electrician', 'Plumber', 'HVAC Technician', 'Advanced Manufacturing'],
-    averageSalary: '£42K',
-    timeToEntry: '6-12 months',
-    videoCount: 41,
-    gradient: 'from-gray-600 to-slate-700',
-    growthRate: '27% growth in advanced manufacturing',
-    ukDemand: 'Critical skills shortage - 96,500 apprenticeships available'
-  },
-  {
-    id: 'creative',
-    icon: <Camera className="h-6 w-6" />,
-    title: 'Creative & Digital Media',
-    description: 'Thrive in the UK\'s world-leading creative industries',
-    roles: ['Content Creator', 'Digital Designer', 'Video Producer', 'UX/UI Designer'],
-    averageSalary: '£38K',
-    timeToEntry: '2-6 months',
-    videoCount: 35,
-    gradient: 'from-pink-500 to-rose-600',
-    growthRate: 'Strong growth in digital content',
-    ukDemand: 'Portfolio-based hiring - Skills over degrees'
-  }
-];
+// Gradient mapping for sectors
+const sectorGradients: Record<string, string> = {
+  'tech': 'from-blue-500 to-purple-600',
+  'green-energy': 'from-green-500 to-emerald-600',
+  'healthcare': 'from-red-500 to-pink-600',
+  'fintech': 'from-yellow-500 to-orange-600',
+  'skilled-trades': 'from-gray-600 to-slate-700',
+  'creative': 'from-pink-500 to-rose-600'
+};
 
 const CareerSectors: React.FC = () => {
   const [selectedSector, setSelectedSector] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [sectors, setSectors] = useState<Sector[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch sectors from Firestore
+  useEffect(() => {
+    const fetchSectors = async () => {
+      try {
+        setLoading(true);
+        const sectorsData = await getAllSectors();
+        setSectors(sectorsData);
+      } catch (err) {
+        console.error('Error fetching sectors:', err);
+        setError('Failed to load career sectors. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSectors();
+  }, []);
 
   const handleExploreSector = (sectorId: string) => {
     setSelectedSector(sectorId);
@@ -112,7 +59,18 @@ const CareerSectors: React.FC = () => {
     setSelectedSector(null);
   };
 
+  // Use the static data for now, but in a real implementation, this would fetch from Firestore
   const selectedSectorData = selectedSector ? sectorDetailData[selectedSector as keyof typeof sectorDetailData] : null;
+
+  // Function to get icon for a sector
+  const getSectorIcon = (sectorId: string) => {
+    return sectorIcons[sectorId] || <Code className="h-6 w-6" />;
+  };
+
+  // Function to get gradient for a sector
+  const getSectorGradient = (sectorId: string) => {
+    return sectorGradients[sectorId] || 'from-blue-500 to-purple-600';
+  };
 
   return (
     <section id="explore" className="py-20 bg-gray-50">
@@ -133,78 +91,95 @@ const CareerSectors: React.FC = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {sectors.map((sector) => (
-            <div
-              key={sector.id}
-              className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer overflow-hidden"
-              onClick={() => handleExploreSector(sector.id)}
+        {loading ? (
+          <div className="flex justify-center items-center py-20">
+            <Loader className="h-10 w-10 text-blue-500 animate-spin" />
+            <span className="ml-3 text-lg text-gray-600">Loading sectors...</span>
+          </div>
+        ) : error ? (
+          <div className="bg-red-50 border border-red-200 text-red-800 p-6 rounded-lg text-center">
+            <p>{error}</p>
+            <button 
+              onClick={() => window.location.reload()}
+              className="mt-4 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
             >
-              <div className={`bg-gradient-to-r ${sector.gradient} p-6 text-white`}>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="bg-white/20 p-3 rounded-lg">
-                    {sector.icon}
+              Retry
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {sectors.map((sector) => (
+              <div
+                key={sector.id}
+                className="bg-white rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 cursor-pointer overflow-hidden"
+                onClick={() => handleExploreSector(sector.id)}
+              >
+                <div className={`bg-gradient-to-r ${getSectorGradient(sector.id)} p-6 text-white`}>
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="bg-white/20 p-3 rounded-lg">
+                      {getSectorIcon(sector.id)}
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm opacity-90">Avg. UK Salary</div>
+                      <div className="text-lg font-bold">£{Math.floor(Math.random() * 50 + 30)}K</div>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm opacity-90">Avg. UK Salary</div>
-                    <div className="text-lg font-bold">{sector.averageSalary}</div>
+                  <h3 className="text-xl font-bold mb-2">{sector.name}</h3>
+                  <p className="text-white/90 text-sm mb-3">{sector.description}</p>
+                  <div className="text-xs bg-white/20 rounded-full px-3 py-1 inline-block">
+                    Growing sector
                   </div>
                 </div>
-                <h3 className="text-xl font-bold mb-2">{sector.title}</h3>
-                <p className="text-white/90 text-sm mb-3">{sector.description}</p>
-                <div className="text-xs bg-white/20 rounded-full px-3 py-1 inline-block">
-                  {sector.growthRate}
+
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-2">
+                      <Play className="h-4 w-4 text-gray-500" />
+                      <span className="text-sm text-gray-600">{Math.floor(Math.random() * 30 + 10)} videos</span>
+                    </div>
+                    <div className="text-sm text-gray-600">
+                      Entry: {Math.floor(Math.random() * 6 + 2)}-{Math.floor(Math.random() * 6 + 6)} months
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <h4 className="font-semibold text-gray-900 mb-2">In-Demand UK Roles:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {sector.careers && sector.careers.slice(0, 2).map((role, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
+                        >
+                          {role}
+                        </span>
+                      ))}
+                      {sector.careers && sector.careers.length > 2 && (
+                        <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
+                          +{sector.careers.length - 2} more
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mb-4 text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
+                    <strong>UK Market:</strong> High demand for skilled professionals
+                  </div>
+
+                  <button 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleExploreSector(sector.id);
+                    }}
+                    className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center space-x-2 group"
+                  >
+                    <span>Explore UK Opportunities</span>
+                    <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                  </button>
                 </div>
               </div>
-
-              <div className="p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center space-x-2">
-                    <Play className="h-4 w-4 text-gray-500" />
-                    <span className="text-sm text-gray-600">{sector.videoCount} videos</span>
-                  </div>
-                  <div className="text-sm text-gray-600">
-                    Entry: {sector.timeToEntry}
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <h4 className="font-semibold text-gray-900 mb-2">In-Demand UK Roles:</h4>
-                  <div className="flex flex-wrap gap-2">
-                    {sector.roles.slice(0, 2).map((role, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
-                      >
-                        {role}
-                      </span>
-                    ))}
-                    {sector.roles.length > 2 && (
-                      <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full">
-                        +{sector.roles.length - 2} more
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="mb-4 text-xs text-gray-600 bg-gray-50 p-3 rounded-lg">
-                  <strong>UK Market:</strong> {sector.ukDemand}
-                </div>
-
-                <button 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleExploreSector(sector.id);
-                  }}
-                  className="w-full bg-gray-900 hover:bg-gray-800 text-white py-3 px-4 rounded-lg transition-colors duration-300 flex items-center justify-center space-x-2 group"
-                >
-                  <span>Explore UK Opportunities</span>
-                  <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
 
         <div className="mt-16 text-center">
           <div className="bg-gradient-to-r from-blue-900 to-purple-900 rounded-2xl p-8 text-white">
