@@ -14,6 +14,7 @@ export interface UserPreferences {
   theme?: 'light' | 'dark' | 'system';
   notifications?: boolean;
   emailUpdates?: boolean;
+  interestedSectors?: string[];
 }
 
 export interface UserProfile {
