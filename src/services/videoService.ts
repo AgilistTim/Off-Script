@@ -1,4 +1,4 @@
-import { collection, getDocs, query, where, doc, getDoc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, query, where, doc, getDoc, addDoc, updateDoc, serverTimestamp, getCountFromServer, deleteDoc } from 'firebase/firestore';
 import { db } from './firebase';
 import { User } from '../models/User';
 
@@ -43,6 +43,37 @@ export interface VideoProgress {
     response: string;
   }[];
 }
+
+// Get total video count
+export const getVideoCount = async (): Promise<number> => {
+  try {
+    const videosRef = collection(db, 'videos');
+    const snapshot = await getCountFromServer(videosRef);
+    return snapshot.data().count;
+  } catch (error) {
+    console.error('Error getting video count:', error);
+    return 0;
+  }
+};
+
+// Get total video view count
+export const getVideoViewCount = async (): Promise<number> => {
+  try {
+    const videosRef = collection(db, 'videos');
+    const videosSnapshot = await getDocs(videosRef);
+    
+    let totalViews = 0;
+    videosSnapshot.docs.forEach(doc => {
+      const viewCount = doc.data().viewCount || 0;
+      totalViews += viewCount;
+    });
+    
+    return totalViews;
+  } catch (error) {
+    console.error('Error getting total video view count:', error);
+    return 0;
+  }
+};
 
 // Get all videos
 export const getAllVideos = async (): Promise<Video[]> => {
@@ -99,6 +130,85 @@ export const getVideoById = async (videoId: string): Promise<Video | null> => {
     } as Video;
   } catch (error) {
     console.error(`Error fetching video ${videoId}:`, error);
+    throw error;
+  }
+};
+
+// Create a new video
+export const createVideo = async (videoData: Omit<Video, 'id'>): Promise<string> => {
+  try {
+    // Generate thumbnail URL from YouTube video ID if sourceType is youtube and thumbnailUrl is not provided
+    if (videoData.sourceType === 'youtube' && !videoData.thumbnailUrl && videoData.sourceId) {
+      videoData.thumbnailUrl = `https://img.youtube.com/vi/${videoData.sourceId}/hqdefault.jpg`;
+    }
+    
+    // Generate source URL if not provided
+    if (!videoData.sourceUrl && videoData.sourceId) {
+      if (videoData.sourceType === 'youtube') {
+        videoData.sourceUrl = `https://www.youtube.com/watch?v=${videoData.sourceId}`;
+      } else if (videoData.sourceType === 'vimeo') {
+        videoData.sourceUrl = `https://vimeo.com/${videoData.sourceId}`;
+      }
+    }
+    
+    // Add current date as curatedDate if not provided
+    if (!videoData.curatedDate) {
+      videoData.curatedDate = new Date().toISOString();
+    }
+    
+    // Add current date as publicationDate if not provided
+    if (!videoData.publicationDate) {
+      videoData.publicationDate = new Date().toISOString();
+    }
+    
+    // Initialize viewCount if not provided
+    if (videoData.viewCount === undefined) {
+      videoData.viewCount = 0;
+    }
+    
+    const videosRef = collection(db, 'videos');
+    const docRef = await addDoc(videosRef, videoData);
+    
+    return docRef.id;
+  } catch (error) {
+    console.error('Error creating video:', error);
+    throw error;
+  }
+};
+
+// Update an existing video
+export const updateVideo = async (videoId: string, videoData: Partial<Video>): Promise<void> => {
+  try {
+    const videoRef = doc(db, 'videos', videoId);
+    
+    // Generate thumbnail URL from YouTube video ID if sourceType is youtube and thumbnailUrl is not provided
+    if (videoData.sourceType === 'youtube' && !videoData.thumbnailUrl && videoData.sourceId) {
+      videoData.thumbnailUrl = `https://img.youtube.com/vi/${videoData.sourceId}/hqdefault.jpg`;
+    }
+    
+    // Generate source URL if not provided
+    if (videoData.sourceId && !videoData.sourceUrl) {
+      if (videoData.sourceType === 'youtube') {
+        videoData.sourceUrl = `https://www.youtube.com/watch?v=${videoData.sourceId}`;
+      } else if (videoData.sourceType === 'vimeo') {
+        videoData.sourceUrl = `https://vimeo.com/${videoData.sourceId}`;
+      }
+    }
+    
+    await updateDoc(videoRef, videoData);
+  } catch (error) {
+    console.error(`Error updating video ${videoId}:`, error);
+    throw error;
+  }
+};
+
+// Delete a video
+export const deleteVideo = async (videoId: string): Promise<void> => {
+  try {
+    const videoRef = doc(db, 'videos', videoId);
+    await deleteDoc(videoRef);
+  } catch (error) {
+    console.error(`Error deleting video ${videoId}:`, error);
     throw error;
   }
 };

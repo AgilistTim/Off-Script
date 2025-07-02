@@ -1,14 +1,26 @@
 import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Search, MessageCircle, User } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Menu, X, Search, MessageCircle, User, Shield, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { User as UserType } from '../models/User';
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
-  const { currentUser } = useAuth();
+  const navigate = useNavigate();
+  const { currentUser, userData, logout } = useAuth();
 
   const isHomePage = location.pathname === '/';
+  const isAdmin = userData?.role === 'admin';
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Failed to log out', error);
+    }
+  };
 
   const scrollToSection = (sectionId: string) => {
     if (isHomePage) {
@@ -60,6 +72,15 @@ const Header: React.FC = () => {
                 Alt Pathways
               </button>
             )}
+            {isAdmin && (
+              <Link 
+                to="/admin"
+                className="text-red-600 hover:text-red-800 transition-colors flex items-center"
+              >
+                <Shield className="h-4 w-4 mr-1" />
+                Admin
+              </Link>
+            )}
           </nav>
 
           <div className="flex items-center space-x-4">
@@ -67,20 +88,31 @@ const Header: React.FC = () => {
               <Search className="h-5 w-5" />
             </Link>
             {currentUser ? (
-              <Link to="/profile" className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                {currentUser.photoURL ? (
-                  <img 
-                    src={currentUser.photoURL} 
-                    alt="Profile" 
-                    className="h-6 w-6 rounded-full"
-                  />
-                ) : (
-                  <User className="h-5 w-5" />
-                )}
-              </Link>
+              <>
+                <Link to="/profile" className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+                  {currentUser.photoURL ? (
+                    <img 
+                      src={currentUser.photoURL} 
+                      alt="Profile" 
+                      className="h-6 w-6 rounded-full"
+                    />
+                  ) : (
+                    <User className="h-5 w-5" />
+                  )}
+                </Link>
+                <button 
+                  onClick={handleLogout}
+                  className="flex items-center px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors"
+                  title="Logout"
+                >
+                  <LogOut className="h-4 w-4 mr-1" />
+                  <span className="text-sm">Logout</span>
+                </button>
+              </>
             ) : (
-              <Link to="/login" className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-                <User className="h-5 w-5" />
+              <Link to="/login" className="flex items-center px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors">
+                <User className="h-4 w-4 mr-1" />
+                <span className="text-sm">Login</span>
               </Link>
             )}
             <button
@@ -117,20 +149,43 @@ const Header: React.FC = () => {
             >
               AI Chat
             </Link>
-            {currentUser ? (
+            {isAdmin && (
               <Link 
-                to="/profile"
-                className="block w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md"
+                to="/admin"
+                className="block w-full text-left px-3 py-2 text-red-600 hover:bg-red-50 rounded-md flex items-center"
                 onClick={() => setIsMenuOpen(false)}
               >
-                Profile
+                <Shield className="h-4 w-4 mr-1" />
+                Admin Panel
               </Link>
+            )}
+            {currentUser ? (
+              <>
+                <Link 
+                  to="/profile"
+                  className="block w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Profile
+                </Link>
+                <button 
+                  onClick={() => {
+                    handleLogout();
+                    setIsMenuOpen(false);
+                  }}
+                  className="block w-full text-left px-3 py-2 bg-red-500 text-white hover:bg-red-600 rounded-md flex items-center"
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Logout
+                </button>
+              </>
             ) : (
               <Link 
                 to="/login"
-                className="block w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md"
+                className="block w-full text-left px-3 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-md flex items-center"
                 onClick={() => setIsMenuOpen(false)}
               >
+                <User className="h-4 w-4 mr-2" />
                 Login
               </Link>
             )}

@@ -23,13 +23,6 @@ export default {
         'primary-lavender': '#cfceff',
         'primary-green': '#81f08c',
       },
-      aspectRatio: {
-        'vertical': '9 / 16',
-      },
-      lineClamp: {
-        7: '7',
-        8: '8',
-      },
     },
   },
   plugins: [],

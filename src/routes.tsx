@@ -1,10 +1,12 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { useAuth } from './context/AuthContext';
+import { User } from './models/User';
 
 // Layout components
 const MainLayout = lazy(() => import('./components/layouts/MainLayout'));
 const AuthLayout = lazy(() => import('./components/layouts/AuthLayout'));
+const AdminLayout = lazy(() => import('./components/admin/AdminLayout'));
 
 // Page components
 const Home = lazy(() => import('./pages/Home'));
@@ -18,6 +20,13 @@ const AIChat = lazy(() => import('./pages/AIChat'));
 const Profile = lazy(() => import('./pages/Profile'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const StyleGuide = lazy(() => import('./components/StyleGuide'));
+
+// Admin pages
+const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
+const AdminVideos = lazy(() => import('./pages/admin/Videos'));
+const AdminUsers = lazy(() => import('./pages/admin/Users'));
+const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
+const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 
 // Loading fallback
 const LoadingFallback = () => (
@@ -35,6 +44,21 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!currentUser) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <>{children}</>;
+};
+
+// Admin route wrapper
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { currentUser, userData, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingFallback />;
+  }
+
+  if (!currentUser || !userData || userData.role !== 'admin') {
     return <Navigate to="/login" replace />;
   }
 
@@ -113,6 +137,38 @@ export const router = createBrowserRouter([
       {
         path: '*',
         element: <NotFound />
+      }
+    ]
+  },
+  {
+    path: '/admin',
+    element: (
+      <Suspense fallback={<LoadingFallback />}>
+        <AdminRoute>
+          <AdminLayout />
+        </AdminRoute>
+      </Suspense>
+    ),
+    children: [
+      {
+        index: true,
+        element: <AdminDashboard />
+      },
+      {
+        path: 'videos',
+        element: <AdminVideos />
+      },
+      {
+        path: 'users',
+        element: <AdminUsers />
+      },
+      {
+        path: 'analytics',
+        element: <AdminAnalytics />
+      },
+      {
+        path: 'settings',
+        element: <AdminSettings />
       }
     ]
   },
