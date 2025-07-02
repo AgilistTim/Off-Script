@@ -15,6 +15,7 @@ const VideoExploration = lazy(() => import('./pages/VideoExploration'));
 const AIChat = lazy(() => import('./pages/AIChat'));
 const Profile = lazy(() => import('./pages/Profile'));
 const NotFound = lazy(() => import('./pages/NotFound'));
+const StyleGuide = lazy(() => import('./components/StyleGuide'));
 
 // Loading fallback
 const LoadingFallback = () => (
@@ -98,6 +99,10 @@ export const router = createBrowserRouter([
             <Profile />
           </ProtectedRoute>
         )
+      },
+      {
+        path: 'style-guide',
+        element: <StyleGuide />
       },
       {
         path: '*',

@@ -8,10 +8,20 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['"Barlow Semi Condensed"', 'Inter', 'system-ui', 'sans-serif'],
       },
       animation: {
         'bounce-slow': 'bounce 2s infinite',
+      },
+      colors: {
+        'primary-black': '#000000',
+        'primary-white': '#ffffff',
+        'primary-blue': '#8cc9ff',
+        'primary-yellow': '#f0ff8c',
+        'primary-mint': '#d8fdf0',
+        'primary-peach': '#fdc0a8',
+        'primary-lavender': '#cfceff',
+        'primary-green': '#81f08c',
       },
       aspectRatio: {
         'vertical': '9 / 16',
@@ -22,8 +32,5 @@ export default {
       },
     },
   },
-  plugins: [
-    require('@tailwindcss/line-clamp'),
-    require('@tailwindcss/aspect-ratio'),
-  ],
+  plugins: [],
 }
