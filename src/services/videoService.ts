@@ -1,0 +1,311 @@
+import { collection, getDocs, query, where, doc, getDoc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from './firebase';
+import { User } from '../models/User';
+
+export interface Video {
+  id: string;
+  title: string;
+  description: string;
+  category: string;
+  subcategory?: string;
+  sourceType: 'youtube' | 'vimeo' | 'instagram' | 'other';
+  sourceId: string;
+  sourceUrl: string;
+  thumbnailUrl: string;
+  duration: number;
+  creator: string;
+  creatorUrl?: string;
+  publicationDate: string;
+  curatedDate: string;
+  tags: string[];
+  skillsHighlighted: string[];
+  educationRequired: string[];
+  prompts: ReflectionPrompt[];
+  relatedContent: string[];
+  viewCount: number;
+}
+
+export interface ReflectionPrompt {
+  id: string;
+  question: string;
+  options: string[];
+  appearTime?: number;
+}
+
+export interface VideoProgress {
+  userId: string;
+  videoId: string;
+  watchedSeconds: number;
+  completed: boolean;
+  lastWatched: Date;
+  reflectionResponses: {
+    promptId: string;
+    response: string;
+  }[];
+}
+
+// Get all videos
+export const getAllVideos = async (): Promise<Video[]> => {
+  try {
+    const videosRef = collection(db, 'videos');
+    const videosSnapshot = await getDocs(videosRef);
+    
+    return videosSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data
+      } as Video;
+    });
+  } catch (error) {
+    console.error('Error fetching videos:', error);
+    throw error;
+  }
+};
+
+// Get videos by category
+export const getVideosByCategory = async (category: string): Promise<Video[]> => {
+  try {
+    const videosRef = collection(db, 'videos');
+    const q = query(videosRef, where('category', '==', category));
+    const videosSnapshot = await getDocs(q);
+    
+    return videosSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data
+      } as Video;
+    });
+  } catch (error) {
+    console.error(`Error fetching videos for category ${category}:`, error);
+    throw error;
+  }
+};
+
+// Get a single video by ID
+export const getVideoById = async (videoId: string): Promise<Video | null> => {
+  try {
+    const videoRef = doc(db, 'videos', videoId);
+    const videoSnapshot = await getDoc(videoRef);
+    
+    if (!videoSnapshot.exists()) {
+      return null;
+    }
+    
+    return {
+      id: videoSnapshot.id,
+      ...videoSnapshot.data()
+    } as Video;
+  } catch (error) {
+    console.error(`Error fetching video ${videoId}:`, error);
+    throw error;
+  }
+};
+
+// Update video view count
+export const incrementVideoViewCount = async (videoId: string): Promise<void> => {
+  try {
+    const videoRef = doc(db, 'videos', videoId);
+    const videoSnapshot = await getDoc(videoRef);
+    
+    if (!videoSnapshot.exists()) {
+      throw new Error(`Video with ID ${videoId} not found`);
+    }
+    
+    const currentViewCount = videoSnapshot.data().viewCount || 0;
+    
+    await updateDoc(videoRef, {
+      viewCount: currentViewCount + 1
+    });
+  } catch (error) {
+    console.error(`Error updating view count for video ${videoId}:`, error);
+    throw error;
+  }
+};
+
+// Save user video progress
+export const saveVideoProgress = async (progress: Omit<VideoProgress, 'lastWatched'>): Promise<void> => {
+  try {
+    const progressRef = collection(db, 'videoProgress');
+    const q = query(
+      progressRef, 
+      where('userId', '==', progress.userId),
+      where('videoId', '==', progress.videoId)
+    );
+    const progressSnapshot = await getDocs(q);
+    
+    if (progressSnapshot.empty) {
+      // Create new progress record
+      await addDoc(progressRef, {
+        ...progress,
+        lastWatched: serverTimestamp()
+      });
+    } else {
+      // Update existing progress record
+      const progressDoc = progressSnapshot.docs[0];
+      await updateDoc(progressDoc.ref, {
+        ...progress,
+        lastWatched: serverTimestamp()
+      });
+    }
+  } catch (error) {
+    console.error('Error saving video progress:', error);
+    throw error;
+  }
+};
+
+// Get user video progress
+export const getUserVideoProgress = async (userId: string, videoId: string): Promise<VideoProgress | null> => {
+  try {
+    const progressRef = collection(db, 'videoProgress');
+    const q = query(
+      progressRef, 
+      where('userId', '==', userId),
+      where('videoId', '==', videoId)
+    );
+    const progressSnapshot = await getDocs(q);
+    
+    if (progressSnapshot.empty) {
+      return null;
+    }
+    
+    const progressDoc = progressSnapshot.docs[0];
+    return {
+      ...progressDoc.data(),
+      lastWatched: progressDoc.data().lastWatched?.toDate()
+    } as VideoProgress;
+  } catch (error) {
+    console.error('Error fetching video progress:', error);
+    throw error;
+  }
+};
+
+// Get recommended videos based on user preferences and history
+export const getRecommendedVideos = async (user: User, limit: number = 5): Promise<Video[]> => {
+  try {
+    // This is a simplified recommendation algorithm
+    // In a real-world application, you would implement more sophisticated logic
+    
+    // Get user's preferred categories from profile
+    const preferredCategories = user.preferences?.interestedSectors || [];
+    
+    if (preferredCategories.length === 0) {
+      // If no preferences, return most popular videos
+      const videosRef = collection(db, 'videos');
+      const q = query(videosRef);
+      const videosSnapshot = await getDocs(q);
+      
+      const videos = videosSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Video));
+      
+      // Sort by view count
+      return videos
+        .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+        .slice(0, limit);
+    }
+    
+    // Get videos from preferred categories
+    const videosRef = collection(db, 'videos');
+    const q = query(videosRef, where('category', 'in', preferredCategories));
+    const videosSnapshot = await getDocs(q);
+    
+    const videos = videosSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Video));
+    
+    // Sort by view count and return limited number
+    return videos
+      .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+      .slice(0, limit);
+  } catch (error) {
+    console.error('Error fetching recommended videos:', error);
+    throw error;
+  }
+};
+
+// Get popular videos across all categories
+export const getPopularVideos = async (limit: number = 10): Promise<Video[]> => {
+  try {
+    const videosRef = collection(db, 'videos');
+    const videosSnapshot = await getDocs(videosRef);
+    
+    const videos = videosSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    } as Video));
+    
+    // Sort by view count and return limited number
+    return videos
+      .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+      .slice(0, limit);
+  } catch (error) {
+    console.error('Error fetching popular videos:', error);
+    throw error;
+  }
+};
+
+// Save user reflection response
+export const saveReflectionResponse = async (
+  userId: string, 
+  videoId: string, 
+  promptId: string, 
+  response: string
+): Promise<void> => {
+  try {
+    const progressRef = collection(db, 'videoProgress');
+    const q = query(
+      progressRef, 
+      where('userId', '==', userId),
+      where('videoId', '==', videoId)
+    );
+    const progressSnapshot = await getDocs(q);
+    
+    if (progressSnapshot.empty) {
+      // Create new progress record with reflection response
+      await addDoc(progressRef, {
+        userId,
+        videoId,
+        watchedSeconds: 0,
+        completed: false,
+        lastWatched: serverTimestamp(),
+        reflectionResponses: [{
+          promptId,
+          response
+        }]
+      });
+    } else {
+      // Update existing progress record
+      const progressDoc = progressSnapshot.docs[0];
+      const currentData = progressDoc.data();
+      const currentResponses = currentData.reflectionResponses || [];
+      
+      // Check if response for this prompt already exists
+      const existingResponseIndex = currentResponses.findIndex(
+        (r: any) => r.promptId === promptId
+      );
+      
+      if (existingResponseIndex >= 0) {
+        // Update existing response
+        currentResponses[existingResponseIndex].response = response;
+      } else {
+        // Add new response
+        currentResponses.push({
+          promptId,
+          response
+        });
+      }
+      
+      await updateDoc(progressDoc.ref, {
+        reflectionResponses: currentResponses,
+        lastWatched: serverTimestamp()
+      });
+    }
+  } catch (error) {
+    console.error('Error saving reflection response:', error);
+    throw error;
+  }
+}; 

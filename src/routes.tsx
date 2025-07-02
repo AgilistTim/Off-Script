@@ -12,6 +12,8 @@ const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const VideoExploration = lazy(() => import('./pages/VideoExploration'));
+const Videos = lazy(() => import('./pages/Videos'));
+const VideoDetail = lazy(() => import('./pages/VideoDetail'));
 const AIChat = lazy(() => import('./pages/AIChat'));
 const Profile = lazy(() => import('./pages/Profile'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -78,11 +80,15 @@ export const router = createBrowserRouter([
       },
       {
         path: 'videos',
-        element: (
-          <ProtectedRoute>
-            <VideoExploration />
-          </ProtectedRoute>
-        )
+        element: <Videos />
+      },
+      {
+        path: 'videos/:videoId',
+        element: <VideoDetail />
+      },
+      {
+        path: 'explore',
+        element: <VideoExploration />
       },
       {
         path: 'chat',

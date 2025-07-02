@@ -1,126 +1,103 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search } from 'lucide-react';
-
-// Placeholder video data
-const demoVideos = [
-  {
-    id: 'video1',
-    title: 'How I Became a Software Developer Without a Degree',
-    creator: 'TechJourney',
-    thumbnail: 'https://via.placeholder.com/320x180?text=Software+Dev',
-    duration: '12:45',
-    views: '45K',
-    category: 'Technology'
-  },
-  {
-    id: 'video2',
-    title: 'My Path to Becoming a Renewable Energy Technician',
-    creator: 'GreenFuture',
-    thumbnail: 'https://via.placeholder.com/320x180?text=Energy+Tech',
-    duration: '8:32',
-    views: '28K',
-    category: 'Green Energy'
-  },
-  {
-    id: 'video3',
-    title: 'From Retail to Healthcare: My Career Change Story',
-    creator: 'HealthCareer',
-    thumbnail: 'https://via.placeholder.com/320x180?text=Healthcare',
-    duration: '15:20',
-    views: '37K',
-    category: 'Healthcare'
-  },
-  {
-    id: 'video4',
-    title: 'Starting My Own Digital Marketing Business',
-    creator: 'MarketingPro',
-    thumbnail: 'https://via.placeholder.com/320x180?text=Marketing',
-    duration: '10:15',
-    views: '52K',
-    category: 'Digital Media'
-  },
-  {
-    id: 'video5',
-    title: 'Apprenticeship vs. University: My Experience in Construction',
-    creator: 'BuilderPath',
-    thumbnail: 'https://via.placeholder.com/320x180?text=Construction',
-    duration: '14:08',
-    views: '31K',
-    category: 'Skilled Trades'
-  },
-  {
-    id: 'video6',
-    title: 'How I Broke Into the Finance Industry',
-    creator: 'FinanceInsider',
-    thumbnail: 'https://via.placeholder.com/320x180?text=Finance',
-    duration: '11:52',
-    views: '43K',
-    category: 'FinTech'
-  }
-];
-
-// Video card component
-const VideoCard: React.FC<{
-  video: typeof demoVideos[0];
-  onClick: () => void;
-}> = ({ video, onClick }) => {
-  return (
-    <motion.div
-      whileHover={{ scale: 1.03 }}
-      className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden cursor-pointer"
-      onClick={onClick}
-    >
-      <div className="relative">
-        <img 
-          src={video.thumbnail} 
-          alt={video.title}
-          className="w-full h-48 object-cover"
-        />
-        <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
-          {video.duration}
-        </div>
-      </div>
-      
-      <div className="p-4">
-        <h3 className="font-semibold text-gray-800 dark:text-white mb-1 line-clamp-2">
-          {video.title}
-        </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-          {video.creator}
-        </p>
-        <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
-          <span>{video.views} views</span>
-          <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-full">
-            {video.category}
-          </span>
-        </div>
-      </div>
-    </motion.div>
-  );
-};
+import { getAllVideos, getVideosByCategory, Video } from '../services/videoService';
+import VideoGrid from '../components/video/VideoGrid';
+import VideoPlayer from '../components/video/VideoPlayer';
+import { useAuth } from '../context/AuthContext';
 
 const VideoExploration: React.FC = () => {
+  const navigate = useNavigate();
+  const { currentUser } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedVideo, setSelectedVideo] = useState<typeof demoVideos[0] | null>(null);
+  const [selectedVideo, setSelectedVideo] = useState<Video | null>(null);
+  const [videos, setVideos] = useState<Video[]>([]);
+  const [filteredVideos, setFilteredVideos] = useState<Video[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   
-  // Filter videos based on search query
-  const filteredVideos = demoVideos.filter(video => 
-    video.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    video.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    video.creator.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const categories = [
+    { id: null, name: 'All' },
+    { id: 'technology', name: 'Technology & Digital' },
+    { id: 'creative', name: 'Creative & Media' },
+    { id: 'trades', name: 'Skilled Trades' },
+    { id: 'business', name: 'Business & Entrepreneurship' },
+    { id: 'healthcare', name: 'Healthcare & Wellbeing' }
+  ];
+
+  // Fetch all videos on component mount
+  useEffect(() => {
+    const fetchVideos = async () => {
+      try {
+        setLoading(true);
+        const allVideos = await getAllVideos();
+        setVideos(allVideos);
+        setFilteredVideos(allVideos);
+        setLoading(false);
+      } catch (err) {
+        console.error('Error fetching videos:', err);
+        setError('Failed to load videos');
+        setLoading(false);
+      }
+    };
+    
+    fetchVideos();
+  }, []);
+
+  // Filter videos when category or search term changes
+  useEffect(() => {
+    if (videos.length === 0) return;
+    
+    let filtered = [...videos];
+    
+    // Apply category filter if selected
+    if (selectedCategory) {
+      filtered = filtered.filter(video => video.category === selectedCategory);
+    }
+    
+    // Apply search filter if search term exists
+    if (searchQuery.trim()) {
+      const term = searchQuery.toLowerCase();
+      filtered = filtered.filter(video => 
+        video.title.toLowerCase().includes(term) ||
+        video.description.toLowerCase().includes(term) ||
+        video.creator.toLowerCase().includes(term) ||
+        video.tags.some(tag => tag.toLowerCase().includes(term))
+      );
+    }
+    
+    setFilteredVideos(filtered);
+  }, [selectedCategory, searchQuery, videos]);
   
-  const handleVideoClick = (video: typeof demoVideos[0]) => {
-    setSelectedVideo(video);
+  const handleCategoryClick = (categoryId: string | null) => {
+    setSelectedCategory(categoryId);
   };
   
-  const closeVideoModal = () => {
-    setSelectedVideo(null);
+  const handleVideoClick = (videoId: string) => {
+    navigate(`/videos/${videoId}`);
   };
 
+  if (loading) {
+    return (
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-blue"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="container mx-auto px-4 py-8 text-center">
+        <h1 className="text-2xl font-bold mb-4">Error</h1>
+        <p className="text-red-500">{error}</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto px-4 py-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -137,7 +114,7 @@ const VideoExploration: React.FC = () => {
               placeholder="Search videos..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-4 py-2 w-full md:w-64 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+              className="pl-10 pr-4 py-2 w-full md:w-64 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-blue dark:bg-gray-700 dark:text-white"
             />
             <Search size={18} className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
           </div>
@@ -145,30 +122,58 @@ const VideoExploration: React.FC = () => {
         
         {/* Categories */}
         <div className="flex overflow-x-auto pb-4 mb-6 space-x-2">
-          {['All', 'Technology', 'Green Energy', 'Healthcare', 'FinTech', 'Skilled Trades', 'Digital Media'].map((category) => (
+          {categories.map((category) => (
             <button
-              key={category}
-              onClick={() => setSearchQuery(category === 'All' ? '' : category)}
+              key={category.id || 'all'}
+              onClick={() => handleCategoryClick(category.id)}
               className={`px-4 py-2 rounded-full whitespace-nowrap ${
-                (category === 'All' && searchQuery === '') || 
-                (category !== 'All' && searchQuery === category)
-                  ? 'bg-blue-600 text-white'
+                selectedCategory === category.id
+                  ? 'bg-primary-blue text-white'
                   : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
               }`}
             >
-              {category}
+              {category.name}
             </button>
           ))}
         </div>
         
         {/* Video Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {filteredVideos.map((video) => (
-            <VideoCard 
-              key={video.id} 
-              video={video} 
-              onClick={() => handleVideoClick(video)} 
-            />
+            <motion.div
+              key={video.id}
+              whileHover={{ scale: 1.03 }}
+              className="cursor-pointer"
+              onClick={() => handleVideoClick(video.id)}
+            >
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden h-full">
+                <div className="relative">
+                  <img 
+                    src={video.thumbnailUrl} 
+                    alt={video.title}
+                    className="w-full h-48 object-cover"
+                  />
+                  <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+                    {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}
+                  </div>
+                </div>
+                
+                <div className="p-4">
+                  <h3 className="font-semibold text-gray-800 dark:text-white mb-1 line-clamp-2">
+                    {video.title}
+                  </h3>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                    {video.creator}
+                  </p>
+                  <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400">
+                    <span>{video.viewCount || 0} views</span>
+                    <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-full">
+                      {video.category}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           ))}
         </div>
         
@@ -180,59 +185,6 @@ const VideoExploration: React.FC = () => {
           </div>
         )}
       </motion.div>
-      
-      {/* Video Modal (placeholder) */}
-      {selectedVideo && (
-        <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl overflow-hidden">
-            <div className="p-4 border-b dark:border-gray-700 flex justify-between items-center">
-              <h3 className="font-semibold text-gray-800 dark:text-white">
-                {selectedVideo.title}
-              </h3>
-              <button 
-                onClick={closeVideoModal}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                ✕
-              </button>
-            </div>
-            
-            <div className="aspect-w-16 aspect-h-9 bg-gray-900">
-              <div className="flex items-center justify-center h-full">
-                <p className="text-white text-center p-4">
-                  Video player placeholder - in the actual implementation, this would be a real video player.
-                </p>
-              </div>
-            </div>
-            
-            <div className="p-4">
-              <h4 className="font-medium text-gray-800 dark:text-white mb-2">
-                {selectedVideo.title}
-              </h4>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                {selectedVideo.creator} • {selectedVideo.views} views
-              </p>
-              
-              <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <h5 className="font-medium text-gray-800 dark:text-white mb-2">
-                  Reflect on this video
-                </h5>
-                <p className="text-gray-600 dark:text-gray-300 mb-3">
-                  What aspects of this career path interest you the most?
-                </p>
-                <textarea
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-                  rows={3}
-                  placeholder="Share your thoughts..."
-                ></textarea>
-                <button className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                  Submit
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
