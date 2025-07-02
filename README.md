@@ -37,12 +37,24 @@ Off-Script helps UK job seekers find alternative career pathways that don't requ
    npm install
    ```
 
-3. Start the development server
+3. Set up environment variables
+   ```
+   # Create a .env file in the root directory with the following variables:
+   VITE_FIREBASE_API_KEY="your-api-key"
+   VITE_FIREBASE_AUTH_DOMAIN="your-project-id.firebaseapp.com"
+   VITE_FIREBASE_PROJECT_ID="your-project-id"
+   VITE_FIREBASE_STORAGE_BUCKET="your-project-id.appspot.com"
+   VITE_FIREBASE_MESSAGING_SENDER_ID="your-messaging-sender-id"
+   VITE_FIREBASE_APP_ID="your-app-id"
+   VITE_FIREBASE_MEASUREMENT_ID="your-measurement-id"
+   ```
+
+4. Start the development server
    ```
    npm run dev
    ```
 
-4. Open your browser and navigate to `http://localhost:5173`
+5. Open your browser and navigate to `http://localhost:5173`
 
 ## Firebase Setup
 
@@ -55,7 +67,11 @@ This project uses Firebase for authentication and data storage. To set up Fireba
    - Firestore Database
    - Storage (for images and videos)
 
-3. Firebase configuration is already set in `src/services/firebase.ts`. If you want to use your own Firebase project, update the configuration in this file with your Firebase project credentials.
+3. Get your Firebase configuration from the Firebase console:
+   - Go to Project Settings > General
+   - Scroll down to "Your apps" section
+   - Copy the configuration values (apiKey, authDomain, etc.)
+   - Add these values to your `.env` file as described in the "Getting Started" section
 
 4. Deploy Firestore security rules:
    ```
