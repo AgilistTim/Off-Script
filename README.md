@@ -24,8 +24,11 @@ Off-Script helps UK job seekers find alternative career pathways that don't requ
 - Tailwind CSS
 - Firebase (Authentication, Firestore, Storage)
 - Vite
+- Docker (for deployment)
 
 ## Getting Started
+
+### Local Development
 
 1. Clone the repository
    ```
@@ -55,6 +58,19 @@ Off-Script helps UK job seekers find alternative career pathways that don't requ
    ```
 
 5. Open your browser and navigate to `http://localhost:5173`
+
+### Docker Development
+
+1. Build and run the Docker container:
+   ```
+   docker-compose up
+   ```
+
+2. Access the application at `http://localhost:8080`
+
+## Deployment
+
+This project is configured for deployment with Docker and Render. For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Firebase Setup
 
