@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import InfiniteVideoFeed from '../components/video/InfiniteVideoFeed';
+import VerticalVideoFeed from '../components/video/VerticalVideoFeed';
 import { useAuth } from '../context/AuthContext';
 import { Info, Lightbulb } from 'lucide-react';
 
@@ -16,13 +16,18 @@ const VideoExploration: React.FC = () => {
         transition={{ duration: 0.5 }}
       >
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
-          <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-4 md:mb-0">
-            Video Exploration
-          </h1>
+          <div>
+            <h1 className="text-3xl font-bold text-gray-800 dark:text-white mb-2">
+              Explore Career Videos
+            </h1>
+            <p className="text-gray-600 dark:text-gray-400">
+              Discover career paths through real industry insights and professional experiences
+            </p>
+          </div>
           
           <button
             onClick={() => setShowTips(!showTips)}
-            className="flex items-center text-sm text-primary-blue hover:text-blue-700 transition-colors"
+            className="flex items-center text-sm text-primary-blue hover:text-blue-700 transition-colors mt-4 md:mt-0"
           >
             <Info size={16} className="mr-1" />
             {showTips ? 'Hide Tips' : 'Show Tips'}
@@ -40,28 +45,32 @@ const VideoExploration: React.FC = () => {
             <div className="flex items-start">
               <Lightbulb className="text-primary-blue mr-3 mt-1 flex-shrink-0" size={20} />
               <div>
-                <h3 className="font-medium text-gray-800 dark:text-white mb-2">How to use the video explorer</h3>
+                <h3 className="font-medium text-gray-800 dark:text-white mb-2">How to explore career videos</h3>
                 <ul className="text-sm text-gray-600 dark:text-gray-300 space-y-2">
                   <li className="flex items-center">
-                    <span className="inline-block w-5 h-5 rounded-full bg-green-500 text-white text-xs flex items-center justify-center mr-2">✓</span>
-                    <span>Swipe <strong>right</strong> or tap the <strong>thumbs up</strong> button to like a video</span>
+                    <span className="inline-block w-5 h-5 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center mr-2">🔍</span>
+                    <span>Use <strong>search</strong> and <strong>category filters</strong> to find specific career areas</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="inline-block w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center mr-2">✗</span>
-                    <span>Swipe <strong>left</strong> or tap the <strong>thumbs down</strong> button to skip a video</span>
+                    <span className="inline-block w-5 h-5 rounded-full bg-green-500 text-white text-xs flex items-center justify-center mr-2">👍</span>
+                    <span>Click <strong>Like</strong> to save videos that interest you</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="inline-block w-5 h-5 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center mr-2">▶</span>
-                    <span>Tap the video to <strong>expand</strong> and watch it</span>
+                    <span className="inline-block w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center mr-2">👎</span>
+                    <span>Click <strong>Pass</strong> to hide videos that aren't relevant</span>
                   </li>
                   <li className="flex items-center">
-                    <span className="inline-block w-5 h-5 rounded-full bg-purple-500 text-white text-xs flex items-center justify-center mr-2">?</span>
-                    <span>Answer reflection questions to help us personalize your experience</span>
+                    <span className="inline-block w-5 h-5 rounded-full bg-purple-500 text-white text-xs flex items-center justify-center mr-2">▶</span>
+                    <span>Click the <strong>play button</strong> to watch videos directly in the feed</span>
+                  </li>
+                  <li className="flex items-center">
+                    <span className="inline-block w-5 h-5 rounded-full bg-orange-500 text-white text-xs flex items-center justify-center mr-2">📊</span>
+                    <span>Scroll down to see more career videos - the feed loads more content as you browse</span>
                   </li>
                 </ul>
                 {!currentUser && (
                   <p className="mt-3 text-sm text-primary-blue">
-                    <strong>Sign in</strong> to save your preferences and get personalized recommendations!
+                    <strong>Sign in</strong> to save your preferences and get personalized career recommendations!
                   </p>
                 )}
               </div>
@@ -70,7 +79,7 @@ const VideoExploration: React.FC = () => {
         )}
         
         {/* Main video feed */}
-        <InfiniteVideoFeed />
+        <VerticalVideoFeed />
       </motion.div>
     </div>
   );

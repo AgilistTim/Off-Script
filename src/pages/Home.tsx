@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
+import AlternativePathways from '../components/AlternativePathways';
 
 const Home: React.FC = () => {
   const { currentUser } = useAuth();
@@ -23,19 +24,17 @@ const Home: React.FC = () => {
           </p>
           
           <div className="flex flex-wrap justify-center gap-4">
+            <Link to="/explore" className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              Explore Career Videos
+            </Link>
             {currentUser ? (
-              <Link to="/dashboard" className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              <Link to="/dashboard" className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                 Go to Dashboard
               </Link>
             ) : (
-              <>
-                <Link to="/register" className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                  Get Started
-                </Link>
-                <Link to="/login" className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                  Sign In
-                </Link>
-              </>
+              <Link to="/register" className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+                Get Started
+              </Link>
             )}
           </div>
         </motion.div>
@@ -91,6 +90,9 @@ const Home: React.FC = () => {
         </div>
       </section>
       
+      {/* Alternative Pathways Section */}
+      <AlternativePathways />
+      
       <section className="py-12">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-gray-800 dark:text-white mb-6">
@@ -98,8 +100,8 @@ const Home: React.FC = () => {
           </h2>
           
           {currentUser ? (
-            <Link to="/videos" className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-              Explore Videos
+            <Link to="/explore" className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              Explore Career Videos
             </Link>
           ) : (
             <Link to="/register" className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">

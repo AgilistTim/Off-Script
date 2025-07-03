@@ -1,7 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import { useAuth } from './context/AuthContext';
-import { User } from './models/User';
 
 // Layout components
 const MainLayout = lazy(() => import('./components/layouts/MainLayout'));
@@ -14,8 +13,6 @@ const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const VideoExploration = lazy(() => import('./pages/VideoExploration'));
-const Videos = lazy(() => import('./pages/Videos'));
-const VideoDetail = lazy(() => import('./pages/VideoDetail'));
 const AIChat = lazy(() => import('./pages/AIChat'));
 const Profile = lazy(() => import('./pages/Profile'));
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -101,14 +98,6 @@ export const router = createBrowserRouter([
             <Dashboard />
           </ProtectedRoute>
         )
-      },
-      {
-        path: 'videos',
-        element: <Videos />
-      },
-      {
-        path: 'videos/:videoId',
-        element: <VideoDetail />
       },
       {
         path: 'explore',

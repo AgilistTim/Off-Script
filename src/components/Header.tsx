@@ -53,17 +53,19 @@ const Header: React.FC = () => {
               Explore Careers
             </Link>
             <Link 
-              to="/videos"
-              className="text-gray-700 hover:text-blue-600 transition-colors"
-            >
-              Video Library
-            </Link>
-            <Link 
               to="/chat"
               className="text-gray-700 hover:text-blue-600 transition-colors"
             >
               AI Chat
             </Link>
+            {currentUser && (
+              <Link 
+                to="/dashboard"
+                className="text-gray-700 hover:text-blue-600 transition-colors"
+              >
+                Dashboard
+              </Link>
+            )}
             {isHomePage && (
               <button 
                 onClick={() => scrollToSection('pathways')}
@@ -84,12 +86,12 @@ const Header: React.FC = () => {
           </nav>
 
           <div className="flex items-center space-x-4">
-            <Link to="/videos" className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+            <Link to="/explore" className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
               <Search className="h-5 w-5" />
             </Link>
             {currentUser ? (
-              <>
-                <Link to="/profile" className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
+              <div className="relative group">
+                <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors flex items-center">
                   {currentUser.photoURL ? (
                     <img 
                       src={currentUser.photoURL} 
@@ -99,16 +101,22 @@ const Header: React.FC = () => {
                   ) : (
                     <User className="h-5 w-5" />
                   )}
-                </Link>
-                <button 
-                  onClick={handleLogout}
-                  className="flex items-center px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-md transition-colors"
-                  title="Logout"
-                >
-                  <LogOut className="h-4 w-4 mr-1" />
-                  <span className="text-sm">Logout</span>
                 </button>
-              </>
+                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-10 hidden group-hover:block">
+                  <Link 
+                    to="/profile" 
+                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                  >
+                    Profile
+                  </Link>
+                  <button 
+                    onClick={handleLogout}
+                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </div>
             ) : (
               <Link to="/login" className="flex items-center px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors">
                 <User className="h-4 w-4 mr-1" />
@@ -136,19 +144,29 @@ const Header: React.FC = () => {
               Explore Careers
             </Link>
             <Link 
-              to="/videos"
-              className="block w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Video Library
-            </Link>
-            <Link 
               to="/chat"
               className="block w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md"
               onClick={() => setIsMenuOpen(false)}
             >
               AI Chat
             </Link>
+            {currentUser && (
+              <Link 
+                to="/dashboard"
+                className="block w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md"
+                onClick={() => setIsMenuOpen(false)}
+              >
+                Dashboard
+              </Link>
+            )}
+            {isHomePage && (
+              <button 
+                onClick={() => scrollToSection('pathways')}
+                className="block w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md"
+              >
+                Alt Pathways
+              </button>
+            )}
             {isAdmin && (
               <Link 
                 to="/admin"
@@ -159,7 +177,7 @@ const Header: React.FC = () => {
                 Admin Panel
               </Link>
             )}
-            {currentUser ? (
+            {currentUser && (
               <>
                 <Link 
                   to="/profile"
@@ -179,7 +197,8 @@ const Header: React.FC = () => {
                   Logout
                 </button>
               </>
-            ) : (
+            )}
+            {!currentUser && (
               <Link 
                 to="/login"
                 className="block w-full text-left px-3 py-2 bg-blue-500 text-white hover:bg-blue-600 rounded-md flex items-center"

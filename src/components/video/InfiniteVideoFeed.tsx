@@ -83,11 +83,16 @@ const InfiniteVideoFeed: React.FC<InfiniteVideoFeedProps> = ({
     fetchVideos();
   }, [currentUser, selectedCategory]);
 
-  // Filter videos when search query changes
+  // Filter videos when search query or category changes
   useEffect(() => {
     if (videos.length === 0) return;
     
     let filtered = [...videos];
+    
+    // Apply category filter first
+    if (selectedCategory) {
+      filtered = filtered.filter(video => video.category === selectedCategory);
+    }
     
     // Apply search filter if search term exists
     if (localSearchQuery.trim() !== '') {
@@ -96,14 +101,15 @@ const InfiniteVideoFeed: React.FC<InfiniteVideoFeedProps> = ({
         video.title.toLowerCase().includes(term) ||
         video.description.toLowerCase().includes(term) ||
         video.creator.toLowerCase().includes(term) ||
-        video.tags.some(tag => tag.toLowerCase().includes(term))
+        video.tags.some(tag => tag.toLowerCase().includes(term)) ||
+        video.category.toLowerCase().includes(term)
       );
     }
     
-    console.log('Filtering videos:', videos.length, '→', filtered.length, 'search:', localSearchQuery);
+    console.log('Filtering videos:', videos.length, '→', filtered.length, 'category:', selectedCategory, 'search:', localSearchQuery);
     setFilteredVideos(filtered);
     setCurrentVideoIndex(0); // Reset to first video when filtering
-  }, [localSearchQuery, videos]);
+  }, [localSearchQuery, videos, selectedCategory]);
 
   // Handle category change
   const handleCategoryChange = (categoryId: string | null) => {

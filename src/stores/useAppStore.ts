@@ -16,7 +16,6 @@ interface AppState {
   
   // UI state
   isDarkMode: boolean;
-  sidebarOpen: boolean;
   
   // Video feed state
   currentVideo: string | null;
@@ -27,7 +26,6 @@ interface AppState {
   selectPath: (pathId: string) => void;
   updateSkill: (skillId: string, level: number) => void;
   setDarkMode: (isDark: boolean) => void;
-  toggleSidebar: () => void;
   setCurrentVideo: (videoId: string | null) => void;
   resetProgress: () => void;
 }
@@ -45,7 +43,6 @@ export const useAppStore = create<AppState>()(
         skills: {}
       },
       isDarkMode: false,
-      sidebarOpen: true,
       currentVideo: null,
       
       // Actions
@@ -88,10 +85,6 @@ export const useAppStore = create<AppState>()(
       })),
       
       setDarkMode: (isDark) => set({ isDarkMode: isDark }),
-      
-      toggleSidebar: () => set((state) => ({ 
-        sidebarOpen: !state.sidebarOpen 
-      })),
       
       setCurrentVideo: (videoId) => set({ 
         currentVideo: videoId 
