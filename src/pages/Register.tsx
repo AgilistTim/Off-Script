@@ -10,7 +10,7 @@ const Register: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const { signUp, signInWithGoogle } = useAuth();
+  const { signUp } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -27,20 +27,6 @@ const Register: React.FC = () => {
       navigate('/dashboard');
     } catch (err) {
       setError('Failed to create an account');
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    try {
-      setError('');
-      setLoading(true);
-      await signInWithGoogle();
-      navigate('/dashboard');
-    } catch (err) {
-      setError('Failed to sign in with Google');
       console.error(err);
     } finally {
       setLoading(false);
@@ -128,16 +114,6 @@ const Register: React.FC = () => {
           </button>
         </div>
       </form>
-      
-      <div className="mt-4">
-        <button
-          onClick={handleGoogleSignIn}
-          disabled={loading}
-          className="w-full py-2 px-4 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-        >
-          Sign up with Google
-        </button>
-      </div>
       
       <div className="mt-4 text-center">
         <p className="text-sm text-gray-600 dark:text-gray-400">

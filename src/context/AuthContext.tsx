@@ -18,7 +18,6 @@ interface AuthContextType {
   loading: boolean;
   signUp: (email: string, password: string, displayName: string) => Promise<FirebaseUser>;
   signIn: (email: string, password: string) => Promise<FirebaseUser>;
-  signInWithGoogle: () => Promise<FirebaseUser>;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<void>;
 }
@@ -132,7 +131,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loading,
     signUp,
     signIn,
-    signInWithGoogle,
     logout,
     refreshUserData
   };
