@@ -1,19 +1,22 @@
 version: '3.8'
 
 services:
-  offscript:
-    build:
-      context: .
-      dockerfile: Dockerfile
+  offscript-app:
+    build: .
+    container_name: offscript-app
     ports:
       - "8080:80"
-    restart: unless-stopped
     environment:
-      - NODE_ENV=production
-      - VITE_FIREBASE_API_KEY=${VITE_FIREBASE_API_KEY}
-      - VITE_FIREBASE_AUTH_DOMAIN=${VITE_FIREBASE_AUTH_DOMAIN}
-      - VITE_FIREBASE_PROJECT_ID=${VITE_FIREBASE_PROJECT_ID}
-      - VITE_FIREBASE_STORAGE_BUCKET=${VITE_FIREBASE_STORAGE_BUCKET}
-      - VITE_FIREBASE_MESSAGING_SENDER_ID=${VITE_FIREBASE_MESSAGING_SENDER_ID}
-      - VITE_FIREBASE_APP_ID=${VITE_FIREBASE_APP_ID}
-      - VITE_FIREBASE_MEASUREMENT_ID=${VITE_FIREBASE_MEASUREMENT_ID} 
+      - VITE_FIREBASE_API_KEY=***REMOVED***
+      - VITE_FIREBASE_AUTH_DOMAIN=***REMOVED***
+      - VITE_FIREBASE_PROJECT_ID=***REMOVED***
+      - VITE_FIREBASE_STORAGE_BUCKET=***REMOVED***.firebasestorage.app
+      - VITE_FIREBASE_MESSAGING_SENDER_ID=***REMOVED***
+      - VITE_FIREBASE_APP_ID=1:***REMOVED***:web:b5eac19f0f81d6ef2c3dee
+      - VITE_FIREBASE_MEASUREMENT_ID=***REMOVED***
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3 

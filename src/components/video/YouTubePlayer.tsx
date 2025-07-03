@@ -5,6 +5,7 @@ import { saveVideoProgress, incrementVideoViewCount } from '../../services/video
 
 interface YouTubePlayerProps {
   videoId: string;
+  firebaseVideoId: string;
   onReady?: () => void;
   onStateChange?: (state: number) => void;
   onProgress?: (currentTime: number, duration: number) => void;
@@ -15,6 +16,7 @@ interface YouTubePlayerProps {
 
 const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   videoId,
+  firebaseVideoId,
   onReady,
   onStateChange,
   onProgress,
@@ -69,7 +71,7 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         // If this is the first time the video is played, increment view count
         if (!hasStarted && currentUser) {
           setHasStarted(true);
-          incrementVideoViewCount(videoId).catch(console.error);
+          incrementVideoViewCount(firebaseVideoId).catch(console.error);
         }
         
         // Start tracking progress
@@ -86,7 +88,7 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
             if (currentTime % 5 < 1) {
               saveVideoProgress({
                 userId: currentUser.uid,
-                videoId,
+                videoId: firebaseVideoId,
                 watchedSeconds: currentTime,
                 completed: currentTime / duration > 0.9, // Mark as completed if watched 90%
                 reflectionResponses: []
@@ -118,7 +120,7 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
           
           saveVideoProgress({
             userId: currentUser.uid,
-            videoId,
+            videoId: firebaseVideoId,
             watchedSeconds: currentTime,
             completed: state === YouTube.PlayerState.ENDED || currentTime / duration > 0.9,
             reflectionResponses: []
@@ -132,7 +134,7 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   };
 
   return (
-    <div className={`youtube-player-container ${className}`}>
+    <div className={`youtube-player-container relative w-full h-full ${className}`}>
       <YouTube
         videoId={videoId}
         opts={{
@@ -142,12 +144,28 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
             autoplay: autoplay ? 1 : 0,
             modestbranding: 1,
             rel: 0,
-            start: Math.floor(startTime)
+            start: Math.floor(startTime),
+            controls: 1,
+            showinfo: 0,
+            iv_load_policy: 3,
+            cc_load_policy: 0,
+            disablekb: 0,
+            enablejsapi: 1,
+            origin: window.location.origin,
+            playsinline: 1,
+            fs: 1, // Allow fullscreen
+            hl: 'en', // Set language to English
+            color: 'red' // Use red progress bar
           }
         }}
         onReady={handleReady}
         onStateChange={handleStateChange}
-        className="youtube-player"
+        onError={(event: YouTubeEvent) => {
+          console.error('YouTube player error:', event.data);
+        }}
+        className="youtube-player w-full h-full"
+        iframeClassName="w-full h-full"
+        style={{ display: 'block', width: '100%', height: '100%' }}
       />
     </div>
   );

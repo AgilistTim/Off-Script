@@ -1,0 +1,73 @@
+/* YouTube Player Styles */
+.youtube-player-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000; /* Add black background for better contrast */
+}
+
+.youtube-player {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 200px; /* Ensure minimum height */
+}
+
+.youtube-player iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block; /* Ensure iframe is displayed */
+}
+
+/* Ensure proper aspect ratio for video containers */
+.aspect-video {
+  aspect-ratio: 16 / 9;
+}
+
+/* Fix letterbox issues */
+.video-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000; /* Add black background */
+}
+
+.video-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  display: block;
+}
+
+/* When parent has aspect-video class, make video fill it */
+.aspect-video .video-container {
+  height: 100%;
+  padding-bottom: 0;
+}
+
+/* Swipeable video card improvements */
+.swipeable-video-card {
+  transition: all 0.3s ease;
+}
+
+.swipeable-video-card.expanded {
+  transform: scale(1.02);
+}
+
+/* Thumbnail overlay improvements */
+.thumbnail-overlay {
+  background: linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.1) 0%,
+    rgba(0, 0, 0, 0.3) 100%
+  );
+} 

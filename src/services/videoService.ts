@@ -2,6 +2,9 @@ import { collection, getDocs, query, where, doc, getDoc, addDoc, updateDoc, serv
 import { db } from './firebase';
 import { User } from '../models/User';
 
+// Placeholder image URL for when thumbnails are not available
+const PLACEHOLDER_THUMBNAIL = 'https://placehold.co/600x400?text=Video+Thumbnail';
+
 export interface Video {
   id: string;
   title: string;
@@ -76,41 +79,76 @@ export const getVideoViewCount = async (): Promise<number> => {
 };
 
 // Get all videos
-export const getAllVideos = async (): Promise<Video[]> => {
+export const getAllVideos = async (limit: number = 50): Promise<Video[]> => {
   try {
     const videosRef = collection(db, 'videos');
     const videosSnapshot = await getDocs(videosRef);
     
-    return videosSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data
-      } as Video;
-    });
+    const videos = videosSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Video[];
+    
+    // Sort by publication date (newest first)
+    return videos
+      .sort((a, b) => new Date(b.publicationDate).getTime() - new Date(a.publicationDate).getTime())
+      .slice(0, limit);
   } catch (error) {
     console.error('Error fetching videos:', error);
-    throw error;
+    throw new Error('Failed to fetch videos from Firebase');
   }
 };
 
 // Get videos by category
-export const getVideosByCategory = async (category: string): Promise<Video[]> => {
+export const getVideosByCategory = async (category: string, limit: number = 50): Promise<Video[]> => {
   try {
     const videosRef = collection(db, 'videos');
-    const q = query(videosRef, where('category', '==', category));
+    const q = query(
+      videosRef,
+      where('category', '==', category)
+    );
     const videosSnapshot = await getDocs(q);
     
-    return videosSnapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        ...data
-      } as Video;
-    });
+    const videos = videosSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Video[];
+    
+    return videos
+      .sort((a, b) => new Date(b.publicationDate).getTime() - new Date(a.publicationDate).getTime())
+      .slice(0, limit);
   } catch (error) {
-    console.error(`Error fetching videos for category ${category}:`, error);
-    throw error;
+    console.error('Error fetching videos by category:', error);
+    throw new Error(`Failed to fetch videos for category: ${category}`);
+  }
+};
+
+// Get videos by user preferences
+export const getVideosByPreferences = async (user: User, limit: number = 20): Promise<Video[]> => {
+  try {
+    const videosRef = collection(db, 'videos');
+    const videosSnapshot = await getDocs(videosRef);
+    
+    const videos = videosSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Video[];
+    
+    // Filter videos based on user preferences
+    if (user.preferences?.interestedSectors && user.preferences.interestedSectors.length > 0) {
+      return videos
+        .filter(video => user.preferences?.interestedSectors?.includes(video.category))
+        .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+        .slice(0, limit);
+    }
+    
+    // If no preferences, return popular videos
+    return videos
+      .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+      .slice(0, limit);
+  } catch (error) {
+    console.error('Error fetching videos by preferences:', error);
+    throw new Error('Failed to fetch personalized videos');
   }
 };
 
@@ -139,7 +177,14 @@ export const createVideo = async (videoData: Omit<Video, 'id'>): Promise<string>
   try {
     // Generate thumbnail URL from YouTube video ID if sourceType is youtube and thumbnailUrl is not provided
     if (videoData.sourceType === 'youtube' && !videoData.thumbnailUrl && videoData.sourceId) {
-      videoData.thumbnailUrl = `https://img.youtube.com/vi/${videoData.sourceId}/hqdefault.jpg`;
+      // Try to use higher quality thumbnail first, with fallback to standard
+      videoData.thumbnailUrl = `https://img.youtube.com/vi/${videoData.sourceId}/maxresdefault.jpg`;
+      
+      // Note: We can't check if the image exists here on the server side
+      // The client will fall back to the placeholder if the image fails to load
+    } else if (!videoData.thumbnailUrl) {
+      // Use placeholder if no thumbnail URL is provided
+      videoData.thumbnailUrl = PLACEHOLDER_THUMBNAIL;
     }
     
     // Generate source URL if not provided
@@ -183,7 +228,14 @@ export const updateVideo = async (videoId: string, videoData: Partial<Video>): P
     
     // Generate thumbnail URL from YouTube video ID if sourceType is youtube and thumbnailUrl is not provided
     if (videoData.sourceType === 'youtube' && !videoData.thumbnailUrl && videoData.sourceId) {
-      videoData.thumbnailUrl = `https://img.youtube.com/vi/${videoData.sourceId}/hqdefault.jpg`;
+      // Try to use higher quality thumbnail first
+      videoData.thumbnailUrl = `https://img.youtube.com/vi/${videoData.sourceId}/maxresdefault.jpg`;
+      
+      // Note: We can't check if the image exists here on the server side
+      // The client will fall back to the placeholder if the image fails to load
+    } else if (videoData.thumbnailUrl === '') {
+      // Use placeholder if thumbnail URL is explicitly set to empty
+      videoData.thumbnailUrl = PLACEHOLDER_THUMBNAIL;
     }
     
     // Generate source URL if not provided
@@ -333,7 +385,22 @@ export const getRecommendedVideos = async (user: User, limit: number = 5): Promi
       .slice(0, limit);
   } catch (error) {
     console.error('Error fetching recommended videos:', error);
-    throw error;
+    // Use fallback videos filtered by user preferences if available
+    try {
+      const fallbackVideos = await getAllVideos();
+      if (user.preferences?.interestedSectors && user.preferences.interestedSectors.length > 0) {
+        return fallbackVideos
+          .filter(video => user.preferences?.interestedSectors?.includes(video.category))
+          .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+          .slice(0, limit);
+      }
+      return fallbackVideos
+        .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+        .slice(0, limit);
+    } catch (fallbackError) {
+      console.error('Error fetching fallback videos:', fallbackError);
+      return [];
+    }
   }
 };
 
@@ -341,20 +408,29 @@ export const getRecommendedVideos = async (user: User, limit: number = 5): Promi
 export const getPopularVideos = async (limit: number = 10): Promise<Video[]> => {
   try {
     const videosRef = collection(db, 'videos');
-    const videosSnapshot = await getDocs(videosRef);
+    const q = query(videosRef, where('viewCount', '>', 0));
+    const videosSnapshot = await getDocs(q);
     
     const videos = videosSnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
-    } as Video));
+    })) as Video[];
     
-    // Sort by view count and return limited number
     return videos
       .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
       .slice(0, limit);
   } catch (error) {
     console.error('Error fetching popular videos:', error);
-    throw error;
+    // Use fallback videos sorted by view count
+    try {
+      const fallbackVideos = await getAllVideos();
+      return fallbackVideos
+        .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
+        .slice(0, limit);
+    } catch (fallbackError) {
+      console.error('Error fetching fallback videos:', fallbackError);
+      return [];
+    }
   }
 };
 

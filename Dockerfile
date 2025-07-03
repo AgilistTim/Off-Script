@@ -1,30 +1,39 @@
+# Build stage
 FROM node:18-alpine as build
 
 WORKDIR /app
+
+# Copy package files and install dependencies
 COPY package*.json ./
 RUN npm ci
+
+# Copy source code
 COPY . .
+
+# Build the app
 RUN npm run build
 
+# Production stage
 FROM nginx:alpine
+
+# Copy built assets from build stage
 COPY --from=build /app/dist /usr/share/nginx/html
+
+# Copy template environment file
+COPY public/environment.template.js /usr/share/nginx/html/environment.js
+
+# Copy nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Create a script to generate environment.js at runtime
-RUN echo '#!/bin/sh' > /docker-entrypoint.d/40-create-env-file.sh && \
-    echo 'cat > /usr/share/nginx/html/environment.js << EOF' >> /docker-entrypoint.d/40-create-env-file.sh && \
-    echo 'window.ENV = {' >> /docker-entrypoint.d/40-create-env-file.sh && \
-    echo '  VITE_FIREBASE_API_KEY: "${VITE_FIREBASE_API_KEY}",' >> /docker-entrypoint.d/40-create-env-file.sh && \
-    echo '  VITE_FIREBASE_AUTH_DOMAIN: "${VITE_FIREBASE_AUTH_DOMAIN}",' >> /docker-entrypoint.d/40-create-env-file.sh && \
-    echo '  VITE_FIREBASE_PROJECT_ID: "${VITE_FIREBASE_PROJECT_ID}",' >> /docker-entrypoint.d/40-create-env-file.sh && \
-    echo '  VITE_FIREBASE_STORAGE_BUCKET: "${VITE_FIREBASE_STORAGE_BUCKET}",' >> /docker-entrypoint.d/40-create-env-file.sh && \
-    echo '  VITE_FIREBASE_MESSAGING_SENDER_ID: "${VITE_FIREBASE_MESSAGING_SENDER_ID}",' >> /docker-entrypoint.d/40-create-env-file.sh && \
-    echo '  VITE_FIREBASE_APP_ID: "${VITE_FIREBASE_APP_ID}",' >> /docker-entrypoint.d/40-create-env-file.sh && \
-    echo '  VITE_FIREBASE_MEASUREMENT_ID: "${VITE_FIREBASE_MEASUREMENT_ID}"' >> /docker-entrypoint.d/40-create-env-file.sh && \
-    echo '};' >> /docker-entrypoint.d/40-create-env-file.sh && \
-    echo 'EOF' >> /docker-entrypoint.d/40-create-env-file.sh && \
-    echo 'echo "Environment variables injected into environment.js"' >> /docker-entrypoint.d/40-create-env-file.sh && \
-    chmod +x /docker-entrypoint.d/40-create-env-file.sh
+# Copy entrypoint script
+COPY docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
 
+# Expose port
 EXPOSE 80
+
+# Set entrypoint
+ENTRYPOINT ["/docker-entrypoint.sh"]
+
+# Start nginx
 CMD ["nginx", "-g", "daemon off;"] 

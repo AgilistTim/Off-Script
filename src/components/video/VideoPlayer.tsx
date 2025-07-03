@@ -1,6 +1,7 @@
 import React from 'react';
 import YouTubePlayer from './YouTubePlayer';
 import { Video } from '../../services/videoService';
+import './VideoPlayer.css';
 
 interface VideoPlayerProps {
   video: Video;
@@ -23,14 +24,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   switch (video.sourceType) {
     case 'youtube':
       return (
-        <YouTubePlayer
-          videoId={video.sourceId}
-          startTime={startTime}
-          autoplay={autoplay}
-          onReady={onReady}
-          onProgress={onProgress}
-          className={className}
-        />
+        <div className={`video-container ${className}`}>
+          <YouTubePlayer
+            videoId={video.sourceId}
+            firebaseVideoId={video.id}
+            startTime={startTime}
+            autoplay={autoplay}
+            onReady={onReady}
+            onProgress={onProgress}
+            className="w-full h-full"
+          />
+        </div>
       );
       
     case 'vimeo':

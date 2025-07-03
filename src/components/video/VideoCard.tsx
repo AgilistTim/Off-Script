@@ -1,6 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Video } from '../../services/videoService';
+
+// Placeholder image URL
+const PLACEHOLDER_THUMBNAIL = 'https://placehold.co/600x400?text=Video+Thumbnail';
 
 interface VideoCardProps {
   video: Video;
@@ -8,6 +11,8 @@ interface VideoCardProps {
 }
 
 const VideoCard: React.FC<VideoCardProps> = ({ video, className = '' }) => {
+  const [thumbnailError, setThumbnailError] = useState(false);
+
   // Format video duration (seconds to MM:SS)
   const formatDuration = (seconds: number): string => {
     const minutes = Math.floor(seconds / 60);
@@ -25,6 +30,11 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, className = '' }) => {
     });
   };
 
+  const handleImageError = () => {
+    console.log('Thumbnail failed to load:', video.thumbnailUrl);
+    setThumbnailError(true);
+  };
+
   return (
     <Link 
       to={`/videos/${video.id}`} 
@@ -32,9 +42,10 @@ const VideoCard: React.FC<VideoCardProps> = ({ video, className = '' }) => {
     >
       <div className="relative">
         <img 
-          src={video.thumbnailUrl} 
+          src={thumbnailError ? PLACEHOLDER_THUMBNAIL : video.thumbnailUrl} 
           alt={video.title} 
           className="w-full h-48 object-cover"
+          onError={handleImageError}
         />
         <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
           {formatDuration(video.duration)}
