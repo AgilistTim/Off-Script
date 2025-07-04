@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
 
@@ -48,8 +48,18 @@ const getFirebaseConfig = () => {
 // Initialize Firebase
 const app = initializeApp(getFirebaseConfig());
 
-// Initialize Firebase services
-export const db = getFirestore(app);
+// Initialize Firestore with settings optimized for production
+const isProduction = typeof window !== 'undefined' && 
+  window.location.hostname !== 'localhost' && 
+  window.location.hostname !== '127.0.0.1';
+
+export const db = isProduction 
+  ? initializeFirestore(app, {
+      experimentalForceLongPolling: true, // Use long polling instead of WebSocket
+      ignoreUndefinedProperties: true     // Ignore undefined properties to prevent errors
+    })
+  : getFirestore(app);
+
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
