@@ -93,6 +93,7 @@ This project uses Firebase for authentication and data storage. To set up Fireba
    - Go to Firebase Console > Authentication > Settings > Authorized domains
    - Add your domain (e.g., your-app.onrender.com) to the list of authorized domains
    - This is required for OAuth operations like Google Sign-In to work correctly
+   - Without this step, you may see CORS errors or authentication failures when accessing from your domain
 
 5. Deploy Firestore security rules:
    ```
