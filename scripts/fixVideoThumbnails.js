@@ -1,6 +1,10 @@
 // Script to fix video thumbnails and reset failed videos
-const { initializeApp } = require('firebase/app');
-const { getFirestore, collection, getDocs, doc, updateDoc } = require('firebase/firestore');
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, getDocs, doc, updateDoc } from 'firebase/firestore';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 // Firebase configuration
 const firebaseConfig = {
