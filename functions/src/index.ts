@@ -11,6 +11,33 @@ const runtimeOpts: functions.RuntimeOptions = {
   memory: "1GB",
 };
 
+/**
+ * Recursively removes undefined values from an object
+ * @param {any} obj - The object to sanitize
+ * @return {any} The sanitized object
+ */
+function sanitizeObject(obj: any): any {
+  if (obj === null || obj === undefined) {
+    return null;
+  }
+  
+  if (Array.isArray(obj)) {
+    return obj.map(sanitizeObject).filter(item => item !== undefined);
+  }
+  
+  if (typeof obj === 'object') {
+    const sanitized: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        sanitized[key] = sanitizeObject(value);
+      }
+    }
+    return sanitized;
+  }
+  
+  return obj;
+}
+
 interface VideoMetadata {
   title: string;
   description: string;
@@ -262,11 +289,12 @@ export const enrichVideoMetadata = functions
     // Skip if no source URL
     if (!videoData.sourceUrl) {
       console.log(`[ERROR] No source URL provided for video: ${videoId}`);
-      await db.collection("videos").doc(videoId).update({
+      const errorUpdateData = sanitizeObject({
         metadataStatus: "failed",
         enrichmentFailed: true,
         enrichmentError: "No source URL provided",
       });
+      await db.collection("videos").doc(videoId).update(errorUpdateData);
       return null;
     }
 
@@ -306,17 +334,24 @@ export const enrichVideoMetadata = functions
         updateData.enrichmentError = metadata.errorMessage;
       }
 
-      await db.collection("videos").doc(videoId).update(updateData);
+      // Sanitize the update data to remove undefined values
+      const sanitizedUpdateData = sanitizeObject(updateData);
+      
+      await db.collection("videos").doc(videoId).update(sanitizedUpdateData);
 
       console.log(`[DEBUG] Successfully updated video ${videoId} with ${metadata.enrichmentFailed ? "failed" : "enriched"} metadata`);
       return null;
     } catch (error) {
       console.error(`[ERROR] Error enriching metadata for video ${videoId}:`, error);
-      await db.collection("videos").doc(videoId).update({
+      
+      // Sanitize the error update data as well
+      const errorUpdateData = sanitizeObject({
         metadataStatus: "failed",
         enrichmentFailed: true,
         enrichmentError: error instanceof Error ? error.message : "Unknown error",
       });
+      
+      await db.collection("videos").doc(videoId).update(errorUpdateData);
       return null;
     }
   }); 
