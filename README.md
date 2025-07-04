@@ -129,20 +129,26 @@ User profiles are automatically created in Firestore when a user signs up or log
 
 ## Video Metadata Extraction
 
-The application uses Firebase Cloud Functions with yt-dlp to automatically extract metadata from video URLs. When an admin adds a new video URL:
+The application uses Firebase Cloud Functions to automatically extract basic metadata from video URLs. When an admin adds a new video URL:
 
 1. The video is saved to Firestore with basic information
-2. A Cloud Function is triggered that uses yt-dlp to extract detailed metadata
+2. A Cloud Function is triggered that extracts metadata from the URL
 3. The extracted metadata is saved back to Firestore
 4. The UI is updated to show the enriched metadata
 
 ### Metadata Extraction Features
 
-- Extracts title, description, duration, thumbnail URL, uploader, upload date, tags, subtitles, and more
-- Works with YouTube, Vimeo, and other platforms supported by yt-dlp
-- No video downloading - only metadata is extracted
-- Error handling for failed extractions
-- Visual indicators in the admin UI to show extraction status
+- Extracts basic metadata like title, thumbnail URL, and creator name
+- Uses YouTube oEmbed API for YouTube videos (no authentication required)
+- Implements thumbnail URL validation and fallbacks
+- Provides graceful error handling with meaningful messages
+- Includes a retry mechanism in the admin interface
+
+For YouTube videos, the extraction process:
+1. Extracts the video ID from the URL
+2. Fetches metadata from YouTube's oEmbed API
+3. Selects the best available thumbnail quality
+4. Saves the metadata to Firestore
 
 ### Deploying the Functions
 
