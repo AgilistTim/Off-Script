@@ -200,6 +200,9 @@ export const getVideoById = async (videoId: string): Promise<Video | null> => {
   }
 };
 
+// Alias for getVideoById for compatibility
+export const getVideo = getVideoById;
+
 // Create a new video
 export const createVideo = async (videoData: Omit<Video, 'id'>): Promise<string> => {
   try {

@@ -1,12 +1,6 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
-import * as youtubeDl from "youtube-dl-exec";
-import * as os from "os";
-import * as path from "path";
-import * as fs from "fs";
 import * as https from "https";
-import * as childProcess from "child_process";
-import { promisify } from "util";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -31,31 +25,6 @@ interface VideoMetadata {
   view_count?: number;
   enrichmentFailed?: boolean;
   errorMessage?: string;
-}
-
-/**
- * Check if yt-dlp is installed and working properly
- * @return {Promise<boolean>} Whether yt-dlp is working
- */
-async function checkYtDlpInstallation(): Promise<{isInstalled: boolean; version: string; error?: string}> {
-  try {
-    console.log("[DEBUG] Checking yt-dlp installation...");
-    
-    // Try to get yt-dlp version
-    const exec = promisify(childProcess.exec);
-    const { stdout } = await exec("yt-dlp --version");
-    const version = stdout.trim();
-    
-    console.log(`[DEBUG] yt-dlp is installed, version: ${version}`);
-    return { isInstalled: true, version };
-  } catch (error) {
-    console.error("[ERROR] yt-dlp is not installed or not working:", error);
-    return { 
-      isInstalled: false, 
-      version: "", 
-      error: error instanceof Error ? error.message : "Unknown error" 
-    };
-  }
 }
 
 /**
@@ -103,196 +72,6 @@ async function getValidYouTubeThumbnail(videoId: string): Promise<string> {
 }
 
 /**
- * Download and install yt-dlp binary
- * @return {Promise<boolean>} Whether the installation was successful
- */
-async function installYtDlp(): Promise<{success: boolean; path: string; error?: string}> {
-  try {
-    console.log("[DEBUG] Installing yt-dlp...");
-    
-    // Create a directory for the binary
-    const binDir = path.join(os.tmpdir(), 'bin');
-    if (!fs.existsSync(binDir)) {
-      fs.mkdirSync(binDir, { recursive: true });
-    }
-    
-    // Path to save the binary
-    const ytDlpPath = path.join(binDir, 'yt-dlp');
-    
-    // Download the binary
-    const downloadUrl = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp";
-    console.log(`[DEBUG] Downloading yt-dlp from ${downloadUrl} to ${ytDlpPath}`);
-    
-    await new Promise<void>((resolve, reject) => {
-      const file = fs.createWriteStream(ytDlpPath);
-      https.get(downloadUrl, (response) => {
-        if (response.statusCode !== 200) {
-          reject(new Error(`Failed to download yt-dlp: ${response.statusCode}`));
-          return;
-        }
-        
-        response.pipe(file);
-        file.on('finish', () => {
-          file.close();
-          resolve();
-        });
-      }).on('error', (err) => {
-        fs.unlink(ytDlpPath, () => {});
-        reject(err);
-      });
-    });
-    
-    // Make the binary executable
-    fs.chmodSync(ytDlpPath, '755');
-    console.log("[DEBUG] Made yt-dlp executable");
-    
-    // Test the binary
-    const exec = promisify(childProcess.exec);
-    const { stdout } = await exec(`${ytDlpPath} --version`);
-    const version = stdout.trim();
-    
-    console.log(`[DEBUG] Successfully installed yt-dlp version ${version}`);
-    return { success: true, path: ytDlpPath };
-  } catch (error) {
-    console.error("[ERROR] Failed to install yt-dlp:", error);
-    return { 
-      success: false, 
-      path: "", 
-      error: error instanceof Error ? error.message : "Unknown error" 
-    };
-  }
-}
-
-/**
- * Extracts metadata from a video URL using yt-dlp
- * @param {string} url - The video URL to extract metadata from
- * @return {Promise<VideoMetadata>} The extracted metadata
- */
-async function extractVideoMetadata(url: string): Promise<VideoMetadata> {
-  try {
-    console.log(`[DEBUG] Starting metadata extraction for URL: ${url}`);
-    
-    // Create a temporary directory for yt-dlp cache
-    const tempDir = path.join(os.tmpdir(), 'yt-dlp-cache');
-    if (!fs.existsSync(tempDir)) {
-      fs.mkdirSync(tempDir, { recursive: true });
-    }
-    console.log(`[DEBUG] Created temp directory: ${tempDir}`);
-    
-    // Check if yt-dlp is installed
-    let ytDlpPath = "yt-dlp"; // Default to system path
-    const ytDlpStatus = await checkYtDlpInstallation();
-    
-    if (!ytDlpStatus.isInstalled) {
-      console.log("[DEBUG] yt-dlp not found, attempting to install...");
-      const installResult = await installYtDlp();
-      
-      if (!installResult.success) {
-        throw new Error(`Failed to install yt-dlp: ${installResult.error}`);
-      }
-      
-      ytDlpPath = installResult.path;
-      console.log(`[DEBUG] Using installed yt-dlp at ${ytDlpPath}`);
-    }
-    
-    // Extract metadata without downloading the video
-    const options = {
-      dumpSingleJson: true,
-      noWarnings: true,
-      noCallHome: true,
-      noCheckCertificate: true,
-      preferFreeFormats: true,
-      youtubeSkipDashManifest: true,
-      skipDownload: true,
-      cacheDir: tempDir,
-      // Add user agent to avoid being blocked
-      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
-      binaryPath: ytDlpPath, // Use the installed binary if needed
-    };
-
-    console.log(`[DEBUG] Executing yt-dlp with options:`, JSON.stringify(options));
-    
-    try {
-      const output = await youtubeDl.default(url, options);
-      console.log(`[DEBUG] yt-dlp extraction successful for ${url}`);
-      console.log(`[DEBUG] Output title: ${output.title}`);
-      console.log(`[DEBUG] Output thumbnail: ${output.thumbnail}`);
-
-      // Get video ID for YouTube videos
-      let videoId = "";
-      if (url.includes("youtube.com") || url.includes("youtu.be")) {
-        videoId = extractYouTubeId(url) || "";
-        console.log(`[DEBUG] Extracted YouTube ID: ${videoId}`);
-      }
-
-      // Get a valid thumbnail URL for YouTube videos
-      let thumbnailUrl = output.thumbnail || "";
-      if (videoId) {
-        console.log(`[DEBUG] Getting valid YouTube thumbnail for ID: ${videoId}`);
-        thumbnailUrl = await getValidYouTubeThumbnail(videoId);
-        console.log(`[DEBUG] Selected thumbnail URL: ${thumbnailUrl}`);
-      }
-
-      // Extract the relevant metadata
-      return {
-        title: output.title || "",
-        description: output.description || "",
-        duration: output.duration || 0,
-        webpage_url: output.webpage_url || url,
-        thumbnail: thumbnailUrl,
-        uploader: output.uploader || "",
-        upload_date: output.upload_date,
-        tags: output.tags || [],
-        subtitles: output.subtitles || {},
-        categories: output.categories || [],
-        view_count: output.view_count,
-      };
-    } catch (ytdlpError) {
-      console.error(`[ERROR] yt-dlp execution failed:`, ytdlpError);
-      throw ytdlpError;
-    }
-  } catch (error) {
-    console.error(`[ERROR] Error extracting metadata for ${url}:`, error);
-    
-    // Try to extract YouTube ID and get thumbnail directly if yt-dlp fails
-    try {
-      console.log(`[DEBUG] Attempting fallback extraction for ${url}`);
-      if (url.includes("youtube.com") || url.includes("youtu.be")) {
-        const videoId = extractYouTubeId(url);
-        console.log(`[DEBUG] Fallback: extracted YouTube ID: ${videoId}`);
-        if (videoId) {
-          const thumbnailUrl = await getValidYouTubeThumbnail(videoId);
-          console.log(`[DEBUG] Fallback: selected thumbnail URL: ${thumbnailUrl}`);
-          return {
-            title: "YouTube Video",
-            description: "Failed to extract full metadata. Please edit manually.",
-            duration: 0,
-            webpage_url: url,
-            thumbnail: thumbnailUrl,
-            uploader: "Unknown",
-            enrichmentFailed: true,
-            errorMessage: error instanceof Error ? error.message : "Unknown error",
-          };
-        }
-      }
-    } catch (fallbackError) {
-      console.error("[ERROR] Fallback extraction failed:", fallbackError);
-    }
-    
-    return {
-      title: "",
-      description: "",
-      duration: 0,
-      webpage_url: url,
-      thumbnail: "",
-      uploader: "",
-      enrichmentFailed: true,
-      errorMessage: error instanceof Error ? error.message : "Unknown error",
-    };
-  }
-}
-
-/**
  * Extracts YouTube video ID from a URL
  * @param {string} url - The YouTube URL
  * @return {string|null} The extracted video ID or null if not found
@@ -321,13 +100,13 @@ function determineSourceType(url: string): string {
 }
 
 /**
- * Extract YouTube metadata directly without using yt-dlp
+ * Extract YouTube metadata using oEmbed API
  * @param {string} url - The YouTube URL
  * @return {Promise<VideoMetadata>} The extracted metadata
  */
-async function extractYouTubeMetadataDirectly(url: string): Promise<VideoMetadata> {
+async function extractYouTubeMetadata(url: string): Promise<VideoMetadata> {
   try {
-    console.log(`[DEBUG] Extracting YouTube metadata directly for: ${url}`);
+    console.log(`[DEBUG] Extracting YouTube metadata for: ${url}`);
     
     // Extract the video ID
     const videoId = extractYouTubeId(url);
@@ -386,7 +165,7 @@ async function extractYouTubeMetadataDirectly(url: string): Promise<VideoMetadat
       view_count: 0,
     };
   } catch (error) {
-    console.error(`[ERROR] Failed to extract YouTube metadata directly:`, error);
+    console.error(`[ERROR] Failed to extract YouTube metadata:`, error);
     
     // Return minimal metadata with the thumbnail at least
     try {
@@ -409,6 +188,51 @@ async function extractYouTubeMetadataDirectly(url: string): Promise<VideoMetadat
     }
     
     throw error;
+  }
+}
+
+/**
+ * Extract video metadata based on source type
+ * @param {string} url - The video URL
+ * @return {Promise<VideoMetadata>} The extracted metadata
+ */
+async function extractVideoMetadata(url: string): Promise<VideoMetadata> {
+  try {
+    console.log(`[DEBUG] Starting metadata extraction for URL: ${url}`);
+    
+    // Determine the source type
+    const sourceType = determineSourceType(url);
+    console.log(`[DEBUG] Detected source type: ${sourceType}`);
+    
+    // Extract metadata based on source type
+    if (sourceType === "youtube") {
+      return await extractYouTubeMetadata(url);
+    } else {
+      // For non-YouTube videos, return minimal metadata
+      return {
+        title: "Video",
+        description: "Non-YouTube video. Please edit metadata manually.",
+        duration: 0,
+        webpage_url: url,
+        thumbnail: "",
+        uploader: "Unknown",
+        enrichmentFailed: true,
+        errorMessage: "Only YouTube videos are supported for automatic metadata extraction",
+      };
+    }
+  } catch (error) {
+    console.error(`[ERROR] Error extracting metadata for ${url}:`, error);
+    
+    return {
+      title: "",
+      description: "",
+      duration: 0,
+      webpage_url: url,
+      thumbnail: "",
+      uploader: "",
+      enrichmentFailed: true,
+      errorMessage: error instanceof Error ? error.message : "Unknown error",
+    };
   }
 }
 
@@ -449,31 +273,8 @@ export const enrichVideoMetadata = functions
       });
       console.log(`[DEBUG] Updated status to 'processing' for video ${videoId}`);
       
-      // Determine if this is a YouTube URL
-      const isYouTube = videoData.sourceUrl.includes("youtube.com") || videoData.sourceUrl.includes("youtu.be");
-      
-      // Extract metadata - try yt-dlp first, then fallback to direct extraction for YouTube
-      let metadata: VideoMetadata;
-      try {
-        // Try yt-dlp first
-        metadata = await extractVideoMetadata(videoData.sourceUrl);
-      } catch (ytdlpError) {
-        console.error(`[ERROR] yt-dlp extraction failed: ${ytdlpError}`);
-        
-        // For YouTube videos, try direct extraction as fallback
-        if (isYouTube) {
-          console.log(`[DEBUG] Falling back to direct YouTube extraction for ${videoId}`);
-          try {
-            metadata = await extractYouTubeMetadataDirectly(videoData.sourceUrl);
-          } catch (directError) {
-            console.error(`[ERROR] Direct extraction also failed: ${directError}`);
-            throw directError; // Re-throw to be caught by the outer catch
-          }
-        } else {
-          throw ytdlpError; // Re-throw for non-YouTube videos
-        }
-      }
-      
+      // Extract metadata
+      const metadata = await extractVideoMetadata(videoData.sourceUrl);
       console.log(`[DEBUG] Metadata extraction complete for video ${videoId}`);
       
       // Determine source type and ID if not already set
