@@ -242,49 +242,50 @@ export const enrichVideoMetadata = functions
   .runWith(runtimeOpts)
   .firestore
   .document("videos/{videoId}")
-  .onCreate(async (snapshot, context) => {
-    const videoData = snapshot.data();
+  .onWrite(async (change, context) => {
+    // If the document was deleted, do nothing
+    if (!change.after.exists) {
+      return null;
+    }
+
+    const videoData = change.after.data() as FirebaseFirestore.DocumentData;
     const videoId = context.params.videoId;
-    
+
     console.log(`[DEBUG] Function triggered for video ${videoId}`);
-    
-    // Skip if no URL is provided
+
+    // Only process if metadataStatus is 'pending' (initial creation or reset)
+    if (videoData.metadataStatus && videoData.metadataStatus !== "pending") {
+      console.log(`[DEBUG] Video ${videoId} metadataStatus is '${videoData.metadataStatus}', skipping.`);
+      return null;
+    }
+
+    // Skip if no source URL
     if (!videoData.sourceUrl) {
       console.log(`[ERROR] No source URL provided for video: ${videoId}`);
-      
-      // Update the document to indicate the enrichment failed
       await db.collection("videos").doc(videoId).update({
         metadataStatus: "failed",
         enrichmentFailed: true,
-        enrichmentError: "No source URL provided"
+        enrichmentError: "No source URL provided",
       });
-      
       return null;
     }
 
     try {
       console.log(`[DEBUG] Extracting metadata for video ${videoId} from URL: ${videoData.sourceUrl}`);
-      
-      // First, update the status to indicate processing has started
-      await db.collection("videos").doc(videoId).update({
-        metadataStatus: "processing"
-      });
-      console.log(`[DEBUG] Updated status to 'processing' for video ${videoId}`);
-      
+
+      // Mark as processing immediately to avoid duplicate triggers
+      await db.collection("videos").doc(videoId).update({ metadataStatus: "processing" });
+
       // Extract basic metadata
       const metadata = await extractBasicMetadata(videoData.sourceUrl);
-      console.log(`[DEBUG] Metadata extraction complete for video ${videoId}`);
-      
+
       // Determine source type and ID if not already set
       const sourceType = videoData.sourceType || determineSourceType(videoData.sourceUrl);
       let sourceId = videoData.sourceId;
-      
       if (!sourceId && sourceType === "youtube") {
         sourceId = extractYouTubeId(videoData.sourceUrl) || "";
-        console.log(`[DEBUG] Extracted YouTube ID: ${sourceId} for video ${videoId}`);
       }
 
-      // Prepare data to update in Firestore
       const updateData: Record<string, unknown> = {
         metadataStatus: metadata.enrichmentFailed ? "failed" : "enriched",
         title: videoData.title && videoData.title !== "Loading..." ? videoData.title : metadata.title,
@@ -300,41 +301,22 @@ export const enrichVideoMetadata = functions
         },
       };
 
-      console.log(`[DEBUG] Update data prepared for video ${videoId}`);
-
-      // If metadata extraction failed, add the error info
       if (metadata.enrichmentFailed) {
         updateData.enrichmentFailed = true;
         updateData.enrichmentError = metadata.errorMessage;
-        console.log(`[ERROR] Metadata enrichment failed for video ${videoId}: ${metadata.errorMessage}`);
       }
 
-      // Update the video document with the extracted metadata
-      try {
-        await db.collection("videos").doc(videoId).update(updateData);
-        console.log(`[DEBUG] Successfully updated video ${videoId} with metadata`);
-      } catch (updateError) {
-        console.error(`[ERROR] Failed to update video ${videoId} in Firestore:`, updateError);
-        throw updateError;
-      }
-      
-      console.log(`[DEBUG] Successfully enriched metadata for video ${videoId}`);
+      await db.collection("videos").doc(videoId).update(updateData);
+
+      console.log(`[DEBUG] Successfully updated video ${videoId} with ${metadata.enrichmentFailed ? "failed" : "enriched"} metadata`);
       return null;
     } catch (error) {
       console.error(`[ERROR] Error enriching metadata for video ${videoId}:`, error);
-      
-      // Update the document with the error information
-      try {
-        await db.collection("videos").doc(videoId).update({
-          metadataStatus: "failed",
-          enrichmentFailed: true,
-          enrichmentError: error instanceof Error ? error.message : "Unknown error",
-        });
-        console.log(`[DEBUG] Updated video ${videoId} with failed status`);
-      } catch (updateError) {
-        console.error(`[ERROR] Failed to update error status for video ${videoId}:`, updateError);
-      }
-      
+      await db.collection("videos").doc(videoId).update({
+        metadataStatus: "failed",
+        enrichmentFailed: true,
+        enrichmentError: error instanceof Error ? error.message : "Unknown error",
+      });
       return null;
     }
   }); 
