@@ -278,8 +278,13 @@ export const updateVideo = async (videoId: string, videoData: Partial<Video>): P
         videoData.sourceUrl = `https://vimeo.com/${videoData.sourceId}`;
       }
     }
+
+    // Filter out undefined values to avoid Firestore invalid-argument errors
+    const sanitizedData: Partial<Video> = Object.fromEntries(
+      Object.entries(videoData).filter(([, value]) => value !== undefined)
+    ) as Partial<Video>;
     
-    await updateDoc(videoRef, videoData);
+    await updateDoc(videoRef, sanitizedData);
   } catch (error) {
     console.error(`Error updating video ${videoId}:`, error);
     throw error;
