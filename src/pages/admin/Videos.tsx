@@ -8,9 +8,10 @@ import {
   Eye, 
   X, 
   Check, 
-  Upload
+  Upload,
+  FileInput
 } from 'lucide-react';
-import { getAllVideos, Video, createVideo, updateVideo, deleteVideo } from '../../services/videoService';
+import { getAllVideos, Video, createVideo, updateVideo, deleteVideo, bulkImportVideos } from '../../services/videoService';
 
 const AdminVideos: React.FC = () => {
   const [videos, setVideos] = useState<Video[]>([]);
@@ -18,10 +19,20 @@ const AdminVideos: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const [showBulkImportModal, setShowBulkImportModal] = useState<boolean>(false);
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [submitLoading, setSubmitLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [bulkImportUrls, setBulkImportUrls] = useState<string>('');
+  const [bulkImportCategory, setBulkImportCategory] = useState<string>('');
+  const [bulkImportResults, setBulkImportResults] = useState<{
+    success: number;
+    duplicates: number;
+    failed: number;
+    failedUrls: string[];
+  } | null>(null);
+  const [bulkImportLoading, setBulkImportLoading] = useState<boolean>(false);
 
   // Categories for filtering
   const categories = [
@@ -83,6 +94,54 @@ const AdminVideos: React.FC = () => {
     setIsEditing(false);
     setShowAddModal(true);
     setError(null);
+  };
+
+  // Handle bulk import
+  const handleBulkImport = () => {
+    setBulkImportUrls('');
+    setBulkImportCategory('');
+    setBulkImportResults(null);
+    setShowBulkImportModal(true);
+    setError(null);
+  };
+
+  // Process bulk import
+  const processBulkImport = async () => {
+    if (!bulkImportUrls.trim()) {
+      setError('Please enter at least one URL.');
+      return;
+    }
+
+    setBulkImportLoading(true);
+    setError(null);
+    
+    try {
+      // Split by newline and filter out empty lines
+      const urls = bulkImportUrls
+        .split('\n')
+        .map(url => url.trim())
+        .filter(url => url.length > 0);
+      
+      if (urls.length === 0) {
+        setError('No valid URLs found.');
+        setBulkImportLoading(false);
+        return;
+      }
+      
+      // Process the URLs
+      const results = await bulkImportVideos(urls, bulkImportCategory);
+      setBulkImportResults(results);
+      
+      // Refresh videos list if any were successfully added
+      if (results.success > 0) {
+        await fetchVideos();
+      }
+    } catch (error) {
+      console.error('Error processing bulk import:', error);
+      setError('Failed to process bulk import. Please try again.');
+    } finally {
+      setBulkImportLoading(false);
+    }
   };
 
   // Video form component
@@ -418,17 +477,161 @@ const AdminVideos: React.FC = () => {
     );
   };
 
+  // Bulk Import Modal
+  const BulkImportModal = () => {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="flex justify-between items-center p-6 border-b dark:border-gray-700">
+            <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+              Bulk Import Videos
+            </h2>
+            <button
+              onClick={() => setShowBulkImportModal(false)}
+              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <div className="p-6 space-y-4">
+            {bulkImportResults ? (
+              <div className="space-y-4">
+                <div className="bg-green-50 dark:bg-green-900 p-4 rounded-md">
+                  <h3 className="text-lg font-medium text-green-800 dark:text-green-200">Import Results</h3>
+                  <ul className="mt-2 text-sm text-green-700 dark:text-green-300">
+                    <li>Successfully imported: {bulkImportResults.success} videos</li>
+                    <li>Duplicates skipped: {bulkImportResults.duplicates} videos</li>
+                    <li>Failed imports: {bulkImportResults.failed} videos</li>
+                  </ul>
+                  
+                  {bulkImportResults.failedUrls.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-medium text-green-800 dark:text-green-200">Failed URLs:</h4>
+                      <ul className="mt-1 text-xs text-green-700 dark:text-green-300 max-h-32 overflow-y-auto">
+                        {bulkImportResults.failedUrls.map((url, index) => (
+                          <li key={index} className="truncate">{url}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  <div className="mt-4 flex justify-end">
+                    <button
+                      onClick={() => setShowBulkImportModal(false)}
+                      className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Video URLs (one per line)
+                  </label>
+                  <textarea
+                    value={bulkImportUrls}
+                    onChange={(e) => setBulkImportUrls(e.target.value)}
+                    rows={10}
+                    placeholder="https://www.youtube.com/watch?v=example1&#10;https://www.youtube.com/watch?v=example2&#10;https://vimeo.com/example3"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  />
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Paste YouTube, Vimeo, or other video URLs, one per line. Metadata will be automatically extracted.
+                  </p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Default Category (optional)
+                  </label>
+                  <select
+                    value={bulkImportCategory}
+                    onChange={(e) => setBulkImportCategory(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  >
+                    <option value="">Select a category</option>
+                    {categories.map(category => (
+                      <option key={category} value={category}>{category}</option>
+                    ))}
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    If set, all imported videos will be assigned this category. You can edit individual videos later.
+                  </p>
+                </div>
+                
+                {error && (
+                  <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+                    <span className="block sm:inline">{error}</span>
+                    <button 
+                      className="absolute top-0 bottom-0 right-0 px-4 py-3"
+                      onClick={() => setError(null)}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                )}
+                
+                <div className="flex justify-end space-x-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowBulkImportModal(false)}
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                    disabled={bulkImportLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={processBulkImport}
+                    className="px-4 py-2 bg-primary-blue text-white rounded-md hover:bg-blue-600 flex items-center"
+                    disabled={bulkImportLoading}
+                  >
+                    {bulkImportLoading ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <FileInput size={18} className="mr-2" />
+                        Import Videos
+                      </>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Video Management</h1>
-        <button
-          onClick={handleAddVideo}
-          className="flex items-center px-4 py-2 bg-primary-blue text-white rounded-md hover:bg-blue-600 transition-colors"
-        >
-          <Plus size={18} className="mr-2" />
-          Add New Video
-        </button>
+        <div className="flex space-x-2">
+          <button
+            onClick={handleBulkImport}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+          >
+            <FileInput size={18} className="mr-2" />
+            Bulk Import
+          </button>
+          <button
+            onClick={handleAddVideo}
+            className="flex items-center px-4 py-2 bg-primary-blue text-white rounded-md hover:bg-blue-600 transition-colors"
+          >
+            <Plus size={18} className="mr-2" />
+            Add New Video
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -499,6 +702,9 @@ const AdminVideos: React.FC = () => {
                   Source
                 </th>
                 <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Metadata Status
+                </th>
+                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                   Views
                 </th>
                 <th scope="col" className="px-6 py-3 text-right text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider">
@@ -530,6 +736,27 @@ const AdminVideos: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {video.sourceType.charAt(0).toUpperCase() + video.sourceType.slice(1)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      {video.metadataStatus === 'enriched' ? (
+                        <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 flex items-center">
+                          <Check size={12} className="mr-1" />
+                          Enriched
+                        </span>
+                      ) : video.metadataStatus === 'failed' || video.enrichmentFailed ? (
+                        <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 flex items-center" title={video.enrichmentError}>
+                          <X size={12} className="mr-1" />
+                          Failed
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 flex items-center">
+                          <svg className="animate-spin h-3 w-3 mr-1" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Pending
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {video.viewCount || 0}
@@ -594,6 +821,9 @@ const AdminVideos: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Bulk Import Modal */}
+      {showBulkImportModal && <BulkImportModal />}
     </div>
   );
 };

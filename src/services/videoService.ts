@@ -26,6 +26,27 @@ export interface Video {
   prompts: ReflectionPrompt[];
   relatedContent: string[];
   viewCount: number;
+  metadataStatus?: 'pending' | 'enriched' | 'failed';
+  enrichmentFailed?: boolean;
+  enrichmentError?: string;
+  metadata?: {
+    extractedAt: any; // Firestore timestamp
+    raw: {
+      title?: string;
+      description?: string;
+      duration?: number;
+      webpage_url?: string;
+      thumbnail?: string;
+      uploader?: string;
+      upload_date?: string;
+      tags?: string[];
+      subtitles?: Record<string, any>;
+      categories?: string[];
+      like_count?: number;
+      view_count?: number;
+    };
+  };
+  createdAt?: any; // Firestore timestamp
 }
 
 export interface ReflectionPrompt {
@@ -211,8 +232,15 @@ export const createVideo = async (videoData: Omit<Video, 'id'>): Promise<string>
       videoData.viewCount = 0;
     }
     
+    // Add metadata enrichment status
+    const videoWithMetadata = {
+      ...videoData,
+      metadataStatus: 'pending', // Will be updated by the Cloud Function
+      createdAt: serverTimestamp(),
+    };
+    
     const videosRef = collection(db, 'videos');
-    const docRef = await addDoc(videosRef, videoData);
+    const docRef = await addDoc(videosRef, videoWithMetadata);
     
     return docRef.id;
   } catch (error) {
@@ -494,4 +522,102 @@ export const saveReflectionResponse = async (
     console.error('Error saving reflection response:', error);
     throw error;
   }
+};
+
+// Check if a video with the given URL already exists
+export const checkVideoExists = async (sourceUrl: string): Promise<boolean> => {
+  try {
+    const videosRef = collection(db, 'videos');
+    const q = query(videosRef, where('sourceUrl', '==', sourceUrl));
+    const snapshot = await getDocs(q);
+    return !snapshot.empty;
+  } catch (error) {
+    console.error('Error checking if video exists:', error);
+    throw error;
+  }
+};
+
+// Import multiple videos from URLs
+export const bulkImportVideos = async (urls: string[], defaultCategory: string = ''): Promise<{
+  success: number;
+  duplicates: number;
+  failed: number;
+  failedUrls: string[];
+}> => {
+  const results = {
+    success: 0,
+    duplicates: 0,
+    failed: 0,
+    failedUrls: [] as string[]
+  };
+
+  // Process URLs sequentially to avoid overwhelming Firebase
+  for (const url of urls) {
+    try {
+      const trimmedUrl = url.trim();
+      if (!trimmedUrl) continue;
+
+      // Check if video already exists
+      const exists = await checkVideoExists(trimmedUrl);
+      if (exists) {
+        results.duplicates++;
+        continue;
+      }
+
+      // Determine source type
+      let sourceType: 'youtube' | 'vimeo' | 'instagram' | 'other' = 'other';
+      if (trimmedUrl.includes('youtube.com') || trimmedUrl.includes('youtu.be')) {
+        sourceType = 'youtube';
+      } else if (trimmedUrl.includes('vimeo.com')) {
+        sourceType = 'vimeo';
+      } else if (trimmedUrl.includes('instagram.com')) {
+        sourceType = 'instagram';
+      }
+
+      // Extract video ID if possible
+      let sourceId = '';
+      if (sourceType === 'youtube') {
+        const youtubeId = extractYouTubeId(trimmedUrl);
+        if (youtubeId) sourceId = youtubeId;
+      }
+
+      // Create minimal video record - the Cloud Function will enrich it
+      const videoData: Omit<Video, 'id'> = {
+        title: 'Loading...', // Will be updated by Cloud Function
+        description: 'Loading...', // Will be updated by Cloud Function
+        category: defaultCategory,
+        sourceType,
+        sourceId,
+        sourceUrl: trimmedUrl,
+        thumbnailUrl: '',
+        duration: 0,
+        creator: 'Loading...', // Will be updated by Cloud Function
+        publicationDate: new Date().toISOString(),
+        curatedDate: new Date().toISOString(),
+        tags: [],
+        skillsHighlighted: [],
+        educationRequired: [],
+        prompts: [],
+        relatedContent: [],
+        viewCount: 0,
+        metadataStatus: 'pending'
+      };
+
+      await createVideo(videoData);
+      results.success++;
+    } catch (error) {
+      console.error('Error importing video:', url, error);
+      results.failed++;
+      results.failedUrls.push(url);
+    }
+  }
+
+  return results;
+};
+
+// Helper function to extract YouTube ID
+const extractYouTubeId = (url: string): string | null => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : null;
 }; 
