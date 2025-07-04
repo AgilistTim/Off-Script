@@ -12,6 +12,7 @@ import {
   FileInput
 } from 'lucide-react';
 import { getAllVideos, Video, createVideo, updateVideo, deleteVideo, bulkImportVideos } from '../../services/videoService';
+import { toast, Toaster } from 'react-hot-toast';
 
 const AdminVideos: React.FC = () => {
   const [videos, setVideos] = useState<Video[]>([]);
@@ -33,14 +34,19 @@ const AdminVideos: React.FC = () => {
     failedUrls: string[];
   } | null>(null);
   const [bulkImportLoading, setBulkImportLoading] = useState<boolean>(false);
+  const [addVideoModalOpen, setAddVideoModalOpen] = useState<boolean>(false);
+  const [bulkImportModalOpen, setBulkImportModalOpen] = useState<boolean>(false);
+  const [editVideoModalOpen, setEditVideoModalOpen] = useState<boolean>(false);
+  const [categories, setCategories] = useState<string[]>([]);
 
   // Categories for filtering
   const categories = [
-    'Technology & Digital',
-    'Creative & Media',
-    'Skilled Trades',
-    'Business & Entrepreneurship',
-    'Healthcare & Wellbeing'
+    'technology',
+    'healthcare',
+    'finance',
+    'creative',
+    'trades',
+    'sustainability',
   ];
 
   useEffect(() => {
@@ -141,6 +147,51 @@ const AdminVideos: React.FC = () => {
       setError('Failed to process bulk import. Please try again.');
     } finally {
       setBulkImportLoading(false);
+    }
+  };
+
+  // Add a function to retry all failed videos
+  const retryAllFailedVideos = async () => {
+    try {
+      setLoading(true);
+      const failedVideos = videos.filter(video => 
+        video.metadataStatus === 'failed' || video.enrichmentFailed
+      );
+      
+      if (failedVideos.length === 0) {
+        toast('No failed videos to retry', { icon: 'ℹ️' });
+        setLoading(false);
+        return;
+      }
+      
+      let successCount = 0;
+      let errorCount = 0;
+      
+      // Process each failed video
+      for (const video of failedVideos) {
+        try {
+          await updateVideo(video.id, {
+            metadataStatus: 'pending',
+            enrichmentFailed: false,
+            enrichmentError: undefined
+          });
+          successCount++;
+        } catch (error) {
+          console.error(`Error retrying video ${video.id}:`, error);
+          errorCount++;
+        }
+      }
+      
+      // Refresh the video list
+      await fetchVideos();
+      
+      // Show toast message
+      toast.success(`Retried ${successCount} videos successfully. ${errorCount > 0 ? `Failed to retry ${errorCount} videos.` : ''}`);
+    } catch (error) {
+      console.error('Error retrying failed videos:', error);
+      toast.error('Failed to retry videos. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -614,21 +665,36 @@ const AdminVideos: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
-        <h1 className="text-2xl font-bold text-gray-800 dark:text-white">Video Management</h1>
+      <Toaster position="top-right" />
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-semibold">Videos</h1>
         <div className="flex space-x-2">
+          {videos.some(video => video.metadataStatus === 'failed' || video.enrichmentFailed) && (
+            <button
+              onClick={retryAllFailedVideos}
+              className="px-4 py-2 bg-yellow-500 text-white rounded-md hover:bg-yellow-600 flex items-center"
+              disabled={loading}
+            >
+              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Retry All Failed
+            </button>
+          )}
           <button
             onClick={handleBulkImport}
-            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+            className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center"
+            disabled={loading}
           >
-            <FileInput size={18} className="mr-2" />
+            <FileInput className="w-4 h-4 mr-2" />
             Bulk Import
           </button>
           <button
             onClick={handleAddVideo}
-            className="flex items-center px-4 py-2 bg-primary-blue text-white rounded-md hover:bg-blue-600 transition-colors"
+            className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 flex items-center"
+            disabled={loading}
           >
-            <Plus size={18} className="mr-2" />
+            <Plus className="w-4 h-4 mr-2" />
             Add New Video
           </button>
         </div>

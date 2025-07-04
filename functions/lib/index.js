@@ -26,55 +26,56 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.enrichVideoMetadata = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
-const youtubeDl = __importStar(require("youtube-dl-exec"));
+const https = __importStar(require("https"));
 admin.initializeApp();
 const db = admin.firestore();
+// Configure runtime options for the function
+const runtimeOpts = {
+    timeoutSeconds: 300,
+    memory: "1GB",
+};
 /**
- * Extracts metadata from a video URL using yt-dlp
- * @param {string} url - The video URL to extract metadata from
- * @return {Promise<VideoMetadata>} The extracted metadata
+ * Recursively removes undefined values from an object
+ * @param {any} obj - The object to sanitize
+ * @return {any} The sanitized object
  */
-async function extractVideoMetadata(url) {
-    try {
-        // Extract metadata without downloading the video
-        const options = {
-            dumpSingleJson: true,
-            noWarnings: true,
-            noCallHome: true,
-            noCheckCertificate: true,
-            preferFreeFormats: true,
-            youtubeSkipDashManifest: true,
-            skipDownload: true,
-        };
-        const output = await youtubeDl.default(url, options);
-        // Extract the relevant metadata
-        return {
-            title: output.title || "",
-            description: output.description || "",
-            duration: output.duration || 0,
-            webpage_url: output.webpage_url || url,
-            thumbnail: output.thumbnail || "",
-            uploader: output.uploader || "",
-            upload_date: output.upload_date,
-            tags: output.tags || [],
-            subtitles: output.subtitles || {},
-            categories: output.categories || [],
-            view_count: output.view_count,
-        };
+function sanitizeObject(obj) {
+    if (obj === null || obj === undefined) {
+        return null;
     }
-    catch (error) {
-        console.error("Error extracting metadata:", error);
-        return {
-            title: "",
-            description: "",
-            duration: 0,
-            webpage_url: url,
-            thumbnail: "",
-            uploader: "",
-            enrichmentFailed: true,
-            errorMessage: error instanceof Error ? error.message : "Unknown error",
-        };
+    if (Array.isArray(obj)) {
+        return obj.map(sanitizeObject).filter(item => item !== undefined);
     }
+    if (typeof obj === 'object') {
+        const sanitized = {};
+        for (const [key, value] of Object.entries(obj)) {
+            if (value !== undefined) {
+                sanitized[key] = sanitizeObject(value);
+            }
+        }
+        return sanitized;
+    }
+    return obj;
+}
+/**
+ * Check if a URL is accessible
+ * @param {string} url - The URL to check
+ * @return {Promise<boolean>} Whether the URL is accessible
+ */
+async function isUrlAccessible(url) {
+    return new Promise((resolve) => {
+        https.get(url, (res) => {
+            if (res.statusCode === 200) {
+                resolve(true);
+            }
+            else {
+                resolve(false);
+            }
+            res.destroy();
+        }).on("error", () => {
+            resolve(false);
+        });
+    });
 }
 /**
  * Extracts YouTube video ID from a URL
@@ -85,6 +86,112 @@ function extractYouTubeId(url) {
     const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
     const match = url.match(regExp);
     return (match && match[2].length === 11) ? match[2] : null;
+}
+/**
+ * Get the best available YouTube thumbnail URL
+ * @param {string} videoId - The YouTube video ID
+ * @return {Promise<string>} The best available thumbnail URL
+ */
+async function getBestYouTubeThumbnail(videoId) {
+    // Try different thumbnail qualities in order of preference
+    const thumbnailFormats = [
+        `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+        `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
+        `https://i.ytimg.com/vi/${videoId}/default.jpg`
+    ];
+    for (const url of thumbnailFormats) {
+        if (await isUrlAccessible(url)) {
+            console.log(`[DEBUG] Selected thumbnail URL: ${url}`);
+            return url;
+        }
+    }
+    // Default to standard quality which almost always exists
+    return `https://i.ytimg.com/vi/${videoId}/default.jpg`;
+}
+/**
+ * Extract basic metadata from a YouTube URL
+ * @param {string} url - The YouTube URL
+ * @return {Promise<VideoMetadata>} The extracted metadata
+ */
+async function extractYouTubeBasicMetadata(url) {
+    try {
+        console.log(`[DEBUG] Extracting basic metadata for YouTube URL: ${url}`);
+        // Extract the video ID
+        const videoId = extractYouTubeId(url);
+        if (!videoId) {
+            throw new Error("Could not extract YouTube video ID");
+        }
+        console.log(`[DEBUG] Extracted YouTube ID: ${videoId}`);
+        // Get the best available thumbnail URL
+        const thumbnailUrl = await getBestYouTubeThumbnail(videoId);
+        // Try to get basic metadata from oEmbed API
+        const oEmbedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+        console.log(`[DEBUG] Fetching oEmbed data from: ${oEmbedUrl}`);
+        try {
+            const oEmbedData = await new Promise((resolve, reject) => {
+                https.get(oEmbedUrl, (response) => {
+                    if (response.statusCode !== 200) {
+                        reject(new Error(`Failed to fetch oEmbed data: ${response.statusCode}`));
+                        return;
+                    }
+                    let data = '';
+                    response.on('data', (chunk) => {
+                        data += chunk;
+                    });
+                    response.on('end', () => {
+                        try {
+                            resolve(JSON.parse(data));
+                        }
+                        catch (error) {
+                            reject(error);
+                        }
+                    });
+                }).on('error', (err) => {
+                    reject(err);
+                });
+            });
+            console.log(`[DEBUG] Successfully extracted oEmbed data for ${videoId}`);
+            // Return the metadata from oEmbed
+            return {
+                title: oEmbedData.title || "YouTube Video",
+                description: oEmbedData.description || `Video by ${oEmbedData.author_name || "YouTube creator"}`,
+                duration: 0,
+                webpage_url: url,
+                thumbnail: thumbnailUrl,
+                uploader: oEmbedData.author_name || "Unknown",
+                upload_date: undefined,
+                tags: [],
+            };
+        }
+        catch (oEmbedError) {
+            console.error(`[ERROR] Failed to fetch oEmbed data: ${oEmbedError}`);
+            // If oEmbed fails, return minimal metadata with just the video ID and thumbnail
+            return {
+                title: `YouTube Video (${videoId})`,
+                description: "Basic metadata extracted from URL. Please edit manually for more details.",
+                duration: 0,
+                webpage_url: url,
+                thumbnail: thumbnailUrl,
+                uploader: "Unknown",
+                upload_date: undefined,
+                tags: [],
+            };
+        }
+    }
+    catch (error) {
+        console.error(`[ERROR] Failed to extract basic YouTube metadata:`, error);
+        // Return minimal metadata with error information
+        return {
+            title: "YouTube Video",
+            description: "Failed to extract metadata. Please edit manually.",
+            duration: 0,
+            webpage_url: url,
+            thumbnail: "",
+            uploader: "Unknown",
+            enrichmentFailed: true,
+            errorMessage: error instanceof Error ? error.message : "Unknown error",
+        };
+    }
 }
 /**
  * Determines the source type based on the URL
@@ -106,71 +213,124 @@ function determineSourceType(url) {
     }
 }
 /**
+ * Extract basic metadata from a video URL
+ * @param {string} url - The video URL
+ * @return {Promise<VideoMetadata>} The extracted metadata
+ */
+async function extractBasicMetadata(url) {
+    try {
+        console.log(`[DEBUG] Starting metadata extraction for URL: ${url}`);
+        // Determine the source type
+        const sourceType = determineSourceType(url);
+        console.log(`[DEBUG] Detected source type: ${sourceType}`);
+        // Extract metadata based on source type
+        if (sourceType === "youtube") {
+            return await extractYouTubeBasicMetadata(url);
+        }
+        else {
+            // For non-YouTube videos, return minimal metadata
+            return {
+                title: "Video",
+                description: "Non-YouTube video. Please edit metadata manually.",
+                duration: 0,
+                webpage_url: url,
+                thumbnail: "",
+                uploader: "Unknown",
+                enrichmentFailed: true,
+                errorMessage: "Only YouTube videos are supported for automatic metadata extraction",
+            };
+        }
+    }
+    catch (error) {
+        console.error(`[ERROR] Error extracting metadata for ${url}:`, error);
+        return {
+            title: "Video",
+            description: "Failed to extract metadata. Please edit manually.",
+            duration: 0,
+            webpage_url: url,
+            thumbnail: "",
+            uploader: "Unknown",
+            enrichmentFailed: true,
+            errorMessage: error instanceof Error ? error.message : "Unknown error",
+        };
+    }
+}
+/**
  * Cloud function that extracts metadata from a video URL and saves it to Firestore
  */
-exports.enrichVideoMetadata = functions.firestore
+exports.enrichVideoMetadata = functions
+    .runWith(runtimeOpts)
+    .firestore
     .document("videos/{videoId}")
-    .onCreate(async (snapshot, context) => {
-    const videoData = snapshot.data();
+    .onWrite(async (change, context) => {
+    // If the document was deleted, do nothing
+    if (!change.after.exists) {
+        return null;
+    }
+    const videoData = change.after.data();
     const videoId = context.params.videoId;
-    // Skip if no URL is provided
+    console.log(`[DEBUG] Function triggered for video ${videoId}`);
+    // Only process if metadataStatus is 'pending' (initial creation or reset)
+    if (videoData.metadataStatus && videoData.metadataStatus !== "pending") {
+        console.log(`[DEBUG] Video ${videoId} metadataStatus is '${videoData.metadataStatus}', skipping.`);
+        return null;
+    }
+    // Skip if no source URL
     if (!videoData.sourceUrl) {
-        console.log("No source URL provided for video:", videoId);
+        console.log(`[ERROR] No source URL provided for video: ${videoId}`);
+        const errorUpdateData = sanitizeObject({
+            metadataStatus: "failed",
+            enrichmentFailed: true,
+            enrichmentError: "No source URL provided",
+        });
+        await db.collection("videos").doc(videoId).update(errorUpdateData);
         return null;
     }
     try {
-        console.log(`Extracting metadata for video ${videoId} from URL: ${videoData.sourceUrl}`);
-        // Extract metadata
-        const metadata = await extractVideoMetadata(videoData.sourceUrl);
+        console.log(`[DEBUG] Extracting metadata for video ${videoId} from URL: ${videoData.sourceUrl}`);
+        // Mark as processing immediately to avoid duplicate triggers
+        await db.collection("videos").doc(videoId).update({ metadataStatus: "processing" });
+        // Extract basic metadata
+        const metadata = await extractBasicMetadata(videoData.sourceUrl);
         // Determine source type and ID if not already set
         const sourceType = videoData.sourceType || determineSourceType(videoData.sourceUrl);
         let sourceId = videoData.sourceId;
         if (!sourceId && sourceType === "youtube") {
             sourceId = extractYouTubeId(videoData.sourceUrl) || "";
         }
-        // Prepare data to update in Firestore
         const updateData = {
-            title: videoData.title || metadata.title,
-            description: videoData.description || metadata.description,
+            metadataStatus: metadata.enrichmentFailed ? "failed" : "enriched",
+            title: videoData.title && videoData.title !== "Loading..." ? videoData.title : metadata.title,
+            description: videoData.description && videoData.description !== "Loading..." ? videoData.description : metadata.description,
             duration: videoData.duration || metadata.duration,
             sourceType,
             sourceId,
             thumbnailUrl: videoData.thumbnailUrl || metadata.thumbnail,
-            creator: videoData.creator || metadata.uploader,
+            creator: videoData.creator && videoData.creator !== "Loading..." ? videoData.creator : metadata.uploader,
             metadata: {
                 extractedAt: admin.firestore.FieldValue.serverTimestamp(),
                 raw: metadata,
             },
         };
-        // If metadata extraction failed, add the error info
         if (metadata.enrichmentFailed) {
             updateData.enrichmentFailed = true;
             updateData.enrichmentError = metadata.errorMessage;
         }
-        // Add publication date if available
-        if (metadata.upload_date) {
-            // Convert YYYYMMDD format to ISO string
-            const year = metadata.upload_date.substring(0, 4);
-            const month = metadata.upload_date.substring(4, 6);
-            const day = metadata.upload_date.substring(6, 8);
-            updateData.publicationDate = `${year}-${month}-${day}`;
-        }
-        // Add tags if available and not already set
-        if (metadata.tags && metadata.tags.length > 0 && (!videoData.tags || videoData.tags.length === 0)) {
-            updateData.tags = metadata.tags.slice(0, 20); // Limit to 20 tags
-        }
-        // Update the video document with the extracted metadata
-        await db.collection("videos").doc(videoId).update(updateData);
-        console.log(`Successfully enriched metadata for video ${videoId}`);
+        // Sanitize the update data to remove undefined values
+        const sanitizedUpdateData = sanitizeObject(updateData);
+        await db.collection("videos").doc(videoId).update(sanitizedUpdateData);
+        console.log(`[DEBUG] Successfully updated video ${videoId} with ${metadata.enrichmentFailed ? "failed" : "enriched"} metadata`);
         return null;
     }
     catch (error) {
-        console.error(`Error enriching metadata for video ${videoId}:`, error);
-        // Update the document with the error information
-        await db.collection("videos").doc(videoId).update({
+        console.error(`[ERROR] Error enriching metadata for video ${videoId}:`, error);
+        // Sanitize the error update data as well
+        const errorUpdateData = sanitizeObject({
+            metadataStatus: "failed",
             enrichmentFailed: true,
             enrichmentError: error instanceof Error ? error.message : "Unknown error",
         });
+        await db.collection("videos").doc(videoId).update(errorUpdateData);
         return null;
     }
 });

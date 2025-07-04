@@ -24,5 +24,10 @@ dist-ssr
 *.sw?
 .env
 
+# Environment files with secrets
+public/environment.js
+.env.local
+.env.production
+
 # Project specific
 /docs

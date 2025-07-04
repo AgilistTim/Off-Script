@@ -35,13 +35,13 @@ const getFirebaseConfig = () => {
   
   // Fallback to environment variables (for server-side or development)
   return {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "***REMOVED***",
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "***REMOVED***",
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "***REMOVED***",
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "***REMOVED***.firebasestorage.app",
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "***REMOVED***",
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:***REMOVED***:web:b5eac19f0f81d6ef2c3dee",
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "***REMOVED***",
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "YOUR_API_KEY_HERE",
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "your-project.firebaseapp.com",
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "your-project-id",
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "your-project.firebasestorage.app",
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "000000000000",
+    appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:000000000000:web:your-app-id",
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-YOUR-MEASUREMENT-ID",
   };
 };
 
