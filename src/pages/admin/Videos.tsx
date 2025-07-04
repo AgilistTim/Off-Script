@@ -37,7 +37,6 @@ const AdminVideos: React.FC = () => {
   const [addVideoModalOpen, setAddVideoModalOpen] = useState<boolean>(false);
   const [bulkImportModalOpen, setBulkImportModalOpen] = useState<boolean>(false);
   const [editVideoModalOpen, setEditVideoModalOpen] = useState<boolean>(false);
-  const [categories, setCategories] = useState<string[]>([]);
 
   // Categories for filtering
   const categories = [
