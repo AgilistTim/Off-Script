@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, MessageCircle, User, Shield, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
@@ -6,6 +6,10 @@ import { User as UserType } from '../models/User';
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+  const profileButtonRef = useRef<HTMLButtonElement>(null);
+  
   const location = useLocation();
   const navigate = useNavigate();
   const { currentUser, userData, logout } = useAuth();
@@ -17,6 +21,7 @@ const Header: React.FC = () => {
     try {
       await logout();
       navigate('/login');
+      setIsProfileMenuOpen(false);
     } catch (error) {
       console.error('Failed to log out', error);
     }
@@ -31,6 +36,25 @@ const Header: React.FC = () => {
       }
     }
   };
+  
+  // Close profile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        profileMenuRef.current && 
+        !profileMenuRef.current.contains(event.target as Node) &&
+        profileButtonRef.current &&
+        !profileButtonRef.current.contains(event.target as Node)
+      ) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   return (
     <header className="bg-white/95 backdrop-blur-sm border-b border-gray-200 sticky top-0 z-50">
@@ -90,8 +114,12 @@ const Header: React.FC = () => {
               <Search className="h-5 w-5" />
             </Link>
             {currentUser ? (
-              <div className="relative group">
-                <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors flex items-center">
+              <div className="relative">
+                <button 
+                  ref={profileButtonRef}
+                  onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
+                  className="p-2 text-gray-400 hover:text-gray-600 transition-colors flex items-center"
+                >
                   {currentUser.photoURL ? (
                     <img 
                       src={currentUser.photoURL} 
@@ -102,20 +130,26 @@ const Header: React.FC = () => {
                     <User className="h-5 w-5" />
                   )}
                 </button>
-                <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-10 hidden group-hover:block">
-                  <Link 
-                    to="/profile" 
-                    className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                {isProfileMenuOpen && (
+                  <div 
+                    ref={profileMenuRef}
+                    className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg py-1 z-10"
                   >
-                    Profile
-                  </Link>
-                  <button 
-                    onClick={handleLogout}
-                    className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-                  >
-                    Logout
-                  </button>
-                </div>
+                    <Link 
+                      to="/profile" 
+                      className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      onClick={() => setIsProfileMenuOpen(false)}
+                    >
+                      Profile
+                    </Link>
+                    <button 
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                      Logout
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <Link to="/login" className="flex items-center px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-md transition-colors">

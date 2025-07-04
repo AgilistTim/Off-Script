@@ -19,7 +19,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, displayName: string) => Promise<FirebaseUser>;
   signIn: (email: string, password: string) => Promise<FirebaseUser>;
   logout: () => Promise<void>;
-  refreshUserData: () => Promise<void>;
+  refreshUserData: () => Promise<User | null>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -50,8 +50,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Refresh user data
   const refreshUserData = async () => {
     if (currentUser) {
-      await fetchUserData(currentUser);
+      try {
+        const userData = await getUserById(currentUser.uid);
+        setUserData(userData);
+        return userData;
+      } catch (error) {
+        console.error('Error refreshing user data:', error);
+        return null;
+      }
     }
+    return null;
   };
 
   // Create a new user with email and password

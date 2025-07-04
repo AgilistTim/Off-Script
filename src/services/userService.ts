@@ -83,7 +83,23 @@ export const getUserCount = async (): Promise<number> => {
 export const updateUserProfile = async (uid: string, profile: Partial<UserProfile>): Promise<void> => {
   try {
     const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, { profile: profile });
+    
+    // Get current user data first
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      throw new Error('User document does not exist');
+    }
+    
+    const userData = userDoc.data();
+    const currentProfile = userData.profile || {};
+    
+    // Update only the profile field, preserving existing data
+    await updateDoc(userRef, { 
+      profile: {
+        ...currentProfile,
+        ...profile
+      } 
+    });
   } catch (error) {
     console.error('Error updating user profile:', error);
     throw error;
@@ -116,7 +132,23 @@ export const deleteUser = async (uid: string): Promise<void> => {
 export const updateUserPreferences = async (uid: string, preferences: Partial<UserPreferences>): Promise<void> => {
   try {
     const userRef = doc(db, 'users', uid);
-    await updateDoc(userRef, { preferences: preferences });
+    
+    // Get current user data first
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      throw new Error('User document does not exist');
+    }
+    
+    const userData = userDoc.data();
+    const currentPreferences = userData.preferences || {};
+    
+    // Update only the preferences field, preserving existing data
+    await updateDoc(userRef, { 
+      preferences: {
+        ...currentPreferences,
+        ...preferences
+      } 
+    });
   } catch (error) {
     console.error('Error updating user preferences:', error);
     throw error;

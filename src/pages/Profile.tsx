@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../services/firebase';
 import { updateUserProfile, updateUserPreferences } from '../services/userService';
 import { UserProfile, UserPreferences } from '../models/User';
 import { motion } from 'framer-motion';
@@ -7,6 +9,9 @@ import { motion } from 'framer-motion';
 const Profile: React.FC = () => {
   const { currentUser, userData, refreshUserData } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [isAddingInterest, setIsAddingInterest] = useState(false);
+  const [isAddingCareerGoal, setIsAddingCareerGoal] = useState(false);
+  const [isAddingSkill, setIsAddingSkill] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
   
   // Profile form state
@@ -31,18 +36,50 @@ const Profile: React.FC = () => {
   const [newCareerGoal, setNewCareerGoal] = useState('');
   const [newSkill, setNewSkill] = useState('');
   
+  // Convert object-like arrays to real arrays
+  const objectToArray = (obj: any): string[] => {
+    if (!obj) return [];
+    if (Array.isArray(obj)) return obj;
+    
+    // Handle object with numeric keys like {0: "value", 1: "value2"}
+    if (typeof obj === 'object') {
+      return Object.values(obj);
+    }
+    
+    return [];
+  };
+  
   // Load user data when component mounts
   useEffect(() => {
     if (userData) {
+      console.log("Loading user data:", userData);
       // Load profile data
       if (userData.profile) {
+        console.log("Profile data:", userData.profile);
+        
+        // Convert object-like arrays to real arrays
+        const interests = objectToArray(userData.profile.interests);
+        const careerGoals = objectToArray(userData.profile.careerGoals);
+        const skills = objectToArray(userData.profile.skills);
+        
+        console.log("Converted arrays:", { interests, careerGoals, skills });
+        
         setProfile({
           bio: userData.profile.bio || '',
           school: userData.profile.school || '',
           grade: userData.profile.grade || '',
-          interests: userData.profile.interests || [],
-          careerGoals: userData.profile.careerGoals || [],
-          skills: userData.profile.skills || []
+          interests,
+          careerGoals,
+          skills
+        });
+        
+        console.log("Profile state after setting:", {
+          bio: userData.profile.bio || '',
+          school: userData.profile.school || '',
+          grade: userData.profile.grade || '',
+          interests,
+          careerGoals,
+          skills
         });
       }
       
@@ -66,7 +103,20 @@ const Profile: React.FC = () => {
     try {
       setLoading(true);
       await updateUserProfile(currentUser.uid, profile);
-      await refreshUserData();
+      const refreshedData = await refreshUserData();
+      
+      if (refreshedData && refreshedData.profile) {
+        // Update local state with the refreshed data
+        setProfile({
+          bio: refreshedData.profile.bio || '',
+          school: refreshedData.profile.school || '',
+          grade: refreshedData.profile.grade || '',
+          interests: Array.isArray(refreshedData.profile.interests) ? refreshedData.profile.interests : [],
+          careerGoals: Array.isArray(refreshedData.profile.careerGoals) ? refreshedData.profile.careerGoals : [],
+          skills: Array.isArray(refreshedData.profile.skills) ? refreshedData.profile.skills : []
+        });
+      }
+      
       setMessage({ text: 'Profile updated successfully!', type: 'success' });
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -90,7 +140,17 @@ const Profile: React.FC = () => {
     try {
       setLoading(true);
       await updateUserPreferences(currentUser.uid, preferences);
-      await refreshUserData();
+      const refreshedData = await refreshUserData();
+      
+      if (refreshedData && refreshedData.preferences) {
+        // Update local state with the refreshed data
+        setPreferences({
+          theme: refreshedData.preferences.theme || 'system',
+          notifications: refreshedData.preferences.notifications !== undefined ? refreshedData.preferences.notifications : true,
+          emailUpdates: refreshedData.preferences.emailUpdates !== undefined ? refreshedData.preferences.emailUpdates : true
+        });
+      }
+      
       setMessage({ text: 'Preferences updated successfully!', type: 'success' });
     } catch (error) {
       console.error('Error updating preferences:', error);
@@ -106,60 +166,248 @@ const Profile: React.FC = () => {
   };
   
   // Add a new interest
-  const addInterest = () => {
-    if (newInterest.trim() && !profile.interests?.includes(newInterest.trim())) {
+  const addInterest = async () => {
+    if (newInterest.trim()) {
+      const currentInterests = objectToArray(profile.interests);
+      
+      // Check if interest already exists
+      if (currentInterests.includes(newInterest.trim())) {
+        return;
+      }
+      
+      const updatedInterests = [...currentInterests, newInterest.trim()];
+      
+      // Update local state
       setProfile({
         ...profile,
-        interests: [...(profile.interests || []), newInterest.trim()]
+        interests: updatedInterests
       });
+      
+      // Save to Firebase
+      if (currentUser) {
+        try {
+          setIsAddingInterest(true);
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          await updateDoc(userDocRef, {
+            'profile.interests': updatedInterests
+          });
+          await refreshUserData();
+          console.log("Added interest and saved to Firebase:", newInterest.trim());
+        } catch (error) {
+          console.error("Error saving interest to Firebase:", error);
+          setMessage({ text: 'Failed to save interest', type: 'error' });
+        } finally {
+          setIsAddingInterest(false);
+        }
+      }
+      
       setNewInterest('');
     }
   };
   
   // Remove an interest
-  const removeInterest = (interest: string) => {
+  const removeInterest = async (interest: string) => {
+    const currentInterests = objectToArray(profile.interests);
+    const updatedInterests = currentInterests.filter(i => i !== interest);
+    
+    // Update local state
     setProfile({
       ...profile,
-      interests: profile.interests?.filter(i => i !== interest) || []
+      interests: updatedInterests
     });
+    
+    // Save to Firebase
+    if (currentUser) {
+      try {
+        setLoading(true);
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userDocRef, {
+          'profile.interests': updatedInterests
+        });
+        await refreshUserData();
+        console.log("Removed interest and saved to Firebase:", interest);
+      } catch (error) {
+        console.error("Error removing interest from Firebase:", error);
+        setMessage({ text: 'Failed to remove interest', type: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    }
   };
   
   // Add a new career goal
-  const addCareerGoal = () => {
-    if (newCareerGoal.trim() && !profile.careerGoals?.includes(newCareerGoal.trim())) {
+  const addCareerGoal = async () => {
+    if (newCareerGoal.trim()) {
+      const currentCareerGoals = objectToArray(profile.careerGoals);
+      
+      // Check if career goal already exists
+      if (currentCareerGoals.includes(newCareerGoal.trim())) {
+        return;
+      }
+      
+      const updatedCareerGoals = [...currentCareerGoals, newCareerGoal.trim()];
+      
+      // Update local state
       setProfile({
         ...profile,
-        careerGoals: [...(profile.careerGoals || []), newCareerGoal.trim()]
+        careerGoals: updatedCareerGoals
       });
+      
+      // Save to Firebase
+      if (currentUser) {
+        try {
+          setIsAddingCareerGoal(true);
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          await updateDoc(userDocRef, {
+            'profile.careerGoals': updatedCareerGoals
+          });
+          await refreshUserData();
+          console.log("Added career goal and saved to Firebase:", newCareerGoal.trim());
+        } catch (error) {
+          console.error("Error saving career goal to Firebase:", error);
+          setMessage({ text: 'Failed to save career goal', type: 'error' });
+        } finally {
+          setIsAddingCareerGoal(false);
+        }
+      }
+      
       setNewCareerGoal('');
     }
   };
   
   // Remove a career goal
-  const removeCareerGoal = (goal: string) => {
+  const removeCareerGoal = async (goal: string) => {
+    const currentCareerGoals = objectToArray(profile.careerGoals);
+    const updatedCareerGoals = currentCareerGoals.filter(g => g !== goal);
+    
+    // Update local state
     setProfile({
       ...profile,
-      careerGoals: profile.careerGoals?.filter(g => g !== goal) || []
+      careerGoals: updatedCareerGoals
     });
+    
+    // Save to Firebase
+    if (currentUser) {
+      try {
+        setLoading(true);
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userDocRef, {
+          'profile.careerGoals': updatedCareerGoals
+        });
+        await refreshUserData();
+        console.log("Removed career goal and saved to Firebase:", goal);
+      } catch (error) {
+        console.error("Error removing career goal from Firebase:", error);
+        setMessage({ text: 'Failed to remove career goal', type: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    }
   };
   
   // Add a new skill
-  const addSkill = () => {
-    if (newSkill.trim() && !profile.skills?.includes(newSkill.trim())) {
+  const addSkill = async () => {
+    if (newSkill.trim()) {
+      const currentSkills = objectToArray(profile.skills);
+      
+      // Check if skill already exists
+      if (currentSkills.includes(newSkill.trim())) {
+        return;
+      }
+      
+      const updatedSkills = [...currentSkills, newSkill.trim()];
+      
+      // Update local state
       setProfile({
         ...profile,
-        skills: [...(profile.skills || []), newSkill.trim()]
+        skills: updatedSkills
       });
+      
+      // Save to Firebase
+      if (currentUser) {
+        try {
+          setIsAddingSkill(true);
+          const userDocRef = doc(db, 'users', currentUser.uid);
+          await updateDoc(userDocRef, {
+            'profile.skills': updatedSkills
+          });
+          await refreshUserData();
+          console.log("Added skill and saved to Firebase:", newSkill.trim());
+        } catch (error) {
+          console.error("Error saving skill to Firebase:", error);
+          setMessage({ text: 'Failed to save skill', type: 'error' });
+        } finally {
+          setIsAddingSkill(false);
+        }
+      }
+      
       setNewSkill('');
     }
   };
   
   // Remove a skill
-  const removeSkill = (skill: string) => {
+  const removeSkill = async (skill: string) => {
+    const currentSkills = objectToArray(profile.skills);
+    const updatedSkills = currentSkills.filter(s => s !== skill);
+    
+    // Update local state
     setProfile({
       ...profile,
-      skills: profile.skills?.filter(s => s !== skill) || []
+      skills: updatedSkills
     });
+    
+    // Save to Firebase
+    if (currentUser) {
+      try {
+        setLoading(true);
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        await updateDoc(userDocRef, {
+          'profile.skills': updatedSkills
+        });
+        await refreshUserData();
+        console.log("Removed skill and saved to Firebase:", skill);
+      } catch (error) {
+        console.error("Error removing skill from Firebase:", error);
+        setMessage({ text: 'Failed to remove skill', type: 'error' });
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+  
+  // Save profile changes
+  const saveProfile = async () => {
+    if (!currentUser) return;
+    
+    setLoading(true);
+    
+    try {
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      
+      // Ensure arrays are properly initialized
+      const profileToSave = {
+        ...profile,
+        interests: objectToArray(profile.interests),
+        careerGoals: objectToArray(profile.careerGoals),
+        skills: objectToArray(profile.skills)
+      };
+      
+      console.log("Saving profile data:", profileToSave);
+      
+      await updateDoc(userDocRef, {
+        profile: profileToSave
+      });
+      
+      // Update user data in context
+      await refreshUserData();
+      
+      setMessage({ text: 'Profile updated successfully', type: 'success' });
+    } catch (error) {
+      console.error('Error updating profile:', error);
+      setMessage({ text: 'Failed to update profile', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
   };
   
   if (!currentUser) {
@@ -229,33 +477,39 @@ const Profile: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium mb-1">Interests</label>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {profile.interests?.map((interest, index) => (
-                    <div key={index} className="bg-blue-100 dark:bg-blue-900 px-3 py-1 rounded-full flex items-center">
-                      <span>{interest}</span>
-                      <button 
-                        type="button" 
-                        onClick={() => removeInterest(interest)}
-                        className="ml-2 text-red-500 hover:text-red-700"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  ))}
+                  {objectToArray(profile.interests).length > 0 ? (
+                    objectToArray(profile.interests).map((interest, index) => (
+                      <div key={index} className="bg-blue-100 dark:bg-blue-900 px-3 py-1 rounded-full flex items-center">
+                        <span>{interest}</span>
+                        <button 
+                          type="button" 
+                          onClick={() => removeInterest(interest)}
+                          className="ml-2 text-red-500 hover:text-red-700"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-gray-500 text-sm italic">No interests added yet</div>
+                  )}
                 </div>
                 <div className="flex">
                   <input
                     type="text"
                     value={newInterest}
                     onChange={(e) => setNewInterest(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addInterest()}
                     className="flex-1 p-2 border rounded-l dark:bg-gray-700 dark:border-gray-600"
                     placeholder="Add an interest"
                   />
                   <button
                     type="button"
                     onClick={addInterest}
-                    className="bg-blue-500 text-white px-4 py-2 rounded-r hover:bg-blue-600"
+                    disabled={isAddingInterest}
+                    className="bg-blue-500 text-white px-4 py-2 rounded-r hover:bg-blue-600 disabled:bg-blue-300"
                   >
-                    Add
+                    {isAddingInterest ? 'Adding...' : 'Add'}
                   </button>
                 </div>
               </div>
@@ -264,33 +518,39 @@ const Profile: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium mb-1">Career Goals</label>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {profile.careerGoals?.map((goal, index) => (
-                    <div key={index} className="bg-green-100 dark:bg-green-900 px-3 py-1 rounded-full flex items-center">
-                      <span>{goal}</span>
-                      <button 
-                        type="button" 
-                        onClick={() => removeCareerGoal(goal)}
-                        className="ml-2 text-red-500 hover:text-red-700"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  ))}
+                  {objectToArray(profile.careerGoals).length > 0 ? (
+                    objectToArray(profile.careerGoals).map((goal, index) => (
+                      <div key={index} className="bg-green-100 dark:bg-green-900 px-3 py-1 rounded-full flex items-center">
+                        <span>{goal}</span>
+                        <button 
+                          type="button" 
+                          onClick={() => removeCareerGoal(goal)}
+                          className="ml-2 text-red-500 hover:text-red-700"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-gray-500 text-sm italic">No career goals added yet</div>
+                  )}
                 </div>
                 <div className="flex">
                   <input
                     type="text"
                     value={newCareerGoal}
                     onChange={(e) => setNewCareerGoal(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addCareerGoal()}
                     className="flex-1 p-2 border rounded-l dark:bg-gray-700 dark:border-gray-600"
                     placeholder="Add a career goal"
                   />
                   <button
                     type="button"
                     onClick={addCareerGoal}
-                    className="bg-green-500 text-white px-4 py-2 rounded-r hover:bg-green-600"
+                    disabled={isAddingCareerGoal}
+                    className="bg-green-500 text-white px-4 py-2 rounded-r hover:bg-green-600 disabled:bg-green-300"
                   >
-                    Add
+                    {isAddingCareerGoal ? 'Adding...' : 'Add'}
                   </button>
                 </div>
               </div>
@@ -299,33 +559,39 @@ const Profile: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium mb-1">Skills</label>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {profile.skills?.map((skill, index) => (
-                    <div key={index} className="bg-purple-100 dark:bg-purple-900 px-3 py-1 rounded-full flex items-center">
-                      <span>{skill}</span>
-                      <button 
-                        type="button" 
-                        onClick={() => removeSkill(skill)}
-                        className="ml-2 text-red-500 hover:text-red-700"
-                      >
-                        &times;
-                      </button>
-                    </div>
-                  ))}
+                  {objectToArray(profile.skills).length > 0 ? (
+                    objectToArray(profile.skills).map((skill, index) => (
+                      <div key={index} className="bg-purple-100 dark:bg-purple-900 px-3 py-1 rounded-full flex items-center">
+                        <span>{skill}</span>
+                        <button 
+                          type="button" 
+                          onClick={() => removeSkill(skill)}
+                          className="ml-2 text-red-500 hover:text-red-700"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-gray-500 text-sm italic">No skills added yet</div>
+                  )}
                 </div>
                 <div className="flex">
                   <input
                     type="text"
                     value={newSkill}
                     onChange={(e) => setNewSkill(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && addSkill()}
                     className="flex-1 p-2 border rounded-l dark:bg-gray-700 dark:border-gray-600"
                     placeholder="Add a skill"
                   />
                   <button
                     type="button"
                     onClick={addSkill}
-                    className="bg-purple-500 text-white px-4 py-2 rounded-r hover:bg-purple-600"
+                    disabled={isAddingSkill}
+                    className="bg-purple-500 text-white px-4 py-2 rounded-r hover:bg-purple-600 disabled:bg-purple-300"
                   >
-                    Add
+                    {isAddingSkill ? 'Adding...' : 'Add'}
                   </button>
                 </div>
               </div>
