@@ -20,9 +20,6 @@ interface VideoMetadata {
   uploader: string;
   upload_date?: string;
   tags?: string[];
-  subtitles?: Record<string, unknown>;
-  categories?: string[];
-  view_count?: number;
   enrichmentFailed?: boolean;
   errorMessage?: string;
 }
@@ -48,30 +45,6 @@ async function isUrlAccessible(url: string): Promise<boolean> {
 }
 
 /**
- * Get a valid YouTube thumbnail URL
- * @param {string} videoId - The YouTube video ID
- * @return {Promise<string>} A valid thumbnail URL or empty string
- */
-async function getValidYouTubeThumbnail(videoId: string): Promise<string> {
-  // Try different thumbnail qualities in order
-  const thumbnailFormats = [
-    `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
-    `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
-    `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
-    `https://i.ytimg.com/vi/${videoId}/default.jpg`
-  ];
-
-  for (const url of thumbnailFormats) {
-    if (await isUrlAccessible(url)) {
-      return url;
-    }
-  }
-  
-  // Default to hqdefault which almost always exists
-  return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-}
-
-/**
  * Extracts YouTube video ID from a URL
  * @param {string} url - The YouTube URL
  * @return {string|null} The extracted video ID or null if not found
@@ -80,6 +53,124 @@ function extractYouTubeId(url: string): string | null {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
   const match = url.match(regExp);
   return (match && match[2].length === 11) ? match[2] : null;
+}
+
+/**
+ * Get the best available YouTube thumbnail URL
+ * @param {string} videoId - The YouTube video ID
+ * @return {Promise<string>} The best available thumbnail URL
+ */
+async function getBestYouTubeThumbnail(videoId: string): Promise<string> {
+  // Try different thumbnail qualities in order of preference
+  const thumbnailFormats = [
+    `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+    `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
+    `https://i.ytimg.com/vi/${videoId}/default.jpg`
+  ];
+
+  for (const url of thumbnailFormats) {
+    if (await isUrlAccessible(url)) {
+      console.log(`[DEBUG] Selected thumbnail URL: ${url}`);
+      return url;
+    }
+  }
+  
+  // Default to standard quality which almost always exists
+  return `https://i.ytimg.com/vi/${videoId}/default.jpg`;
+}
+
+/**
+ * Extract basic metadata from a YouTube URL
+ * @param {string} url - The YouTube URL
+ * @return {Promise<VideoMetadata>} The extracted metadata
+ */
+async function extractYouTubeBasicMetadata(url: string): Promise<VideoMetadata> {
+  try {
+    console.log(`[DEBUG] Extracting basic metadata for YouTube URL: ${url}`);
+    
+    // Extract the video ID
+    const videoId = extractYouTubeId(url);
+    if (!videoId) {
+      throw new Error("Could not extract YouTube video ID");
+    }
+    
+    console.log(`[DEBUG] Extracted YouTube ID: ${videoId}`);
+    
+    // Get the best available thumbnail URL
+    const thumbnailUrl = await getBestYouTubeThumbnail(videoId);
+    
+    // Try to get basic metadata from oEmbed API
+    const oEmbedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
+    console.log(`[DEBUG] Fetching oEmbed data from: ${oEmbedUrl}`);
+    
+    try {
+      const oEmbedData = await new Promise<any>((resolve, reject) => {
+        https.get(oEmbedUrl, (response) => {
+          if (response.statusCode !== 200) {
+            reject(new Error(`Failed to fetch oEmbed data: ${response.statusCode}`));
+            return;
+          }
+          
+          let data = '';
+          response.on('data', (chunk) => {
+            data += chunk;
+          });
+          
+          response.on('end', () => {
+            try {
+              resolve(JSON.parse(data));
+            } catch (error) {
+              reject(error);
+            }
+          });
+        }).on('error', (err) => {
+          reject(err);
+        });
+      });
+      
+      console.log(`[DEBUG] Successfully extracted oEmbed data for ${videoId}`);
+      
+      // Return the metadata from oEmbed
+      return {
+        title: oEmbedData.title || "YouTube Video",
+        description: oEmbedData.description || `Video by ${oEmbedData.author_name || "YouTube creator"}`,
+        duration: 0, // oEmbed doesn't provide duration
+        webpage_url: url,
+        thumbnail: thumbnailUrl,
+        uploader: oEmbedData.author_name || "Unknown",
+        upload_date: undefined,
+        tags: [],
+      };
+    } catch (oEmbedError) {
+      console.error(`[ERROR] Failed to fetch oEmbed data: ${oEmbedError}`);
+      
+      // If oEmbed fails, return minimal metadata with just the video ID and thumbnail
+      return {
+        title: `YouTube Video (${videoId})`,
+        description: "Basic metadata extracted from URL. Please edit manually for more details.",
+        duration: 0,
+        webpage_url: url,
+        thumbnail: thumbnailUrl,
+        uploader: "Unknown",
+        upload_date: undefined,
+        tags: [],
+      };
+    }
+  } catch (error) {
+    console.error(`[ERROR] Failed to extract basic YouTube metadata:`, error);
+    
+    // Return minimal metadata with error information
+    return {
+      title: "YouTube Video",
+      description: "Failed to extract metadata. Please edit manually.",
+      duration: 0,
+      webpage_url: url,
+      thumbnail: "",
+      uploader: "Unknown",
+      enrichmentFailed: true,
+      errorMessage: error instanceof Error ? error.message : "Unknown error",
+    };
+  }
 }
 
 /**
@@ -100,103 +191,11 @@ function determineSourceType(url: string): string {
 }
 
 /**
- * Extract YouTube metadata using oEmbed API
- * @param {string} url - The YouTube URL
- * @return {Promise<VideoMetadata>} The extracted metadata
- */
-async function extractYouTubeMetadata(url: string): Promise<VideoMetadata> {
-  try {
-    console.log(`[DEBUG] Extracting YouTube metadata for: ${url}`);
-    
-    // Extract the video ID
-    const videoId = extractYouTubeId(url);
-    if (!videoId) {
-      throw new Error("Could not extract YouTube video ID");
-    }
-    
-    console.log(`[DEBUG] Extracted YouTube ID: ${videoId}`);
-    
-    // Get a valid thumbnail URL
-    const thumbnailUrl = await getValidYouTubeThumbnail(videoId);
-    console.log(`[DEBUG] Using thumbnail URL: ${thumbnailUrl}`);
-    
-    // Get video info from oEmbed API (doesn't require API key)
-    const oEmbedUrl = `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`;
-    console.log(`[DEBUG] Fetching oEmbed data from: ${oEmbedUrl}`);
-    
-    const oEmbedData = await new Promise<any>((resolve, reject) => {
-      https.get(oEmbedUrl, (response) => {
-        if (response.statusCode !== 200) {
-          reject(new Error(`Failed to fetch oEmbed data: ${response.statusCode}`));
-          return;
-        }
-        
-        let data = '';
-        response.on('data', (chunk) => {
-          data += chunk;
-        });
-        
-        response.on('end', () => {
-          try {
-            resolve(JSON.parse(data));
-          } catch (error) {
-            reject(error);
-          }
-        });
-      }).on('error', (err) => {
-        reject(err);
-      });
-    });
-    
-    console.log(`[DEBUG] oEmbed data:`, JSON.stringify(oEmbedData));
-    
-    // Return the metadata
-    return {
-      title: oEmbedData.title || "YouTube Video",
-      description: oEmbedData.description || `Video by ${oEmbedData.author_name || "YouTube creator"}`,
-      duration: 0, // oEmbed doesn't provide duration
-      webpage_url: url,
-      thumbnail: thumbnailUrl,
-      uploader: oEmbedData.author_name || "Unknown",
-      upload_date: undefined,
-      tags: [],
-      subtitles: {},
-      categories: [],
-      view_count: 0,
-    };
-  } catch (error) {
-    console.error(`[ERROR] Failed to extract YouTube metadata:`, error);
-    
-    // Return minimal metadata with the thumbnail at least
-    try {
-      const videoId = extractYouTubeId(url);
-      if (videoId) {
-        const thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-        return {
-          title: "YouTube Video",
-          description: "Failed to extract metadata. Please edit manually.",
-          duration: 0,
-          webpage_url: url,
-          thumbnail: thumbnailUrl,
-          uploader: "Unknown",
-          enrichmentFailed: true,
-          errorMessage: error instanceof Error ? error.message : "Unknown error",
-        };
-      }
-    } catch (fallbackError) {
-      console.error(`[ERROR] Failed to extract minimal YouTube metadata:`, fallbackError);
-    }
-    
-    throw error;
-  }
-}
-
-/**
- * Extract video metadata based on source type
+ * Extract basic metadata from a video URL
  * @param {string} url - The video URL
  * @return {Promise<VideoMetadata>} The extracted metadata
  */
-async function extractVideoMetadata(url: string): Promise<VideoMetadata> {
+async function extractBasicMetadata(url: string): Promise<VideoMetadata> {
   try {
     console.log(`[DEBUG] Starting metadata extraction for URL: ${url}`);
     
@@ -206,7 +205,7 @@ async function extractVideoMetadata(url: string): Promise<VideoMetadata> {
     
     // Extract metadata based on source type
     if (sourceType === "youtube") {
-      return await extractYouTubeMetadata(url);
+      return await extractYouTubeBasicMetadata(url);
     } else {
       // For non-YouTube videos, return minimal metadata
       return {
@@ -224,12 +223,12 @@ async function extractVideoMetadata(url: string): Promise<VideoMetadata> {
     console.error(`[ERROR] Error extracting metadata for ${url}:`, error);
     
     return {
-      title: "",
-      description: "",
+      title: "Video",
+      description: "Failed to extract metadata. Please edit manually.",
       duration: 0,
       webpage_url: url,
       thumbnail: "",
-      uploader: "",
+      uploader: "Unknown",
       enrichmentFailed: true,
       errorMessage: error instanceof Error ? error.message : "Unknown error",
     };
@@ -248,7 +247,6 @@ export const enrichVideoMetadata = functions
     const videoId = context.params.videoId;
     
     console.log(`[DEBUG] Function triggered for video ${videoId}`);
-    console.log(`[DEBUG] Video data:`, JSON.stringify(videoData));
     
     // Skip if no URL is provided
     if (!videoData.sourceUrl) {
@@ -273,8 +271,8 @@ export const enrichVideoMetadata = functions
       });
       console.log(`[DEBUG] Updated status to 'processing' for video ${videoId}`);
       
-      // Extract metadata
-      const metadata = await extractVideoMetadata(videoData.sourceUrl);
+      // Extract basic metadata
+      const metadata = await extractBasicMetadata(videoData.sourceUrl);
       console.log(`[DEBUG] Metadata extraction complete for video ${videoId}`);
       
       // Determine source type and ID if not already set
@@ -302,27 +300,13 @@ export const enrichVideoMetadata = functions
         },
       };
 
-      console.log(`[DEBUG] Update data prepared for video ${videoId}:`, JSON.stringify(updateData));
+      console.log(`[DEBUG] Update data prepared for video ${videoId}`);
 
       // If metadata extraction failed, add the error info
       if (metadata.enrichmentFailed) {
         updateData.enrichmentFailed = true;
         updateData.enrichmentError = metadata.errorMessage;
         console.log(`[ERROR] Metadata enrichment failed for video ${videoId}: ${metadata.errorMessage}`);
-      }
-
-      // Add publication date if available
-      if (metadata.upload_date) {
-        // Convert YYYYMMDD format to ISO string
-        const year = metadata.upload_date.substring(0, 4);
-        const month = metadata.upload_date.substring(4, 6);
-        const day = metadata.upload_date.substring(6, 8);
-        updateData.publicationDate = `${year}-${month}-${day}`;
-      }
-
-      // Add tags if available and not already set
-      if (metadata.tags && metadata.tags.length > 0 && (!videoData.tags || videoData.tags.length === 0)) {
-        updateData.tags = metadata.tags.slice(0, 20); // Limit to 20 tags
       }
 
       // Update the video document with the extracted metadata
