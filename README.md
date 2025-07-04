@@ -89,12 +89,17 @@ This project uses Firebase for authentication and data storage. To set up Fireba
    - Copy the configuration values (apiKey, authDomain, etc.)
    - Add these values to your `.env` file as described in the "Getting Started" section
 
-4. Deploy Firestore security rules:
+4. Authorize your domain for authentication:
+   - Go to Firebase Console > Authentication > Settings > Authorized domains
+   - Add your domain (e.g., your-app.onrender.com) to the list of authorized domains
+   - This is required for OAuth operations like Google Sign-In to work correctly
+
+5. Deploy Firestore security rules:
    ```
    firebase deploy --only firestore:rules
    ```
 
-5. Populate initial data (optional):
+6. Populate initial data (optional):
    ```
    node scripts/populateFirestore.js
    ```
@@ -120,6 +125,36 @@ The application supports the following authentication methods:
 - Google Sign-In: One-click authentication with Google account
 
 User profiles are automatically created in Firestore when a user signs up or logs in for the first time.
+
+## Video Metadata Extraction
+
+The application uses Firebase Cloud Functions with yt-dlp to automatically extract metadata from video URLs. When an admin adds a new video URL:
+
+1. The video is saved to Firestore with basic information
+2. A Cloud Function is triggered that uses yt-dlp to extract detailed metadata
+3. The extracted metadata is saved back to Firestore
+4. The UI is updated to show the enriched metadata
+
+### Metadata Extraction Features
+
+- Extracts title, description, duration, thumbnail URL, uploader, upload date, tags, subtitles, and more
+- Works with YouTube, Vimeo, and other platforms supported by yt-dlp
+- No video downloading - only metadata is extracted
+- Error handling for failed extractions
+- Visual indicators in the admin UI to show extraction status
+
+### Deploying the Functions
+
+To deploy the Firebase functions:
+
+```bash
+# Install dependencies
+cd functions
+npm install
+
+# Deploy to Firebase
+npm run deploy
+```
 
 ## License
 
