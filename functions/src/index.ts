@@ -4,6 +4,7 @@ import * as youtubeDl from "youtube-dl-exec";
 import * as os from "os";
 import * as path from "path";
 import * as fs from "fs";
+import * as https from "https";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -31,6 +32,50 @@ interface VideoMetadata {
 }
 
 /**
+ * Check if a URL is accessible
+ * @param {string} url - The URL to check
+ * @return {Promise<boolean>} Whether the URL is accessible
+ */
+async function isUrlAccessible(url: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    https.get(url, (res) => {
+      if (res.statusCode === 200) {
+        resolve(true);
+      } else {
+        resolve(false);
+      }
+      res.destroy();
+    }).on("error", () => {
+      resolve(false);
+    });
+  });
+}
+
+/**
+ * Get a valid YouTube thumbnail URL
+ * @param {string} videoId - The YouTube video ID
+ * @return {Promise<string>} A valid thumbnail URL or empty string
+ */
+async function getValidYouTubeThumbnail(videoId: string): Promise<string> {
+  // Try different thumbnail qualities in order
+  const thumbnailFormats = [
+    `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+    `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+    `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
+    `https://i.ytimg.com/vi/${videoId}/default.jpg`
+  ];
+
+  for (const url of thumbnailFormats) {
+    if (await isUrlAccessible(url)) {
+      return url;
+    }
+  }
+  
+  // Default to hqdefault which almost always exists
+  return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+}
+
+/**
  * Extracts metadata from a video URL using yt-dlp
  * @param {string} url - The video URL to extract metadata from
  * @return {Promise<VideoMetadata>} The extracted metadata
@@ -55,11 +100,25 @@ async function extractVideoMetadata(url: string): Promise<VideoMetadata> {
       youtubeSkipDashManifest: true,
       skipDownload: true,
       cacheDir: tempDir,
+      // Add user agent to avoid being blocked
+      userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
     };
 
     console.log(`Executing yt-dlp with options:`, JSON.stringify(options));
     const output = await youtubeDl.default(url, options);
     console.log(`yt-dlp extraction successful for ${url}`);
+
+    // Get video ID for YouTube videos
+    let videoId = "";
+    if (url.includes("youtube.com") || url.includes("youtu.be")) {
+      videoId = extractYouTubeId(url) || "";
+    }
+
+    // Get a valid thumbnail URL for YouTube videos
+    let thumbnailUrl = output.thumbnail || "";
+    if (videoId) {
+      thumbnailUrl = await getValidYouTubeThumbnail(videoId);
+    }
 
     // Extract the relevant metadata
     return {
@@ -67,7 +126,7 @@ async function extractVideoMetadata(url: string): Promise<VideoMetadata> {
       description: output.description || "",
       duration: output.duration || 0,
       webpage_url: output.webpage_url || url,
-      thumbnail: output.thumbnail || "",
+      thumbnail: thumbnailUrl,
       uploader: output.uploader || "",
       upload_date: output.upload_date,
       tags: output.tags || [],
@@ -77,6 +136,29 @@ async function extractVideoMetadata(url: string): Promise<VideoMetadata> {
     };
   } catch (error) {
     console.error(`Error extracting metadata for ${url}:`, error);
+    
+    // Try to extract YouTube ID and get thumbnail directly if yt-dlp fails
+    try {
+      if (url.includes("youtube.com") || url.includes("youtu.be")) {
+        const videoId = extractYouTubeId(url);
+        if (videoId) {
+          const thumbnailUrl = await getValidYouTubeThumbnail(videoId);
+          return {
+            title: "YouTube Video",
+            description: "Failed to extract full metadata. Please edit manually.",
+            duration: 0,
+            webpage_url: url,
+            thumbnail: thumbnailUrl,
+            uploader: "Unknown",
+            enrichmentFailed: true,
+            errorMessage: error instanceof Error ? error.message : "Unknown error",
+          };
+        }
+      }
+    } catch (fallbackError) {
+      console.error("Fallback extraction failed:", fallbackError);
+    }
+    
     return {
       title: "",
       description: "",
@@ -165,13 +247,13 @@ export const enrichVideoMetadata = functions
       // Prepare data to update in Firestore
       const updateData: Record<string, unknown> = {
         metadataStatus: metadata.enrichmentFailed ? "failed" : "enriched",
-        title: videoData.title || metadata.title,
-        description: videoData.description || metadata.description,
+        title: videoData.title && videoData.title !== "Loading..." ? videoData.title : metadata.title,
+        description: videoData.description && videoData.description !== "Loading..." ? videoData.description : metadata.description,
         duration: videoData.duration || metadata.duration,
         sourceType,
         sourceId,
         thumbnailUrl: videoData.thumbnailUrl || metadata.thumbnail,
-        creator: videoData.creator || metadata.uploader,
+        creator: videoData.creator && videoData.creator !== "Loading..." ? videoData.creator : metadata.uploader,
         metadata: {
           extractedAt: admin.firestore.FieldValue.serverTimestamp(),
           raw: metadata,

@@ -5,6 +5,13 @@ import { User } from '../models/User';
 // Placeholder image URL for when thumbnails are not available
 const PLACEHOLDER_THUMBNAIL = 'https://placehold.co/600x400?text=Video+Thumbnail';
 
+// Function to get YouTube thumbnail URL with fallbacks
+const getYouTubeThumbnailUrl = (videoId: string): string => {
+  // Try different thumbnail qualities in order of preference
+  return `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+  // Note: maxresdefault.jpg often returns 404 for older videos, so we use hqdefault.jpg instead
+};
+
 export interface Video {
   id: string;
   title: string;
@@ -198,11 +205,8 @@ export const createVideo = async (videoData: Omit<Video, 'id'>): Promise<string>
   try {
     // Generate thumbnail URL from YouTube video ID if sourceType is youtube and thumbnailUrl is not provided
     if (videoData.sourceType === 'youtube' && !videoData.thumbnailUrl && videoData.sourceId) {
-      // Try to use higher quality thumbnail first, with fallback to standard
-      videoData.thumbnailUrl = `https://img.youtube.com/vi/${videoData.sourceId}/maxresdefault.jpg`;
-      
-      // Note: We can't check if the image exists here on the server side
-      // The client will fall back to the placeholder if the image fails to load
+      // Use our helper function to get a more reliable thumbnail URL
+      videoData.thumbnailUrl = getYouTubeThumbnailUrl(videoData.sourceId);
     } else if (!videoData.thumbnailUrl) {
       // Use placeholder if no thumbnail URL is provided
       videoData.thumbnailUrl = PLACEHOLDER_THUMBNAIL;
@@ -256,11 +260,8 @@ export const updateVideo = async (videoId: string, videoData: Partial<Video>): P
     
     // Generate thumbnail URL from YouTube video ID if sourceType is youtube and thumbnailUrl is not provided
     if (videoData.sourceType === 'youtube' && !videoData.thumbnailUrl && videoData.sourceId) {
-      // Try to use higher quality thumbnail first
-      videoData.thumbnailUrl = `https://img.youtube.com/vi/${videoData.sourceId}/maxresdefault.jpg`;
-      
-      // Note: We can't check if the image exists here on the server side
-      // The client will fall back to the placeholder if the image fails to load
+      // Use our helper function to get a more reliable thumbnail URL
+      videoData.thumbnailUrl = getYouTubeThumbnailUrl(videoData.sourceId);
     } else if (videoData.thumbnailUrl === '') {
       // Use placeholder if thumbnail URL is explicitly set to empty
       videoData.thumbnailUrl = PLACEHOLDER_THUMBNAIL;
