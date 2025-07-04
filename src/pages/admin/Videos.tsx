@@ -744,9 +744,37 @@ const AdminVideos: React.FC = () => {
                           Enriched
                         </span>
                       ) : video.metadataStatus === 'failed' || video.enrichmentFailed ? (
-                        <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 flex items-center" title={video.enrichmentError}>
-                          <X size={12} className="mr-1" />
-                          Failed
+                        <div className="flex flex-col gap-1">
+                          <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 flex items-center" title={video.enrichmentError}>
+                            <X size={12} className="mr-1" />
+                            Failed
+                          </span>
+                          <button 
+                            onClick={async () => {
+                              try {
+                                await updateVideo(video.id, { 
+                                  metadataStatus: 'pending',
+                                  enrichmentFailed: false,
+                                  enrichmentError: undefined
+                                });
+                                // Refresh the video list
+                                fetchVideos();
+                              } catch (error) {
+                                console.error('Error retrying metadata extraction:', error);
+                              }
+                            }}
+                            className="text-xs text-blue-600 hover:underline"
+                          >
+                            Retry
+                          </button>
+                        </div>
+                      ) : video.metadataStatus === 'processing' ? (
+                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 flex items-center">
+                          <svg className="animate-spin h-3 w-3 mr-1" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          Processing
                         </span>
                       ) : (
                         <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 flex items-center">

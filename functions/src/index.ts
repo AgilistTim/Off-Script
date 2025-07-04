@@ -1,9 +1,18 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as youtubeDl from "youtube-dl-exec";
+import * as os from "os";
+import * as path from "path";
+import * as fs from "fs";
 
 admin.initializeApp();
 const db = admin.firestore();
+
+// Configure runtime options for the function
+const runtimeOpts: functions.RuntimeOptions = {
+  timeoutSeconds: 300,  // 5 minutes
+  memory: "1GB",
+};
 
 interface VideoMetadata {
   title: string;
@@ -28,6 +37,14 @@ interface VideoMetadata {
  */
 async function extractVideoMetadata(url: string): Promise<VideoMetadata> {
   try {
+    console.log(`Starting metadata extraction for URL: ${url}`);
+    
+    // Create a temporary directory for yt-dlp cache
+    const tempDir = path.join(os.tmpdir(), 'yt-dlp-cache');
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
+    
     // Extract metadata without downloading the video
     const options = {
       dumpSingleJson: true,
@@ -37,9 +54,12 @@ async function extractVideoMetadata(url: string): Promise<VideoMetadata> {
       preferFreeFormats: true,
       youtubeSkipDashManifest: true,
       skipDownload: true,
+      cacheDir: tempDir,
     };
 
+    console.log(`Executing yt-dlp with options:`, JSON.stringify(options));
     const output = await youtubeDl.default(url, options);
+    console.log(`yt-dlp extraction successful for ${url}`);
 
     // Extract the relevant metadata
     return {
@@ -56,7 +76,7 @@ async function extractVideoMetadata(url: string): Promise<VideoMetadata> {
       view_count: output.view_count,
     };
   } catch (error) {
-    console.error("Error extracting metadata:", error);
+    console.error(`Error extracting metadata for ${url}:`, error);
     return {
       title: "",
       description: "",
@@ -101,7 +121,9 @@ function determineSourceType(url: string): string {
 /**
  * Cloud function that extracts metadata from a video URL and saves it to Firestore
  */
-export const enrichVideoMetadata = functions.firestore
+export const enrichVideoMetadata = functions
+  .runWith(runtimeOpts)
+  .firestore
   .document("videos/{videoId}")
   .onCreate(async (snapshot, context) => {
     const videoData = snapshot.data();
@@ -109,12 +131,25 @@ export const enrichVideoMetadata = functions.firestore
     
     // Skip if no URL is provided
     if (!videoData.sourceUrl) {
-      console.log("No source URL provided for video:", videoId);
+      console.log(`No source URL provided for video: ${videoId}`);
+      
+      // Update the document to indicate the enrichment failed
+      await db.collection("videos").doc(videoId).update({
+        metadataStatus: "failed",
+        enrichmentFailed: true,
+        enrichmentError: "No source URL provided"
+      });
+      
       return null;
     }
 
     try {
       console.log(`Extracting metadata for video ${videoId} from URL: ${videoData.sourceUrl}`);
+      
+      // First, update the status to indicate processing has started
+      await db.collection("videos").doc(videoId).update({
+        metadataStatus: "processing"
+      });
       
       // Extract metadata
       const metadata = await extractVideoMetadata(videoData.sourceUrl);
@@ -129,6 +164,7 @@ export const enrichVideoMetadata = functions.firestore
 
       // Prepare data to update in Firestore
       const updateData: Record<string, unknown> = {
+        metadataStatus: metadata.enrichmentFailed ? "failed" : "enriched",
         title: videoData.title || metadata.title,
         description: videoData.description || metadata.description,
         duration: videoData.duration || metadata.duration,
@@ -172,6 +208,7 @@ export const enrichVideoMetadata = functions.firestore
       
       // Update the document with the error information
       await db.collection("videos").doc(videoId).update({
+        metadataStatus: "failed",
         enrichmentFailed: true,
         enrichmentError: error instanceof Error ? error.message : "Unknown error",
       });

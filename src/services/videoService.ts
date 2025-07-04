@@ -26,7 +26,7 @@ export interface Video {
   prompts: ReflectionPrompt[];
   relatedContent: string[];
   viewCount: number;
-  metadataStatus?: 'pending' | 'enriched' | 'failed';
+  metadataStatus?: 'pending' | 'processing' | 'enriched' | 'failed';
   enrichmentFailed?: boolean;
   enrichmentError?: string;
   metadata?: {
