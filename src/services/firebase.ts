@@ -37,18 +37,32 @@ const getFirebaseConfig = () => {
       measurementId: window.ENV.VITE_FIREBASE_MEASUREMENT_ID,
     };
 
-    // If any window.ENV values are placeholders, fall back to environment variables
+    // If any window.ENV values are placeholders, check if we have real environment variables
     if (Object.values(windowConfig).some(isPlaceholder)) {
       console.log('Detected placeholder values in window.ENV, falling back to environment variables');
-      return {
-        apiKey: import.meta.env.VITE_FIREBASE_API_KEY || windowConfig.apiKey,
-        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || windowConfig.authDomain,
-        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || windowConfig.projectId,
-        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || windowConfig.storageBucket,
-        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || windowConfig.messagingSenderId,
-        appId: import.meta.env.VITE_FIREBASE_APP_ID || windowConfig.appId,
-        measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || windowConfig.measurementId,
+      
+      // Try to use environment variables (only works in development)
+      const envConfig = {
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: import.meta.env.VITE_FIREBASE_APP_ID,
+        measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
       };
+
+      // If we have real environment variables, use them
+      if (envConfig.apiKey && !isPlaceholder(envConfig.apiKey)) {
+        return envConfig;
+      }
+      
+      // If we're in production and still have placeholders, show error
+      console.error('Firebase configuration error: Placeholder values detected but no valid environment variables found. Please check your deployment configuration.');
+      console.error('Current config:', windowConfig);
+      
+      // Return the placeholder config anyway - let Firebase show the proper error
+      return windowConfig;
     }
 
     return windowConfig;
