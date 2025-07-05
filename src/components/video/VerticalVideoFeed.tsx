@@ -46,17 +46,24 @@ const VerticalVideoFeed: React.FC<VerticalVideoFeedProps> = ({
         let fetchedVideos: Video[];
         
         if (selectedCategory) {
-          console.log('Fetching videos by category:', selectedCategory);
+          console.log('VerticalVideoFeed: Fetching videos by category:', selectedCategory);
           fetchedVideos = await getVideosByCategory(selectedCategory, 50);
         } else if (currentUser) {
-          console.log('Fetching personalized recommendations for user:', currentUser.uid);
+          console.log('VerticalVideoFeed: Fetching personalized recommendations for user:', currentUser.uid);
           fetchedVideos = await getPersonalizedRecommendations(currentUser.uid, 50);
         } else {
-          console.log('Fetching all videos');
+          console.log('VerticalVideoFeed: Fetching all videos (no user logged in)');
           fetchedVideos = await getAllVideos(50);
         }
         
-        console.log('Fetched videos count:', fetchedVideos.length);
+        console.log('VerticalVideoFeed: Fetched videos count:', fetchedVideos.length);
+        console.log('VerticalVideoFeed: First 3 videos:', fetchedVideos.slice(0, 3).map(v => ({
+          id: v.id,
+          title: v.title,
+          category: v.category,
+          publicationDate: v.publicationDate,
+          metadataStatus: v.metadataStatus
+        })));
         setVideos(fetchedVideos);
         setLoading(false);
       } catch (err) {
@@ -261,6 +268,24 @@ const VerticalVideoFeed: React.FC<VerticalVideoFeedProps> = ({
               {category.name}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Debug info */}
+      <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div className="flex justify-between items-center">
+          <p className="text-sm text-blue-800">
+            <strong>Debug:</strong> Showing {filteredVideos.length} of {videos.length} total videos
+            {selectedCategory && ` (category: ${selectedCategory})`}
+            {localSearchQuery && ` (search: "${localSearchQuery}")`}
+            {currentUser ? ` (personalized for user)` : ` (not logged in)`}
+          </p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-3 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600 transition-colors"
+          >
+            Refresh Videos
+          </button>
         </div>
       </div>
 

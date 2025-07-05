@@ -25,7 +25,16 @@ const Videos: React.FC = () => {
     const fetchVideos = async () => {
       try {
         setLoading(true);
+        console.log('Videos.tsx: Fetching all videos...');
         const allVideos = await getAllVideos();
+        console.log('Videos.tsx: Fetched videos:', allVideos.length);
+        console.log('Videos.tsx: First 3 videos:', allVideos.slice(0, 3).map(v => ({
+          id: v.id,
+          title: v.title,
+          category: v.category,
+          publicationDate: v.publicationDate,
+          metadataStatus: v.metadataStatus
+        })));
         setVideos(allVideos);
         setFilteredVideos(allVideos);
         setLoading(false);
@@ -61,6 +70,7 @@ const Videos: React.FC = () => {
       );
     }
     
+    console.log('Videos.tsx: Filtered videos:', filtered.length, 'from', videos.length, 'total');
     setFilteredVideos(filtered);
   }, [selectedCategory, searchTerm, videos]);
 
@@ -94,6 +104,15 @@ const Videos: React.FC = () => {
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-6">Career Exploration Videos</h1>
+      
+      {/* Debug info */}
+      <div className="mb-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <p className="text-sm text-yellow-800">
+          <strong>Debug:</strong> Showing {filteredVideos.length} of {videos.length} total videos
+          {selectedCategory && ` (filtered by category: ${selectedCategory})`}
+          {searchTerm && ` (search: "${searchTerm}")`}
+        </p>
+      </div>
       
       {/* Search and filter */}
       <div className="mb-8">

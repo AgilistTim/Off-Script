@@ -154,23 +154,7 @@ export const getPersonalizedRecommendations = async (userId: string, limit: numb
   try {
     const userPreferences = await getUserPreferences(userId);
     
-    if (!userPreferences) {
-      // If no preferences exist, return generic popular videos
-      const videosRef = collection(db, 'videos');
-      const videosSnapshot = await getDocs(query(videosRef, where('viewCount', '>', 0)));
-      
-      const videos = videosSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as Video[];
-      
-      // Sort by view count and return top results
-      return videos
-        .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
-        .slice(0, limit);
-    }
-    
-    // Get all videos
+    // Get all videos first
     const videosRef = collection(db, 'videos');
     const videosSnapshot = await getDocs(videosRef);
     
@@ -179,15 +163,46 @@ export const getPersonalizedRecommendations = async (userId: string, limit: numb
       ...doc.data()
     })) as Video[];
     
-    // Filter out already liked/disliked videos
+    if (!userPreferences) {
+      // If no preferences exist, return newest videos first (prioritize recent additions)
+      return videos
+        .sort((a, b) => new Date(b.publicationDate).getTime() - new Date(a.publicationDate).getTime())
+        .slice(0, limit);
+    }
+    
+    // Separate videos into seen and unseen
     const unseenVideos = videos.filter(video => 
       !userPreferences.likedVideos.includes(video.id) && 
       !userPreferences.dislikedVideos.includes(video.id)
     );
     
+    // If we don't have enough unseen videos, include some previously seen ones
+    let videosToScore = unseenVideos;
+    if (videosToScore.length < limit) {
+      const seenVideos = videos.filter(video => 
+        userPreferences.likedVideos.includes(video.id) || 
+        userPreferences.dislikedVideos.includes(video.id)
+      );
+      videosToScore = [...unseenVideos, ...seenVideos];
+    }
+    
     // Calculate a score for each video based on user preferences
-    const scoredVideos = unseenVideos.map(video => {
+    const scoredVideos = videosToScore.map(video => {
       let score = 0;
+      
+      // Boost score for unseen videos
+      const isUnseen = !userPreferences.likedVideos.includes(video.id) && 
+                      !userPreferences.dislikedVideos.includes(video.id);
+      if (isUnseen) {
+        score += 100; // High boost for unseen videos
+      }
+      
+      // Boost score for very new videos (added in last 7 days)
+      const videoAge = Date.now() - new Date(video.publicationDate).getTime();
+      const daysSincePublication = videoAge / (1000 * 60 * 60 * 24);
+      if (daysSincePublication <= 7) {
+        score += 50; // Boost for new videos
+      }
       
       // Category match
       const categoryScore = userPreferences.likedCategories[video.category] || 0;
@@ -201,7 +216,7 @@ export const getPersonalizedRecommendations = async (userId: string, limit: numb
         });
       }
       
-      // Add some weight for popular videos
+      // Add some weight for popular videos (but less than newness)
       score += Math.min(5, (video.viewCount || 0) / 100);
       
       return { video, score };
