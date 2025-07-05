@@ -31,29 +31,23 @@ Off-Script helps UK job seekers find alternative career pathways that don't requ
 ### Local Development
 
 1. Clone the repository
-   ```
+   ```bash
    git clone https://github.com/yourusername/off-script.git
+   cd off-script
    ```
 
 2. Install dependencies
-   ```
+   ```bash
    npm install
    ```
 
-3. Set up environment variables
-   ```
-   # Create a .env file in the root directory with the following variables:
-   VITE_FIREBASE_API_KEY="your-api-key"
-   VITE_FIREBASE_AUTH_DOMAIN="your-project-id.firebaseapp.com"
-   VITE_FIREBASE_PROJECT_ID="your-project-id"
-   VITE_FIREBASE_STORAGE_BUCKET="your-project-id.appspot.com"
-   VITE_FIREBASE_MESSAGING_SENDER_ID="your-messaging-sender-id"
-   VITE_FIREBASE_APP_ID="your-app-id"
-   VITE_FIREBASE_MEASUREMENT_ID="your-measurement-id"
-   ```
+3. Set up Firebase credentials
+   - Copy `.env.local.example` to `.env.local`
+   - Add your Firebase credentials from Firebase Console > Project Settings > Web App
+   - **IMPORTANT: Never commit `.env.local` to git - it contains sensitive information**
 
 4. Start the development server
-   ```
+   ```bash
    npm run dev
    ```
 
