@@ -20,9 +20,14 @@ declare global {
 
 // Get Firebase configuration from environment variables or window.ENV
 const getFirebaseConfig = () => {
+  // Helper function to check if a value is a placeholder
+  const isPlaceholder = (value: string) => {
+    return value.includes('YOUR_') || value.includes('your-') || value === '000000000000' || value.includes('G-YOUR-');
+  };
+
   // Check if we're in a browser environment with window.ENV
   if (typeof window !== 'undefined' && window.ENV) {
-    return {
+    const windowConfig = {
       apiKey: window.ENV.VITE_FIREBASE_API_KEY,
       authDomain: window.ENV.VITE_FIREBASE_AUTH_DOMAIN,
       projectId: window.ENV.VITE_FIREBASE_PROJECT_ID,
@@ -31,6 +36,22 @@ const getFirebaseConfig = () => {
       appId: window.ENV.VITE_FIREBASE_APP_ID,
       measurementId: window.ENV.VITE_FIREBASE_MEASUREMENT_ID,
     };
+
+    // If any window.ENV values are placeholders, fall back to environment variables
+    if (Object.values(windowConfig).some(isPlaceholder)) {
+      console.log('Detected placeholder values in window.ENV, falling back to environment variables');
+      return {
+        apiKey: import.meta.env.VITE_FIREBASE_API_KEY || windowConfig.apiKey,
+        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || windowConfig.authDomain,
+        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || windowConfig.projectId,
+        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || windowConfig.storageBucket,
+        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || windowConfig.messagingSenderId,
+        appId: import.meta.env.VITE_FIREBASE_APP_ID || windowConfig.appId,
+        measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || windowConfig.measurementId,
+      };
+    }
+
+    return windowConfig;
   }
   
   // Fallback to environment variables (for server-side or development)
