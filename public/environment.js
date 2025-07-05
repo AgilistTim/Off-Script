@@ -1,12 +1,12 @@
 // This file is loaded by index.html to provide environment variables to the app
-// IMPORTANT: Replace these placeholder values with your actual Firebase project configuration
-// Get these values from Firebase Console > Project Settings > Your web app config
+// IMPORTANT: This file should not contain real credentials
+// Real credentials are injected at runtime from environment variables
 window.ENV = {
-  VITE_FIREBASE_API_KEY: "__FIREBASE_API_KEY__", // Replace with your actual API key
-  VITE_FIREBASE_AUTH_DOMAIN: "__FIREBASE_AUTH_DOMAIN__", // Replace with your project's auth domain
-  VITE_FIREBASE_PROJECT_ID: "__FIREBASE_PROJECT_ID__", // Replace with your project ID
-  VITE_FIREBASE_STORAGE_BUCKET: "__FIREBASE_STORAGE_BUCKET__", // Replace with your storage bucket
-  VITE_FIREBASE_MESSAGING_SENDER_ID: "__FIREBASE_MESSAGING_SENDER_ID__", // Replace with your messaging sender ID
-  VITE_FIREBASE_APP_ID: "__FIREBASE_APP_ID__", // Replace with your app ID
-  VITE_FIREBASE_MEASUREMENT_ID: "__FIREBASE_MEASUREMENT_ID__" // Replace with your measurement ID
+  VITE_FIREBASE_API_KEY: "PLACEHOLDER_API_KEY",
+  VITE_FIREBASE_AUTH_DOMAIN: "placeholder.firebaseapp.com",
+  VITE_FIREBASE_PROJECT_ID: "placeholder-project",
+  VITE_FIREBASE_STORAGE_BUCKET: "placeholder.appspot.com",
+  VITE_FIREBASE_MESSAGING_SENDER_ID: "000000000000",
+  VITE_FIREBASE_APP_ID: "1:000000000000:web:placeholder",
+  VITE_FIREBASE_MEASUREMENT_ID: "G-PLACEHOLDER"
 };
