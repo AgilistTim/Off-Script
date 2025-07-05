@@ -22,7 +22,7 @@ declare global {
 const getFirebaseConfig = () => {
   // Helper function to check if a value is a placeholder
   const isPlaceholder = (value: string) => {
-    return value.includes('YOUR_') || value.includes('your-') || value === '000000000000' || value.includes('G-YOUR-');
+    return value.includes('YOUR_') || value.includes('your-') || value === '000000000000' || value.includes('G-YOUR-') || value.includes('__FIREBASE_');
   };
 
   // Check if we're in a browser environment with window.ENV
