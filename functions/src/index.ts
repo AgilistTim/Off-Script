@@ -13,13 +13,41 @@ const runtimeOpts: functions.RuntimeOptions = {
   memory: "1GB",
 };
 
-// CORS configuration for web clients - simplified for Firebase Functions v2
+// CORS configuration for web clients - restricted to specific domains
 const corsOrigins = [
   'http://localhost:5173',
   'http://localhost:5174', 
   'http://localhost:3000',
-  'https://off-script.onrender.com'
+  'https://off-script.onrender.com',
+  'https://offscript-8f6eb.web.app',
+  'https://offscript-8f6eb.firebaseapp.com'
 ];
+
+// Helper function to validate origin against allowed list
+const isOriginAllowed = (origin: string | undefined): boolean => {
+  if (!origin) return false;
+  return corsOrigins.some(allowedOrigin => origin === allowedOrigin);
+};
+
+// CORS middleware for Firebase Functions v1
+const corsMiddleware = (req: functions.https.Request, res: functions.Response, allowedOrigins: string[] = corsOrigins) => {
+  const origin = req.headers.origin;
+  
+  if (origin && isOriginAllowed(origin)) {
+    res.set('Access-Control-Allow-Origin', origin);
+    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.set('Access-Control-Max-Age', '3600');
+  }
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    res.status(204).send('');
+    return true;
+  }
+  
+  return false;
+};
 
 /**
  * Recursively removes undefined values from an object
@@ -371,7 +399,7 @@ export const enrichVideoMetadata = functions
  */
 export const bumpupsProxy = onRequest(
   { 
-    cors: true, // Allow all origins temporarily
+    cors: corsOrigins, // Restrict to allowed origins only
     memory: '512MiB',
     timeoutSeconds: 60
   },
@@ -385,6 +413,14 @@ export const bumpupsProxy = onRequest(
         return;
       }
 
+      // Validate origin for additional security
+      const origin = request.headers.origin;
+      if (!origin || !isOriginAllowed(origin)) {
+        logger.warn('Unauthorized origin attempted to access bumpupsProxy', { origin });
+        response.status(403).json({ error: 'Origin not allowed' });
+        return;
+      }
+
       // Validate request body
       const { url, prompt, model = 'bump-1.0', language = 'en', output_format = 'text' } = request.body;
       
@@ -395,7 +431,7 @@ export const bumpupsProxy = onRequest(
         return;
       }
 
-      // Get API key from environment variables or Firebase Functions config
+      // Get API key from Firebase Functions config
       // IMPORTANT: Set this using Firebase CLI: firebase functions:config:set bumpups.apikey="YOUR_API_KEY"
       let bumpupsApiKey;
       try {
@@ -414,7 +450,12 @@ export const bumpupsProxy = onRequest(
         return;
       }
 
-      logger.info('Making Bumpups API request', { url, promptLength: prompt.length });
+      // Log request details without sensitive information
+      logger.info('Making Bumpups API request', { 
+        url, 
+        promptLength: prompt.length,
+        origin
+      });
 
       // Make request to Bumpups API
       const bumpupsResponse = await fetch('https://api.bumpups.com/chat', {

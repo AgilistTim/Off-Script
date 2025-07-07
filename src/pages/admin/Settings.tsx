@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Save, 
   AlertCircle, 
@@ -10,6 +10,7 @@ import {
   Mail,
   Key
 } from 'lucide-react';
+import { apiKeys, features } from '../../config/environment';
 
 const AdminSettings: React.FC = () => {
   // General settings
@@ -33,13 +34,42 @@ const AdminSettings: React.FC = () => {
   const [maxVideoSize, setMaxVideoSize] = useState(500);
   
   // API settings
-  const [apiKey, setApiKey] = useState('sk_test_51O8JcKLkjhgfdsa987654321');
+  const [apiKey, setApiKey] = useState('');
+  const [youtubeApiKey, setYoutubeApiKey] = useState('');
+  const [bumpupsApiKey, setBumpupsApiKey] = useState('');
   const [apiEnabled, setApiEnabled] = useState(true);
   
   // Form submission
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Load API keys from configuration
+  useEffect(() => {
+    // Only show masked values for security
+    if (apiKeys.youtube) {
+      const masked = maskApiKey(apiKeys.youtube);
+      setYoutubeApiKey(masked);
+    }
+    
+    if (apiKeys.bumpups) {
+      const masked = maskApiKey(apiKeys.bumpups);
+      setBumpupsApiKey(masked);
+    }
+    
+    // For demo purposes only - this should be a server-side generated API key
+    setApiKey('sk_••••••••••••••••••••••••••••');
+  }, []);
+  
+  // Helper to mask API keys for display
+  const maskApiKey = (key: string): string => {
+    if (!key) return '';
+    if (key.length <= 8) return '••••••••';
+    
+    const firstFour = key.substring(0, 4);
+    const lastFour = key.substring(key.length - 4);
+    return `${firstFour}••••••••••${lastFour}`;
+  };
   
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -339,27 +369,65 @@ const AdminSettings: React.FC = () => {
           
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              API Key
+              Platform API Key
             </label>
             <div className="flex">
               <input
                 type="password"
                 value={apiKey}
-                onChange={(e) => setApiKey(e.target.value)}
+                readOnly
                 className="flex-grow px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-l-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
               <button
                 type="button"
                 className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-200 rounded-r-md hover:bg-gray-300 dark:hover:bg-gray-500"
                 onClick={() => {
-                  // Generate new API key
-                  const newKey = 'sk_test_' + Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-                  setApiKey(newKey);
+                  // In a real app, this would call an API to regenerate the key
+                  setApiKey('sk_••••••••••••••••••••••••••••');
+                  setSaveSuccess(true);
+                  setTimeout(() => setSaveSuccess(false), 3000);
                 }}
               >
                 Regenerate
               </button>
             </div>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              This key is for the Off-Script platform API. Contact support to change this key.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              YouTube API Key
+            </label>
+            <div className="flex">
+              <input
+                type="password"
+                value={youtubeApiKey}
+                readOnly
+                className="flex-grow px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              This key is set via environment variables. Status: {features.enableYouTubeIntegration ? '✅ Active' : '❌ Not configured'}
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Bumpups API Key
+            </label>
+            <div className="flex">
+              <input
+                type="password"
+                value={bumpupsApiKey}
+                readOnly
+                className="flex-grow px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+            </div>
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              This key is set via environment variables. Status: {features.enableBumpupsIntegration ? '✅ Active' : '❌ Not configured'}
+            </p>
           </div>
         </SettingsSection>
       </form>

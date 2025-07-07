@@ -1,5 +1,6 @@
 // Bumpups API service for video analysis and interactive querying
 // Using Firebase Cloud Function proxy to avoid CORS issues
+import { firebaseConfig } from '../config/environment';
 
 interface BumpupsTimestamp {
   time: number; // seconds
@@ -47,8 +48,8 @@ class BumpupsService {
   private baseUrl: string;
 
   constructor() {
-    // Get project ID from environment variables
-    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'offscript-8f6eb';
+    // Get project ID from centralized config
+    const projectId = firebaseConfig.projectId;
     
     // Use the standard Firebase Functions URL format
     this.baseUrl = `https://us-central1-${projectId}.cloudfunctions.net/bumpupsProxy`;

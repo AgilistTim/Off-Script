@@ -1,4 +1,5 @@
 // YouTube Data API v3 service for fetching video metadata
+import { apiKeys, features } from '../config/environment';
 
 interface YouTubeVideoSnippet {
   title: string;
@@ -74,12 +75,13 @@ class YouTubeService {
   private baseUrl = 'https://www.googleapis.com/youtube/v3';
 
   constructor() {
-    // Get API key from environment variables
-    this.apiKey = import.meta.env.VITE_YOUTUBE_API_KEY || 
-                  (typeof window !== 'undefined' && window.ENV?.VITE_YOUTUBE_API_KEY) || '';
+    // Get API key from centralized configuration
+    this.apiKey = apiKeys.youtube || '';
     
     if (!this.apiKey) {
       console.warn('YouTube API key not found. YouTube metadata features will be limited.');
+    } else if (features.enableYouTubeIntegration) {
+      console.log('✅ YouTube API integration enabled');
     }
   }
 

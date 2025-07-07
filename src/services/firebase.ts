@@ -2,6 +2,7 @@ import { initializeApp } from 'firebase/app';
 import { getFirestore, initializeFirestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
+import { firebaseConfig, isProduction, isDevelopment } from '../config/environment';
 
 // Add type declaration for window.ENV
 declare global {
@@ -106,13 +107,9 @@ const getFirebaseConfig = () => {
 };
 
 // Initialize Firebase
-const app = initializeApp(getFirebaseConfig());
+const app = initializeApp(firebaseConfig);
 
 // Initialize Firestore with settings optimized for production
-const isProduction = typeof window !== 'undefined' && 
-  window.location.hostname !== 'localhost' && 
-  window.location.hostname !== '127.0.0.1';
-
 export const db = isProduction 
   ? initializeFirestore(app, {
       experimentalForceLongPolling: true, // Use long polling instead of WebSocket
@@ -123,10 +120,15 @@ export const db = isProduction
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
 
-// Initialize Analytics only in browser environment
+// Initialize Analytics only in browser environment and if measurementId is available
 let analytics;
-if (typeof window !== 'undefined') {
-  analytics = getAnalytics(app);
+if (typeof window !== 'undefined' && firebaseConfig.measurementId) {
+  try {
+    analytics = getAnalytics(app);
+    console.log('✅ Firebase Analytics initialized');
+  } catch (error) {
+    console.error('❌ Failed to initialize Firebase Analytics:', error);
+  }
 }
 
 export { analytics };
