@@ -47,19 +47,11 @@ class BumpupsService {
   private baseUrl: string;
 
   constructor() {
-    // Use Firebase Function proxy to avoid CORS issues
-    // Get from environment variables if available, otherwise use the direct URL
-    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 
-                     (typeof window !== 'undefined' && window.ENV?.VITE_FIREBASE_PROJECT_ID) || 
-                     'offscript-8f6eb';
-                     
+    // Get project ID from environment variables
+    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'offscript-8f6eb';
+    
     // Use the standard Firebase Functions URL format
     this.baseUrl = `https://us-central1-${projectId}.cloudfunctions.net/bumpupsProxy`;
-    
-    // Fall back to direct URL if needed
-    if (!projectId) {
-      this.baseUrl = 'https://bumpupsproxy-d6ibsfvcfa-uc.a.run.app';
-    }
     
     console.log('BumpupsService initialized with URL:', this.baseUrl);
   }

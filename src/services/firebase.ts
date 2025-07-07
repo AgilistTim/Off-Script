@@ -32,6 +32,7 @@ const getFirebaseConfig = () => {
            value.includes('G-YOUR-') || 
            value.includes('__FIREBASE_') ||
            value.includes('demo-') ||
+           value.includes('REPLACE_WITH_') ||
            value.includes('placeholder');
   };
 
@@ -50,6 +51,24 @@ const getFirebaseConfig = () => {
     return true;
   };
 
+  // PRIORITIZE ENVIRONMENT VARIABLES FIRST
+  // Try to use environment variables (works in development)
+  const envConfig = {
+    apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: import.meta.env.VITE_FIREBASE_APP_ID,
+    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
+  };
+
+  // If we have valid environment variables, use them
+  if (envConfig.apiKey && !isPlaceholder(envConfig.apiKey)) {
+    console.log('Using environment variables for Firebase configuration');
+    return envConfig;
+  }
+
   // Check if we're in a browser environment with window.ENV
   if (typeof window !== 'undefined' && window.ENV) {
     const windowConfig = {
@@ -62,53 +81,27 @@ const getFirebaseConfig = () => {
       measurementId: window.ENV.VITE_FIREBASE_MEASUREMENT_ID,
     };
 
-    // If any window.ENV values are placeholders, check if we have real environment variables
-    if (Object.values(windowConfig).some(isPlaceholder)) {
-      console.log('Detected placeholder values in window.ENV, falling back to environment variables');
-      
-      // Try to use environment variables (only works in development)
-      const envConfig = {
-        apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
-        authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-        projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
-        storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-        appId: import.meta.env.VITE_FIREBASE_APP_ID,
-        measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID,
-      };
-
-      // If we have real environment variables, use them
-      if (envConfig.apiKey && !isPlaceholder(envConfig.apiKey)) {
-        return envConfig;
-      }
-      
-      // If we're in production and still have placeholders, show comprehensive error
-      if (!validateConfig(envConfig)) {
-        console.error('Firebase configuration error: No valid environment variables found.');
-        console.error('Window ENV has placeholders and fallback env vars are also invalid.');
-        console.error('This will cause Firebase initialization to fail.');
-      }
-      
-      // Return the best available config - environment variables if valid, otherwise window config
-      return validateConfig(envConfig) ? envConfig : windowConfig;
+    // If window.ENV values are not placeholders, use them
+    if (!Object.values(windowConfig).some(isPlaceholder)) {
+      console.log('Using window.ENV for Firebase configuration');
+      return windowConfig;
+    } else {
+      console.warn('⚠️ window.ENV contains placeholder values, cannot use for Firebase configuration');
     }
-
-    // Validate the window config before returning
-    if (!validateConfig(windowConfig)) {
-      console.warn('⚠️ Firebase configuration validation failed. The app may not function correctly.');
-    }
-    return windowConfig;
   }
   
-  // Fallback to environment variables (for server-side or development)
+  // If we get here, we don't have valid configuration
+  console.error('❌ No valid Firebase configuration found. The app will not function correctly.');
+  
+  // Return a dummy config that will fail gracefully
   return {
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "YOUR_API_KEY_HERE",
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "your-project.firebaseapp.com",
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "your-project-id",
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "your-project.firebasestorage.app",
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "000000000000",
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:000000000000:web:your-app-id",
-    measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || "G-YOUR-MEASUREMENT-ID",
+    apiKey: "MISSING_API_KEY",
+    authDomain: "MISSING_AUTH_DOMAIN",
+    projectId: "MISSING_PROJECT_ID",
+    storageBucket: "MISSING_STORAGE_BUCKET",
+    messagingSenderId: "MISSING_SENDER_ID",
+    appId: "MISSING_APP_ID",
+    measurementId: "MISSING_MEASUREMENT_ID",
   };
 };
 
