@@ -1,39 +1,36 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { isPlaceholder } from './environment';
-
-// Create a mock configuration for testing
-const mockConfig = {
-  firebase: {
-    apiKey: 'test-vite-api-key',
-    authDomain: 'test-vite-auth-domain',
-    projectId: 'test-vite-project-id',
-    storageBucket: 'test-vite-storage-bucket',
-    messagingSenderId: 'test-vite-sender-id',
-    appId: 'test-vite-app-id',
-    measurementId: 'test-vite-measurement-id',
-  },
-  apiKeys: {
-    youtube: 'test-vite-youtube-key',
-    recaptcha: 'test-vite-recaptcha-key',
-    bumpups: 'test-vite-bumpups-key',
-  },
-  environment: 'test',
-  features: {
-    enableAnalytics: true,
-    enableYouTubeIntegration: true,
-    enableBumpupsIntegration: true,
-  },
-};
-
-// Mock the getEnvironmentConfig function
-const mockGetEnvironmentConfig = vi.fn().mockReturnValue(mockConfig);
 
 // Mock the environment module
 vi.mock('./environment', async () => {
   const actual = await vi.importActual('./environment');
+  
+  // Create a mock configuration for testing
+  const mockConfig = {
+    firebase: {
+      apiKey: 'test-vite-api-key',
+      authDomain: 'test-vite-auth-domain',
+      projectId: 'test-vite-project-id',
+      storageBucket: 'test-vite-storage-bucket',
+      messagingSenderId: 'test-vite-sender-id',
+      appId: 'test-vite-app-id',
+      measurementId: 'test-vite-measurement-id',
+    },
+    apiKeys: {
+      youtube: 'test-vite-youtube-key',
+      recaptcha: 'test-vite-recaptcha-key',
+      bumpups: 'test-vite-bumpups-key',
+    },
+    environment: 'test',
+    features: {
+      enableAnalytics: true,
+      enableYouTubeIntegration: true,
+      enableBumpupsIntegration: true,
+    },
+  };
+  
   return {
     ...actual as object,
-    getEnvironmentConfig: mockGetEnvironmentConfig,
+    getEnvironmentConfig: vi.fn().mockReturnValue(mockConfig),
     env: mockConfig,
     firebaseConfig: mockConfig.firebase,
     apiKeys: mockConfig.apiKeys,
@@ -45,8 +42,8 @@ vi.mock('./environment', async () => {
   };
 });
 
-// Import the mocked function after mocking
-import { getEnvironmentConfig } from './environment';
+// Import after mocking
+import { getEnvironmentConfig, isPlaceholder } from './environment';
 
 describe('Environment Configuration', () => {
   // Mock console methods
