@@ -6,11 +6,38 @@ Dockerfile
 .github
 .gitignore
 README.md
-.env
+
+# Environment files - critical for security
+.env*
+env.example
+
+# Development files
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Build artifacts
 dist
+coverage
+
+# IDE and editor files
 .vscode
-coverage 
+.idea
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Runtime environment file (should be generated from template)
+public/environment.js
+
+# Development tools
+.bolt/
+docs/ 

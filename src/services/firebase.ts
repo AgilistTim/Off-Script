@@ -20,9 +20,31 @@ declare global {
 
 // Get Firebase configuration from environment variables or window.ENV
 const getFirebaseConfig = () => {
-  // Helper function to check if a value is a placeholder
+  // Helper function to check if a value is a placeholder or invalid
   const isPlaceholder = (value: string) => {
-    return value.includes('YOUR_') || value.includes('your-') || value === '000000000000' || value.includes('G-YOUR-') || value.includes('__FIREBASE_');
+    if (!value || typeof value !== 'string') return true;
+    return value.includes('YOUR_') || 
+           value.includes('your-') || 
+           value === '000000000000' || 
+           value.includes('G-YOUR-') || 
+           value.includes('__FIREBASE_') ||
+           value.includes('demo-') ||
+           value.includes('placeholder');
+  };
+
+  // Helper function to validate critical Firebase config
+  const validateConfig = (config: any) => {
+    const required = ['apiKey', 'authDomain', 'projectId'];
+    const missing = required.filter(key => !config[key] || isPlaceholder(config[key]));
+    
+    if (missing.length > 0) {
+      console.error('❌ Firebase configuration error: Missing or invalid required fields:', missing);
+      console.error('This usually means environment variables are not properly set.');
+      console.error('For Render deployment: Check that all VITE_FIREBASE_* environment variables are set in your service settings.');
+      console.error('For local development: Copy env.example to .env and fill in your Firebase credentials.');
+      return false;
+    }
+    return true;
   };
 
   // Check if we're in a browser environment with window.ENV
@@ -57,14 +79,21 @@ const getFirebaseConfig = () => {
         return envConfig;
       }
       
-      // If we're in production and still have placeholders, show error
-      console.error('Firebase configuration error: Placeholder values detected but no valid environment variables found. Please check your deployment configuration.');
-      console.error('Current config:', windowConfig);
+      // If we're in production and still have placeholders, show comprehensive error
+      if (!validateConfig(envConfig)) {
+        console.error('Firebase configuration error: No valid environment variables found.');
+        console.error('Window ENV has placeholders and fallback env vars are also invalid.');
+        console.error('This will cause Firebase initialization to fail.');
+      }
       
-      // Return the placeholder config anyway - let Firebase show the proper error
-      return windowConfig;
+      // Return the best available config - environment variables if valid, otherwise window config
+      return validateConfig(envConfig) ? envConfig : windowConfig;
     }
 
+    // Validate the window config before returning
+    if (!validateConfig(windowConfig)) {
+      console.warn('⚠️ Firebase configuration validation failed. The app may not function correctly.');
+    }
     return windowConfig;
   }
   
