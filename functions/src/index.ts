@@ -395,8 +395,24 @@ export const bumpupsProxy = onRequest(
         return;
       }
 
-      // Hardcode API key temporarily to fix immediate issues
-      const bumpupsApiKey = '***REMOVED***';
+      // Get API key from environment variables or Firebase Functions config
+      // IMPORTANT: Set this using Firebase CLI: firebase functions:config:set bumpups.apikey="YOUR_API_KEY"
+      let bumpupsApiKey;
+      try {
+        // Try to get from Firebase Functions config
+        const config = functions.config();
+        bumpupsApiKey = config.bumpups?.apikey;
+        
+        if (!bumpupsApiKey) {
+          logger.error('Bumpups API key not found in config');
+          response.status(500).json({ error: 'API configuration error' });
+          return;
+        }
+      } catch (error) {
+        logger.error('Error retrieving Bumpups API key from config', error);
+        response.status(500).json({ error: 'API configuration error' });
+        return;
+      }
 
       logger.info('Making Bumpups API request', { url, promptLength: prompt.length });
 
