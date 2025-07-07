@@ -1,49 +1,5 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-
-// Mock the environment module
-vi.mock('./environment', async () => {
-  const actual = await vi.importActual('./environment');
-  
-  // Create a mock configuration for testing
-  const mockConfig = {
-    firebase: {
-      apiKey: 'test-vite-api-key',
-      authDomain: 'test-vite-auth-domain',
-      projectId: 'test-vite-project-id',
-      storageBucket: 'test-vite-storage-bucket',
-      messagingSenderId: 'test-vite-sender-id',
-      appId: 'test-vite-app-id',
-      measurementId: 'test-vite-measurement-id',
-    },
-    apiKeys: {
-      youtube: 'test-vite-youtube-key',
-      recaptcha: 'test-vite-recaptcha-key',
-      bumpups: 'test-vite-bumpups-key',
-    },
-    environment: 'test',
-    features: {
-      enableAnalytics: true,
-      enableYouTubeIntegration: true,
-      enableBumpupsIntegration: true,
-    },
-  };
-  
-  return {
-    ...actual as object,
-    getEnvironmentConfig: vi.fn().mockReturnValue(mockConfig),
-    env: mockConfig,
-    firebaseConfig: mockConfig.firebase,
-    apiKeys: mockConfig.apiKeys,
-    features: mockConfig.features,
-    environment: mockConfig.environment,
-    isProduction: false,
-    isDevelopment: false,
-    isTest: true,
-  };
-});
-
-// Import after mocking
-import { getEnvironmentConfig, isPlaceholder } from './environment';
+import { isPlaceholder } from './environment';
 
 describe('Environment Configuration', () => {
   // Mock console methods
@@ -79,20 +35,6 @@ describe('Environment Configuration', () => {
       expect(isPlaceholder('')).toBe(true);
       expect(isPlaceholder(undefined as unknown as string)).toBe(true);
       expect(isPlaceholder(null as unknown as string)).toBe(true);
-    });
-  });
-  
-  describe('getEnvironmentConfig', () => {
-    it('should return the mocked configuration', () => {
-      const config = getEnvironmentConfig();
-      
-      expect(config.firebase.apiKey).toBe('test-vite-api-key');
-      expect(config.firebase.projectId).toBe('test-vite-project-id');
-      expect(config.apiKeys.youtube).toBe('test-vite-youtube-key');
-      expect(config.apiKeys.bumpups).toBe('test-vite-bumpups-key');
-      expect(config.environment).toBe('test');
-      expect(config.features.enableAnalytics).toBe(true);
-      expect(config.features.enableYouTubeIntegration).toBe(true);
     });
   });
 }); 
