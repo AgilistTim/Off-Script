@@ -48,7 +48,20 @@ class BumpupsService {
 
   constructor() {
     // Use Firebase Function proxy to avoid CORS issues
-    this.baseUrl = 'https://bumpupsproxy-d6ibsfvcfa-uc.a.run.app';
+    // Get from environment variables if available, otherwise use the direct URL
+    const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 
+                     (typeof window !== 'undefined' && window.ENV?.VITE_FIREBASE_PROJECT_ID) || 
+                     '***REMOVED***';
+                     
+    // Use the standard Firebase Functions URL format
+    this.baseUrl = `https://us-central1-${projectId}.cloudfunctions.net/bumpupsProxy`;
+    
+    // Fall back to direct URL if needed
+    if (!projectId) {
+      this.baseUrl = 'https://bumpupsproxy-d6ibsfvcfa-uc.a.run.app';
+    }
+    
+    console.log('BumpupsService initialized with URL:', this.baseUrl);
   }
 
   /**
@@ -56,6 +69,8 @@ class BumpupsService {
    */
   async queryVideo(youtubeUrl: string, prompt: string): Promise<any> {
     try {
+      console.log(`Querying Bumpups API via proxy: ${this.baseUrl}`);
+      
       const response = await fetch(this.baseUrl, {
         method: 'POST',
         headers: {
