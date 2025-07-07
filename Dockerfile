@@ -33,13 +33,8 @@ COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY docker-entrypoint.sh /docker-entrypoint.sh
 RUN chmod +x /docker-entrypoint.sh
 
-# Create non-root user for running the application
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S nextjs -u 1001
-
-# Set proper permissions
-RUN chown -R nextjs:nodejs /usr/share/nginx/html && \
-    chown nextjs:nodejs /docker-entrypoint.sh
+# Ensure nginx can write to html directory for environment.js updates
+RUN chmod 755 /usr/share/nginx/html
 
 # Expose port
 EXPOSE 80
