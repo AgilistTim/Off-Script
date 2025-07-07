@@ -1,39 +1,52 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { getEnvironmentConfig, isPlaceholder } from './environment';
+import { isPlaceholder } from './environment';
 
-// Mock the environment module before importing it
+// Create a mock configuration for testing
+const mockConfig = {
+  firebase: {
+    apiKey: 'test-vite-api-key',
+    authDomain: 'test-vite-auth-domain',
+    projectId: 'test-vite-project-id',
+    storageBucket: 'test-vite-storage-bucket',
+    messagingSenderId: 'test-vite-sender-id',
+    appId: 'test-vite-app-id',
+    measurementId: 'test-vite-measurement-id',
+  },
+  apiKeys: {
+    youtube: 'test-vite-youtube-key',
+    recaptcha: 'test-vite-recaptcha-key',
+    bumpups: 'test-vite-bumpups-key',
+  },
+  environment: 'test',
+  features: {
+    enableAnalytics: true,
+    enableYouTubeIntegration: true,
+    enableBumpupsIntegration: true,
+  },
+};
+
+// Mock the getEnvironmentConfig function
+const mockGetEnvironmentConfig = vi.fn().mockReturnValue(mockConfig);
+
+// Mock the environment module
 vi.mock('./environment', async () => {
   const actual = await vi.importActual('./environment');
-  
   return {
     ...actual as object,
-    getEnvironmentConfig: vi.fn().mockImplementation(() => {
-      // Return a test implementation for testing
-      return {
-        firebase: {
-          apiKey: 'test-vite-api-key',
-          authDomain: 'test-vite-auth-domain',
-          projectId: 'test-vite-project-id',
-          storageBucket: 'test-vite-storage-bucket',
-          messagingSenderId: 'test-vite-sender-id',
-          appId: 'test-vite-app-id',
-          measurementId: 'test-vite-measurement-id',
-        },
-        apiKeys: {
-          youtube: 'test-vite-youtube-key',
-          recaptcha: 'test-vite-recaptcha-key',
-          bumpups: 'test-vite-bumpups-key',
-        },
-        environment: 'test',
-        features: {
-          enableAnalytics: true,
-          enableYouTubeIntegration: true,
-          enableBumpupsIntegration: true,
-        },
-      };
-    }),
+    getEnvironmentConfig: mockGetEnvironmentConfig,
+    env: mockConfig,
+    firebaseConfig: mockConfig.firebase,
+    apiKeys: mockConfig.apiKeys,
+    features: mockConfig.features,
+    environment: mockConfig.environment,
+    isProduction: false,
+    isDevelopment: false,
+    isTest: true,
   };
 });
+
+// Import the mocked function after mocking
+import { getEnvironmentConfig } from './environment';
 
 describe('Environment Configuration', () => {
   // Mock console methods
@@ -81,6 +94,8 @@ describe('Environment Configuration', () => {
       expect(config.apiKeys.youtube).toBe('test-vite-youtube-key');
       expect(config.apiKeys.bumpups).toBe('test-vite-bumpups-key');
       expect(config.environment).toBe('test');
+      expect(config.features.enableAnalytics).toBe(true);
+      expect(config.features.enableYouTubeIntegration).toBe(true);
     });
   });
 }); 
