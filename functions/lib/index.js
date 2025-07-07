@@ -368,7 +368,7 @@ exports.bumpupsProxy = (0, https_1.onRequest)({
             return;
         }
         // Hardcode API key temporarily to fix immediate issues
-        const bumpupsApiKey = '***REMOVED***';
+        const bumpupsApiKey = 'bumpups-PqWL416AfWdSgJAWr6oFd3Yj6Ff2Vqy-zxvc_2p1qkGX56FunH-yea-Gn334G3fqXJs6Gh3XuL4dMZG_W6FNL0ffvHNxc6q1UlnMrg5evJM8S9DU7Yye-dv9TqzhzNH2b2ydqolEO1GUhaPUuBfgJtM_jeqCo_FcJw';
         firebase_functions_1.logger.info('Making Bumpups API request', { url, promptLength: prompt.length });
         // Make request to Bumpups API
         const bumpupsResponse = await fetch('https://api.bumpups.com/chat', {

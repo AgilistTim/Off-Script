@@ -7,7 +7,7 @@ import { db, authenticateAdmin } from './firebaseConfig.js';
 import fetch from 'node-fetch';
 
 // Bumpups API configuration
-const BUMPUPS_API_KEY = process.env.VITE_BUMPUPS_API_KEY || '***REMOVED***';
+const BUMPUPS_API_KEY = process.env.VITE_BUMPUPS_API_KEY || 'bumpups-PqWL416AfWdSgJAWr6oFd3Yj6Ff2Vqy-zxvc_2p1qkGX56FunH-yea-Gn334G3fqXJs6Gh3XuL4dMZG_W6FNL0ffvHNxc6q1UlnMrg5evJM8S9DU7Yye-dv9TqzhzNH2b2ydqolEO1GUhaPUuBfgJtM_jeqCo_FcJw';
 const YOUTUBE_API_KEY = process.env.VITE_YOUTUBE_API_KEY;
 
 // YouTube videos to analyze (add your URLs here)

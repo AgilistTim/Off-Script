@@ -51,7 +51,7 @@ class BumpupsService {
     // Get from environment variables if available, otherwise use the direct URL
     const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 
                      (typeof window !== 'undefined' && window.ENV?.VITE_FIREBASE_PROJECT_ID) || 
-                     '***REMOVED***';
+                     'offscript-8f6eb';
                      
     // Use the standard Firebase Functions URL format
     this.baseUrl = `https://us-central1-${projectId}.cloudfunctions.net/bumpupsProxy`;

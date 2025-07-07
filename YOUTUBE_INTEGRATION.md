@@ -7,7 +7,7 @@ This guide walks you through integrating YouTube API and Bumpups AI analysis wit
 ### **YouTube Data API v3**
 
 1. **Go to Google Cloud Console**: [https://console.cloud.google.com/](https://console.cloud.google.com/)
-2. **Select your Firebase project**: `***REMOVED***` (or create new one)
+2. **Select your Firebase project**: `offscript-8f6eb` (or create new one)
 3. **Enable the YouTube Data API**:
    - Navigate to **APIs & Services** > **Library**
    - Search for "YouTube Data API v3"
@@ -36,7 +36,7 @@ This guide walks you through integrating YouTube API and Bumpups AI analysis wit
 
 Your Bumpups API key is already provided:
 ```
-***REMOVED***
+bumpups-PqWL416AfWdSgJAWr6oFd3Yj6Ff2Vqy-zxvc_2p1qkGX56FunH-yea-Gn334G3fqXJs6Gh3XuL4dMZG_W6FNL0ffvHNxc6q1UlnMrg5evJM8S9DU7Yye-dv9TqzhzNH2b2ydqolEO1GUhaPUuBfgJtM_jeqCo_FcJw
 ```
 
 📖 **API Documentation**: [https://docs.bumpups.com/docs/getting-started](https://docs.bumpups.com/docs/getting-started)
@@ -49,13 +49,13 @@ Create a `.env` file in your project root:
 
 ```bash
 # Firebase (existing)
-VITE_FIREBASE_API_KEY=***REMOVED***
-VITE_FIREBASE_AUTH_DOMAIN=***REMOVED***
-VITE_FIREBASE_PROJECT_ID=***REMOVED***
-VITE_FIREBASE_STORAGE_BUCKET=***REMOVED***.firebasestorage.app
-VITE_FIREBASE_MESSAGING_SENDER_ID=***REMOVED***
-VITE_FIREBASE_APP_ID=1:***REMOVED***:web:b5eac19f0f81d6ef2c3dee
-VITE_FIREBASE_MEASUREMENT_ID=***REMOVED***
+VITE_FIREBASE_API_KEY=AIzaSyAIheFA9pjV634YCVezKxgEIug4rlNS70g
+VITE_FIREBASE_AUTH_DOMAIN=offscript-8f6eb.firebaseapp.com
+VITE_FIREBASE_PROJECT_ID=offscript-8f6eb
+VITE_FIREBASE_STORAGE_BUCKET=offscript-8f6eb.firebasestorage.app
+VITE_FIREBASE_MESSAGING_SENDER_ID=239069442731
+VITE_FIREBASE_APP_ID=1:239069442731:web:b5eac19f0f81d6ef2c3dee
+VITE_FIREBASE_MEASUREMENT_ID=G-9GL059BLSN
 
 # YouTube Data API
 VITE_YOUTUBE_API_KEY=your_youtube_api_key_here
@@ -64,7 +64,7 @@ VITE_YOUTUBE_API_KEY=your_youtube_api_key_here
 VITE_RECAPTCHA_SITE_KEY=your_recaptcha_site_key_here
 
 # Bumpups API
-VITE_BUMPUPS_API_KEY=***REMOVED***
+VITE_BUMPUPS_API_KEY=bumpups-PqWL416AfWdSgJAWr6oFd3Yj6Ff2Vqy-zxvc_2p1qkGX56FunH-yea-Gn334G3fqXJs6Gh3XuL4dMZG_W6FNL0ffvHNxc6q1UlnMrg5evJM8S9DU7Yye-dv9TqzhzNH2b2ydqolEO1GUhaPUuBfgJtM_jeqCo_FcJw
 ```
 
 ### **For Render Deployment**
@@ -74,7 +74,7 @@ Add these environment variables in your Render service settings:
 ```
 VITE_YOUTUBE_API_KEY=your_youtube_api_key_here
 VITE_RECAPTCHA_SITE_KEY=your_recaptcha_site_key_here  
-VITE_BUMPUPS_API_KEY=***REMOVED***
+VITE_BUMPUPS_API_KEY=bumpups-PqWL416AfWdSgJAWr6oFd3Yj6Ff2Vqy-zxvc_2p1qkGX56FunH-yea-Gn334G3fqXJs6Gh3XuL4dMZG_W6FNL0ffvHNxc6q1UlnMrg5evJM8S9DU7Yye-dv9TqzhzNH2b2ydqolEO1GUhaPUuBfgJtM_jeqCo_FcJw
 ```
 
 ## 🧠 **Step 3: Video Analysis Features**
