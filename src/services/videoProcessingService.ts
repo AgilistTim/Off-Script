@@ -166,8 +166,41 @@ class VideoProcessingService {
       if (analysisText.includes('training')) educationRequired.push('Training');
       if (analysisText.includes('apprenticeship')) educationRequired.push('Apprenticeship');
 
+      // Generate an improved description based on the AI analysis
+      let enhancedDescription = initialVideoData.description;
+      
+      // If we have a good analysis, use it to create a better description
+      if (aiAnalysis.careerExplorationAnalysis && aiAnalysis.careerExplorationAnalysis.length > 100) {
+        // Extract key themes and challenges for the description
+        const themes = this.extractKeyThemes(aiAnalysis.careerExplorationAnalysis);
+        const challengesText = challenges.length > 0 ? challenges.join(', ') : '';
+        
+        // Create a career-focused description
+        enhancedDescription = `${initialVideoData.title} - Career Exploration\n\n`;
+        
+        if (themes) {
+          enhancedDescription += `This video explores ${themes}. `;
+        }
+        
+        if (challengesText) {
+          enhancedDescription += `It highlights challenges such as ${challengesText}. `;
+        }
+        
+        if (careerPathways.length > 0) {
+          enhancedDescription += `\n\nRecommended career paths: ${careerPathways.join(', ')}. `;
+        }
+        
+        if (enhancedSkills.length > 0) {
+          enhancedDescription += `\n\nKey skills demonstrated: ${enhancedSkills.join(', ')}. `;
+        }
+        
+        // Add a note about the original description
+        enhancedDescription += `\n\nOriginal description: ${initialVideoData.description.substring(0, 200)}${initialVideoData.description.length > 200 ? '...' : ''}`;
+      }
+
       const finalVideoData = {
         ...initialVideoData,
+        description: enhancedDescription,
         aiAnalysis,
         skillsHighlighted: enhancedSkills,
         careerPathways,
@@ -182,6 +215,7 @@ class VideoProcessingService {
       };
 
       await enhancedVideoService.updateVideoWithAnalysis(videoId, {
+        description: enhancedDescription,
         aiAnalysis,
         skillsHighlighted: enhancedSkills,
         careerPathways,
@@ -580,6 +614,47 @@ class VideoProcessingService {
     }
     
     return Array.from(challenges).slice(0, 5); // Limit to 5 challenges
+  }
+
+  /**
+   * Extract key themes from output text
+   */
+  private extractKeyThemes(output: string): string {
+    // Try to find the key themes section
+    const themesMatch = output.match(/(?:# Key Themes and Environments)[^\n]*\n((?:- [^\n]+\n?)+)/i);
+    
+    if (themesMatch && themesMatch[1]) {
+      const themesText = themesMatch[1].trim();
+      
+      // Extract bullet points
+      const bulletPoints = themesText.match(/- ([^\n]+)/g);
+      if (bulletPoints && bulletPoints.length > 0) {
+        // Clean up the bullet points and join them
+        const themes = bulletPoints
+          .map(point => point.replace(/^- /, '').trim())
+          .filter(theme => theme)
+          .join(', ');
+        
+        return themes;
+      }
+    }
+    
+    // Fallback: try to extract some general themes from the text
+    const commonThemes = [
+      'office environment', 'workplace culture', 'team collaboration', 
+      'professional development', 'career growth', 'leadership', 
+      'technical skills', 'customer service', 'project management'
+    ];
+    
+    const foundThemes = commonThemes.filter(theme => 
+      output.toLowerCase().includes(theme.toLowerCase())
+    );
+    
+    if (foundThemes.length > 0) {
+      return foundThemes.join(', ');
+    }
+    
+    return 'career insights and professional development';
   }
 }
 
