@@ -14,6 +14,9 @@ declare global {
       VITE_FIREBASE_MESSAGING_SENDER_ID: string;
       VITE_FIREBASE_APP_ID: string;
       VITE_FIREBASE_MEASUREMENT_ID: string;
+      VITE_YOUTUBE_API_KEY?: string;
+      VITE_RECAPTCHA_SITE_KEY?: string;
+      VITE_BUMPUPS_API_KEY?: string;
     };
   }
 }
