@@ -23,10 +23,12 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.enrichVideoMetadata = void 0;
+exports.healthCheck = exports.bumpupsProxy = exports.enrichVideoMetadata = void 0;
 const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const https = __importStar(require("https"));
+const https_1 = require("firebase-functions/v2/https");
+const firebase_functions_1 = require("firebase-functions");
 admin.initializeApp();
 const db = admin.firestore();
 // Configure runtime options for the function
@@ -34,6 +36,13 @@ const runtimeOpts = {
     timeoutSeconds: 300,
     memory: "1GB",
 };
+// CORS configuration for web clients - simplified for Firebase Functions v2
+const corsOrigins = [
+    'http://localhost:5173',
+    'http://localhost:5174',
+    'http://localhost:3000',
+    'https://off-script.onrender.com'
+];
 /**
  * Recursively removes undefined values from an object
  * @param {any} obj - The object to sanitize
@@ -333,5 +342,86 @@ exports.enrichVideoMetadata = functions
         await db.collection("videos").doc(videoId).update(errorUpdateData);
         return null;
     }
+});
+/**
+ * Proxy function for Bumpups API to avoid CORS issues
+ */
+exports.bumpupsProxy = (0, https_1.onRequest)({
+    cors: true,
+    memory: '512MiB',
+    timeoutSeconds: 60
+}, async (request, response) => {
+    try {
+        // Only allow POST requests
+        if (request.method !== 'POST') {
+            response.status(405).json({
+                error: 'Method not allowed. Use POST only.'
+            });
+            return;
+        }
+        // Validate request body
+        const { url, prompt, model = 'bump-1.0', language = 'en', output_format = 'text' } = request.body;
+        if (!url || !prompt) {
+            response.status(400).json({
+                error: 'Missing required fields: url and prompt'
+            });
+            return;
+        }
+        // Hardcode API key temporarily to fix immediate issues
+        const bumpupsApiKey = '***REMOVED***';
+        firebase_functions_1.logger.info('Making Bumpups API request', { url, promptLength: prompt.length });
+        // Make request to Bumpups API
+        const bumpupsResponse = await fetch('https://api.bumpups.com/chat', {
+            method: 'POST',
+            headers: {
+                'X-Api-Key': bumpupsApiKey,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                url,
+                model,
+                prompt,
+                language,
+                output_format
+            })
+        });
+        if (!bumpupsResponse.ok) {
+            const errorData = await bumpupsResponse.json().catch(() => ({}));
+            firebase_functions_1.logger.error('Bumpups API error', {
+                status: bumpupsResponse.status,
+                statusText: bumpupsResponse.statusText,
+                error: errorData
+            });
+            response.status(bumpupsResponse.status).json({
+                error: `Bumpups API error: ${bumpupsResponse.status} ${bumpupsResponse.statusText}`,
+                details: errorData.message || 'Unknown error'
+            });
+            return;
+        }
+        const data = await bumpupsResponse.json();
+        firebase_functions_1.logger.info('Bumpups API success', {
+            outputLength: data.output?.length || 0,
+            videoDuration: data.video_duration
+        });
+        // Return the response
+        response.status(200).json(data);
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Error in bumpupsProxy function', error);
+        response.status(500).json({
+            error: 'Internal server error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+/**
+ * Health check endpoint
+ */
+exports.healthCheck = (0, https_1.onRequest)({ cors: corsOrigins }, (request, response) => {
+    response.status(200).json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
+    });
 });
 //# sourceMappingURL=index.js.map

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { getAllVideos, Video, createVideo, updateVideo, deleteVideo, bulkImportVideos } from '../../services/videoService';
 import { toast, Toaster } from 'react-hot-toast';
+import EnhancedVideoForm from '../../components/admin/EnhancedVideoForm';
 
 const AdminVideos: React.FC = () => {
   const [videos, setVideos] = useState<Video[]>([]);
@@ -21,6 +22,7 @@ const AdminVideos: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('');
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [showBulkImportModal, setShowBulkImportModal] = useState<boolean>(false);
+  const [showEnhancedForm, setShowEnhancedForm] = useState<boolean>(false);
   const [currentVideo, setCurrentVideo] = useState<Video | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [submitLoading, setSubmitLoading] = useState<boolean>(false);
@@ -93,12 +95,24 @@ const AdminVideos: React.FC = () => {
     }
   };
 
-  // Handle add new video
+  // Handle add new video (Enhanced)
   const handleAddVideo = () => {
+    setShowEnhancedForm(true);
+    setError(null);
+  };
+
+  // Handle add new video (Legacy)
+  const handleAddVideoLegacy = () => {
     setCurrentVideo(null);
     setIsEditing(false);
     setShowAddModal(true);
     setError(null);
+  };
+
+  // Handle video added callback
+  const handleVideoAdded = (videoData: any) => {
+    // Add the new video to the local state
+    setVideos(prev => [...prev, videoData]);
   };
 
   // Handle bulk import
@@ -686,15 +700,23 @@ const AdminVideos: React.FC = () => {
             disabled={loading}
           >
             <FileInput className="w-4 h-4 mr-2" />
-            Bulk Import
+            Legacy Bulk Import
+          </button>
+          <button
+            onClick={handleAddVideoLegacy}
+            className="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 flex items-center"
+            disabled={loading}
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Manual Add
           </button>
           <button
             onClick={handleAddVideo}
             className="px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600 flex items-center"
             disabled={loading}
           >
-            <Plus className="w-4 h-4 mr-2" />
-            Add New Video
+            <Upload className="w-4 h-4 mr-2" />
+            🚀 Smart Add Video
           </button>
         </div>
       </div>
@@ -917,6 +939,14 @@ const AdminVideos: React.FC = () => {
 
       {/* Bulk Import Modal */}
       {showBulkImportModal && <BulkImportModal />}
+
+      {/* Enhanced Video Form */}
+      <EnhancedVideoForm
+        isOpen={showEnhancedForm}
+        onClose={() => setShowEnhancedForm(false)}
+        onVideoAdded={handleVideoAdded}
+        categories={categories}
+      />
     </div>
   );
 };

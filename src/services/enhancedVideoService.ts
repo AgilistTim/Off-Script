@@ -200,7 +200,7 @@ class EnhancedVideoService {
   /**
    * Store video data in Firebase
    */
-  private async storeVideoData(videoData: EnhancedVideoData): Promise<void> {
+  async storeVideoData(videoData: EnhancedVideoData): Promise<void> {
     const videoRef = doc(db, 'videos', videoData.id);
     await setDoc(videoRef, videoData);
     console.log('💾 Video data stored in Firebase');
@@ -209,7 +209,7 @@ class EnhancedVideoService {
   /**
    * Update video with AI analysis results
    */
-  private async updateVideoWithAnalysis(videoId: string, updates: Partial<EnhancedVideoData>): Promise<void> {
+  async updateVideoWithAnalysis(videoId: string, updates: Partial<EnhancedVideoData>): Promise<void> {
     const videoRef = doc(db, 'videos', videoId);
     await updateDoc(videoRef, updates);
     console.log('🔄 Video updated with AI analysis');

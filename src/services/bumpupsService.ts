@@ -1,5 +1,5 @@
 // Bumpups API service for video analysis and interactive querying
-// Based on Bumpups API documentation: https://docs.bumpups.com/docs/getting-started
+// Using Firebase Cloud Function proxy to avoid CORS issues
 
 interface BumpupsTimestamp {
   time: number; // seconds
@@ -44,32 +44,21 @@ interface BumpupsJobStatus {
 }
 
 class BumpupsService {
-  private apiKey: string;
-  private baseUrl = 'https://api.bumpups.com';
+  private baseUrl: string;
 
   constructor() {
-    // Get API key from environment variables
-    this.apiKey = import.meta.env.VITE_BUMPUPS_API_KEY || 
-                  (typeof window !== 'undefined' && window.ENV?.VITE_BUMPUPS_API_KEY) || '';
-    
-    if (!this.apiKey) {
-      console.warn('Bumpups API key not found. Video analysis features will be limited.');
-    }
+    // Use Firebase Function proxy to avoid CORS issues
+    this.baseUrl = 'https://bumpupsproxy-d6ibsfvcfa-uc.a.run.app';
   }
 
   /**
-   * Query video with Bumpups chat API
+   * Query video with Bumpups API via Firebase Function proxy
    */
   async queryVideo(youtubeUrl: string, prompt: string): Promise<any> {
-    if (!this.apiKey) {
-      throw new Error('Bumpups API key not configured');
-    }
-
     try {
-      const response = await fetch(`${this.baseUrl}/chat`, {
+      const response = await fetch(this.baseUrl, {
         method: 'POST',
         headers: {
-          'X-Api-Key': this.apiKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
@@ -83,7 +72,7 @@ class BumpupsService {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Bumpups API error: ${response.status} ${response.statusText} - ${errorData.message || 'Unknown error'}`);
+        throw new Error(`Bumpups proxy error: ${response.status} ${response.statusText} - ${errorData.error || errorData.details || 'Unknown error'}`);
       }
 
       const data = await response.json();

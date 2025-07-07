@@ -1,6 +1,8 @@
 import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as https from "https";
+import { onRequest } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions";
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -10,6 +12,14 @@ const runtimeOpts: functions.RuntimeOptions = {
   timeoutSeconds: 300,  // 5 minutes
   memory: "1GB",
 };
+
+// CORS configuration for web clients - simplified for Firebase Functions v2
+const corsOrigins = [
+  'http://localhost:5173',
+  'http://localhost:5174', 
+  'http://localhost:3000',
+  'https://off-script.onrender.com'
+];
 
 /**
  * Recursively removes undefined values from an object
@@ -354,4 +364,99 @@ export const enrichVideoMetadata = functions
       await db.collection("videos").doc(videoId).update(errorUpdateData);
       return null;
     }
-  }); 
+  });
+
+/**
+ * Proxy function for Bumpups API to avoid CORS issues
+ */
+export const bumpupsProxy = onRequest(
+  { 
+    cors: true, // Allow all origins temporarily
+    memory: '512MiB',
+    timeoutSeconds: 60
+  },
+  async (request, response) => {
+    try {
+      // Only allow POST requests
+      if (request.method !== 'POST') {
+        response.status(405).json({ 
+          error: 'Method not allowed. Use POST only.' 
+        });
+        return;
+      }
+
+      // Validate request body
+      const { url, prompt, model = 'bump-1.0', language = 'en', output_format = 'text' } = request.body;
+      
+      if (!url || !prompt) {
+        response.status(400).json({ 
+          error: 'Missing required fields: url and prompt' 
+        });
+        return;
+      }
+
+      // Hardcode API key temporarily to fix immediate issues
+      const bumpupsApiKey = '***REMOVED***';
+
+      logger.info('Making Bumpups API request', { url, promptLength: prompt.length });
+
+      // Make request to Bumpups API
+      const bumpupsResponse = await fetch('https://api.bumpups.com/chat', {
+        method: 'POST',
+        headers: {
+          'X-Api-Key': bumpupsApiKey,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          url,
+          model,
+          prompt,
+          language,
+          output_format
+        })
+      });
+
+      if (!bumpupsResponse.ok) {
+        const errorData = await bumpupsResponse.json().catch(() => ({}));
+        logger.error('Bumpups API error', { 
+          status: bumpupsResponse.status,
+          statusText: bumpupsResponse.statusText,
+          error: errorData
+        });
+        
+        response.status(bumpupsResponse.status).json({
+          error: `Bumpups API error: ${bumpupsResponse.status} ${bumpupsResponse.statusText}`,
+          details: errorData.message || 'Unknown error'
+        });
+        return;
+      }
+
+      const data = await bumpupsResponse.json();
+      logger.info('Bumpups API success', { 
+        outputLength: data.output?.length || 0,
+        videoDuration: data.video_duration 
+      });
+
+      // Return the response
+      response.status(200).json(data);
+      
+    } catch (error) {
+      logger.error('Error in bumpupsProxy function', error);
+      response.status(500).json({ 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
+
+/**
+ * Health check endpoint
+ */
+export const healthCheck = onRequest({ cors: corsOrigins }, (request, response) => {
+  response.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development'
+  });
+}); 
