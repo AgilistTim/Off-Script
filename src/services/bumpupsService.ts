@@ -375,7 +375,19 @@ Structure your output using markdown formatting as follows:
 
 Provide rich, actionable insights that help young people understand both the practical and emotional aspects of this career path.`;
 
-    return await this.queryVideo(youtubeUrl, careerExplorationPrompt);
+    try {
+      const result = await this.queryVideo(youtubeUrl, careerExplorationPrompt);
+      
+      // Ensure the result has a confidence value
+      if (!result.confidence) {
+        result.confidence = 90; // Default confidence for career exploration analysis
+      }
+      
+      return result;
+    } catch (error) {
+      console.error('Error in career exploration analysis:', error);
+      throw error;
+    }
   }
 }
 

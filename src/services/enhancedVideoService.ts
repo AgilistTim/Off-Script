@@ -167,11 +167,14 @@ class EnhancedVideoService {
       console.log(`✅ Career exploration analysis complete!`);
       console.log(`📄 Analysis length: ${analysisResult.output?.length || 0} characters`);
 
-      // Update with AI analysis
+      // Get current timestamp for analysis
+      const currentTimestamp = new Date().toISOString();
+
+      // Update with AI analysis - ensure all fields have default values to avoid undefined
       const aiAnalysis = {
         careerExplorationAnalysis: analysisResult.output || '',
-        analyzedAt: new Date().toISOString(),
-        confidence: 90, // Higher confidence for structured career analysis
+        analyzedAt: currentTimestamp, // Ensure this is always defined
+        confidence: analysisResult.confidence || 90, // Default confidence if not provided
         analysisType: 'career_exploration' as const,
       };
 
@@ -183,10 +186,10 @@ class EnhancedVideoService {
       // Update video with analysis
       await this.updateVideoWithAnalysis(videoId, {
         aiAnalysis,
-        skillsHighlighted: enhancedSkills,
-        careerPathways,
-        hashtags,
-        lastAnalyzed: new Date().toISOString(),
+        skillsHighlighted: enhancedSkills || [],
+        careerPathways: careerPathways || [],
+        hashtags: hashtags || [],
+        lastAnalyzed: currentTimestamp,
         analysisStatus: 'completed',
       });
 
