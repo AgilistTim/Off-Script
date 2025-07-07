@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { X, Plus, Upload, AlertCircle, CheckCircle } from 'lucide-react';
+import { X, Plus, Upload, AlertCircle, CheckCircle, Settings } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import VideoProcessingService, { type VideoProcessingProgress, type ProcessedVideoResult } from '../../services/videoProcessingService';
+import videoProcessingService, { type VideoProcessingProgress, type ProcessedVideoResult } from '../../services/videoProcessingService';
 
 interface EnhancedVideoFormProps {
   isOpen: boolean;
@@ -19,6 +19,13 @@ interface VideoToProcess {
   result?: ProcessedVideoResult;
 }
 
+interface BumpupsOptions {
+  prompt: string;
+  model: string;
+  language: string;
+  output_format: string;
+}
+
 const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
   isOpen,
   onClose,
@@ -32,8 +39,13 @@ const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
   const [mode, setMode] = useState<'single' | 'bulk'>('single');
   const [videosToProcess, setVideosToProcess] = useState<VideoToProcess[]>([]);
   const [validationError, setValidationError] = useState<string | null>(null);
-
-  const videoProcessingService = new VideoProcessingService();
+  const [showAdvancedOptions, setShowAdvancedOptions] = useState(false);
+  const [bumpupsOptions, setBumpupsOptions] = useState<BumpupsOptions>({
+    prompt: "Analyse this video for a youth career exploration platform for 16–20-year-olds. Return your output in clear markdown using the following exact structure with bullet lists:\n\n# Key Themes and Environments\n- (max 5 themes/environments)\n\n# Soft Skills Demonstrated\n- (max 5 soft skills)\n\n# Challenges Highlighted\n- (max 5 challenges)\n\n# Aspirational and Emotional Elements\n- Timestamp – Quotation or moment (max 5)\n\n# Suggested Hashtags\n- #hashtag1\n- #hashtag2\n(up to 10)\n\n# Recommended Career Paths\n- (max 3 career paths)\n\n# Reflective Prompts for Young Viewers\n- Prompt 1\n- Prompt 2\n- Prompt 3\n\nReturn only the structured markdown without additional commentary",
+    model: "bump-1.0",
+    language: "en",
+    output_format: "markdown"
+  });
 
   // Reset form state
   const resetForm = () => {
@@ -43,6 +55,13 @@ const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
     setVideosToProcess([]);
     setValidationError(null);
     setIsProcessing(false);
+    setBumpupsOptions({
+      prompt: "Analyse this video for a youth career exploration platform for 16–20-year-olds. Return your output in clear markdown using the following exact structure with bullet lists:\n\n# Key Themes and Environments\n- (max 5 themes/environments)\n\n# Soft Skills Demonstrated\n- (max 5 soft skills)\n\n# Challenges Highlighted\n- (max 5 challenges)\n\n# Aspirational and Emotional Elements\n- Timestamp – Quotation or moment (max 5)\n\n# Suggested Hashtags\n- #hashtag1\n- #hashtag2\n(up to 10)\n\n# Recommended Career Paths\n- (max 3 career paths)\n\n# Reflective Prompts for Young Viewers\n- Prompt 1\n- Prompt 2\n- Prompt 3\n\nReturn only the structured markdown without additional commentary",
+      model: "bump-1.0",
+      language: "en",
+      output_format: "markdown"
+    });
+    setShowAdvancedOptions(false);
   };
 
   // Validate URL in real-time
@@ -56,6 +75,14 @@ const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
         setValidationError(validation.error || 'Invalid URL');
       }
     }
+  };
+
+  // Handle changes to Bumpups options
+  const handleBumpupsOptionChange = (field: keyof BumpupsOptions, value: string) => {
+    setBumpupsOptions(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   // Process a single video
@@ -74,7 +101,12 @@ const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
     setIsProcessing(true);
 
     try {
-      const result = await videoProcessingService.processVideoWithToasts(videoUrl, category);
+      // Pass the Bumpups options to the processing service
+      const result = await videoProcessingService.processVideoWithToasts(
+        videoUrl, 
+        category,
+        showAdvancedOptions ? bumpupsOptions : undefined
+      );
       
       if (result.success && result.videoData) {
         onVideoAdded(result.videoData);
@@ -143,7 +175,8 @@ const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
                 }
               : video
           ));
-        }
+        },
+        showAdvancedOptions ? bumpupsOptions : undefined
       );
 
       toast.dismiss(overallProgressToast);
@@ -200,108 +233,194 @@ const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
         </div>
 
         <div className="p-6">
-          {/* Mode Selection */}
+          {/* Mode Selector */}
           <div className="flex space-x-4 mb-6">
             <button
-              onClick={() => setMode('single')}
-              className={`px-4 py-2 rounded-md flex items-center ${
+              className={`flex-1 py-2 rounded-md ${
                 mode === 'single'
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-blue-600 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
+              onClick={() => setMode('single')}
               disabled={isProcessing}
             >
-              <Plus size={16} className="mr-2" />
               Single Video
             </button>
             <button
-              onClick={() => setMode('bulk')}
-              className={`px-4 py-2 rounded-md flex items-center ${
+              className={`flex-1 py-2 rounded-md ${
                 mode === 'bulk'
-                  ? 'bg-blue-500 text-white'
+                  ? 'bg-blue-600 text-white'
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
               }`}
+              onClick={() => setMode('bulk')}
               disabled={isProcessing}
             >
-              <Upload size={16} className="mr-2" />
               Bulk Import
             </button>
           </div>
 
-          {mode === 'single' ? (
-            // Single Video Mode
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  YouTube Video URL
+          {/* Category Selector (common to both modes) */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Category *
+            </label>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+              disabled={isProcessing}
+              required
+            >
+              <option value="">Select a category</option>
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Advanced Options Toggle */}
+          <div className="mb-6">
+            <button
+              type="button"
+              onClick={() => setShowAdvancedOptions(!showAdvancedOptions)}
+              className="flex items-center text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
+              disabled={isProcessing}
+            >
+              <Settings size={16} className="mr-1" />
+              {showAdvancedOptions ? 'Hide Advanced Options' : 'Show Advanced Options'}
+            </button>
+          </div>
+
+          {/* Advanced Options Panel */}
+          {showAdvancedOptions && (
+            <div className="mb-6 p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md">
+              <h3 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-3">
+                Bumpups API Options
+              </h3>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Analysis Prompt
                 </label>
-                <input
-                  type="url"
-                  value={videoUrl}
-                  onChange={(e) => handleUrlChange(e.target.value)}
-                  placeholder="https://www.youtube.com/watch?v=..."
-                  className={`w-full px-3 py-2 border ${
-                    validationError ? 'border-red-500' : 'border-gray-300 dark:border-gray-600'
-                  } rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white`}
+                <textarea
+                  value={bumpupsOptions.prompt}
+                  onChange={(e) => handleBumpupsOptionChange('prompt', e.target.value)}
+                  className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                  rows={3}
                   disabled={isProcessing}
                 />
-                {validationError && (
-                  <p className="mt-1 text-sm text-red-500 flex items-center">
-                    <AlertCircle size={16} className="mr-1" />
-                    {validationError}
-                  </p>
-                )}
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  📊 We'll automatically extract metadata and analyze content with AI
-                </p>
               </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Model
+                  </label>
+                  <select
+                    value={bumpupsOptions.model}
+                    onChange={(e) => handleBumpupsOptionChange('model', e.target.value)}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    disabled={isProcessing}
+                  >
+                    <option value="bump-1.0">bump-1.0</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Language
+                  </label>
+                  <select
+                    value={bumpupsOptions.language}
+                    onChange={(e) => handleBumpupsOptionChange('language', e.target.value)}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    disabled={isProcessing}
+                  >
+                    <option value="en">English</option>
+                    <option value="es">Spanish</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ko">Korean</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="ru">Russian</option>
+                    <option value="ar">Arabic</option>
+                    <option value="hi">Hindi</option>
+                  </select>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Output Format
+                  </label>
+                  <select
+                    value={bumpupsOptions.output_format}
+                    onChange={(e) => handleBumpupsOptionChange('output_format', e.target.value)}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
+                    disabled={isProcessing}
+                  >
+                    <option value="text">Text</option>
+                    <option value="markdown">Markdown</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          )}
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Category
+          {mode === 'single' ? (
+            /* Single Video Mode */
+            <div>
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  YouTube URL *
                 </label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  disabled={isProcessing}
-                >
-                  <option value="">Select a category</option>
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <input
+                    type="url"
+                    value={videoUrl}
+                    onChange={(e) => handleUrlChange(e.target.value)}
+                    placeholder="https://www.youtube.com/watch?v=..."
+                    className={`w-full p-2 pr-10 border ${
+                      validationError
+                        ? 'border-red-500 dark:border-red-400'
+                        : 'border-gray-300 dark:border-gray-600'
+                    } rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100`}
+                    disabled={isProcessing}
+                    required
+                  />
+                  {validationError && (
+                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                      <AlertCircle className="h-5 w-5 text-red-500" />
+                    </div>
+                  )}
+                </div>
+                {validationError && (
+                  <p className="mt-1 text-sm text-red-600 dark:text-red-400">{validationError}</p>
+                )}
               </div>
 
-              <div className="flex justify-end space-x-3">
-                <button
-                  onClick={onClose}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  disabled={isProcessing}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={processSingleVideo}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isProcessing || !videoUrl.trim() || !category.trim() || !!validationError}
-                >
-                  {isProcessing ? (
-                    <>
-                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Plus size={16} className="mr-2" />
-                      Add Video
-                    </>
-                  )}
-                </button>
-              </div>
+              <button
+                onClick={processSingleVideo}
+                disabled={isProcessing || !!validationError || !videoUrl || !category}
+                className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-md shadow-sm flex items-center justify-center"
+              >
+                {isProcessing ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-5 w-5" />
+                    Process Video
+                  </>
+                )}
+              </button>
             </div>
           ) : (
             // Bulk Import Mode
@@ -321,23 +440,6 @@ const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
                   🧠 Each video will be analyzed with AI for career exploration insights
                 </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Category for all videos
-                </label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-                  disabled={isProcessing}
-                >
-                  <option value="">Select a category</option>
-                  {categories.map(cat => (
-                    <option key={cat} value={cat}>{cat}</option>
-                  ))}
-                </select>
               </div>
 
               {/* Processing Progress */}

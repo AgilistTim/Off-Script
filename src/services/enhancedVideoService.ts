@@ -1,11 +1,12 @@
 // Enhanced video service that combines YouTube API, Bumpups AI analysis, and Firebase storage
 
-import { doc, setDoc, updateDoc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, getDoc, collection, query, where, getDocs, Firestore } from 'firebase/firestore';
 import { db } from './firebase';
-import YouTubeService, { type EnhancedVideoMetadata } from './youtubeService';
-import BumpupsService, { type BumpupsAnalysisResult, type BumpupsTimestamp } from './bumpupsService';
+import youtubeService from './youtubeService';
+import bumpupsService from './bumpupsService';
 
-interface EnhancedVideoData {
+// Type definitions for the EnhancedVideoData interface
+export interface EnhancedVideoData {
   id: string;
   
   // Basic video info
@@ -69,6 +70,9 @@ interface EnhancedVideoData {
   careerStage: 'entry-level' | 'mid-level' | 'senior' | 'any';
   careerPathways?: string[];
   hashtags?: string[];
+  reflectiveQuestions?: string[];
+  emotionalElements?: string[];
+  challenges?: string[];
   salaryRange?: {
     min: number;
     max: number;
@@ -85,12 +89,10 @@ interface EnhancedVideoData {
 }
 
 class EnhancedVideoService {
-  private youtubeService: YouTubeService;
-  private bumpupsService: BumpupsService;
-
+  private firestore: Firestore;
+  
   constructor() {
-    this.youtubeService = new YouTubeService();
-    this.bumpupsService = new BumpupsService();
+    this.firestore = db as Firestore;
   }
 
   /**
@@ -100,14 +102,14 @@ class EnhancedVideoService {
     console.log('🎯 Starting comprehensive video analysis for:', youtubeUrl);
 
     // Step 1: Extract video ID
-    const videoId = this.youtubeService.extractVideoId(youtubeUrl);
+    const videoId = youtubeService.extractVideoId(youtubeUrl);
     if (!videoId) {
       throw new Error('Invalid YouTube URL');
     }
 
     // Step 2: Get YouTube metadata
     console.log('📊 Fetching YouTube metadata...');
-    const youtubeData = await this.youtubeService.getVideoMetadata(youtubeUrl);
+    const youtubeData = await youtubeService.getVideoMetadata(youtubeUrl);
     if (!youtubeData) {
       throw new Error('Could not fetch YouTube metadata');
     }
@@ -147,7 +149,7 @@ class EnhancedVideoService {
     await this.storeVideoData(initialVideoData);
 
     // Step 5: Start AI analysis (async)
-    this.performAIAnalysis(videoId, youtubeUrl, category).catch(error => {
+    this.performAIAnalysis(videoId, youtubeUrl).catch(error => {
       console.error('AI analysis failed:', error);
       this.updateAnalysisStatus(videoId, 'failed');
     });
@@ -158,37 +160,37 @@ class EnhancedVideoService {
   /**
    * Perform AI analysis using Bumpups API
    */
-  private async performAIAnalysis(videoId: string, youtubeUrl: string, category: string): Promise<void> {
+  private async performAIAnalysis(videoId: string, youtubeUrl: string): Promise<void> {
     try {
       // Perform AI analysis with career exploration focus
       console.log('🧠 Starting career exploration analysis with Bumpups...');
-      const analysisResult = await this.bumpupsService.analyzeForCareerExploration(youtubeUrl);
+      const analysisResult = await bumpupsService.processVideo(youtubeUrl);
       
       console.log(`✅ Career exploration analysis complete!`);
-      console.log(`📄 Analysis length: ${analysisResult.output?.length || 0} characters`);
+      console.log(`📄 Analysis length: ${analysisResult.jobSummary?.length || 0} characters`);
 
       // Get current timestamp for analysis
       const currentTimestamp = new Date().toISOString();
 
       // Update with AI analysis - ensure all fields have default values to avoid undefined
       const aiAnalysis = {
-        careerExplorationAnalysis: analysisResult.output || '',
+        careerExplorationAnalysis: analysisResult.jobSummary || '',
         analyzedAt: currentTimestamp, // Ensure this is always defined
         confidence: analysisResult.confidence || 90, // Default confidence if not provided
         analysisType: 'career_exploration' as const,
       };
 
       // Extract enhanced metadata from the structured analysis
-      const enhancedSkills = this.extractSkillsFromCareerAnalysis(analysisResult.output || '');
-      const careerPathways = this.extractCareerPathways(analysisResult.output || '');
-      const hashtags = this.extractHashtags(analysisResult.output || '');
+      const enhancedSkills = analysisResult.skillsHighlighted || [];
+      const careerPathways = analysisResult.careerPathways || [];
+      const hashtags = analysisResult.hashtags || [];
 
       // Update video with analysis
       await this.updateVideoWithAnalysis(videoId, {
         aiAnalysis,
-        skillsHighlighted: enhancedSkills || [],
-        careerPathways: careerPathways || [],
-        hashtags: hashtags || [],
+        skillsHighlighted: enhancedSkills,
+        careerPathways: careerPathways,
+        hashtags: hashtags,
         lastAnalyzed: currentTimestamp,
         analysisStatus: 'completed',
       });
@@ -204,7 +206,7 @@ class EnhancedVideoService {
    * Store video data in Firebase
    */
   async storeVideoData(videoData: EnhancedVideoData): Promise<void> {
-    const videoRef = doc(db, 'videos', videoData.id);
+    const videoRef = doc(this.firestore, 'videos', videoData.id);
     await setDoc(videoRef, videoData);
     console.log('💾 Video data stored in Firebase');
   }
@@ -213,16 +215,71 @@ class EnhancedVideoService {
    * Update video with AI analysis results
    */
   async updateVideoWithAnalysis(videoId: string, updates: Partial<EnhancedVideoData>): Promise<void> {
-    const videoRef = doc(db, 'videos', videoId);
-    await updateDoc(videoRef, updates);
-    console.log('🔄 Video updated with AI analysis');
+    try {
+      const videoRef = doc(this.firestore, 'videos', videoId);
+      
+      // Ensure no undefined values in the update object
+      const sanitizedUpdates: Record<string, any> = {};
+      
+      // Process aiAnalysis separately to ensure all nested fields are defined
+      if (updates.aiAnalysis) {
+        const aiAnalysis: Record<string, any> = {};
+        
+        // Copy all defined fields from the original aiAnalysis
+        Object.entries(updates.aiAnalysis).forEach(([key, value]) => {
+          if (value !== undefined) {
+            aiAnalysis[key] = value;
+          }
+        });
+        
+        // Ensure required fields have defaults
+        if (!aiAnalysis.analyzedAt) {
+          aiAnalysis.analyzedAt = new Date().toISOString();
+        }
+        
+        if (!aiAnalysis.confidence) {
+          aiAnalysis.confidence = 90;
+        }
+        
+        if (!aiAnalysis.analysisType) {
+          aiAnalysis.analysisType = 'career_exploration';
+        }
+        
+        sanitizedUpdates.aiAnalysis = aiAnalysis;
+      }
+      
+      // Process all other fields
+      Object.entries(updates).forEach(([key, value]) => {
+        if (key !== 'aiAnalysis' && value !== undefined) {
+          sanitizedUpdates[key] = value;
+        }
+      });
+      
+      // Ensure arrays have default empty arrays
+      ['skillsHighlighted', 'educationRequired', 'careerPathways', 'hashtags'].forEach(field => {
+        if (updates[field as keyof EnhancedVideoData] === undefined && field in updates) {
+          sanitizedUpdates[field] = [];
+        }
+      });
+      
+      // Ensure timestamp fields have values
+      if ('lastAnalyzed' in updates && !sanitizedUpdates.lastAnalyzed) {
+        sanitizedUpdates.lastAnalyzed = new Date().toISOString();
+      }
+      
+      await updateDoc(videoRef, sanitizedUpdates);
+      console.log('🔄 Video updated with AI analysis');
+    } catch (error) {
+      console.error('❌ Error updating video with analysis:', error);
+      throw error;
+    }
   }
 
   /**
    * Update analysis status
    */
   private async updateAnalysisStatus(videoId: string, status: EnhancedVideoData['analysisStatus']): Promise<void> {
-    const videoRef = doc(db, 'videos', videoId);
+    const videoRef = doc(this.firestore, 'videos', videoId);
     await updateDoc(videoRef, { analysisStatus: status });
   }
 
@@ -230,7 +287,7 @@ class EnhancedVideoService {
    * Get video data from Firebase
    */
   async getVideoData(videoId: string): Promise<EnhancedVideoData | null> {
-    const videoRef = doc(db, 'videos', videoId);
+    const videoRef = doc(this.firestore, 'videos', videoId);
     const videoDoc = await getDoc(videoRef);
     
     if (videoDoc.exists()) {
@@ -245,7 +302,7 @@ class EnhancedVideoService {
    */
   async getVideosByCategory(category: string, includeAnalysisOnly: boolean = false): Promise<EnhancedVideoData[]> {
     let q = query(
-      collection(db, 'videos'),
+      collection(this.firestore, 'videos'),
       where('category', '==', category)
     );
 
@@ -262,7 +319,7 @@ class EnhancedVideoService {
    */
   async searchBySkills(skills: string[]): Promise<EnhancedVideoData[]> {
     const q = query(
-      collection(db, 'videos'),
+      collection(this.firestore, 'videos'),
       where('skillsHighlighted', 'array-contains-any', skills)
     );
 
@@ -275,91 +332,12 @@ class EnhancedVideoService {
    */
   async getPendingAnalysis(): Promise<EnhancedVideoData[]> {
     const q = query(
-      collection(db, 'videos'),
+      collection(this.firestore, 'videos'),
       where('analysisStatus', 'in', ['pending', 'analyzing'])
     );
 
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => doc.data() as EnhancedVideoData);
-  }
-
-  /**
-   * Extract skills from AI analysis
-   */
-  private extractSkillsFromAnalysis(analysis: any): string[] {
-    const skills = new Set<string>();
-    
-    // From career info
-    analysis.careerInfo?.skills?.forEach((skill: string) => skills.add(skill));
-    
-    // From summary key points
-    analysis.summary?.keyPoints?.forEach((point: string) => {
-      // Simple keyword extraction for common skills
-      const skillKeywords = ['programming', 'coding', 'javascript', 'python', 'react', 'html', 'css', 
-                           'communication', 'leadership', 'management', 'design', 'analysis'];
-      
-      skillKeywords.forEach(keyword => {
-        if (point.toLowerCase().includes(keyword)) {
-          skills.add(keyword.charAt(0).toUpperCase() + keyword.slice(1));
-        }
-      });
-    });
-
-    return Array.from(skills).slice(0, 10); // Limit to 10 skills
-  }
-
-  /**
-   * Extract education requirements from AI analysis
-   */
-  private extractEducationFromAnalysis(analysis: any): string[] {
-    return analysis.careerInfo?.education?.slice(0, 5) || [];
-  }
-
-  /**
-   * Determine career stage from analysis
-   */
-  private determineCareerStage(analysis: any): EnhancedVideoData['careerStage'] {
-    const summary = analysis.summary?.detailed?.toLowerCase() || '';
-    const keyPoints = analysis.summary?.keyPoints?.join(' ').toLowerCase() || '';
-    const text = summary + ' ' + keyPoints;
-
-    if (text.includes('entry') || text.includes('beginner') || text.includes('junior') || text.includes('starting')) {
-      return 'entry-level';
-    }
-    if (text.includes('senior') || text.includes('lead') || text.includes('manager') || text.includes('director')) {
-      return 'senior';
-    }
-    if (text.includes('mid') || text.includes('experienced') || text.includes('intermediate')) {
-      return 'mid-level';
-    }
-    
-    return 'any';
-  }
-
-  /**
-   * Extract salary range from salary string
-   */
-  private extractSalaryRange(salaryText: string): EnhancedVideoData['salaryRange'] | undefined {
-    if (!salaryText || salaryText.includes('not') || salaryText === 'Not specified') {
-      return undefined;
-    }
-
-    // Try to extract numbers from salary text
-    const numbers = salaryText.match(/[\d,]+/g);
-    if (numbers && numbers.length >= 2) {
-      const min = parseInt(numbers[0].replace(/,/g, ''));
-      const max = parseInt(numbers[1].replace(/,/g, ''));
-      
-      if (min && max && min < max) {
-        return {
-          min,
-          max,
-          currency: salaryText.includes('£') ? 'GBP' : 'USD'
-        };
-      }
-    }
-
-    return undefined;
   }
 
   /**
@@ -383,63 +361,8 @@ class EnhancedVideoService {
     
     return results;
   }
-
-  /**
-   * Extract skills from career analysis
-   */
-  private extractSkillsFromCareerAnalysis(analysis: string): string[] {
-    const skills = new Set<string>();
-    
-    // Extract skills from the analysis text
-    const skillKeywords = ['programming', 'coding', 'javascript', 'python', 'react', 'html', 'css', 
-                         'communication', 'leadership', 'management', 'design', 'analysis'];
-    
-    skillKeywords.forEach(keyword => {
-      if (analysis.toLowerCase().includes(keyword)) {
-        skills.add(keyword.charAt(0).toUpperCase() + keyword.slice(1));
-      }
-    });
-
-    return Array.from(skills).slice(0, 10); // Limit to 10 skills
-  }
-
-  /**
-   * Extract career pathways from career analysis
-   */
-  private extractCareerPathways(analysis: string): string[] {
-    const pathways = new Set<string>();
-    
-    // Extract career pathways from the analysis text
-    const pathwayKeywords = ['software development', 'data science', 'AI', 'machine learning', 'blockchain', 'cybersecurity'];
-    
-    pathwayKeywords.forEach(keyword => {
-      if (analysis.toLowerCase().includes(keyword)) {
-        pathways.add(keyword.charAt(0).toUpperCase() + keyword.slice(1));
-      }
-    });
-
-    return Array.from(pathways).slice(0, 5); // Limit to 5 pathways
-  }
-
-  /**
-   * Extract hashtags from career analysis
-   */
-  private extractHashtags(analysis: string): string[] {
-    const hashtags = new Set<string>();
-    
-    // Extract hashtags from the analysis text
-    const hashtagPattern = /#\w+/g;
-    const matches = analysis.match(hashtagPattern);
-    
-    if (matches) {
-      matches.forEach(match => {
-        hashtags.add(match.charAt(0).toUpperCase() + match.slice(1));
-      });
-    }
-
-    return Array.from(hashtags).slice(0, 5); // Limit to 5 hashtags
-  }
 }
 
-export default EnhancedVideoService;
-export type { EnhancedVideoData }; 
+// Create and export a singleton instance
+const enhancedVideoService = new EnhancedVideoService();
+export default enhancedVideoService; 

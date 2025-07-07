@@ -1,7 +1,7 @@
 import { toast } from 'react-hot-toast';
-import EnhancedVideoService, { type EnhancedVideoData } from './enhancedVideoService';
-import YouTubeService from './youtubeService';
-import BumpupsService from './bumpupsService';
+import enhancedVideoService, { type EnhancedVideoData } from './enhancedVideoService';
+import youtubeService from './youtubeService';
+import bumpupsService from './bumpupsService';
 
 export interface VideoProcessingProgress {
   step: 'validating' | 'extracting_metadata' | 'ai_analysis' | 'storing' | 'completed' | 'failed';
@@ -21,14 +21,8 @@ export interface ProcessedVideoResult {
 export type ProgressCallback = (progress: VideoProcessingProgress) => void;
 
 class VideoProcessingService {
-  private enhancedVideoService: EnhancedVideoService;
-  private youtubeService: YouTubeService;
-  private bumpupsService: BumpupsService;
-
   constructor() {
-    this.enhancedVideoService = new EnhancedVideoService();
-    this.youtubeService = new YouTubeService();
-    this.bumpupsService = new BumpupsService();
+    // Using singleton instances directly
   }
 
   /**
@@ -37,7 +31,13 @@ class VideoProcessingService {
   async processVideo(
     url: string, 
     category: string, 
-    onProgress?: ProgressCallback
+    onProgress?: ProgressCallback,
+    bumpupsOptions?: {
+      prompt?: string;
+      model?: string;
+      language?: string;
+      output_format?: string;
+    }
   ): Promise<ProcessedVideoResult> {
     const updateProgress = (progress: VideoProcessingProgress) => {
       onProgress?.(progress);
@@ -51,7 +51,7 @@ class VideoProcessingService {
         progress: 10
       });
 
-      const videoId = this.youtubeService.extractVideoId(url);
+      const videoId = youtubeService.extractVideoId(url);
       if (!videoId) {
         throw new Error('Invalid YouTube URL format');
       }
@@ -64,7 +64,7 @@ class VideoProcessingService {
         videoId
       });
 
-      const youtubeData = await this.youtubeService.getVideoMetadata(url);
+      const youtubeData = await youtubeService.getVideoMetadata(url);
       if (!youtubeData) {
         throw new Error('Could not fetch video metadata from YouTube');
       }
@@ -108,7 +108,7 @@ class VideoProcessingService {
         videoId
       });
 
-      await this.enhancedVideoService.storeVideoData(initialVideoData);
+      await enhancedVideoService.storeVideoData(initialVideoData);
 
       // Step 4: AI Analysis with Bumpups
       updateProgress({
@@ -118,22 +118,26 @@ class VideoProcessingService {
         videoId
       });
 
-      const analysisResult = await this.bumpupsService.analyzeForCareerExploration(url);
+      const analysisResult = await bumpupsService.processVideo(url, bumpupsOptions);
+      console.log('Bumpups analysis result:', analysisResult);
       
       // Update with AI analysis
       const aiAnalysis = {
-        careerExplorationAnalysis: analysisResult.careerExplorationAnalysis || '',
-        analyzedAt: analysisResult.analyzedAt,
+        careerExplorationAnalysis: analysisResult.jobSummary || analysisResult.output || '',
+        analyzedAt: new Date().toISOString(),
         confidence: analysisResult.confidence || 90,
-        analysisType: analysisResult.analysisType || 'career_exploration',
+        analysisType: 'career_exploration' as const,
       };
 
-      // Extract enhanced metadata
-      const enhancedSkills = this.extractSkillsFromCareerAnalysis(analysisResult.careerExplorationAnalysis || '');
-      const careerPathways = this.extractCareerPathways(analysisResult.careerExplorationAnalysis || '');
-      const hashtags = this.extractHashtags(analysisResult.careerExplorationAnalysis || '');
+      // Extract enhanced metadata from the structured analysis
+      const enhancedSkills = this.extractSkillsFromOutput(aiAnalysis.careerExplorationAnalysis);
+      const careerPathways = this.extractPathwaysFromOutput(aiAnalysis.careerExplorationAnalysis);
+      const hashtags = this.extractHashtagsFromOutput(aiAnalysis.careerExplorationAnalysis);
+      const reflectiveQuestions = this.extractReflectiveQuestions(aiAnalysis.careerExplorationAnalysis);
+      const emotionalElements = this.extractEmotionalElements(aiAnalysis.careerExplorationAnalysis);
+      const challenges = this.extractChallenges(aiAnalysis.careerExplorationAnalysis);
 
-      // Final update
+      // Update video with analysis
       updateProgress({
         step: 'storing',
         message: 'Finalizing video data...',
@@ -141,21 +145,52 @@ class VideoProcessingService {
         videoId
       });
 
+      // Determine career stage from analysis text
+      let careerStage: 'entry-level' | 'mid-level' | 'senior' | 'any' = 'any';
+      const analysisText = aiAnalysis.careerExplorationAnalysis.toLowerCase();
+      if (analysisText.includes('entry') || analysisText.includes('beginner') || analysisText.includes('junior')) {
+        careerStage = 'entry-level';
+      } else if (analysisText.includes('senior') || analysisText.includes('lead') || analysisText.includes('manager')) {
+        careerStage = 'senior';
+      } else if (analysisText.includes('mid') || analysisText.includes('experienced')) {
+        careerStage = 'mid-level';
+      }
+
+      // Extract education requirements
+      const educationRequired: string[] = [];
+      if (analysisText.includes('degree')) educationRequired.push('Degree');
+      if (analysisText.includes('bachelor')) educationRequired.push('Bachelor\'s Degree');
+      if (analysisText.includes('master')) educationRequired.push('Master\'s Degree');
+      if (analysisText.includes('phd') || analysisText.includes('doctorate')) educationRequired.push('PhD');
+      if (analysisText.includes('certification')) educationRequired.push('Certification');
+      if (analysisText.includes('training')) educationRequired.push('Training');
+      if (analysisText.includes('apprenticeship')) educationRequired.push('Apprenticeship');
+
       const finalVideoData = {
         ...initialVideoData,
         aiAnalysis,
         skillsHighlighted: enhancedSkills,
         careerPathways,
         hashtags,
+        careerStage,
+        educationRequired,
+        reflectiveQuestions,
+        emotionalElements,
+        challenges,
         lastAnalyzed: new Date().toISOString(),
         analysisStatus: 'completed' as const,
       };
 
-      await this.enhancedVideoService.updateVideoWithAnalysis(videoId, {
+      await enhancedVideoService.updateVideoWithAnalysis(videoId, {
         aiAnalysis,
         skillsHighlighted: enhancedSkills,
         careerPathways,
         hashtags,
+        careerStage,
+        educationRequired,
+        reflectiveQuestions,
+        emotionalElements,
+        challenges,
         lastAnalyzed: new Date().toISOString(),
         analysisStatus: 'completed',
       });
@@ -198,7 +233,13 @@ class VideoProcessingService {
     urls: string[], 
     category: string,
     onOverallProgress?: (completed: number, total: number, currentVideo?: string) => void,
-    onVideoProgress?: (url: string, progress: VideoProcessingProgress) => void
+    onVideoProgress?: (url: string, progress: VideoProcessingProgress) => void,
+    bumpupsOptions?: {
+      prompt?: string;
+      model?: string;
+      language?: string;
+      output_format?: string;
+    }
   ): Promise<ProcessedVideoResult[]> {
     const results: ProcessedVideoResult[] = [];
     
@@ -210,7 +251,7 @@ class VideoProcessingService {
 
       const result = await this.processVideo(url, category, (progress) => {
         onVideoProgress?.(url, progress);
-      });
+      }, bumpupsOptions);
 
       results.push(result);
 
@@ -227,7 +268,16 @@ class VideoProcessingService {
   /**
    * Process video with toast notifications
    */
-  async processVideoWithToasts(url: string, category: string): Promise<ProcessedVideoResult> {
+  async processVideoWithToasts(
+    url: string, 
+    category: string,
+    bumpupsOptions?: {
+      prompt?: string;
+      model?: string;
+      language?: string;
+      output_format?: string;
+    }
+  ): Promise<ProcessedVideoResult> {
     let toastId: string | undefined;
 
     const result = await this.processVideo(url, category, (progress) => {
@@ -249,96 +299,290 @@ class VideoProcessingService {
           toastId = toast.loading('💾 Storing video data...', { duration: Infinity });
           break;
         case 'completed':
-          toast.success(`✅ Video "${progress.videoId}" processed successfully!`, { duration: 4000 });
+          toast.success('✅ Video processed successfully!');
           break;
         case 'failed':
-          toast.error(`❌ Failed to process video: ${progress.error}`, { duration: 6000 });
+          toast.error(`❌ ${progress.message}`);
           break;
       }
-    });
-
-    if (toastId) {
-      toast.dismiss(toastId);
-    }
+    }, bumpupsOptions);
 
     return result;
   }
 
   /**
-   * Extract skills from career analysis
-   */
-  private extractSkillsFromCareerAnalysis(analysis: string): string[] {
-    const skills = new Set<string>();
-    
-    const skillKeywords = ['programming', 'coding', 'javascript', 'python', 'react', 'html', 'css', 
-                         'communication', 'leadership', 'management', 'design', 'analysis', 'engineering',
-                         'problem-solving', 'collaboration', 'mentoring', 'time management', 'attention to detail'];
-    
-    skillKeywords.forEach(keyword => {
-      if (analysis.toLowerCase().includes(keyword)) {
-        skills.add(keyword.charAt(0).toUpperCase() + keyword.slice(1));
-      }
-    });
-
-    return Array.from(skills).slice(0, 10);
-  }
-
-  /**
-   * Extract career pathways
-   */
-  private extractCareerPathways(analysis: string): string[] {
-    const pathways = new Set<string>();
-    
-    const pathwayKeywords = ['software development', 'data science', 'AI', 'machine learning', 'blockchain', 
-                           'cybersecurity', 'STEM', 'creative industries', 'social impact', 'trades', 
-                           'healthcare', 'business', 'education', 'engineering'];
-    
-    pathwayKeywords.forEach(keyword => {
-      if (analysis.toLowerCase().includes(keyword.toLowerCase())) {
-        pathways.add(keyword);
-      }
-    });
-
-    return Array.from(pathways).slice(0, 5);
-  }
-
-  /**
-   * Extract hashtags
-   */
-  private extractHashtags(analysis: string): string[] {
-    const hashtags = new Set<string>();
-    
-    const hashtagPattern = /#\w+/g;
-    const matches = analysis.match(hashtagPattern);
-    
-    if (matches) {
-      matches.forEach(match => hashtags.add(match));
-    }
-
-    return Array.from(hashtags).slice(0, 8);
-  }
-
-  /**
-   * Get video processing status
+   * Get video status
    */
   async getVideoStatus(videoId: string): Promise<EnhancedVideoData | null> {
-    return await this.enhancedVideoService.getVideoData(videoId);
+    return enhancedVideoService.getVideoData(videoId);
   }
 
   /**
    * Validate YouTube URL
    */
   validateYouTubeUrl(url: string): { isValid: boolean; videoId?: string; error?: string } {
-    try {
-      const videoId = this.youtubeService.extractVideoId(url);
-      if (!videoId) {
-        return { isValid: false, error: 'Invalid YouTube URL format' };
-      }
-      return { isValid: true, videoId };
-    } catch (error) {
-      return { isValid: false, error: 'Invalid URL' };
+    const videoId = youtubeService.extractVideoId(url);
+    
+    if (!videoId) {
+      return {
+        isValid: false,
+        error: 'Invalid YouTube URL format'
+      };
     }
+    
+    return {
+      isValid: true,
+      videoId
+    };
+  }
+
+  /**
+   * Extract skills from output text
+   */
+  private extractSkillsFromOutput(output: string): string[] {
+    const skills = new Set<string>();
+    
+    // Look for skills section with the new format
+    const skillsMatch = output.match(/(?:# Soft Skills Demonstrated)[^\n]*\n((?:- [^\n]+\n?)+)/i);
+    if (skillsMatch && skillsMatch[1]) {
+      const skillsText = skillsMatch[1].trim();
+      
+      // Extract bullet points
+      const bulletPoints = skillsText.match(/- ([^\n]+)/g);
+      if (bulletPoints) {
+        bulletPoints.forEach(point => {
+          const skill = point.replace(/^- /, '').trim();
+          if (skill) skills.add(skill);
+        });
+      }
+    }
+    
+    // Also look for skills mentioned in the entire text if we didn't find enough
+    if (skills.size < 3) {
+      // Look for bullet points with skill-related terms
+      const allBulletPoints = output.match(/- ([^\n]+)/g) || [];
+      allBulletPoints.forEach(point => {
+        const lowerPoint = point.toLowerCase();
+        if (lowerPoint.includes('skill') || 
+            lowerPoint.includes('organiz') || 
+            lowerPoint.includes('communicat') || 
+            lowerPoint.includes('manag') ||
+            lowerPoint.includes('leadership')) {
+          const skill = point.replace(/^- /, '').trim();
+          if (skill) skills.add(skill);
+        }
+      });
+      
+      // Common soft skills to look for in the text
+      const skillKeywords = [
+        'communication', 'teamwork', 'leadership', 'problem-solving', 'critical thinking',
+        'creativity', 'adaptability', 'time management', 'organization', 'attention to detail',
+        'interpersonal', 'collaboration', 'negotiation', 'decision-making', 'emotional intelligence',
+        'resilience', 'self-motivation', 'conflict resolution', 'active listening', 'empathy'
+      ];
+      
+      skillKeywords.forEach(keyword => {
+        if (output.toLowerCase().includes(keyword.toLowerCase())) {
+          skills.add(keyword.charAt(0).toUpperCase() + keyword.slice(1));
+        }
+      });
+    }
+    
+    return Array.from(skills).slice(0, 10); // Limit to 10 skills
+  }
+  
+  /**
+   * Extract career pathways from output text
+   */
+  private extractPathwaysFromOutput(output: string): string[] {
+    const pathways = new Set<string>();
+    
+    // Look for career pathways section with the new format
+    const pathwaysMatch = output.match(/(?:# Recommended Career Paths)[^\n]*\n((?:- [^\n]+\n?)+)/i);
+    if (pathwaysMatch && pathwaysMatch[1]) {
+      const pathwaysText = pathwaysMatch[1].trim();
+      
+      // Extract bullet points
+      const bulletPoints = pathwaysText.match(/- ([^\n]+)/g);
+      if (bulletPoints) {
+        bulletPoints.forEach(point => {
+          const pathway = point.replace(/^- /, '').trim();
+          if (pathway) pathways.add(pathway);
+        });
+      }
+    }
+    
+    // Look for pathways in the key themes section if we didn't find enough
+    if (pathways.size < 2) {
+      const themesMatch = output.match(/(?:# Key Themes and Environments)[^\n]*\n((?:- [^\n]+\n?)+)/i);
+      if (themesMatch && themesMatch[1]) {
+        const themesText = themesMatch[1].trim();
+        const bulletPoints = themesText.match(/- ([^\n]+)/g);
+        if (bulletPoints) {
+          bulletPoints.forEach(point => {
+            const lowerPoint = point.toLowerCase();
+            if (lowerPoint.includes('career') || 
+                lowerPoint.includes('path') || 
+                lowerPoint.includes('industry') || 
+                lowerPoint.includes('field')) {
+              const pathway = point.replace(/^- /, '').trim();
+              if (pathway) pathways.add(pathway);
+            }
+          });
+        }
+      }
+      
+      // Common industry pathways to look for in the text
+      const pathwayKeywords = [
+        'creative industries', 'STEM', 'social impact', 'healthcare', 'education',
+        'business', 'finance', 'technology', 'engineering', 'arts', 'media',
+        'hospitality', 'trades', 'construction', 'manufacturing', 'public service'
+      ];
+      
+      pathwayKeywords.forEach(keyword => {
+        if (output.toLowerCase().includes(keyword.toLowerCase())) {
+          pathways.add(keyword.charAt(0).toUpperCase() + keyword.slice(1));
+        }
+      });
+    }
+    
+    return Array.from(pathways).slice(0, 5); // Limit to 5 pathways
+  }
+  
+  /**
+   * Extract hashtags from output text
+   */
+  private extractHashtagsFromOutput(output: string): string[] {
+    const hashtags = new Set<string>();
+    
+    // Look for hashtags section with the new format
+    const hashtagsMatch = output.match(/(?:# Suggested Hashtags)[^\n]*\n((?:- #[^\n]+\n?)+)/i);
+    if (hashtagsMatch && hashtagsMatch[1]) {
+      const hashtagsText = hashtagsMatch[1].trim();
+      
+      // Extract hashtags
+      const hashtagLines = hashtagsText.match(/- (#\w+)/g);
+      if (hashtagLines) {
+        hashtagLines.forEach(line => {
+          const hashtag = line.replace(/^- /, '').trim();
+          if (hashtag) hashtags.add(hashtag);
+        });
+      }
+    }
+    
+    // Look for hashtags in the entire output
+    if (hashtags.size === 0) {
+      const allHashtags = output.match(/#\w+/g);
+      if (allHashtags) {
+        allHashtags.forEach(tag => hashtags.add(tag));
+      }
+    }
+    
+    // If still no hashtags found, generate from key themes
+    if (hashtags.size === 0) {
+      const themesMatch = output.match(/(?:# Key Themes and Environments)[^\n]*\n((?:- [^\n]+\n?)+)/i);
+      if (themesMatch && themesMatch[1]) {
+        const themesText = themesMatch[1].trim();
+        const words = themesText.split(/[,;\s]/).map(w => w.trim()).filter(w => w.length > 3);
+        
+        words.slice(0, 5).forEach(word => {
+          const cleanWord = word.replace(/[^\w]/g, '');
+          if (cleanWord) hashtags.add('#' + cleanWord);
+        });
+      }
+    }
+    
+    return Array.from(hashtags).slice(0, 10); // Limit to 10 hashtags
+  }
+  
+  /**
+   * Extract reflective questions from output text
+   */
+  private extractReflectiveQuestions(output: string): string[] {
+    const questions: string[] = [];
+    
+    // Look for reflective questions section with the new format
+    const questionsMatch = output.match(/(?:# Reflective Prompts for Young Viewers)[^\n]*\n((?:- [^\n]+\n?)+)/i);
+    if (questionsMatch && questionsMatch[1]) {
+      const questionsText = questionsMatch[1].trim();
+      
+      // Extract bullet points
+      const bulletPoints = questionsText.match(/- ([^\n]+)/g);
+      if (bulletPoints) {
+        bulletPoints.forEach(point => {
+          const question = point.replace(/^- /, '').trim();
+          if (question) questions.push(question);
+        });
+      }
+    }
+    
+    return questions.slice(0, 3); // Limit to 3 questions
+  }
+  
+  /**
+   * Extract emotional elements from output text
+   */
+  private extractEmotionalElements(output: string): string[] {
+    const elements = new Set<string>();
+    
+    // Look for emotional and aspirational elements section with the new format
+    const elementsMatch = output.match(/(?:# Aspirational and Emotional Elements)[^\n]*\n((?:- [^\n]+\n?)+)/i);
+    if (elementsMatch && elementsMatch[1]) {
+      const elementsText = elementsMatch[1].trim();
+      
+      // Extract bullet points
+      const bulletPoints = elementsText.match(/- ([^\n]+)/g);
+      if (bulletPoints) {
+        bulletPoints.forEach(point => {
+          const element = point.replace(/^- /, '').trim();
+          if (element) elements.add(element);
+        });
+      }
+    }
+    
+    // Also look for common emotional keywords if we didn't find enough elements
+    if (elements.size < 2) {
+      const emotionalKeywords = [
+        'passion', 'inspiration', 'fulfillment', 'purpose', 'satisfaction',
+        'excitement', 'pride', 'accomplishment', 'joy', 'enthusiasm',
+        'motivation', 'ambition', 'determination', 'dedication', 'aspiration'
+      ];
+      
+      emotionalKeywords.forEach(keyword => {
+        if (output.toLowerCase().includes(keyword.toLowerCase())) {
+          elements.add(keyword.charAt(0).toUpperCase() + keyword.slice(1));
+        }
+      });
+    }
+    
+    return Array.from(elements).slice(0, 5); // Limit to 5 elements
+  }
+  
+  /**
+   * Extract challenges from output text
+   */
+  private extractChallenges(output: string): string[] {
+    const challenges = new Set<string>();
+    
+    // Look for challenges section with the new format
+    const challengesMatch = output.match(/(?:# Challenges Highlighted)[^\n]*\n((?:- [^\n]+\n?)+)/i);
+    if (challengesMatch && challengesMatch[1]) {
+      const challengesText = challengesMatch[1].trim();
+      
+      // Extract bullet points
+      const bulletPoints = challengesText.match(/- ([^\n]+)/g);
+      if (bulletPoints) {
+        bulletPoints.forEach(point => {
+          const challenge = point.replace(/^- /, '').trim();
+          if (challenge) challenges.add(challenge);
+        });
+      }
+    }
+    
+    return Array.from(challenges).slice(0, 5); // Limit to 5 challenges
   }
 }
 
-export default VideoProcessingService; 
+// Create and export a singleton instance
+const videoProcessingService = new VideoProcessingService();
+export default videoProcessingService; 

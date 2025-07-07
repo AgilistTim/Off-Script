@@ -1,28 +1,44 @@
 // Bumpups API service for video analysis and interactive querying
 // Using Firebase Cloud Function proxy to avoid CORS issues
-import { firebaseConfig } from '../config/environment';
+import { apiKeys, apiEndpoints } from '../config/environment';
 
-interface BumpupsTimestamp {
-  time: number; // seconds
+// Define the response structure from the Bumpups API
+export interface BumpupsResponse {
+  videoId: string;
   title: string;
-  description?: string;
+  description: string;
+  transcript?: string;
+  confidence: number;
+  skillsHighlighted?: string[];
+  educationRequired?: string[];
+  careerPathways?: string[];
+  jobSummary?: string;
+  keyTakeaways?: string[];
+  hashtags?: string[];
+  output?: string; // Raw output field for compatibility with older responses
+}
+
+// Define the structure for timestamps in the video
+interface BumpupsTimestamp {
+  time: string;
+  description: string;
+}
+
+// Define the structure for the analysis result
+export interface BumpupsAnalysisResult {
+  summary: string;
+  timestamps: BumpupsTimestamp[];
+  skills: string[];
+  salary: string;
+  education: string[];
+  responsibilities: string[];
+  advice: string;
 }
 
 interface BumpupsSummary {
   short: string;
   detailed: string;
   keyPoints: string[];
-}
-
-interface BumpupsAnalysisResult {
-  videoId: string;
-  videoUrl: string;
-  title?: string;
-  summary: BumpupsSummary;
-  timestamps: BumpupsTimestamp[];
-  processingTime: number;
-  confidence: number;
-  language?: string;
 }
 
 interface BumpupsQueryResponse {
@@ -45,357 +61,309 @@ interface BumpupsJobStatus {
 }
 
 class BumpupsService {
-  private baseUrl: string;
+  private apiUrl: string;
+  
+  // Singleton instance
+  private static instance: BumpupsService;
 
   constructor() {
-    // Get project ID from centralized config
-    const projectId = firebaseConfig.projectId;
-    
-    // Use the standard Firebase Functions URL format
-    this.baseUrl = `https://us-central1-${projectId}.cloudfunctions.net/bumpupsProxy`;
-    
-    console.log('BumpupsService initialized with URL:', this.baseUrl);
+    this.apiUrl = apiEndpoints.bumpupsProxy || '';
+    console.log('BumpupsService initialized with URL:', this.apiUrl);
+  }
+  
+  /**
+   * Get singleton instance of BumpupsService
+   */
+  public static getInstance(): BumpupsService {
+    if (!BumpupsService.instance) {
+      BumpupsService.instance = new BumpupsService();
+    }
+    return BumpupsService.instance;
   }
 
   /**
-   * Query video with Bumpups API via Firebase Function proxy
+   * Process a video URL through the Bumpups API service
+   * @param videoUrl YouTube video URL to analyze
+   * @param options Optional parameters for the API call
+   * @returns Processed response with career information
    */
-  async queryVideo(youtubeUrl: string, prompt: string): Promise<any> {
+  async processVideo(
+    videoUrl: string, 
+    options?: {
+      prompt?: string;
+      model?: string;
+      language?: string;
+      output_format?: string;
+    }
+  ): Promise<BumpupsResponse> {
     try {
-      console.log(`Querying Bumpups API via proxy: ${this.baseUrl}`);
+      console.log('Querying Bumpups API via proxy:', this.apiUrl);
       
-      const response = await fetch(this.baseUrl, {
+      if (!this.apiUrl) {
+        throw new Error('Bumpups API URL not configured');
+      }
+
+      // Default prompt for career exploration
+      const careerPrompt = options?.prompt || 
+        "Analyse this video for a youth career exploration platform for 16–20-year-olds. Return your output in clear markdown using the following exact structure with bullet lists:\n\n# Key Themes and Environments\n- (max 5 themes/environments)\n\n# Soft Skills Demonstrated\n- (max 5 soft skills)\n\n# Challenges Highlighted\n- (max 5 challenges)\n\n# Aspirational and Emotional Elements\n- Timestamp – Quotation or moment (max 5)\n\n# Suggested Hashtags\n- #hashtag1\n- #hashtag2\n(up to 10)\n\n# Recommended Career Paths\n- (max 3 career paths)\n\n# Reflective Prompts for Young Viewers\n- Prompt 1\n- Prompt 2\n- Prompt 3\n\nReturn only the structured markdown without additional commentary";
+
+      const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          url: youtubeUrl,
-          model: 'bump-1.0',
-          prompt: prompt,
-          language: 'en',
-          output_format: 'text'
-        })
+        body: JSON.stringify({ 
+          url: videoUrl,
+          prompt: careerPrompt,
+          model: options?.model || 'bump-1.0',
+          language: options?.language || 'en',
+          output_format: options?.output_format || 'markdown'
+        }),
       });
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(`Bumpups proxy error: ${response.status} ${response.statusText} - ${errorData.error || errorData.details || 'Unknown error'}`);
+        const errorText = await response.text();
+        throw new Error(`Bumpups API error (${response.status}): ${errorText}`);
       }
 
       const data = await response.json();
-      return data;
+      console.log('Bumpups API raw response:', data);
+      
+      // Check if the output is truncated (ends with "..." or similar)
+      const outputText = data.output || '';
+      const isTruncated = outputText.endsWith('...') || outputText.endsWith('…');
+      
+      if (isTruncated) {
+        console.warn('Bumpups API response appears to be truncated. Using available content.');
+      }
+      
+      // Process the response to extract career information
+      const result: BumpupsResponse = {
+        videoId: this.extractVideoId(videoUrl) || '',
+        title: data.title || '',
+        description: data.description || '',
+        confidence: data.confidence || 90, // Default confidence if not provided
+        output: data.output || '',
+        jobSummary: data.output || '',
+        skillsHighlighted: this.extractSkillsFromOutput(data.output || ''),
+        careerPathways: this.extractPathwaysFromOutput(data.output || ''),
+        hashtags: this.extractHashtagsFromOutput(data.output || '')
+      };
+      
+      // Log the processed result for debugging
+      console.log('Processed Bumpups result:', {
+        videoId: result.videoId,
+        confidence: result.confidence,
+        skillsCount: result.skillsHighlighted?.length || 0,
+        pathwaysCount: result.careerPathways?.length || 0,
+        hashtagsCount: result.hashtags?.length || 0,
+        outputLength: result.output?.length || 0
+      });
+      
+      return result;
     } catch (error) {
-      console.error('Error querying video:', error);
+      console.error('Error processing video with Bumpups:', error);
       throw error;
     }
   }
 
   /**
-   * Comprehensive video analysis using multiple queries
+   * Extract skills from output text
    */
-  async analyzeVideoComplete(youtubeUrl: string): Promise<BumpupsAnalysisResult> {
+  private extractSkillsFromOutput(output: string): string[] {
+    const skills = new Set<string>();
+    
+    // Look for skills section
+    const skillsMatch = output.match(/skills[:\s-]+([^\n]+)/i);
+    if (skillsMatch && skillsMatch[1]) {
+      const skillsList = skillsMatch[1].split(/[,;]/).map(s => s.trim()).filter(Boolean);
+      skillsList.forEach(skill => skills.add(skill));
+    }
+    
+    // Also look for common skill keywords
+    const skillKeywords = ['programming', 'coding', 'javascript', 'python', 'react', 'html', 'css', 
+                          'communication', 'leadership', 'management', 'design', 'analysis'];
+    
+    skillKeywords.forEach(keyword => {
+      if (output.toLowerCase().includes(keyword)) {
+        skills.add(keyword.charAt(0).toUpperCase() + keyword.slice(1));
+      }
+    });
+    
+    return Array.from(skills).slice(0, 10); // Limit to 10 skills
+  }
+  
+  /**
+   * Extract career pathways from output text
+   */
+  private extractPathwaysFromOutput(output: string): string[] {
+    const pathways = new Set<string>();
+    
+    // Look for career pathways section
+    const pathwaysMatch = output.match(/career paths?[:\s-]+([^\n]+)/i);
+    if (pathwaysMatch && pathwaysMatch[1]) {
+      const pathwaysList = pathwaysMatch[1].split(/[,;]/).map(p => p.trim()).filter(Boolean);
+      pathwaysList.forEach(pathway => pathways.add(pathway));
+    }
+    
+    // Also look for common pathway keywords
+    const pathwayKeywords = ['software development', 'data science', 'AI', 'machine learning', 'blockchain', 'cybersecurity'];
+    
+    pathwayKeywords.forEach(keyword => {
+      if (output.toLowerCase().includes(keyword.toLowerCase())) {
+        pathways.add(keyword.charAt(0).toUpperCase() + keyword.slice(1));
+      }
+    });
+    
+    return Array.from(pathways).slice(0, 5); // Limit to 5 pathways
+  }
+  
+  /**
+   * Extract hashtags from output text
+   */
+  private extractHashtagsFromOutput(output: string): string[] {
+    const hashtags = new Set<string>();
+    
+    // Look for hashtags in the text
+    const hashtagPattern = /#\w+/g;
+    const matches = output.match(hashtagPattern);
+    
+    if (matches) {
+      matches.forEach(match => {
+        hashtags.add(match);
+      });
+    }
+    
+    // If no hashtags found, generate from keywords
+    if (hashtags.size === 0) {
+      const keywords = output.split(/\s+/).filter(word => 
+        word.length > 4 && !['about', 'these', 'their', 'there', 'which', 'would'].includes(word.toLowerCase())
+      ).slice(0, 5);
+      
+      keywords.forEach(keyword => {
+        hashtags.add('#' + keyword.replace(/[^\w]/g, ''));
+      });
+    }
+    
+    return Array.from(hashtags).slice(0, 5); // Limit to 5 hashtags
+  }
+
+  /**
+   * Get comprehensive analysis of a career video
+   */
+  async getVideoAnalysis(youtubeUrl: string): Promise<BumpupsAnalysisResult> {
     try {
-      // Get summary
-      const summaryResult = await this.queryVideo(youtubeUrl, 
-        "Provide a detailed summary of this video. Include the main topics covered and key takeaways."
-      );
-
-      // Get timestamps
-      const timestampsResult = await this.queryVideo(youtubeUrl,
-        "List the main topics and their timestamps in this format: 'MM:SS - Topic description'. Provide at least 5-10 key moments."
-      );
-
-      // Get career information
-      const skillsResult = await this.queryVideo(youtubeUrl,
-        "What specific skills are required or mentioned for this career? List them clearly."
-      );
-
-      const salaryResult = await this.queryVideo(youtubeUrl,
-        "What salary information, compensation, or pay range is mentioned in this video?"
-      );
-
-      const educationResult = await this.queryVideo(youtubeUrl,
-        "What education requirements, degrees, certifications, or training are mentioned?"
-      );
-
-      const responsibilitiesResult = await this.queryVideo(youtubeUrl,
-        "What are the main job responsibilities and daily tasks described in this video?"
-      );
-
-      const adviceResult = await this.queryVideo(youtubeUrl,
-        "What career advice or tips are given for someone interested in this field?"
-      );
-
-      // Parse timestamps from the response
-      const timestamps = this.parseTimestamps(timestampsResult.output || '');
-
-      // Extract video ID for result
-      const videoId = this.extractVideoId(youtubeUrl) || '';
-
+      // Get the full analysis in a single call
+      const result = await this.processVideo(youtubeUrl);
+      
+      // Extract or provide default values for all required fields
+      const summary = result.jobSummary || result.output || '';
+      const skills = result.skillsHighlighted || [];
+      const education = result.educationRequired || [];
+      
+      // Parse timestamps if available or provide empty array
+      const timestamps: BumpupsTimestamp[] = [];
+      
       return {
-        videoId,
-        videoUrl: youtubeUrl,
-        title: '', // Will be filled by YouTube metadata
-        summary: {
-          short: this.extractShortSummary(summaryResult.output || ''),
-          detailed: summaryResult.output || '',
-          keyPoints: this.extractKeyPoints(summaryResult.output || ''),
-        },
+        summary,
         timestamps,
-        processingTime: 0,
-        confidence: 85, // Default confidence for chat-based analysis
-        language: 'en',
+        skills,
+        salary: '',
+        education,
+        responsibilities: [],
+        advice: '',
       };
     } catch (error) {
-      console.error('Error in comprehensive video analysis:', error);
+      console.error('Error getting video analysis:', error);
       throw error;
     }
   }
 
   /**
-   * Parse timestamps from text response
+   * Get answers to specific questions about the video
    */
-  private parseTimestamps(text: string): BumpupsTimestamp[] {
-    const timestamps: BumpupsTimestamp[] = [];
-    const lines = text.split('\n');
-    
-    for (const line of lines) {
-      // Look for patterns like "MM:SS - Description" or "M:SS - Description"
-      const match = line.match(/(\d{1,2}:\d{2})\s*-\s*(.+)/);
-      if (match) {
-        const [, timeStr, description] = match;
-        const [minutes, seconds] = timeStr.split(':').map(Number);
-        const timeInSeconds = minutes * 60 + seconds;
-        
-        timestamps.push({
-          time: timeInSeconds,
-          title: description.trim(),
-          description: description.trim(),
-        });
+  async askQuestions(youtubeUrl: string, questions: string[]): Promise<string[]> {
+    try {
+      // For now, we just return the same analysis for all questions
+      // This will be enhanced in the future to support specific questions
+      const result = await this.processVideo(youtubeUrl);
+      
+      // Return the output or a default message for each question
+      return questions.map(() => result.output || 'No information available');
+    } catch (error) {
+      console.error('Error asking questions:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get career exploration data from a video
+   */
+  async getCareerExplorationData(youtubeUrl: string): Promise<{
+    skills: string[];
+    education: string[];
+    pathways: string[];
+    confidence: number;
+  }> {
+    try {
+      const result = await this.processVideo(youtubeUrl);
+      
+      // Ensure the result has a confidence value
+      if (!result.confidence && result.confidence !== 0) {
+        result.confidence = 90;
       }
+      
+      return {
+        skills: result.skillsHighlighted || [],
+        education: result.educationRequired || [],
+        pathways: result.careerPathways || [],
+        confidence: result.confidence,
+      };
+    } catch (error) {
+      console.error('Error getting career exploration data:', error);
+      throw error;
     }
-    
-    return timestamps;
   }
 
   /**
-   * Extract short summary from detailed text
-   */
-  private extractShortSummary(text: string): string {
-    const sentences = text.split(/[.!?]+/);
-    const firstTwoSentences = sentences.slice(0, 2).join('. ').trim();
-    return firstTwoSentences.length > 200 
-      ? firstTwoSentences.substring(0, 200) + '...'
-      : firstTwoSentences;
-  }
-
-  /**
-   * Extract key points from summary text
-   */
-  private extractKeyPoints(text: string): string[] {
-    const points: string[] = [];
-    const lines = text.split('\n');
-    
-    for (const line of lines) {
-      const trimmed = line.trim();
-      // Look for bullet points or numbered lists
-      if (trimmed.match(/^[-•*]\s/) || trimmed.match(/^\d+\.\s/)) {
-        const point = trimmed.replace(/^[-•*]\s/, '').replace(/^\d+\.\s/, '').trim();
-        if (point.length > 10) {
-          points.push(point);
-        }
-      }
-    }
-    
-    // If no structured points found, extract sentences
-    if (points.length === 0) {
-      const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
-      return sentences.slice(0, 5).map(s => s.trim());
-    }
-    
-    return points.slice(0, 8);
-  }
-
-  /**
-   * Extract video ID from URL
+   * Extract video ID from a YouTube URL
    */
   private extractVideoId(url: string): string | null {
-    const patterns = [
-      /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\n?#]+)/,
-      /^([a-zA-Z0-9_-]{11})$/
-    ];
-
-    for (const pattern of patterns) {
-      const match = url.match(pattern);
-      if (match) {
-        return match[1];
-      }
-    }
-    return null;
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? match[2] : null;
   }
 
   /**
-   * Get career-relevant questions for a video
+   * Get standard career-related questions for a video
    */
   getCareerQuestions(): string[] {
     return [
       "What skills are required for this career?",
-      "What is the typical salary range mentioned?",
-      "What education or training is needed?",
-      "What are the main responsibilities of this job?",
-      "What career progression opportunities are discussed?",
-      "What challenges or difficulties are mentioned?",
-      "What advice is given for getting started?",
-      "What tools or software are mentioned?",
-      "What industry trends are discussed?",
-      "What work environment or culture is described?"
+      "What education or qualifications are needed?",
+      "What is the typical salary range?",
+      "What are the main responsibilities?",
+      "What advice is given for people interested in this career?",
     ];
   }
 
   /**
-   * Extract career-relevant information from a video
-   */
-  async extractCareerInfo(youtubeUrl: string): Promise<{
-    skills: string[];
-    salary: string;
-    education: string[];
-    responsibilities: string[];
-    advice: string[];
-  }> {
-    const questions = [
-      "What specific skills are needed for this career?",
-      "What salary or compensation is mentioned?",
-      "What education, degrees, or certifications are required?",
-      "What are the main job responsibilities and daily tasks?",
-      "What advice is given for someone starting this career path?"
-    ];
-
-    const results = await Promise.all(
-      questions.map(q => this.queryVideo(youtubeUrl, q))
-    );
-
-    return {
-      skills: this.extractListFromAnswer(results[0]?.output || ''),
-      salary: results[1]?.output || 'Not specified',
-      education: this.extractListFromAnswer(results[2]?.output || ''),
-      responsibilities: this.extractListFromAnswer(results[3]?.output || ''),
-      advice: this.extractListFromAnswer(results[4]?.output || ''),
-    };
-  }
-
-  /**
-   * Helper method to extract lists from AI responses
-   */
-  private extractListFromAnswer(answer: string): string[] {
-    // Simple extraction - look for bullet points, numbered lists, or comma-separated items
-    const lines = answer.split('\n').filter(line => line.trim());
-    const items: string[] = [];
-
-    for (const line of lines) {
-      // Remove bullet points, numbers, and clean up
-      const cleaned = line.replace(/^[-•*]\s*/, '').replace(/^\d+\.\s*/, '').trim();
-      if (cleaned && !cleaned.includes('not mentioned') && !cleaned.includes('not specified')) {
-        items.push(cleaned);
-      }
-    }
-
-    // If no structured list found, try comma separation
-    if (items.length === 0 && answer.includes(',')) {
-      return answer.split(',').map(item => item.trim()).filter(item => item.length > 0);
-    }
-
-    return items.slice(0, 5); // Limit to 5 items
-  }
-
-  /**
-   * Format timestamps for display
+   * Format a timestamp in MM:SS format
    */
   formatTimestamp(seconds: number): string {
-    const hours = Math.floor(seconds / 3600);
-    const minutes = Math.floor((seconds % 3600) / 60);
+    const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
-
-    if (hours > 0) {
-      return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-    }
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
+    return `${mins}:${secs < 10 ? '0' + secs : secs}`;
   }
 
   /**
-   * Convert Bumpups timestamps to YouTube URL with timestamp
+   * Create a direct link to a specific timestamp in a YouTube video
    */
   createTimestampUrl(videoId: string, timestamp: number): string {
     return `https://www.youtube.com/watch?v=${videoId}&t=${Math.floor(timestamp)}s`;
   }
-
-  /**
-   * Comprehensive career exploration analysis for youth platform
-   */
-  async analyzeForCareerExploration(youtubeUrl: string): Promise<any> {
-    const careerExplorationPrompt = `
-Analyse this video for a youth career exploration platform. Identify the key career themes, environments, soft skills, challenges, and work styles demonstrated in the video. Extract aspirational and emotional elements that could inspire a young person considering this career path. Provide hashtags that summarise these insights. Highlight moments in the video where these insights are clearly demonstrated.
-
-Generate 3 reflective questions based on this analysis to prompt a young user after watching this video.
-
-Identify which OffScript career pathways this video could support (e.g., creative industries, STEM, social impact, trades, healthcare, business, education).
-
-Structure your output using markdown formatting as follows:
-
-## 1. Key Career Themes
-- List the main career themes and environments shown
-
-## 2. Emotional and Aspirational Elements  
-- Elements that could inspire young people
-- Motivational aspects of the career
-
-## 3. Relevant Soft Skills
-- Communication, leadership, problem-solving, etc.
-- How these skills are demonstrated
-
-## 4. Work Environment & Challenges
-- Typical work settings and conditions
-- Common challenges and how they're addressed
-
-## 5. Quotable Moments
-- Inspiring quotes from the video with timestamps (MM:SS format)
-- Key insights that stand out
-
-## 6. Reflective Questions
-1. [Question 1]
-2. [Question 2] 
-3. [Question 3]
-
-## 7. OffScript Career Pathways
-- Which pathways this video supports
-- How it connects to career exploration
-
-## 8. Hashtags
-#hashtag1 #hashtag2 #hashtag3 #hashtag4 #hashtag5
-
-Provide rich, actionable insights that help young people understand both the practical and emotional aspects of this career path.`;
-
-    try {
-      const result = await this.queryVideo(youtubeUrl, careerExplorationPrompt);
-      
-      // Ensure the result has a confidence value
-      if (!result.confidence) {
-        result.confidence = 90; // Default confidence for career exploration analysis
-      }
-      
-      return result;
-    } catch (error) {
-      console.error('Error in career exploration analysis:', error);
-      throw error;
-    }
-  }
 }
 
-export default BumpupsService;
-export type { 
-  BumpupsAnalysisResult, 
-  BumpupsTimestamp, 
-  BumpupsSummary, 
-  BumpupsQueryResponse,
-  BumpupsJobStatus 
-}; 
+// Create and export a singleton instance
+const bumpupsService = new BumpupsService();
+export default bumpupsService;
