@@ -2,8 +2,9 @@ import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { getEnvironmentConfig, isPlaceholder } from './environment';
 
 describe('Environment Configuration', () => {
-  // Save original window.ENV
+  // Save original window.ENV and import.meta
   const originalWindowENV = window.ENV;
+  const originalImportMeta = import.meta;
   
   // Mock console methods
   beforeEach(() => {
@@ -13,8 +14,9 @@ describe('Environment Configuration', () => {
   });
   
   afterEach(() => {
-    // Restore window.ENV after each test
+    // Restore window.ENV and import.meta after each test
     window.ENV = originalWindowENV;
+    vi.stubGlobal('import.meta', originalImportMeta);
     vi.restoreAllMocks();
   });
 
@@ -45,8 +47,23 @@ describe('Environment Configuration', () => {
   
   describe('getEnvironmentConfig', () => {
     it('should prioritize Vite environment variables when valid', () => {
-      // Both window.ENV and import.meta.env are mocked in setup.ts with different values
-      // Vite values should be preferred
+      // Set up specific test values
+      vi.stubGlobal('import.meta', {
+        env: {
+          VITE_FIREBASE_API_KEY: 'test-vite-api-key',
+          VITE_FIREBASE_AUTH_DOMAIN: 'test-vite-auth-domain',
+          VITE_FIREBASE_PROJECT_ID: 'test-vite-project-id',
+          VITE_FIREBASE_STORAGE_BUCKET: 'test-vite-storage-bucket',
+          VITE_FIREBASE_MESSAGING_SENDER_ID: 'test-vite-sender-id',
+          VITE_FIREBASE_APP_ID: 'test-vite-app-id',
+          VITE_FIREBASE_MEASUREMENT_ID: 'test-vite-measurement-id',
+          VITE_YOUTUBE_API_KEY: 'test-vite-youtube-key',
+          VITE_RECAPTCHA_SITE_KEY: 'test-vite-recaptcha-key',
+          VITE_BUMPUPS_API_KEY: 'test-vite-bumpups-key',
+          MODE: 'test',
+        }
+      });
+      
       const config = getEnvironmentConfig();
       
       expect(config.firebase.apiKey).toBe('test-vite-api-key');
@@ -58,11 +75,13 @@ describe('Environment Configuration', () => {
     
     it('should fall back to window.ENV when Vite environment variables are invalid', () => {
       // Mock import.meta.env with invalid values
-      vi.mock('import.meta.env', () => ({
-        VITE_FIREBASE_API_KEY: 'YOUR_API_KEY',
-        VITE_FIREBASE_PROJECT_ID: 'YOUR_PROJECT_ID',
-        MODE: 'test',
-      }));
+      vi.stubGlobal('import.meta', {
+        env: {
+          VITE_FIREBASE_API_KEY: 'YOUR_API_KEY',
+          VITE_FIREBASE_PROJECT_ID: 'YOUR_PROJECT_ID',
+          MODE: 'test',
+        }
+      });
       
       const config = getEnvironmentConfig();
       
@@ -72,6 +91,23 @@ describe('Environment Configuration', () => {
     });
     
     it('should set feature flags correctly based on available API keys', () => {
+      // Set up specific test values
+      vi.stubGlobal('import.meta', {
+        env: {
+          VITE_FIREBASE_API_KEY: 'test-vite-api-key',
+          VITE_FIREBASE_AUTH_DOMAIN: 'test-vite-auth-domain',
+          VITE_FIREBASE_PROJECT_ID: 'test-vite-project-id',
+          VITE_FIREBASE_STORAGE_BUCKET: 'test-vite-storage-bucket',
+          VITE_FIREBASE_MESSAGING_SENDER_ID: 'test-vite-sender-id',
+          VITE_FIREBASE_APP_ID: 'test-vite-app-id',
+          VITE_FIREBASE_MEASUREMENT_ID: 'test-vite-measurement-id',
+          VITE_YOUTUBE_API_KEY: 'test-vite-youtube-key',
+          VITE_RECAPTCHA_SITE_KEY: 'test-vite-recaptcha-key',
+          VITE_BUMPUPS_API_KEY: 'test-vite-bumpups-key',
+          MODE: 'test',
+        }
+      });
+      
       const config = getEnvironmentConfig();
       
       expect(config.features.enableAnalytics).toBe(true);
@@ -88,16 +124,19 @@ describe('Environment Configuration', () => {
       } as any;
       
       // Mock import.meta.env with missing API keys
-      vi.mock('import.meta.env', () => ({
-        VITE_FIREBASE_API_KEY: 'test-vite-api-key',
-        VITE_FIREBASE_AUTH_DOMAIN: 'test-vite-auth-domain',
-        VITE_FIREBASE_PROJECT_ID: 'test-vite-project-id',
-        VITE_FIREBASE_STORAGE_BUCKET: 'test-vite-storage-bucket',
-        VITE_FIREBASE_MESSAGING_SENDER_ID: 'test-vite-sender-id',
-        VITE_FIREBASE_APP_ID: 'test-vite-app-id',
-        VITE_FIREBASE_MEASUREMENT_ID: 'test-vite-measurement-id',
-        MODE: 'test',
-      }));
+      vi.stubGlobal('import.meta', {
+        env: {
+          VITE_FIREBASE_API_KEY: 'test-vite-api-key',
+          VITE_FIREBASE_AUTH_DOMAIN: 'test-vite-auth-domain',
+          VITE_FIREBASE_PROJECT_ID: 'test-vite-project-id',
+          VITE_FIREBASE_STORAGE_BUCKET: 'test-vite-storage-bucket',
+          VITE_FIREBASE_MESSAGING_SENDER_ID: 'test-vite-sender-id',
+          VITE_FIREBASE_APP_ID: 'test-vite-app-id',
+          VITE_FIREBASE_MEASUREMENT_ID: 'test-vite-measurement-id',
+          // YouTube and Bumpups keys are missing
+          MODE: 'test',
+        }
+      });
       
       const config = getEnvironmentConfig();
       
@@ -112,11 +151,13 @@ describe('Environment Configuration', () => {
         VITE_FIREBASE_PROJECT_ID: 'YOUR_PROJECT_ID',
       } as any;
       
-      vi.mock('import.meta.env', () => ({
-        VITE_FIREBASE_API_KEY: 'YOUR_API_KEY',
-        VITE_FIREBASE_PROJECT_ID: 'YOUR_PROJECT_ID',
-        MODE: 'test',
-      }));
+      vi.stubGlobal('import.meta', {
+        env: {
+          VITE_FIREBASE_API_KEY: 'YOUR_API_KEY',
+          VITE_FIREBASE_PROJECT_ID: 'YOUR_PROJECT_ID',
+          MODE: 'test',
+        }
+      });
       
       const config = getEnvironmentConfig();
       
