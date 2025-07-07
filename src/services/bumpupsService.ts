@@ -331,6 +331,55 @@ class BumpupsService {
   createTimestampUrl(videoId: string, timestamp: number): string {
     return `https://www.youtube.com/watch?v=${videoId}&t=${Math.floor(timestamp)}s`;
   }
+
+  /**
+   * Comprehensive career exploration analysis for youth platform
+   */
+  async analyzeForCareerExploration(youtubeUrl: string): Promise<any> {
+    const careerExplorationPrompt = `
+Analyse this video for a youth career exploration platform. Identify the key career themes, environments, soft skills, challenges, and work styles demonstrated in the video. Extract aspirational and emotional elements that could inspire a young person considering this career path. Provide hashtags that summarise these insights. Highlight moments in the video where these insights are clearly demonstrated.
+
+Generate 3 reflective questions based on this analysis to prompt a young user after watching this video.
+
+Identify which OffScript career pathways this video could support (e.g., creative industries, STEM, social impact, trades, healthcare, business, education).
+
+Structure your output using markdown formatting as follows:
+
+## 1. Key Career Themes
+- List the main career themes and environments shown
+
+## 2. Emotional and Aspirational Elements  
+- Elements that could inspire young people
+- Motivational aspects of the career
+
+## 3. Relevant Soft Skills
+- Communication, leadership, problem-solving, etc.
+- How these skills are demonstrated
+
+## 4. Work Environment & Challenges
+- Typical work settings and conditions
+- Common challenges and how they're addressed
+
+## 5. Quotable Moments
+- Inspiring quotes from the video with timestamps (MM:SS format)
+- Key insights that stand out
+
+## 6. Reflective Questions
+1. [Question 1]
+2. [Question 2] 
+3. [Question 3]
+
+## 7. OffScript Career Pathways
+- Which pathways this video supports
+- How it connects to career exploration
+
+## 8. Hashtags
+#hashtag1 #hashtag2 #hashtag3 #hashtag4 #hashtag5
+
+Provide rich, actionable insights that help young people understand both the practical and emotional aspects of this career path.`;
+
+    return await this.queryVideo(youtubeUrl, careerExplorationPrompt);
+  }
 }
 
 export default BumpupsService;

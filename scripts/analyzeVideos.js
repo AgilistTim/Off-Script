@@ -171,44 +171,65 @@ class BumpupsService {
     }
   }
 
-  async analyzeVideoComplete(youtubeUrl) {
-    console.log('🧠 Starting Bumpups analysis...');
+  async analyzeForCareerExploration(youtubeUrl) {
+    console.log('🧠 Starting career exploration analysis...');
     
+    const careerExplorationPrompt = `
+Analyse this video for a youth career exploration platform. Identify the key career themes, environments, soft skills, challenges, and work styles demonstrated in the video. Extract aspirational and emotional elements that could inspire a young person considering this career path. Provide hashtags that summarise these insights. Highlight moments in the video where these insights are clearly demonstrated.
+
+Generate 3 reflective questions based on this analysis to prompt a young user after watching this video.
+
+Identify which OffScript career pathways this video could support (e.g., creative industries, STEM, social impact, trades, healthcare, business, education).
+
+Structure your output using markdown formatting as follows:
+
+## 1. Key Career Themes
+- List the main career themes and environments shown
+
+## 2. Emotional and Aspirational Elements  
+- Elements that could inspire young people
+- Motivational aspects of the career
+
+## 3. Relevant Soft Skills
+- Communication, leadership, problem-solving, etc.
+- How these skills are demonstrated
+
+## 4. Work Environment & Challenges
+- Typical work settings and conditions
+- Common challenges and how they're addressed
+
+## 5. Quotable Moments
+- Inspiring quotes from the video with timestamps (MM:SS format)
+- Key insights that stand out
+
+## 6. Reflective Questions
+1. [Question 1]
+2. [Question 2] 
+3. [Question 3]
+
+## 7. OffScript Career Pathways
+- Which pathways this video supports
+- How it connects to career exploration
+
+## 8. Hashtags
+#hashtag1 #hashtag2 #hashtag3 #hashtag4 #hashtag5
+
+Provide rich, actionable insights that help young people understand both the practical and emotional aspects of this career path.`;
+
     try {
-      // Get summary
-      const summaryResult = await this.queryVideo(youtubeUrl, 
-        "Provide a detailed summary of this video. Include the main topics covered and key takeaways."
-      );
-
-      // Get timestamps
-      const timestampsResult = await this.queryVideo(youtubeUrl,
-        "List the main topics and their timestamps in this format: 'MM:SS - Topic description'. Provide at least 5-10 key moments."
-      );
-
-      // Parse timestamps from the response
-      const timestamps = this.parseTimestamps(timestampsResult.output || '');
-
-      // Extract video ID for result
-      const videoId = this.extractVideoId(youtubeUrl) || '';
-
-      console.log(`✅ Analysis complete! Found ${timestamps.length} timestamps`);
+      const result = await this.queryVideo(youtubeUrl, careerExplorationPrompt);
+      
+      console.log(`✅ Career exploration analysis complete!`);
+      console.log(`📄 Analysis length: ${result.output?.length || 0} characters`);
 
       return {
-        videoId,
-        videoUrl: youtubeUrl,
-        title: '', // Will be filled by YouTube metadata
-        summary: {
-          short: this.extractShortSummary(summaryResult.output || ''),
-          detailed: summaryResult.output || '',
-          keyPoints: this.extractKeyPoints(summaryResult.output || ''),
-        },
-        timestamps,
-        processingTime: 0,
-        confidence: 85, // Default confidence for chat-based analysis
-        language: 'en',
+        careerExplorationAnalysis: result.output || '',
+        analyzedAt: new Date().toISOString(),
+        confidence: 90, // Higher confidence for structured career analysis
+        analysisType: 'career_exploration',
       };
     } catch (error) {
-      console.error('Error in comprehensive video analysis:', error);
+      console.error('Error in career exploration analysis:', error);
       throw error;
     }
   }
@@ -345,39 +366,32 @@ class EnhancedVideoService {
     console.log('💾 Video data stored in Firebase');
 
     try {
-      // Perform AI analysis
-      console.log('🧠 Starting AI analysis with Bumpups...');
-      const analysisResult = await this.bumpupsService.analyzeVideoComplete(youtubeUrl);
+      // Perform AI analysis with career exploration focus
+      console.log('🧠 Starting career exploration analysis with Bumpups...');
+      const analysisResult = await this.bumpupsService.analyzeForCareerExploration(youtubeUrl);
       
-      console.log(`✅ Analysis complete! Confidence: ${analysisResult.confidence}%`);
-      console.log(`📄 Summary: ${analysisResult.summary?.short || 'No summary'}`);
-      console.log(`🕒 Timestamps: ${analysisResult.timestamps?.length || 0} found`);
+      console.log(`✅ Career exploration analysis complete! Confidence: ${analysisResult.confidence}%`);
+      console.log(`📄 Analysis length: ${analysisResult.careerExplorationAnalysis?.length || 0} characters`);
 
       // Update with AI analysis
       const aiAnalysis = {
-        summary: analysisResult.summary || { short: '', detailed: '', keyPoints: [] },
-        timestamps: analysisResult.timestamps || [],
-        careerInfo: {
-          skills: [],
-          salary: 'Not specified',
-          education: [],
-          responsibilities: [],
-          advice: [],
-        },
-        processingTime: analysisResult.processingTime || 0,
-        confidence: analysisResult.confidence || 0,
-        analyzedAt: new Date().toISOString(),
+        careerExplorationAnalysis: analysisResult.careerExplorationAnalysis || '',
+        analyzedAt: analysisResult.analyzedAt,
+        confidence: analysisResult.confidence || 90,
+        analysisType: analysisResult.analysisType || 'career_exploration',
       };
 
-      // Extract enhanced metadata
-      const enhancedSkills = this.extractSkillsFromAnalysis(aiAnalysis);
-      const enhancedEducation = this.extractEducationFromAnalysis(aiAnalysis);
+      // Extract enhanced metadata from career analysis
+      const enhancedSkills = this.extractSkillsFromCareerAnalysis(analysisResult.careerExplorationAnalysis || '');
+      const careerPathways = this.extractCareerPathways(analysisResult.careerExplorationAnalysis || '');
+      const hashtags = this.extractHashtags(analysisResult.careerExplorationAnalysis || '');
 
       // Update video with analysis
       await this.updateVideoWithAnalysis(videoId, {
         aiAnalysis,
         skillsHighlighted: enhancedSkills,
-        educationRequired: enhancedEducation,
+        careerPathways,
+        hashtags,
         lastAnalyzed: new Date().toISOString(),
         analysisStatus: 'completed',
       });
@@ -410,43 +424,54 @@ class EnhancedVideoService {
     await updateDoc(videoRef, { analysisStatus: status });
   }
 
-  extractSkillsFromAnalysis(analysis) {
+  extractSkillsFromCareerAnalysis(analysis) {
     const skills = new Set();
     
-    // From summary key points
-    analysis.summary?.keyPoints?.forEach(point => {
-      const skillKeywords = ['programming', 'coding', 'javascript', 'python', 'react', 'html', 'css', 
-                           'communication', 'leadership', 'management', 'design', 'analysis', 'engineering'];
-      
-      skillKeywords.forEach(keyword => {
-        if (point.toLowerCase().includes(keyword)) {
-          skills.add(keyword.charAt(0).toUpperCase() + keyword.slice(1));
-        }
-      });
+    // Extract skills from the analysis text
+    const skillKeywords = ['programming', 'coding', 'javascript', 'python', 'react', 'html', 'css', 
+                         'communication', 'leadership', 'management', 'design', 'analysis', 'engineering',
+                         'problem-solving', 'collaboration', 'mentoring', 'time management', 'attention to detail'];
+    
+    skillKeywords.forEach(keyword => {
+      if (analysis.toLowerCase().includes(keyword)) {
+        skills.add(keyword.charAt(0).toUpperCase() + keyword.slice(1));
+      }
     });
 
-    return Array.from(skills).slice(0, 8);
+    return Array.from(skills).slice(0, 10);
   }
 
-  extractEducationFromAnalysis(analysis) {
-    // Simple extraction from summary
-    const summary = analysis.summary?.detailed?.toLowerCase() || '';
-    const education = [];
+  extractCareerPathways(analysis) {
+    const pathways = new Set();
+    
+    // Extract career pathways from the analysis text
+    const pathwayKeywords = ['software development', 'data science', 'AI', 'machine learning', 'blockchain', 
+                           'cybersecurity', 'STEM', 'creative industries', 'social impact', 'trades', 
+                           'healthcare', 'business', 'education', 'engineering'];
+    
+    pathwayKeywords.forEach(keyword => {
+      if (analysis.toLowerCase().includes(keyword.toLowerCase())) {
+        pathways.add(keyword);
+      }
+    });
 
-    if (summary.includes('degree') || summary.includes('university') || summary.includes('college')) {
-      education.push('University degree');
-    }
-    if (summary.includes('certification') || summary.includes('certificate')) {
-      education.push('Professional certification');
-    }
-    if (summary.includes('bootcamp') || summary.includes('coding bootcamp')) {
-      education.push('Coding bootcamp');
-    }
-    if (summary.includes('apprenticeship') || summary.includes('apprentice')) {
-      education.push('Apprenticeship');
+    return Array.from(pathways).slice(0, 5);
+  }
+
+  extractHashtags(analysis) {
+    const hashtags = new Set();
+    
+    // Extract hashtags from the analysis text
+    const hashtagPattern = /#\w+/g;
+    const matches = analysis.match(hashtagPattern);
+    
+    if (matches) {
+      matches.forEach(match => {
+        hashtags.add(match);
+      });
     }
 
-    return education.slice(0, 3);
+    return Array.from(hashtags).slice(0, 8);
   }
 }
 

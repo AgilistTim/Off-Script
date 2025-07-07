@@ -32,26 +32,33 @@ interface EnhancedVideoData {
     language?: string;
   };
   
-  // AI analysis from Bumpups
+  // AI analysis from Bumpups (supports multiple formats)
   aiAnalysis?: {
-    summary: {
+    // Legacy format (for backwards compatibility)
+    summary?: {
       short: string;
       detailed: string;
       keyPoints: string[];
     };
-    timestamps: Array<{
+    timestamps?: Array<{
       time: number;
       title: string;
       description?: string;
     }>;
-    careerInfo: {
+    careerInfo?: {
       skills: string[];
       salary: string;
       education: string[];
       responsibilities: string[];
       advice: string[];
     };
-    processingTime: number;
+    processingTime?: number;
+    
+    // New career exploration format
+    careerExplorationAnalysis?: string;
+    analysisType?: 'legacy' | 'career_exploration';
+    
+    // Common fields
     confidence: number;
     analyzedAt: string;
   };
@@ -60,6 +67,8 @@ interface EnhancedVideoData {
   skillsHighlighted: string[];
   educationRequired: string[];
   careerStage: 'entry-level' | 'mid-level' | 'senior' | 'any';
+  careerPathways?: string[];
+  hashtags?: string[];
   salaryRange?: {
     min: number;
     max: number;
@@ -151,49 +160,40 @@ class EnhancedVideoService {
    */
   private async performAIAnalysis(videoId: string, youtubeUrl: string, category: string): Promise<void> {
     try {
-      console.log('🧠 Starting AI analysis with Bumpups...');
+      // Perform AI analysis with career exploration focus
+      console.log('🧠 Starting career exploration analysis with Bumpups...');
+      const analysisResult = await this.bumpupsService.analyzeForCareerExploration(youtubeUrl);
       
-      // Update status to analyzing
-      await this.updateAnalysisStatus(videoId, 'analyzing');
+      console.log(`✅ Career exploration analysis complete!`);
+      console.log(`📄 Analysis length: ${analysisResult.output?.length || 0} characters`);
 
-      // Submit for analysis
-      const analysisResult = await this.bumpupsService.analyzeVideoComplete(youtubeUrl);
-      
-      // Extract career information
-      const careerInfo = await this.bumpupsService.extractCareerInfo(videoId);
-
-      // Prepare AI analysis data
+      // Update with AI analysis
       const aiAnalysis = {
-        summary: analysisResult.summary,
-        timestamps: analysisResult.timestamps,
-        careerInfo: careerInfo,
-        processingTime: analysisResult.processingTime,
-        confidence: analysisResult.confidence,
+        careerExplorationAnalysis: analysisResult.output || '',
         analyzedAt: new Date().toISOString(),
+        confidence: 90, // Higher confidence for structured career analysis
+        analysisType: 'career_exploration' as const,
       };
 
-      // Extract enhanced metadata from AI analysis
-      const enhancedSkills = this.extractSkillsFromAnalysis(aiAnalysis);
-      const enhancedEducation = this.extractEducationFromAnalysis(aiAnalysis);
-      const careerStage = this.determineCareerStage(aiAnalysis);
-      const salaryRange = this.extractSalaryRange(aiAnalysis.careerInfo.salary);
+      // Extract enhanced metadata from the structured analysis
+      const enhancedSkills = this.extractSkillsFromCareerAnalysis(analysisResult.output || '');
+      const careerPathways = this.extractCareerPathways(analysisResult.output || '');
+      const hashtags = this.extractHashtags(analysisResult.output || '');
 
-      // Update video with AI analysis
+      // Update video with analysis
       await this.updateVideoWithAnalysis(videoId, {
         aiAnalysis,
         skillsHighlighted: enhancedSkills,
-        educationRequired: enhancedEducation,
-        careerStage,
-        salaryRange,
+        careerPathways,
+        hashtags,
         lastAnalyzed: new Date().toISOString(),
         analysisStatus: 'completed',
       });
 
-      console.log('✅ AI analysis completed successfully');
+      console.log('🔄 Video updated with career exploration analysis');
     } catch (error) {
       console.error('❌ AI analysis failed:', error);
       await this.updateAnalysisStatus(videoId, 'failed');
-      throw error;
     }
   }
 
@@ -379,6 +379,62 @@ class EnhancedVideoService {
     }
     
     return results;
+  }
+
+  /**
+   * Extract skills from career analysis
+   */
+  private extractSkillsFromCareerAnalysis(analysis: string): string[] {
+    const skills = new Set<string>();
+    
+    // Extract skills from the analysis text
+    const skillKeywords = ['programming', 'coding', 'javascript', 'python', 'react', 'html', 'css', 
+                         'communication', 'leadership', 'management', 'design', 'analysis'];
+    
+    skillKeywords.forEach(keyword => {
+      if (analysis.toLowerCase().includes(keyword)) {
+        skills.add(keyword.charAt(0).toUpperCase() + keyword.slice(1));
+      }
+    });
+
+    return Array.from(skills).slice(0, 10); // Limit to 10 skills
+  }
+
+  /**
+   * Extract career pathways from career analysis
+   */
+  private extractCareerPathways(analysis: string): string[] {
+    const pathways = new Set<string>();
+    
+    // Extract career pathways from the analysis text
+    const pathwayKeywords = ['software development', 'data science', 'AI', 'machine learning', 'blockchain', 'cybersecurity'];
+    
+    pathwayKeywords.forEach(keyword => {
+      if (analysis.toLowerCase().includes(keyword)) {
+        pathways.add(keyword.charAt(0).toUpperCase() + keyword.slice(1));
+      }
+    });
+
+    return Array.from(pathways).slice(0, 5); // Limit to 5 pathways
+  }
+
+  /**
+   * Extract hashtags from career analysis
+   */
+  private extractHashtags(analysis: string): string[] {
+    const hashtags = new Set<string>();
+    
+    // Extract hashtags from the analysis text
+    const hashtagPattern = /#\w+/g;
+    const matches = analysis.match(hashtagPattern);
+    
+    if (matches) {
+      matches.forEach(match => {
+        hashtags.add(match.charAt(0).toUpperCase() + match.slice(1));
+      });
+    }
+
+    return Array.from(hashtags).slice(0, 5); // Limit to 5 hashtags
   }
 }
 
