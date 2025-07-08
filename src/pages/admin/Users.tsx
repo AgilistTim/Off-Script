@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Search, 
   Filter, 
@@ -18,6 +18,34 @@ import {
 import { getAllUsers, updateUserRole, deleteUser, sendPasswordResetEmail } from '../../services/userService';
 import { User as UserType } from '../../models/User';
 import { toast, Toaster } from 'react-hot-toast';
+
+// Custom hook to determine if element is near bottom of viewport
+const useIsNearBottom = (ref: React.RefObject<HTMLElement>, offset = 200) => {
+  const [isNearBottom, setIsNearBottom] = useState(false);
+
+  useEffect(() => {
+    const checkPosition = () => {
+      if (!ref.current) return;
+      
+      const rect = ref.current.getBoundingClientRect();
+      const bottomPosition = rect.bottom;
+      const windowHeight = window.innerHeight;
+      
+      setIsNearBottom(bottomPosition + offset > windowHeight);
+    };
+
+    checkPosition();
+    window.addEventListener('scroll', checkPosition);
+    window.addEventListener('resize', checkPosition);
+    
+    return () => {
+      window.removeEventListener('scroll', checkPosition);
+      window.removeEventListener('resize', checkPosition);
+    };
+  }, [ref, offset]);
+
+  return isNearBottom;
+};
 
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<UserType[]>([]);
@@ -322,6 +350,17 @@ const AdminUsers: React.FC = () => {
     );
   };
 
+  // Create refs for dropdown buttons
+  const dropdownRefs = useRef<{ [key: string]: React.RefObject<HTMLButtonElement> }>({});
+
+  // Get or create a ref for a specific user
+  const getDropdownRef = (userId: string) => {
+    if (!dropdownRefs.current[userId]) {
+      dropdownRefs.current[userId] = React.createRef<HTMLButtonElement>();
+    }
+    return dropdownRefs.current[userId];
+  };
+
   return (
     <div className="space-y-6">
       <Toaster position="top-right" />
@@ -405,114 +444,122 @@ const AdminUsers: React.FC = () => {
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredUsers.length > 0 ? (
-                filteredUsers.map((user) => (
-                  <tr key={user.uid}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
-                          {user.photoURL ? (
-                            <img src={user.photoURL} alt={user.displayName || ''} className="h-full w-full object-cover" />
-                          ) : (
-                            <div className="h-full w-full flex items-center justify-center text-gray-500 dark:text-gray-400">
-                              <User size={20} />
+                filteredUsers.map((user) => {
+                  const dropdownRef = getDropdownRef(user.uid);
+                  const isNearBottom = useIsNearBottom(dropdownRef, 250);
+                  
+                  return (
+                    <tr key={user.uid}>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                            {user.photoURL ? (
+                              <img src={user.photoURL} alt={user.displayName || ''} className="h-full w-full object-cover" />
+                            ) : (
+                              <div className="h-full w-full flex items-center justify-center text-gray-500 dark:text-gray-400">
+                                <User size={20} />
+                              </div>
+                            )}
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">{user.displayName || 'No Name'}</div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
+                              <Mail size={12} className="mr-1" /> {user.email}
                             </div>
-                          )}
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">{user.displayName || 'No Name'}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center">
-                            <Mail size={12} className="mr-1" /> {user.email}
                           </div>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        {user.role === 'admin' ? (
-                          <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 flex items-center">
-                            <Shield size={12} className="mr-1" /> Admin
-                          </span>
-                        ) : user.role === 'parent' ? (
-                          <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-                            Parent
-                          </span>
-                        ) : (
-                          <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                            User
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      <div className="flex items-center">
-                        <Calendar size={14} className="mr-1" />
-                        {formatDate(user.createdAt)}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {formatDate(user.lastLogin)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
-                        <div className="relative">
-                          <button
-                            onClick={() => setRoleDropdownOpen(roleDropdownOpen === user.uid ? null : user.uid)}
-                            className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                            title="Change Role"
-                          >
-                            <Shield size={18} />
-                          </button>
-                          {roleDropdownOpen === user.uid && (
-                            <div className="absolute right-auto left-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10">
-                              <div className="py-1">
-                                {roles.map(role => (
-                                  <button
-                                    key={role}
-                                    onClick={() => handleChangeRole(user.uid, role as 'user' | 'admin' | 'parent')}
-                                    className={`block w-full text-left px-4 py-2 text-sm ${
-                                      user.role === role 
-                                        ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' 
-                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                    }`}
-                                    disabled={user.role === role}
-                                  >
-                                    {role.charAt(0).toUpperCase() + role.slice(1)}
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          {user.role === 'admin' ? (
+                            <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 flex items-center">
+                              <Shield size={12} className="mr-1" /> Admin
+                            </span>
+                          ) : user.role === 'parent' ? (
+                            <span className="px-2 py-1 text-xs rounded-full bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                              Parent
+                            </span>
+                          ) : (
+                            <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                              User
+                            </span>
                           )}
                         </div>
-                        <button
-                          onClick={() => handlePasswordReset(user.uid, user.email)}
-                          className="text-yellow-500 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300"
-                          title="Reset Password"
-                          disabled={resettingPassword === user.uid}
-                        >
-                          {resettingPassword === user.uid ? (
-                            <RefreshCw size={18} className="animate-spin" />
-                          ) : (
-                            <Key size={18} />
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleEditUser(user)}
-                          className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                          title="Edit"
-                        >
-                          <Edit size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteUser(user.uid)}
-                          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                          title="Delete"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        <div className="flex items-center">
+                          <Calendar size={14} className="mr-1" />
+                          {formatDate(user.createdAt)}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {formatDate(user.lastLogin)}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end space-x-2">
+                          <div className="relative">
+                            <button
+                              ref={dropdownRef}
+                              onClick={() => setRoleDropdownOpen(roleDropdownOpen === user.uid ? null : user.uid)}
+                              className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                              title="Change Role"
+                            >
+                              <Shield size={18} />
+                            </button>
+                            {roleDropdownOpen === user.uid && (
+                              <div 
+                                className={`absolute ${isNearBottom ? 'bottom-full mb-2' : 'top-full mt-2'} right-auto left-0 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10`}
+                              >
+                                <div className="py-1">
+                                  {roles.map(role => (
+                                    <button
+                                      key={role}
+                                      onClick={() => handleChangeRole(user.uid, role as 'user' | 'admin' | 'parent')}
+                                      className={`block w-full text-left px-4 py-2 text-sm ${
+                                        user.role === role 
+                                          ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' 
+                                          : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                      }`}
+                                      disabled={user.role === role}
+                                    >
+                                      {role.charAt(0).toUpperCase() + role.slice(1)}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <button
+                            onClick={() => handlePasswordReset(user.uid, user.email)}
+                            className="text-yellow-500 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300"
+                            title="Reset Password"
+                            disabled={resettingPassword === user.uid}
+                          >
+                            {resettingPassword === user.uid ? (
+                              <RefreshCw size={18} className="animate-spin" />
+                            ) : (
+                              <Key size={18} />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleEditUser(user)}
+                            className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                            title="Edit"
+                          >
+                            <Edit size={18} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteUser(user.uid)}
+                            className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
+                            title="Delete"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
