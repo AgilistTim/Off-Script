@@ -25,6 +25,11 @@ export interface EnvironmentConfig {
     bumpups?: string;
   };
   
+  // API endpoints
+  apiEndpoints: {
+    bumpupsProxy?: string;
+  };
+  
   // Runtime environment
   environment: 'development' | 'production' | 'test';
   
@@ -49,7 +54,9 @@ export const isPlaceholder = (value: string): boolean => {
          value.includes('__FIREBASE_') ||
          value.includes('demo-') ||
          value.includes('REPLACE_WITH_') ||
-         value.includes('placeholder');
+         value.includes('placeholder') ||
+         value === 'NOT_SET' ||
+         value.includes('NOT_SET');
 };
 
 /**
@@ -70,6 +77,9 @@ const getViteEnvironment = (): Partial<EnvironmentConfig> => {
       youtube: import.meta.env.VITE_YOUTUBE_API_KEY as string,
       recaptcha: import.meta.env.VITE_RECAPTCHA_SITE_KEY as string,
       bumpups: import.meta.env.VITE_BUMPUPS_API_KEY as string,
+    },
+    apiEndpoints: {
+      bumpupsProxy: import.meta.env.VITE_BUMPUPS_PROXY_URL as string,
     },
     environment: (import.meta.env.MODE || 'development') as 'development' | 'production' | 'test',
   };
@@ -98,6 +108,9 @@ const getWindowEnvironment = (): Partial<EnvironmentConfig> => {
       recaptcha: window.ENV.VITE_RECAPTCHA_SITE_KEY,
       bumpups: window.ENV.VITE_BUMPUPS_API_KEY,
     },
+    apiEndpoints: {
+      bumpupsProxy: window.ENV.VITE_BUMPUPS_PROXY_URL,
+    },
   };
 };
 
@@ -115,6 +128,11 @@ const validateFirebaseConfig = (config: EnvironmentConfig['firebase']): boolean 
     }
   }
   
+  // Measurement ID is optional - just warn if it's missing or a placeholder
+  if (!config.measurementId || isPlaceholder(config.measurementId)) {
+    console.warn(`⚠️ Firebase Analytics measurement ID is missing or invalid - analytics will be disabled`);
+  }
+  
   return true;
 };
 
@@ -127,6 +145,30 @@ const determineFeatureFlags = (config: Partial<EnvironmentConfig>): EnvironmentC
     enableYouTubeIntegration: Boolean(config.apiKeys?.youtube && !isPlaceholder(config.apiKeys.youtube)),
     enableBumpupsIntegration: Boolean(config.apiKeys?.bumpups && !isPlaceholder(config.apiKeys.bumpups)),
   };
+};
+
+/**
+ * Generate API endpoints based on configuration
+ */
+const generateApiEndpoints = (config: Partial<EnvironmentConfig>): EnvironmentConfig['apiEndpoints'] => {
+  let bumpupsProxyUrl = config.apiEndpoints?.bumpupsProxy;
+  
+  // Check if bumpupsProxy is a placeholder or invalid value
+  if (!bumpupsProxyUrl || isPlaceholder(bumpupsProxyUrl)) {
+    bumpupsProxyUrl = undefined;
+  }
+  
+  // If no valid bumpups proxy URL is provided, generate one from Firebase project ID
+  if (!bumpupsProxyUrl && config.firebase?.projectId && !isPlaceholder(config.firebase.projectId)) {
+    bumpupsProxyUrl = `https://us-central1-${config.firebase.projectId}.cloudfunctions.net/bumpupsProxy`;
+    console.log(`🔧 Generated default bumpups proxy URL: ${bumpupsProxyUrl}`);
+  }
+  
+  const endpoints: EnvironmentConfig['apiEndpoints'] = {
+    bumpupsProxy: bumpupsProxyUrl,
+  };
+  
+  return endpoints;
 };
 
 /**
@@ -145,6 +187,7 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
     return {
       ...viteConfig,
       features: determineFeatureFlags(viteConfig),
+      apiEndpoints: generateApiEndpoints(viteConfig),
       environment: viteConfig.environment || 'development',
     } as EnvironmentConfig;
   }
@@ -158,6 +201,7 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
     return {
       ...windowConfig,
       features: determineFeatureFlags(windowConfig),
+      apiEndpoints: generateApiEndpoints(windowConfig),
       environment: viteConfig.environment || 'production',
     } as EnvironmentConfig;
   }
@@ -166,28 +210,28 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
   console.error('❌ No valid configuration found. The application will not function correctly.');
   console.error('Please check your environment variables or window.ENV configuration.');
   
-  // Return a configuration that will fail gracefully
+  // Try to salvage what we can from available configs
+  const fallbackConfig = { ...viteConfig, ...windowConfig };
+  
+  // Return a configuration that will fail gracefully but still provide some functionality
   return {
     firebase: {
-      apiKey: 'MISSING_API_KEY',
-      authDomain: 'MISSING_AUTH_DOMAIN',
-      projectId: 'MISSING_PROJECT_ID',
-      storageBucket: 'MISSING_STORAGE_BUCKET',
-      messagingSenderId: 'MISSING_MESSAGING_SENDER_ID',
-      appId: 'MISSING_APP_ID',
-      measurementId: 'MISSING_MEASUREMENT_ID',
+      apiKey: fallbackConfig.firebase?.apiKey || 'MISSING_API_KEY',
+      authDomain: fallbackConfig.firebase?.authDomain || 'MISSING_AUTH_DOMAIN',
+      projectId: fallbackConfig.firebase?.projectId || 'MISSING_PROJECT_ID',
+      storageBucket: fallbackConfig.firebase?.storageBucket || 'MISSING_STORAGE_BUCKET',
+      messagingSenderId: fallbackConfig.firebase?.messagingSenderId || 'MISSING_MESSAGING_SENDER_ID',
+      appId: fallbackConfig.firebase?.appId || 'MISSING_APP_ID',
+      measurementId: fallbackConfig.firebase?.measurementId || 'MISSING_MEASUREMENT_ID',
     },
     apiKeys: {
-      youtube: undefined,
-      recaptcha: undefined,
-      bumpups: undefined,
+      youtube: fallbackConfig.apiKeys?.youtube,
+      recaptcha: fallbackConfig.apiKeys?.recaptcha,
+      bumpups: fallbackConfig.apiKeys?.bumpups,
     },
-    environment: 'development',
-    features: {
-      enableAnalytics: false,
-      enableYouTubeIntegration: false,
-      enableBumpupsIntegration: false,
-    },
+    apiEndpoints: generateApiEndpoints(fallbackConfig),
+    environment: fallbackConfig.environment || 'development',
+    features: determineFeatureFlags(fallbackConfig),
   };
 };
 
@@ -197,6 +241,7 @@ export const env = getEnvironmentConfig();
 // Export individual parts of the configuration for convenience
 export const firebaseConfig = env.firebase;
 export const apiKeys = env.apiKeys;
+export const apiEndpoints = env.apiEndpoints;
 export const features = env.features;
 export const environment = env.environment;
 

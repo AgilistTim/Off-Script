@@ -34,8 +34,10 @@ export interface Video {
   relatedContent: string[];
   viewCount: number;
   metadataStatus?: 'pending' | 'processing' | 'enriched' | 'failed';
+  analysisStatus?: 'pending' | 'analyzing' | 'completed' | 'failed';
   enrichmentFailed?: boolean;
   enrichmentError?: string;
+  aiAnalysis?: any; // For compatibility with enhanced videos
   metadata?: {
     extractedAt: any; // Firestore timestamp
     raw: {

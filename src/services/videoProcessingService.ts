@@ -2,6 +2,7 @@ import { toast } from 'react-hot-toast';
 import enhancedVideoService, { type EnhancedVideoData } from './enhancedVideoService';
 import youtubeService from './youtubeService';
 import bumpupsService from './bumpupsService';
+import env from '../config/environment';
 
 export interface VideoProcessingProgress {
   step: 'validating' | 'extracting_metadata' | 'ai_analysis' | 'storing' | 'completed' | 'failed';

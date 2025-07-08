@@ -29,6 +29,8 @@ const https = __importStar(require("https"));
 const https_1 = require("firebase-functions/v2/https");
 const firebase_functions_1 = require("firebase-functions");
 const functionsV1 = __importStar(require("firebase-functions/v1"));
+const params_1 = require("firebase-functions/params");
+const bumpupsApiKeySecret = (0, params_1.defineSecret)("BUMPUPS_APIKEY");
 admin.initializeApp();
 const db = admin.firestore();
 // Runtime options are now configured directly in the function definition
@@ -358,7 +360,8 @@ exports.enrichVideoMetadata = functionsV1
 exports.bumpupsProxy = (0, https_1.onRequest)({
     cors: corsOrigins,
     memory: '512MiB',
-    timeoutSeconds: 60
+    timeoutSeconds: 60,
+    secrets: [bumpupsApiKeySecret],
 }, async (request, response) => {
     try {
         // Only allow POST requests
@@ -383,21 +386,10 @@ exports.bumpupsProxy = (0, https_1.onRequest)({
             });
             return;
         }
-        // Get API key from Firebase Functions config
-        // IMPORTANT: Set this using Firebase CLI: firebase functions:config:set bumpups.apikey="YOUR_API_KEY"
-        let bumpupsApiKey;
-        try {
-            // Try to get from Firebase Functions config
-            const config = functionsV1.config();
-            bumpupsApiKey = config.bumpups?.apikey;
-            if (!bumpupsApiKey) {
-                firebase_functions_1.logger.error('Bumpups API key not found in config');
-                response.status(500).json({ error: 'API configuration error' });
-                return;
-            }
-        }
-        catch (error) {
-            firebase_functions_1.logger.error('Error retrieving Bumpups API key from config', error);
+        // Access the secret using the .value() method.
+        const bumpupsApiKey = bumpupsApiKeySecret.value();
+        if (!bumpupsApiKey) {
+            firebase_functions_1.logger.error('Bumpups API key not found in secret manager. Ensure the BUMPUPS_APIKEY secret is set.');
             response.status(500).json({ error: 'API configuration error' });
             return;
         }

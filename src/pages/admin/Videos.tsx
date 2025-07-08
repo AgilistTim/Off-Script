@@ -12,8 +12,11 @@ import {
   FileInput
 } from 'lucide-react';
 import { getAllVideos, Video, createVideo, updateVideo, deleteVideo, bulkImportVideos } from '../../services/videoService';
+import enhancedVideoService, { EnhancedVideoData } from '../../services/enhancedVideoService';
 import { toast, Toaster } from 'react-hot-toast';
 import EnhancedVideoForm from '../../components/admin/EnhancedVideoForm';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../services/firebase';
 
 const AdminVideos: React.FC = () => {
   const [videos, setVideos] = useState<Video[]>([]);
@@ -57,8 +60,49 @@ const AdminVideos: React.FC = () => {
   const fetchVideos = async () => {
     try {
       setLoading(true);
-      const fetchedVideos = await getAllVideos();
-      setVideos(fetchedVideos);
+      
+      // Fetch videos from both services
+      const standardVideos = await getAllVideos();
+      
+      // Fetch all videos from Firestore directly to ensure we get both types
+      const videosRef = collection(db, 'videos');
+      const videosSnapshot = await getDocs(videosRef);
+      
+      const allVideos = videosSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          title: data.title || 'Untitled Video',
+          description: data.description || '',
+          category: data.category || '',
+          sourceType: data.sourceType || 'youtube',
+          sourceId: data.sourceId || '',
+          sourceUrl: data.sourceUrl || '',
+          thumbnailUrl: data.thumbnailUrl || '',
+          duration: data.duration || 0,
+          creator: data.creator || data.youtubeMetadata?.channelTitle || '',
+          creatorUrl: data.creatorUrl || '',
+          publicationDate: data.publicationDate || data.youtubeMetadata?.publishedAt || data.curatedDate || new Date().toISOString(),
+          curatedDate: data.curatedDate || new Date().toISOString(),
+          tags: data.tags || [],
+          skillsHighlighted: data.skillsHighlighted || [],
+          educationRequired: data.educationRequired || [],
+          prompts: data.prompts || [],
+          relatedContent: data.relatedContent || [],
+          viewCount: data.viewCount || 0,
+          metadataStatus: data.metadataStatus || data.analysisStatus || 'pending',
+          enrichmentFailed: data.enrichmentFailed || (data.analysisStatus === 'failed'),
+          enrichmentError: data.enrichmentError || '',
+          aiAnalysis: data.aiAnalysis || null
+        } as Video;
+      });
+      
+      // Remove duplicates by ID
+      const uniqueVideos = allVideos.filter((video, index, self) =>
+        index === self.findIndex((v) => v.id === video.id)
+      );
+      
+      setVideos(uniqueVideos);
       setLoading(false);
     } catch (error) {
       console.error('Error fetching videos:', error);
@@ -113,6 +157,11 @@ const AdminVideos: React.FC = () => {
   const handleVideoAdded = (videoData: any) => {
     // Add the new video to the local state
     setVideos(prev => [...prev, videoData]);
+    
+    // Refresh the videos list to ensure we have the latest data
+    setTimeout(() => {
+      fetchVideos();
+    }, 2000);
   };
 
   // Handle bulk import
@@ -800,115 +849,123 @@ const AdminVideos: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredVideos.length > 0 ? (
-                filteredVideos.map((video) => (
-                  <tr key={video.id}>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-12 w-16 bg-gray-200 dark:bg-gray-700 rounded overflow-hidden">
-                          {video.thumbnailUrl && (
-                            <img src={video.thumbnailUrl} alt={video.title} className="h-full w-full object-cover" />
-                          )}
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900 dark:text-white">{video.title}</div>
-                          <div className="text-xs text-gray-500 dark:text-gray-400 max-w-xs truncate">{video.description}</div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                        {video.category}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {video.sourceType.charAt(0).toUpperCase() + video.sourceType.slice(1)}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      {video.metadataStatus === 'enriched' ? (
-                        <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200 flex items-center">
-                          <Check size={12} className="mr-1" />
-                          Enriched
-                        </span>
-                      ) : video.metadataStatus === 'failed' || video.enrichmentFailed ? (
-                        <div className="flex flex-col gap-1">
-                          <span className="px-2 py-1 text-xs rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200 flex items-center" title={video.enrichmentError}>
-                            <X size={12} className="mr-1" />
-                            Failed
-                          </span>
-                          <button 
-                            onClick={async () => {
-                              try {
-                                await updateVideo(video.id, { 
-                                  metadataStatus: 'pending',
-                                  enrichmentFailed: false,
-                                  enrichmentError: undefined
-                                });
-                                // Refresh the video list
-                                fetchVideos();
-                              } catch (error) {
-                                console.error('Error retrying metadata extraction:', error);
-                              }
-                            }}
-                            className="text-xs text-blue-600 hover:underline"
-                          >
-                            Retry
-                          </button>
-                        </div>
-                      ) : video.metadataStatus === 'processing' ? (
-                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 flex items-center">
-                          <svg className="animate-spin h-3 w-3 mr-1" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Processing
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 text-xs rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 flex items-center">
-                          <svg className="animate-spin h-3 w-3 mr-1" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none"></circle>
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                          </svg>
-                          Pending
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                      {video.viewCount || 0}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                      <div className="flex justify-end space-x-2">
-                        <button
-                          onClick={() => window.open(`/videos/${video.id}`, '_blank')}
-                          className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                          title="View"
-                        >
-                          <Eye size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleEditVideo(video)}
-                          className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
-                          title="Edit"
-                        >
-                          <Edit size={18} />
-                        </button>
-                        <button
-                          onClick={() => handleDeleteVideo(video.id)}
-                          className="text-red-500 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                          title="Delete"
-                        >
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              ) : (
+              {loading ? (
                 <tr>
-                  <td colSpan={5} className="px-6 py-4 text-center text-gray-500 dark:text-gray-400">
-                    No videos found matching your criteria.
+                  <td colSpan={6} className="p-4 text-center">
+                    <div className="flex justify-center">
+                      <svg className="animate-spin h-6 w-6 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    </div>
                   </td>
                 </tr>
+              ) : filteredVideos.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="p-4 text-center text-gray-500 dark:text-gray-400">
+                    No videos found. {searchTerm || selectedCategory ? 'Try adjusting your filters.' : ''}
+                  </td>
+                </tr>
+              ) : (
+                filteredVideos.map((video, index) => {
+                  // Generate a unique key using both ID and index to avoid duplicates
+                  const uniqueKey = `${video.id}-${index}`;
+                  
+                  return (
+                    <tr key={uniqueKey} className="hover:bg-gray-50 dark:hover:bg-gray-700">
+                      <td className="p-4">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-16 w-24 relative">
+                            <img 
+                              src={video.thumbnailUrl} 
+                              alt={video.title}
+                              className="h-full w-full object-cover rounded"
+                              onError={(e) => {
+                                const target = e.target as HTMLImageElement;
+                                target.src = 'https://placehold.co/600x400?text=No+Image';
+                              }}
+                            />
+                            {video.metadataStatus === 'pending' && (
+                              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                                <svg className="animate-spin h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                              </div>
+                            )}
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              {video.title}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 line-clamp-2">
+                              {video.description}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
+                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+                          {video.category}
+                        </span>
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900 dark:text-white">
+                          {video.creator || 'Unknown'}
+                        </div>
+                      </td>
+                      <td className="p-4 whitespace-nowrap">
+                        <div className="flex items-center">
+                          {(video.metadataStatus === 'enriched' || 
+                            video.analysisStatus === 'completed') ? (
+                            <Check className="h-5 w-5 text-green-500" />
+                          ) : (video.metadataStatus === 'failed' || 
+                              video.analysisStatus === 'failed' || 
+                              video.enrichmentFailed) ? (
+                            <X className="h-5 w-5 text-red-500" />
+                          ) : (
+                            <svg className="animate-spin h-5 w-5 text-blue-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                          )}
+                          <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                            {(video.metadataStatus === 'enriched' || 
+                              video.analysisStatus === 'completed') ? 'Enriched' : 
+                             (video.metadataStatus === 'failed' || 
+                              video.analysisStatus === 'failed' || 
+                              video.enrichmentFailed) ? 'Failed' : 'Processing'}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="p-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                        {video.viewCount || 0}
+                      </td>
+                      <td className="p-4 whitespace-nowrap text-right text-sm font-medium">
+                        <div className="flex justify-end space-x-2">
+                          <button
+                            onClick={() => window.open(`/videos/${video.id}`, '_blank')}
+                            className="text-blue-600 hover:text-blue-900 dark:text-blue-400 dark:hover:text-blue-300"
+                          >
+                            <Eye className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleEditVideo(video)}
+                            className="text-green-600 hover:text-green-900 dark:text-green-400 dark:hover:text-green-300"
+                          >
+                            <Edit className="h-5 w-5" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteVideo(video.id)}
+                            className="text-red-600 hover:text-red-900 dark:text-red-400 dark:hover:text-red-300"
+                          >
+                            <Trash2 className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
               )}
             </tbody>
           </table>

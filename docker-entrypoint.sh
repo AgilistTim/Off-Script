@@ -96,7 +96,17 @@ sed -i "s|__FIREBASE_MEASUREMENT_ID__|${VITE_FIREBASE_MEASUREMENT_ID:-G-XXXXXXXX
 sed -i "s|__YOUTUBE_API_KEY__|${VITE_YOUTUBE_API_KEY:-}|g" "$ENV_FILE"
 sed -i "s|__RECAPTCHA_SITE_KEY__|${VITE_RECAPTCHA_SITE_KEY:-}|g" "$ENV_FILE"
 sed -i "s|__BUMPUPS_API_KEY__|${VITE_BUMPUPS_API_KEY:-}|g" "$ENV_FILE"
-sed -i "s|__BUMPUPS_PROXY_URL__|${VITE_BUMPUPS_PROXY_URL:-https://us-central1-offscript-8f6eb.cloudfunctions.net/bumpupsProxy}|g" "$ENV_FILE"
+
+# Handle BUMPUPS_PROXY_URL with default fallback
+BUMPUPS_PROXY_DEFAULT="https://us-central1-${VITE_FIREBASE_PROJECT_ID:-offscript-8f6eb}.cloudfunctions.net/bumpupsProxy"
+BUMPUPS_PROXY_FINAL="${VITE_BUMPUPS_PROXY_URL:-$BUMPUPS_PROXY_DEFAULT}"
+
+if [ "$VITE_BUMPUPS_PROXY_URL" = "NOT_SET" ] || [ -z "$VITE_BUMPUPS_PROXY_URL" ]; then
+  echo "🔧 Using default bumpups proxy URL: $BUMPUPS_PROXY_DEFAULT"
+  BUMPUPS_PROXY_FINAL="$BUMPUPS_PROXY_DEFAULT"
+fi
+
+sed -i "s|__BUMPUPS_PROXY_URL__|${BUMPUPS_PROXY_FINAL}|g" "$ENV_FILE"
 
 if [ -n "$VITE_FIREBASE_API_KEY" ] && [ -n "$VITE_FIREBASE_PROJECT_ID" ]; then
   echo "✅ Environment variables successfully injected into $ENV_FILE"

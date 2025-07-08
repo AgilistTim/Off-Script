@@ -117,7 +117,7 @@ class BumpupsService {
           prompt: careerPrompt,
           model: options?.model || 'bump-1.0',
           language: options?.language || 'en',
-          output_format: options?.output_format || 'markdown'
+          output_format: options?.output_format || 'markdown',
         }),
       });
 

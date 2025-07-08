@@ -3,6 +3,9 @@ import * as https from "https";
 import { onRequest } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import * as functionsV1 from "firebase-functions/v1";
+import { defineSecret } from "firebase-functions/params";
+
+const bumpupsApiKeySecret = defineSecret("BUMPUPS_APIKEY");
 
 admin.initializeApp();
 const db = admin.firestore();
@@ -384,7 +387,8 @@ export const bumpupsProxy = onRequest(
   { 
     cors: corsOrigins, // Restrict to allowed origins only
     memory: '512MiB',
-    timeoutSeconds: 60
+    timeoutSeconds: 60,
+    secrets: [bumpupsApiKeySecret],
   },
   async (request, response) => {
     try {
@@ -414,21 +418,11 @@ export const bumpupsProxy = onRequest(
         return;
       }
 
-      // Get API key from Firebase Functions config
-      // IMPORTANT: Set this using Firebase CLI: firebase functions:config:set bumpups.apikey="YOUR_API_KEY"
-      let bumpupsApiKey;
-      try {
-        // Try to get from Firebase Functions config
-        const config = functionsV1.config();
-        bumpupsApiKey = config.bumpups?.apikey;
-        
-        if (!bumpupsApiKey) {
-          logger.error('Bumpups API key not found in config');
-          response.status(500).json({ error: 'API configuration error' });
-          return;
-        }
-      } catch (error) {
-        logger.error('Error retrieving Bumpups API key from config', error);
+      // Access the secret using the .value() method.
+      const bumpupsApiKey = bumpupsApiKeySecret.value();
+
+      if (!bumpupsApiKey) {
+        logger.error('Bumpups API key not found in secret manager. Ensure the BUMPUPS_APIKEY secret is set.');
         response.status(500).json({ error: 'API configuration error' });
         return;
       }
