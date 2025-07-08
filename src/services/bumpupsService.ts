@@ -1,6 +1,6 @@
 // Bumpups API service for video analysis and interactive querying
 // Using Firebase Cloud Function proxy to avoid CORS issues
-import { apiKeys, apiEndpoints } from '../config/environment';
+import env from '../config/environment';
 
 // Define the response structure from the Bumpups API
 export interface BumpupsResponse {
@@ -67,7 +67,7 @@ class BumpupsService {
   private static instance: BumpupsService;
 
   constructor() {
-    this.apiUrl = apiEndpoints.bumpupsProxy || '';
+    this.apiUrl = env.apiEndpoints.bumpupsProxy || '';
     console.log('BumpupsService initialized with URL:', this.apiUrl);
   }
   
