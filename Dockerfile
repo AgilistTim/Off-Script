@@ -5,7 +5,7 @@ WORKDIR /app
 
 # Copy package files and install dependencies
 COPY package*.json ./
-RUN npm ci
+RUN npm install --no-audit --no-fund
 
 # Copy source code (excluding sensitive files via .dockerignore)
 COPY . .
