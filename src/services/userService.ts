@@ -14,8 +14,9 @@ import {
   getCountFromServer,
   deleteDoc
 } from 'firebase/firestore';
-import { db } from './firebase';
+import { db, auth } from './firebase';
 import { User, UserPreferences, UserProfile } from '../models/User';
+import { sendPasswordResetEmail as firebaseSendPasswordResetEmail } from 'firebase/auth';
 
 // Convert Firestore timestamp to Date
 const convertTimestamps = (data: any): any => {
@@ -193,6 +194,16 @@ export const createUserDocument = async (
     });
   } catch (error) {
     console.error('Error creating user document:', error);
+    throw error;
+  }
+}; 
+
+// Send password reset email
+export const sendPasswordResetEmail = async (email: string): Promise<void> => {
+  try {
+    await firebaseSendPasswordResetEmail(auth, email);
+  } catch (error) {
+    console.error('Error sending password reset email:', error);
     throw error;
   }
 }; 

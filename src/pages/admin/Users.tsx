@@ -2,18 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { 
   Search, 
   Filter, 
+  Plus, 
   Edit, 
   Trash2, 
-  UserPlus, 
+  Eye, 
   X, 
   Check, 
   Shield, 
   User,
   Mail,
-  Calendar
+  Calendar,
+  RefreshCw,
+  Key
 } from 'lucide-react';
-import { getAllUsers, updateUserRole, deleteUser } from '../../services/userService';
+import { getAllUsers, updateUserRole, deleteUser, sendPasswordResetEmail } from '../../services/userService';
 import { User as UserType } from '../../models/User';
+import { toast, Toaster } from 'react-hot-toast';
 
 const AdminUsers: React.FC = () => {
   const [users, setUsers] = useState<UserType[]>([]);
@@ -24,6 +28,7 @@ const AdminUsers: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [roleDropdownOpen, setRoleDropdownOpen] = useState<string | null>(null);
+  const [resettingPassword, setResettingPassword] = useState<string | null>(null);
 
   // Roles for filtering
   const roles = ['user', 'admin', 'parent'];
@@ -84,6 +89,25 @@ const AdminUsers: React.FC = () => {
     } catch (error) {
       console.error('Error updating user role:', error);
       alert('Failed to update user role. Please try again.');
+    }
+  };
+
+  // Handle password reset
+  const handlePasswordReset = async (userId: string, email: string | null) => {
+    if (!email) {
+      toast.error('User does not have an email address');
+      return;
+    }
+    
+    try {
+      setResettingPassword(userId);
+      await sendPasswordResetEmail(email);
+      toast.success('Password reset email sent successfully');
+    } catch (error) {
+      console.error('Error sending password reset email:', error);
+      toast.error('Failed to send password reset email');
+    } finally {
+      setResettingPassword(null);
     }
   };
 
@@ -300,6 +324,7 @@ const AdminUsers: React.FC = () => {
 
   return (
     <div className="space-y-6">
+      <Toaster position="top-right" />
       <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-4">
         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">User Management</h1>
         <button
@@ -310,7 +335,7 @@ const AdminUsers: React.FC = () => {
           }}
           className="flex items-center px-4 py-2 bg-primary-blue text-white rounded-md hover:bg-blue-600 transition-colors"
         >
-          <UserPlus size={18} className="mr-2" />
+          <Plus size={18} className="mr-2" />
           Add New User
         </button>
       </div>
@@ -458,6 +483,18 @@ const AdminUsers: React.FC = () => {
                             </div>
                           )}
                         </div>
+                        <button
+                          onClick={() => handlePasswordReset(user.uid, user.email)}
+                          className="text-yellow-500 hover:text-yellow-700 dark:text-yellow-400 dark:hover:text-yellow-300"
+                          title="Reset Password"
+                          disabled={resettingPassword === user.uid}
+                        >
+                          {resettingPassword === user.uid ? (
+                            <RefreshCw size={18} className="animate-spin" />
+                          ) : (
+                            <Key size={18} />
+                          )}
+                        </button>
                         <button
                           onClick={() => handleEditUser(user)}
                           className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
