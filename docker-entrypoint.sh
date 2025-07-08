@@ -52,6 +52,7 @@ echo "  VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID:-NOT_SET}"
 echo "  VITE_YOUTUBE_API_KEY: ${VITE_YOUTUBE_API_KEY:-NOT_SET} (redacted)"
 echo "  VITE_RECAPTCHA_SITE_KEY: ${VITE_RECAPTCHA_SITE_KEY:-NOT_SET} (redacted)"
 echo "  VITE_BUMPUPS_API_KEY: ${VITE_BUMPUPS_API_KEY:-NOT_SET} (redacted)"
+echo "  VITE_BUMPUPS_PROXY_URL: ${VITE_BUMPUPS_PROXY_URL:-NOT_SET}"
 
 # Validate environment variables
 validate_environment_variables
@@ -95,6 +96,7 @@ sed -i "s|__FIREBASE_MEASUREMENT_ID__|${VITE_FIREBASE_MEASUREMENT_ID:-G-XXXXXXXX
 sed -i "s|__YOUTUBE_API_KEY__|${VITE_YOUTUBE_API_KEY:-}|g" "$ENV_FILE"
 sed -i "s|__RECAPTCHA_SITE_KEY__|${VITE_RECAPTCHA_SITE_KEY:-}|g" "$ENV_FILE"
 sed -i "s|__BUMPUPS_API_KEY__|${VITE_BUMPUPS_API_KEY:-}|g" "$ENV_FILE"
+sed -i "s|__BUMPUPS_PROXY_URL__|${VITE_BUMPUPS_PROXY_URL:-https://bumpupsproxy-d6ibsfvcfa-uc.a.run.app}|g" "$ENV_FILE"
 
 if [ -n "$VITE_FIREBASE_API_KEY" ] && [ -n "$VITE_FIREBASE_PROJECT_ID" ]; then
   echo "✅ Environment variables successfully injected into $ENV_FILE"
