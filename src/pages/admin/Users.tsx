@@ -23,6 +23,7 @@ const AdminUsers: React.FC = () => {
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [roleDropdownOpen, setRoleDropdownOpen] = useState<string | null>(null);
 
   // Roles for filtering
   const roles = ['user', 'admin', 'parent'];
@@ -79,6 +80,7 @@ const AdminUsers: React.FC = () => {
       setUsers(users.map(user => 
         user.uid === userId ? { ...user, role: newRole } : user
       ));
+      setRoleDropdownOpen(null); // Close dropdown after successful change
     } catch (error) {
       console.error('Error updating user role:', error);
       alert('Failed to update user role. Please try again.');
@@ -109,6 +111,7 @@ const AdminUsers: React.FC = () => {
         }
       }
     );
+    const [submitting, setSubmitting] = useState(false);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const { name, value } = e.target;
@@ -130,11 +133,39 @@ const AdminUsers: React.FC = () => {
       }
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
-      // Implement save functionality
-      // For now, just close the modal
-      setShowAddModal(false);
+      setSubmitting(true);
+      
+      try {
+        if (isEditing && currentUser) {
+          // If editing, update the user including their role
+          if (formData.role !== currentUser.role) {
+            await updateUserRole(currentUser.uid, formData.role as 'user' | 'admin' | 'parent');
+          }
+          
+          // Update other user data if needed
+          // This would require additional service functions to update other user fields
+          
+          // Update local state
+          setUsers(users.map(user => 
+            user.uid === currentUser.uid ? { ...user, ...formData } : user
+          ));
+          
+          alert('User updated successfully');
+        } else {
+          // Handle creating new user if needed
+          // This would require additional service functions
+          alert('User creation not implemented');
+        }
+        
+        setShowAddModal(false);
+      } catch (error) {
+        console.error('Error saving user:', error);
+        alert('Failed to save user. Please try again.');
+      } finally {
+        setSubmitting(false);
+      }
     };
 
     return (
@@ -258,8 +289,9 @@ const AdminUsers: React.FC = () => {
           <button
             type="submit"
             className="px-4 py-2 bg-primary-blue text-white rounded-md hover:bg-blue-600"
+            disabled={submitting}
           >
-            {isEditing ? 'Update User' : 'Add User'}
+            {submitting ? 'Saving...' : isEditing ? 'Update User' : 'Add User'}
           </button>
         </div>
       </form>
@@ -397,31 +429,34 @@ const AdminUsers: React.FC = () => {
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                       <div className="flex justify-end space-x-2">
-                        <div className="relative group">
+                        <div className="relative">
                           <button
+                            onClick={() => setRoleDropdownOpen(roleDropdownOpen === user.uid ? null : user.uid)}
                             className="text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
                             title="Change Role"
                           >
                             <Shield size={18} />
                           </button>
-                          <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10 hidden group-hover:block">
-                            <div className="py-1">
-                              {roles.map(role => (
-                                <button
-                                  key={role}
-                                  onClick={() => handleChangeRole(user.uid, role as 'user' | 'admin' | 'parent')}
-                                  className={`block w-full text-left px-4 py-2 text-sm ${
-                                    user.role === role 
-                                      ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' 
-                                      : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                                  }`}
-                                  disabled={user.role === role}
-                                >
-                                  {role.charAt(0).toUpperCase() + role.slice(1)}
-                                </button>
-                              ))}
+                          {roleDropdownOpen === user.uid && (
+                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10">
+                              <div className="py-1">
+                                {roles.map(role => (
+                                  <button
+                                    key={role}
+                                    onClick={() => handleChangeRole(user.uid, role as 'user' | 'admin' | 'parent')}
+                                    className={`block w-full text-left px-4 py-2 text-sm ${
+                                      user.role === role 
+                                        ? 'bg-gray-100 dark:bg-gray-700 text-gray-900 dark:text-white' 
+                                        : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                                    }`}
+                                    disabled={user.role === role}
+                                  >
+                                    {role.charAt(0).toUpperCase() + role.slice(1)}
+                                  </button>
+                                ))}
+                              </div>
                             </div>
-                          </div>
+                          )}
                         </div>
                         <button
                           onClick={() => handleEditUser(user)}
