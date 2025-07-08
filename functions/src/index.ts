@@ -1,17 +1,13 @@
-import * as functions from "firebase-functions";
 import * as admin from "firebase-admin";
 import * as https from "https";
 import { onRequest } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
+import * as functionsV1 from "firebase-functions/v1";
 
 admin.initializeApp();
 const db = admin.firestore();
 
-// Configure runtime options for the function
-const runtimeOpts: functions.RuntimeOptions = {
-  timeoutSeconds: 300,  // 5 minutes
-  memory: "1GB",
-};
+// Runtime options are now configured directly in the function definition
 
 // CORS configuration for web clients - restricted to specific domains
 const corsOrigins = [
@@ -27,26 +23,6 @@ const corsOrigins = [
 const isOriginAllowed = (origin: string | undefined): boolean => {
   if (!origin) return false;
   return corsOrigins.some(allowedOrigin => origin === allowedOrigin);
-};
-
-// CORS middleware for Firebase Functions v1
-const corsMiddleware = (req: functions.https.Request, res: functions.Response, allowedOrigins: string[] = corsOrigins) => {
-  const origin = req.headers.origin;
-  
-  if (origin && isOriginAllowed(origin)) {
-    res.set('Access-Control-Allow-Origin', origin);
-    res.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-    res.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.set('Access-Control-Max-Age', '3600');
-  }
-  
-  // Handle preflight requests
-  if (req.method === 'OPTIONS') {
-    res.status(204).send('');
-    return true;
-  }
-  
-  return false;
 };
 
 /**
@@ -303,7 +279,13 @@ async function extractBasicMetadata(url: string): Promise<VideoMetadata> {
 /**
  * Cloud function that extracts metadata from a video URL and saves it to Firestore
  */
-export const enrichVideoMetadata = functions
+// Configure runtime options for the function
+const runtimeOpts: functionsV1.RuntimeOptions = {
+  timeoutSeconds: 300,  // 5 minutes
+  memory: '1GB',
+};
+
+export const enrichVideoMetadata = functionsV1
   .runWith(runtimeOpts)
   .firestore
   .document("videos/{videoId}")
@@ -312,10 +294,11 @@ export const enrichVideoMetadata = functions
     if (!change.after.exists) {
       return null;
     }
-
-    const videoData = change.after.data() as FirebaseFirestore.DocumentData;
+    
     const videoId = context.params.videoId;
 
+    const videoData = change.after.data() as FirebaseFirestore.DocumentData;
+    
     console.log(`[DEBUG] Function triggered for video ${videoId}`);
 
     // Only process if metadataStatus is 'pending' (initial creation or reset)
@@ -436,7 +419,7 @@ export const bumpupsProxy = onRequest(
       let bumpupsApiKey;
       try {
         // Try to get from Firebase Functions config
-        const config = functions.config();
+        const config = functionsV1.config();
         bumpupsApiKey = config.bumpups?.apikey;
         
         if (!bumpupsApiKey) {

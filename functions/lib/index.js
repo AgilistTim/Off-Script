@@ -24,25 +24,29 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.healthCheck = exports.bumpupsProxy = exports.enrichVideoMetadata = void 0;
-const functions = __importStar(require("firebase-functions"));
 const admin = __importStar(require("firebase-admin"));
 const https = __importStar(require("https"));
 const https_1 = require("firebase-functions/v2/https");
 const firebase_functions_1 = require("firebase-functions");
+const functionsV1 = __importStar(require("firebase-functions/v1"));
 admin.initializeApp();
 const db = admin.firestore();
-// Configure runtime options for the function
-const runtimeOpts = {
-    timeoutSeconds: 300,
-    memory: "1GB",
-};
-// CORS configuration for web clients - simplified for Firebase Functions v2
+// Runtime options are now configured directly in the function definition
+// CORS configuration for web clients - restricted to specific domains
 const corsOrigins = [
     'http://localhost:5173',
     'http://localhost:5174',
     'http://localhost:3000',
-    'https://off-script.onrender.com'
+    'https://off-script.onrender.com',
+    'https://offscript-8f6eb.web.app',
+    'https://offscript-8f6eb.firebaseapp.com'
 ];
+// Helper function to validate origin against allowed list
+const isOriginAllowed = (origin) => {
+    if (!origin)
+        return false;
+    return corsOrigins.some(allowedOrigin => origin === allowedOrigin);
+};
 /**
  * Recursively removes undefined values from an object
  * @param {any} obj - The object to sanitize
@@ -267,7 +271,12 @@ async function extractBasicMetadata(url) {
 /**
  * Cloud function that extracts metadata from a video URL and saves it to Firestore
  */
-exports.enrichVideoMetadata = functions
+// Configure runtime options for the function
+const runtimeOpts = {
+    timeoutSeconds: 300,
+    memory: '1GB',
+};
+exports.enrichVideoMetadata = functionsV1
     .runWith(runtimeOpts)
     .firestore
     .document("videos/{videoId}")
@@ -276,8 +285,8 @@ exports.enrichVideoMetadata = functions
     if (!change.after.exists) {
         return null;
     }
-    const videoData = change.after.data();
     const videoId = context.params.videoId;
+    const videoData = change.after.data();
     console.log(`[DEBUG] Function triggered for video ${videoId}`);
     // Only process if metadataStatus is 'pending' (initial creation or reset)
     if (videoData.metadataStatus && videoData.metadataStatus !== "pending") {
@@ -347,7 +356,7 @@ exports.enrichVideoMetadata = functions
  * Proxy function for Bumpups API to avoid CORS issues
  */
 exports.bumpupsProxy = (0, https_1.onRequest)({
-    cors: true,
+    cors: corsOrigins,
     memory: '512MiB',
     timeoutSeconds: 60
 }, async (request, response) => {
@@ -359,6 +368,13 @@ exports.bumpupsProxy = (0, https_1.onRequest)({
             });
             return;
         }
+        // Validate origin for additional security
+        const origin = request.headers.origin;
+        if (!origin || !isOriginAllowed(origin)) {
+            firebase_functions_1.logger.warn('Unauthorized origin attempted to access bumpupsProxy', { origin });
+            response.status(403).json({ error: 'Origin not allowed' });
+            return;
+        }
         // Validate request body
         const { url, prompt, model = 'bump-1.0', language = 'en', output_format = 'text' } = request.body;
         if (!url || !prompt) {
@@ -367,9 +383,30 @@ exports.bumpupsProxy = (0, https_1.onRequest)({
             });
             return;
         }
-        // Hardcode API key temporarily to fix immediate issues
-        const bumpupsApiKey = 'bumpups-PqWL416AfWdSgJAWr6oFd3Yj6Ff2Vqy-zxvc_2p1qkGX56FunH-yea-Gn334G3fqXJs6Gh3XuL4dMZG_W6FNL0ffvHNxc6q1UlnMrg5evJM8S9DU7Yye-dv9TqzhzNH2b2ydqolEO1GUhaPUuBfgJtM_jeqCo_FcJw';
-        firebase_functions_1.logger.info('Making Bumpups API request', { url, promptLength: prompt.length });
+        // Get API key from Firebase Functions config
+        // IMPORTANT: Set this using Firebase CLI: firebase functions:config:set bumpups.apikey="YOUR_API_KEY"
+        let bumpupsApiKey;
+        try {
+            // Try to get from Firebase Functions config
+            const config = functionsV1.config();
+            bumpupsApiKey = config.bumpups?.apikey;
+            if (!bumpupsApiKey) {
+                firebase_functions_1.logger.error('Bumpups API key not found in config');
+                response.status(500).json({ error: 'API configuration error' });
+                return;
+            }
+        }
+        catch (error) {
+            firebase_functions_1.logger.error('Error retrieving Bumpups API key from config', error);
+            response.status(500).json({ error: 'API configuration error' });
+            return;
+        }
+        // Log request details without sensitive information
+        firebase_functions_1.logger.info('Making Bumpups API request', {
+            url,
+            promptLength: prompt.length,
+            origin
+        });
         // Make request to Bumpups API
         const bumpupsResponse = await fetch('https://api.bumpups.com/chat', {
             method: 'POST',
