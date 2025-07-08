@@ -463,7 +463,7 @@ const AdminUsers: React.FC = () => {
                             <Shield size={18} />
                           </button>
                           {roleDropdownOpen === user.uid && (
-                            <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10">
+                            <div className="absolute right-auto left-0 mt-2 w-48 bg-white dark:bg-gray-800 rounded-md shadow-lg z-10">
                               <div className="py-1">
                                 {roles.map(role => (
                                   <button
