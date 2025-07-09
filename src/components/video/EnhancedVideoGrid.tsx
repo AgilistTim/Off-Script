@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter, SortAsc, Grid, List, Lightbulb, TrendingUp } from 'lucide-react';
 import CareerVideoCard from './CareerVideoCard';
-import { EnhancedVideoData } from '../../services/enhancedVideoService';
-import EnhancedVideoService from '../../services/enhancedVideoService';
+import enhancedVideoService, { EnhancedVideoData } from '../../services/enhancedVideoService';
 
 interface EnhancedVideoGridProps {
   category?: string;
@@ -30,7 +29,7 @@ const EnhancedVideoGrid: React.FC<EnhancedVideoGridProps> = ({
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [showAIOnly, setShowAIOnly] = useState(false);
 
-  const videoService = new EnhancedVideoService();
+  const videoService = enhancedVideoService;
 
   // Categories
   const categories = [
