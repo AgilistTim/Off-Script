@@ -308,18 +308,25 @@ export const getVideoRecommendationsFromChat = async (
       // Generate a new summary
       summary = await generateChatSummary(firestoreThreadId, userId);
     } else {
+      const summaryData = querySnapshot.docs[0].data();
       summary = {
         id: querySnapshot.docs[0].id,
-        ...querySnapshot.docs[0].data()
+        threadId: firestoreThreadId,
+        userId: userId,
+        summary: summaryData.summary || '',
+        interests: summaryData.interests || [],
+        careerGoals: summaryData.careerGoals || [],
+        skills: summaryData.skills || [],
+        createdAt: summaryData.createdAt instanceof Timestamp ? summaryData.createdAt.toDate() : new Date()
       } as ChatSummary;
     }
     
     // Call the API to get video recommendations based on the summary
     const response = await axios.post(`${apiBaseUrl}/getVideoRecommendations`, {
       userId,
-      interests: summary.interests,
-      careerGoals: summary.careerGoals,
-      skills: summary.skills,
+      interests: summary.interests || [],
+      careerGoals: summary.careerGoals || [],
+      skills: summary.skills || [],
       limit: limitCount
     }, {
       headers: {

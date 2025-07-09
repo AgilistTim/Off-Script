@@ -836,6 +836,7 @@ export const generateChatSummary = onRequest(
 export const getVideoRecommendations = onRequest(
   {
     cors: corsConfig,
+    secrets: [openaiApiKeySecret],
     timeoutSeconds: 30
   },
   async (request, response) => {
@@ -857,9 +858,7 @@ export const getVideoRecommendations = onRequest(
       }
 
       // Validate request body
-      // Note: careerGoals and skills are included for future enhancements
-      // but are not currently used in the recommendation algorithm
-      const { userId, interests, careerGoals: _careerGoals, skills: _skills, limit = 5 } = request.body;
+      const { userId, interests = [], careerGoals = [], skills = [], limit = 5 } = request.body;
       
       if (!userId) {
         response.status(400).json({ 
@@ -868,39 +867,104 @@ export const getVideoRecommendations = onRequest(
         return;
       }
 
-      // Import Firestore
-      const { db } = require('./firestore');
-      const { collection, query, where, getDocs, limit: firestoreLimit, orderBy } = require('firebase/firestore');
-
-      // Get videos from Firestore
-      const videosRef = collection(db, 'videos');
+      // Get OpenAI API key
+      const openaiApiKey = openaiApiKeySecret.value();
       
-      // Build query based on user profile
+      if (!openaiApiKey) {
+        logger.error('OpenAI API key not found in secret manager');
+        response.status(500).json({ error: 'API configuration error' });
+        return;
+      }
+
+      // Initialize OpenAI client
+      const openai = new OpenAI({
+        apiKey: openaiApiKey
+      });
+
+      // Create a combined query from user profile
+      const combinedQuery = [
+        `Interests: ${interests.join(', ')}`,
+        `Career Goals: ${careerGoals.join(', ')}`,
+        `Skills: ${skills.join(', ')}`
+      ].filter(part => !part.endsWith(': ')).join('\n');
+
+      // If we have a meaningful profile, use embeddings for recommendations
+      if (combinedQuery.length > 20) {
+        try {
+          // Generate embedding for the combined query
+          const embeddingResponse = await openai.embeddings.create({
+            model: 'text-embedding-3-small',
+            input: combinedQuery,
+            encoding_format: 'float'
+          });
+          
+          const queryEmbedding = embeddingResponse.data[0].embedding;
+          
+          // Get all video embeddings from Firestore
+          const embeddingsSnapshot = await db.collection('videoEmbeddings')
+            .where('contentType', '==', 'metadata')
+            .get();
+          
+          if (!embeddingsSnapshot.empty) {
+            // Calculate similarity scores
+            const similarities = embeddingsSnapshot.docs.map(doc => {
+              const embedding = doc.data();
+              const similarity = cosineSimilarity(queryEmbedding, embedding.embedding);
+              return {
+                videoId: embedding.videoId,
+                similarity
+              };
+            });
+            
+            // Sort by similarity (highest first) and take the top results
+            const topResults = similarities
+              .sort((a, b) => b.similarity - a.similarity)
+              .slice(0, limit)
+              .map(item => item.videoId);
+            
+            logger.info('Generated video recommendations using embeddings', { 
+              userId, 
+              videoCount: topResults.length,
+              method: 'embeddings'
+            });
+            
+            // Return the video IDs
+            response.status(200).json({ videoIds: topResults });
+            return;
+          }
+        } catch (embeddingError) {
+          // Log the error but continue with fallback method
+          logger.error('Error using embeddings for recommendations, falling back to category matching', embeddingError);
+        }
+      }
+
+      // Fallback to category matching if embeddings aren't available or profile is too sparse
       let videoQuery;
       
+      // Build query based on user profile
       if (interests && interests.length > 0) {
         // Query videos that match user interests
-        videoQuery = query(
-          videosRef, 
-          where('category', 'in', interests.slice(0, 10)), // Firestore limits 'in' clauses to 10 values
-          orderBy('viewCount', 'desc'),
-          firestoreLimit(limit)
-        );
+        videoQuery = db.collection('videos')
+          .where('category', 'in', interests.slice(0, 10)) // Firestore limits 'in' clauses to 10 values
+          .orderBy('viewCount', 'desc')
+          .limit(limit);
       } else {
         // Get popular videos if no interests are specified
-        videoQuery = query(
-          videosRef,
-          orderBy('viewCount', 'desc'),
-          firestoreLimit(limit)
-        );
+        videoQuery = db.collection('videos')
+          .orderBy('viewCount', 'desc')
+          .limit(limit);
       }
       
-      const videosSnapshot = await getDocs(videoQuery);
+      const videosSnapshot = await videoQuery.get();
       
       // Extract video IDs
-      const videoIds = videosSnapshot.docs.map((doc: DocumentData) => doc.id);
+      const videoIds = videosSnapshot.docs.map((doc) => doc.id);
       
-      logger.info('Generated video recommendations', { userId, videoCount: videoIds.length });
+      logger.info('Generated video recommendations using category matching', { 
+        userId, 
+        videoCount: videoIds.length,
+        method: 'category'
+      });
 
       // Return the video IDs
       response.status(200).json({ videoIds });
@@ -913,3 +977,203 @@ export const getVideoRecommendations = onRequest(
     }
   }
 ); 
+
+/**
+ * Generate embeddings for text using OpenAI API
+ */
+export const generateEmbedding = onRequest(
+  {
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret],
+    timeoutSeconds: 30
+  },
+  async (request, response) => {
+    try {
+      // Only allow POST requests
+      if (request.method !== 'POST') {
+        response.status(405).json({ 
+          error: 'Method not allowed. Use POST only.' 
+        });
+        return;
+      }
+
+      // Validate origin for additional security
+      const origin = request.headers.origin;
+      if (!origin || !isOriginAllowed(origin)) {
+        logger.warn('Unauthorized origin attempted to access generateEmbedding', { origin });
+        response.status(403).json({ error: 'Origin not allowed' });
+        return;
+      }
+
+      // Validate request body
+      const { text, model = 'text-embedding-3-small' } = request.body;
+      
+      if (!text) {
+        response.status(400).json({ 
+          error: 'Missing required field: text' 
+        });
+        return;
+      }
+
+      // Get OpenAI API key
+      const openaiApiKey = openaiApiKeySecret.value();
+      
+      if (!openaiApiKey) {
+        logger.error('OpenAI API key not found in secret manager');
+        response.status(500).json({ error: 'API configuration error' });
+        return;
+      }
+
+      // Initialize OpenAI client
+      const openai = new OpenAI({
+        apiKey: openaiApiKey
+      });
+
+      // Generate embedding
+      const embeddingResponse = await openai.embeddings.create({
+        model: model,
+        input: text,
+        encoding_format: 'float'
+      });
+
+      // Return the embedding
+      response.status(200).json({ 
+        embedding: embeddingResponse.data[0].embedding,
+        model: embeddingResponse.model,
+        object: embeddingResponse.object
+      });
+    } catch (error) {
+      logger.error('Error in generateEmbedding function', error);
+      response.status(500).json({ 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+); 
+
+/**
+ * Search for videos based on semantic similarity to a query
+ */
+export const searchVideos = onRequest(
+  {
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret],
+    timeoutSeconds: 30
+  },
+  async (request, response) => {
+    try {
+      // Only allow POST requests
+      if (request.method !== 'POST') {
+        response.status(405).json({ 
+          error: 'Method not allowed. Use POST only.' 
+        });
+        return;
+      }
+
+      // Validate origin for additional security
+      const origin = request.headers.origin;
+      if (!origin || !isOriginAllowed(origin)) {
+        logger.warn('Unauthorized origin attempted to access searchVideos', { origin });
+        response.status(403).json({ error: 'Origin not allowed' });
+        return;
+      }
+
+      // Validate request body
+      const { query, limit = 5, model = 'text-embedding-3-small' } = request.body;
+      
+      if (!query) {
+        response.status(400).json({ 
+          error: 'Missing required field: query' 
+        });
+        return;
+      }
+
+      // Get OpenAI API key
+      const openaiApiKey = openaiApiKeySecret.value();
+      
+      if (!openaiApiKey) {
+        logger.error('OpenAI API key not found in secret manager');
+        response.status(500).json({ error: 'API configuration error' });
+        return;
+      }
+
+      // Initialize OpenAI client
+      const openai = new OpenAI({
+        apiKey: openaiApiKey
+      });
+
+      // Generate embedding for the query
+      const embeddingResponse = await openai.embeddings.create({
+        model: model,
+        input: query,
+        encoding_format: 'float'
+      });
+      
+      const queryEmbedding = embeddingResponse.data[0].embedding;
+      
+      // Get all video embeddings from Firestore
+      const embeddingsSnapshot = await db.collection('videoEmbeddings')
+        .where('contentType', '==', 'metadata')
+        .get();
+      
+      if (embeddingsSnapshot.empty) {
+        response.status(200).json({ videoIds: [] });
+        return;
+      }
+      
+      // Calculate similarity scores
+      const similarities = embeddingsSnapshot.docs.map(doc => {
+        const embedding = doc.data();
+        const similarity = cosineSimilarity(queryEmbedding, embedding.embedding);
+        return {
+          videoId: embedding.videoId,
+          similarity
+        };
+      });
+      
+      // Sort by similarity (highest first) and take the top results
+      const topResults = similarities
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, limit)
+        .map(item => item.videoId);
+      
+      // Return the video IDs
+      response.status(200).json({ videoIds: topResults });
+    } catch (error) {
+      logger.error('Error in searchVideos function', error);
+      response.status(500).json({ 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
+
+/**
+ * Calculate cosine similarity between two vectors
+ */
+function cosineSimilarity(vecA: number[], vecB: number[]): number {
+  if (vecA.length !== vecB.length) {
+    return 0; // Return 0 similarity for vectors of different lengths
+  }
+
+  let dotProduct = 0;
+  let normA = 0;
+  let normB = 0;
+
+  for (let i = 0; i < vecA.length; i++) {
+    dotProduct += vecA[i] * vecB[i];
+    normA += vecA[i] * vecA[i];
+    normB += vecB[i] * vecB[i];
+  }
+
+  normA = Math.sqrt(normA);
+  normB = Math.sqrt(normB);
+
+  if (normA === 0 || normB === 0) {
+    return 0;
+  }
+
+  return dotProduct / (normA * normB);
+} 
