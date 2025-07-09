@@ -1,13 +1,77 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAppStore } from '../stores/useAppStore';
+import { useChatContext } from '../context/ChatContext';
 import { motion } from 'framer-motion';
-import { Video, MessageSquare, BookOpen, Award } from 'lucide-react';
+import { Video, MessageSquare, BookOpen, Award, Sparkles } from 'lucide-react';
+import { getVideoById } from '../services/videoService';
+
+// Define the VideoCard component
+interface VideoCardProps {
+  videoId: string;
+}
+
+const VideoCard: React.FC<VideoCardProps> = ({ videoId }) => {
+  const [video, setVideo] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchVideo = async () => {
+      try {
+        const videoData = await getVideoById(videoId);
+        setVideo(videoData);
+      } catch (error) {
+        console.error('Error fetching video:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchVideo();
+  }, [videoId]);
+
+  if (loading) {
+    return (
+      <div className="bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden animate-pulse h-48"></div>
+    );
+  }
+
+  if (!video) {
+    return null;
+  }
+
+  return (
+    <Link to={`/video/${videoId}`} className="block">
+      <div className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+        <div className="aspect-video bg-gray-200 dark:bg-gray-700 relative">
+          <img 
+            src={video.thumbnailUrl} 
+            alt={video.title} 
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.currentTarget.src = 'https://placehold.co/600x400?text=Video+Thumbnail';
+            }}
+          />
+          <div className="absolute bottom-2 right-2 bg-black bg-opacity-70 text-white text-xs px-2 py-1 rounded">
+            {Math.floor(video.duration / 60)}:{(video.duration % 60).toString().padStart(2, '0')}
+          </div>
+        </div>
+        <div className="p-3">
+          <h3 className="font-medium text-gray-800 dark:text-white line-clamp-2 text-sm">{video.title}</h3>
+          <p className="text-gray-500 dark:text-gray-400 text-xs mt-1">{video.creator}</p>
+        </div>
+      </div>
+    </Link>
+  );
+};
 
 const Dashboard: React.FC = () => {
   const { currentUser } = useAuth();
   const { userProgress } = useAppStore();
+  const { getRecommendedVideos } = useChatContext();
+  const [recommendedVideos, setRecommendedVideos] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
   
   // Calculate stats
   const videosWatched = userProgress.videosWatched.length;
@@ -15,6 +79,22 @@ const Dashboard: React.FC = () => {
   const watchTimeMinutes = Math.floor((userProgress.totalWatchTime % 3600) / 60);
   const questsCompleted = userProgress.completedQuests.length;
   const pathsSelected = userProgress.selectedPaths.length;
+
+  // Fetch recommended videos
+  useEffect(() => {
+    const fetchRecommendations = async () => {
+      try {
+        const videos = await getRecommendedVideos(4);
+        setRecommendedVideos(videos);
+      } catch (error) {
+        console.error('Error fetching recommendations:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRecommendations();
+  }, [getRecommendedVideos]);
 
   return (
     <div className="max-w-6xl mx-auto">
@@ -78,6 +158,46 @@ const Dashboard: React.FC = () => {
               </div>
             </div>
           </div>
+        </div>
+        
+        {/* AI Recommendations Section */}
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              <Sparkles size={20} className="text-amber-500 mr-2" />
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Recommended For You</h2>
+            </div>
+            <Link to="/chat" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              Chat for more recommendations →
+            </Link>
+          </div>
+          
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden animate-pulse h-48"></div>
+              ))}
+            </div>
+          ) : recommendedVideos.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {recommendedVideos.map((videoId) => (
+                <VideoCard key={videoId} videoId={videoId} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-8">
+              <p className="text-gray-600 dark:text-gray-400 mb-4">
+                Chat with our AI assistant to get personalized video recommendations based on your interests and career goals.
+              </p>
+              <Link 
+                to="/chat" 
+                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                <MessageSquare size={16} className="mr-2" />
+                Start Chatting
+              </Link>
+            </div>
+          )}
         </div>
         
         {/* Quick Actions */}

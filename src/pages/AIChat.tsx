@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { MessageCircle, Plus, Loader2, ArrowUp } from 'lucide-react';
+import { MessageCircle, Plus, Loader2, ArrowUp, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useChatContext } from '../context/ChatContext';
+import { Link } from 'react-router-dom';
 
 // Import shadcn/ui components
 import { ChatContainer } from "@/components/ui/chat";
@@ -22,6 +23,8 @@ const AIChat: React.FC = () => {
     sendMessage, 
     createNewThread, 
     selectThread,
+    newRecommendations,
+    clearNewRecommendationsFlag
   } = useChatContext();
   
   const [newMessage, setNewMessage] = useState('');
@@ -97,6 +100,47 @@ const AIChat: React.FC = () => {
     content: msg.content,
     createdAt: msg.timestamp instanceof Date ? msg.timestamp : new Date(msg.timestamp)
   }));
+  
+  // Recommendation notification component
+  const RecommendationNotification = () => {
+    if (!newRecommendations) return null;
+    
+    return (
+      <div className="fixed bottom-24 right-4 max-w-sm z-50">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 border-l-4 border-amber-500 animate-fade-in-right">
+          <div className="flex items-start">
+            <div className="flex-shrink-0 pt-0.5">
+              <Sparkles className="h-5 w-5 text-amber-500" />
+            </div>
+            <div className="ml-3 w-0 flex-1">
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                New recommendations available!
+              </p>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Check your dashboard for personalized video suggestions.
+              </p>
+              <div className="mt-2 flex">
+                <Link
+                  to="/dashboard"
+                  className="inline-flex items-center px-3 py-2 border border-transparent text-xs leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  onClick={clearNewRecommendationsFlag}
+                >
+                  View Recommendations
+                </Link>
+                <button
+                  type="button"
+                  className="ml-3 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-xs leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
+                  onClick={clearNewRecommendationsFlag}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
   
   return (
     <div className="max-w-4xl mx-auto">
@@ -238,6 +282,9 @@ const AIChat: React.FC = () => {
           </div>
         </div>
       </motion.div>
+      
+      {/* Recommendation notification */}
+      <RecommendationNotification />
     </div>
   );
 };

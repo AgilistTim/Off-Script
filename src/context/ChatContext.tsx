@@ -26,10 +26,13 @@ interface ChatContextType {
   threads: ChatThread[];
   isLoading: boolean;
   isTyping: boolean;
+  hasRecommendations: boolean;
+  newRecommendations: boolean;
   sendMessage: (message: string) => Promise<void>;
   createNewThread: () => Promise<string | undefined>;
   selectThread: (threadId: string) => Promise<void>;
   getRecommendedVideos: (limit?: number) => Promise<string[]>;
+  clearNewRecommendationsFlag: () => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -49,6 +52,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isTyping, setIsTyping] = useState<boolean>(false);
+  const [hasRecommendations, setHasRecommendations] = useState<boolean>(false);
+  const [newRecommendations, setNewRecommendations] = useState<boolean>(false);
   
   // Fetch user's chat threads
   const fetchThreads = useCallback(async () => {
@@ -169,6 +174,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear messages
       setMessages([]);
       
+      // Reset recommendations state for new thread
+      setHasRecommendations(false);
+      setNewRecommendations(false);
+      
       setIsLoading(false);
       
       return firestoreThreadId;
@@ -203,6 +212,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const threadMessages = await getChatMessages(threadId);
       setMessages(threadMessages);
       setIsLoading(false);
+      
+      // Check if this thread has recommendations
+      try {
+        const recommendations = await getVideoRecommendationsFromChat(currentUser.uid, threadId, 1);
+        setHasRecommendations(recommendations.length > 0);
+        setNewRecommendations(false); // Reset new recommendations flag when switching threads
+      } catch (error) {
+        console.error('Error checking for recommendations:', error);
+        setHasRecommendations(false);
+      }
     } catch (error) {
       console.error('Error selecting thread:', error);
       setIsLoading(false);
@@ -313,6 +332,22 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setMessages(prev => [...prev, assistantMessage]);
       setIsTyping(false);
       
+      // Check for recommendations after each message
+      try {
+        const recommendations = await getVideoRecommendationsFromChat(currentUser.uid, threadId, 1);
+        const hasRecs = recommendations.length > 0;
+        
+        // Only set newRecommendations to true if we didn't have recommendations before
+        // but now we do
+        if (hasRecs && !hasRecommendations) {
+          setNewRecommendations(true);
+        }
+        
+        setHasRecommendations(hasRecs);
+      } catch (error) {
+        console.error('Error checking for recommendations:', error);
+      }
+      
       // Refresh threads to get updated lastMessage
       fetchThreads();
     } catch (error) {
@@ -329,15 +364,25 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     try {
-      return await getVideoRecommendationsFromChat(
+      const recommendations = await getVideoRecommendationsFromChat(
         currentUser.uid,
         currentThread.id,
         limit
       );
+      
+      // Update state based on whether we have recommendations
+      setHasRecommendations(recommendations.length > 0);
+      
+      return recommendations;
     } catch (error) {
       console.error('Error getting video recommendations:', error);
       return [];
     }
+  };
+  
+  // Clear the new recommendations flag
+  const clearNewRecommendationsFlag = () => {
+    setNewRecommendations(false);
   };
   
   const value: ChatContextType = {
@@ -346,10 +391,13 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     threads,
     isLoading,
     isTyping,
+    hasRecommendations,
+    newRecommendations,
     sendMessage,
     createNewThread,
     selectThread,
-    getRecommendedVideos
+    getRecommendedVideos,
+    clearNewRecommendationsFlag
   };
   
   return (
