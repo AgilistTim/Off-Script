@@ -5,6 +5,11 @@
  * with proper validation, type checking, and fallback mechanisms.
  */
 
+// Environment detection for internal use
+const _isProduction = import.meta.env.MODE === 'production';
+const _isDevelopment = import.meta.env.MODE === 'development' || !import.meta.env.MODE;
+const _isTest = import.meta.env.MODE === 'test';
+
 // Type definitions for environment variables
 export interface EnvironmentConfig {
   // Firebase configuration
@@ -23,11 +28,13 @@ export interface EnvironmentConfig {
     youtube?: string;
     recaptcha?: string;
     bumpups?: string;
+    openai?: string;
   };
   
   // API endpoints
   apiEndpoints: {
     bumpupsProxy?: string;
+    openaiAssistant?: string;
   };
   
   // Runtime environment
@@ -38,6 +45,7 @@ export interface EnvironmentConfig {
     enableAnalytics: boolean;
     enableYouTubeIntegration: boolean;
     enableBumpupsIntegration: boolean;
+    enableOpenAIAssistant: boolean;
   };
 }
 
@@ -77,9 +85,11 @@ const getViteEnvironment = (): Partial<EnvironmentConfig> => {
       youtube: import.meta.env.VITE_YOUTUBE_API_KEY as string,
       recaptcha: import.meta.env.VITE_RECAPTCHA_SITE_KEY as string,
       bumpups: import.meta.env.VITE_BUMPUPS_API_KEY as string,
+      openai: import.meta.env.VITE_OPENAI_API_KEY as string,
     },
     apiEndpoints: {
       bumpupsProxy: import.meta.env.VITE_BUMPUPS_PROXY_URL as string,
+      openaiAssistant: import.meta.env.VITE_OPENAI_ASSISTANT_URL as string,
     },
     environment: (import.meta.env.MODE || 'development') as 'development' | 'production' | 'test',
   };
@@ -137,13 +147,24 @@ const validateFirebaseConfig = (config: EnvironmentConfig['firebase']): boolean 
 };
 
 /**
- * Determine if a feature should be enabled based on environment variables
+ * Determine feature flags based on configuration
  */
 const determineFeatureFlags = (config: Partial<EnvironmentConfig>): EnvironmentConfig['features'] => {
   return {
-    enableAnalytics: Boolean(config.firebase?.measurementId && !isPlaceholder(config.firebase.measurementId)),
-    enableYouTubeIntegration: Boolean(config.apiKeys?.youtube && !isPlaceholder(config.apiKeys.youtube)),
-    enableBumpupsIntegration: Boolean(config.apiKeys?.bumpups && !isPlaceholder(config.apiKeys.bumpups)),
+    // Enable analytics in production only, unless explicitly configured
+    enableAnalytics: config.features?.enableAnalytics ?? _isProduction,
+    
+    // Enable YouTube integration if API key is available
+    enableYouTubeIntegration: config.features?.enableYouTubeIntegration ?? 
+      Boolean(config.apiKeys?.youtube),
+    
+    // Enable Bumpups integration if API key is available
+    enableBumpupsIntegration: config.features?.enableBumpupsIntegration ?? 
+      Boolean(config.apiKeys?.bumpups),
+      
+    // Enable OpenAI Assistant if API key is available
+    enableOpenAIAssistant: config.features?.enableOpenAIAssistant ?? 
+      Boolean(config.apiKeys?.openai)
   };
 };
 
@@ -151,22 +172,20 @@ const determineFeatureFlags = (config: Partial<EnvironmentConfig>): EnvironmentC
  * Generate API endpoints based on configuration
  */
 const generateApiEndpoints = (config: Partial<EnvironmentConfig>): EnvironmentConfig['apiEndpoints'] => {
-  let bumpupsProxyUrl = config.apiEndpoints?.bumpupsProxy;
-  
-  // Check if bumpupsProxy is a placeholder or invalid value
-  if (!bumpupsProxyUrl || isPlaceholder(bumpupsProxyUrl)) {
-    bumpupsProxyUrl = undefined;
-  }
-  
-  // If no valid bumpups proxy URL is provided, generate one from Firebase project ID
-  if (!bumpupsProxyUrl && config.firebase?.projectId && !isPlaceholder(config.firebase.projectId)) {
-    bumpupsProxyUrl = `https://us-central1-${config.firebase.projectId}.cloudfunctions.net/bumpupsProxy`;
-    console.log(`🔧 Generated default bumpups proxy URL: ${bumpupsProxyUrl}`);
-  }
-  
   const endpoints: EnvironmentConfig['apiEndpoints'] = {
-    bumpupsProxy: bumpupsProxyUrl,
+    bumpupsProxy: config.apiEndpoints?.bumpupsProxy,
+    openaiAssistant: config.apiEndpoints?.openaiAssistant
   };
+  
+  // If we're in development and no bumpupsProxy is defined, use the local emulator
+  if (!endpoints.bumpupsProxy && _isDevelopment) {
+    endpoints.bumpupsProxy = 'http://localhost:5001/offscript-8f6eb/us-central1/bumpupsProxy';
+  }
+  
+  // If we're in development and no openaiAssistant is defined, use the local emulator
+  if (!endpoints.openaiAssistant && _isDevelopment) {
+    endpoints.openaiAssistant = 'http://localhost:5001/offscript-8f6eb/us-central1';
+  }
   
   return endpoints;
 };
@@ -228,6 +247,7 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
       youtube: fallbackConfig.apiKeys?.youtube,
       recaptcha: fallbackConfig.apiKeys?.recaptcha,
       bumpups: fallbackConfig.apiKeys?.bumpups,
+      openai: fallbackConfig.apiKeys?.openai,
     },
     apiEndpoints: generateApiEndpoints(fallbackConfig),
     environment: fallbackConfig.environment || 'development',

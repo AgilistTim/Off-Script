@@ -22,15 +22,21 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.healthCheck = exports.bumpupsProxy = exports.enrichVideoMetadata = void 0;
+exports.getVideoRecommendations = exports.generateChatSummary = exports.sendChatMessage = exports.createChatThread = exports.healthCheck = exports.bumpupsProxy = exports.enrichVideoMetadata = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https = __importStar(require("https"));
 const https_1 = require("firebase-functions/v2/https");
 const firebase_functions_1 = require("firebase-functions");
 const functionsV1 = __importStar(require("firebase-functions/v1"));
 const params_1 = require("firebase-functions/params");
+const openai_1 = __importDefault(require("openai"));
+// Define secrets
 const bumpupsApiKeySecret = (0, params_1.defineSecret)("BUMPUPS_APIKEY");
+const openaiApiKeySecret = (0, params_1.defineSecret)('OPENAI_API_KEY');
 admin.initializeApp();
 const db = admin.firestore();
 // Runtime options are now configured directly in the function definition
@@ -41,13 +47,24 @@ const corsOrigins = [
     'http://localhost:3000',
     'https://off-script.onrender.com',
     'https://offscript-8f6eb.web.app',
-    'https://offscript-8f6eb.firebaseapp.com'
+    'https://offscript-8f6eb.firebaseapp.com',
+    'https://off-script.app',
+    'https://app.off-script.app',
+    'https://off-script-app.web.app'
 ];
+// CORS configuration for functions v2
+const corsConfig = corsOrigins;
 // Helper function to validate origin against allowed list
 const isOriginAllowed = (origin) => {
     if (!origin)
         return false;
-    return corsOrigins.some(allowedOrigin => origin === allowedOrigin);
+    // Check against allowed origins
+    if (corsOrigins.some(allowedOrigin => origin === allowedOrigin)) {
+        return true;
+    }
+    // Allow localhost in development with any port
+    const localhostRegex = /localhost:\d+$/;
+    return localhostRegex.test(origin);
 };
 /**
  * Recursively removes undefined values from an object
@@ -452,5 +469,333 @@ exports.healthCheck = (0, https_1.onRequest)({ cors: corsOrigins }, (request, re
         timestamp: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development'
     });
+});
+/**
+ * Create a new OpenAI thread
+ */
+exports.createChatThread = (0, https_1.onRequest)({
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret]
+}, async (request, response) => {
+    try {
+        // Only allow POST requests
+        if (request.method !== 'POST') {
+            response.status(405).json({
+                error: 'Method not allowed. Use POST only.'
+            });
+            return;
+        }
+        // Validate origin for additional security
+        const origin = request.headers.origin;
+        if (!origin || !isOriginAllowed(origin)) {
+            firebase_functions_1.logger.warn('Unauthorized origin attempted to access createChatThread', { origin });
+            response.status(403).json({ error: 'Origin not allowed' });
+            return;
+        }
+        // Get OpenAI API key
+        const openaiApiKey = openaiApiKeySecret.value();
+        if (!openaiApiKey) {
+            firebase_functions_1.logger.error('OpenAI API key not found in secret manager');
+            response.status(500).json({ error: 'API configuration error' });
+            return;
+        }
+        // Initialize OpenAI client
+        const openai = new openai_1.default({
+            apiKey: openaiApiKey
+        });
+        // Create a new thread
+        const thread = await openai.beta.threads.create();
+        firebase_functions_1.logger.info('Created new OpenAI thread', { threadId: thread.id });
+        // Return the thread ID
+        response.status(200).json({
+            threadId: thread.id
+        });
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Error in createChatThread function', error);
+        response.status(500).json({
+            error: 'Internal server error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+/**
+ * Send a message to an OpenAI Assistant and get the response
+ */
+exports.sendChatMessage = (0, https_1.onRequest)({
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret],
+    timeoutSeconds: 60
+}, async (request, response) => {
+    try {
+        // Only allow POST requests
+        if (request.method !== 'POST') {
+            response.status(405).json({
+                error: 'Method not allowed. Use POST only.'
+            });
+            return;
+        }
+        // Validate origin for additional security
+        const origin = request.headers.origin;
+        if (!origin || !isOriginAllowed(origin)) {
+            firebase_functions_1.logger.warn('Unauthorized origin attempted to access sendChatMessage', { origin });
+            response.status(403).json({ error: 'Origin not allowed' });
+            return;
+        }
+        // Validate request body
+        const { threadId, message, assistantId } = request.body;
+        if (!threadId || !message || !assistantId) {
+            response.status(400).json({
+                error: 'Missing required fields: threadId, message, and assistantId'
+            });
+            return;
+        }
+        // Get OpenAI API key
+        const openaiApiKey = openaiApiKeySecret.value();
+        if (!openaiApiKey) {
+            firebase_functions_1.logger.error('OpenAI API key not found in secret manager');
+            response.status(500).json({ error: 'API configuration error' });
+            return;
+        }
+        // Initialize OpenAI client
+        const openai = new openai_1.default({
+            apiKey: openaiApiKey
+        });
+        // Add the user message to the thread
+        await openai.beta.threads.messages.create(threadId, {
+            role: 'user',
+            content: message
+        });
+        // Run the assistant on the thread
+        const run = await openai.beta.threads.runs.create(threadId, {
+            assistant_id: assistantId
+        });
+        // Poll for the run to complete
+        let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+        // Poll until the run is completed
+        while (runStatus.status !== 'completed') {
+            if (['failed', 'cancelled', 'expired'].includes(runStatus.status)) {
+                throw new Error(`Run failed with status: ${runStatus.status}`);
+            }
+            // Wait for a short time before polling again
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+        }
+        // Get the assistant's response
+        const messages = await openai.beta.threads.messages.list(threadId);
+        // Find the most recent assistant message
+        const assistantMessages = messages.data.filter(msg => msg.role === 'assistant');
+        if (assistantMessages.length === 0) {
+            throw new Error('No assistant response found');
+        }
+        const latestMessage = assistantMessages[0];
+        const content = latestMessage.content[0].type === 'text'
+            ? latestMessage.content[0].text.value
+            : 'Unable to process response';
+        firebase_functions_1.logger.info('Processed OpenAI assistant response', {
+            threadId,
+            runId: run.id,
+            messageLength: content.length
+        });
+        // Return the assistant's response
+        response.status(200).json({
+            id: latestMessage.id,
+            content: content,
+            role: 'assistant',
+            timestamp: new Date(),
+            threadId,
+            runId: run.id
+        });
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Error in sendChatMessage function', error);
+        response.status(500).json({
+            error: 'Internal server error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+/**
+ * Generate a summary of a chat thread for user profiling
+ */
+exports.generateChatSummary = (0, https_1.onRequest)({
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret],
+    timeoutSeconds: 120
+}, async (request, response) => {
+    try {
+        // Only allow POST requests
+        if (request.method !== 'POST') {
+            response.status(405).json({
+                error: 'Method not allowed. Use POST only.'
+            });
+            return;
+        }
+        // Validate origin for additional security
+        const origin = request.headers.origin;
+        if (!origin || !isOriginAllowed(origin)) {
+            firebase_functions_1.logger.warn('Unauthorized origin attempted to access generateChatSummary', { origin });
+            response.status(403).json({ error: 'Origin not allowed' });
+            return;
+        }
+        // Validate request body
+        const { threadId, assistantId } = request.body;
+        if (!threadId || !assistantId) {
+            response.status(400).json({
+                error: 'Missing required fields: threadId and assistantId'
+            });
+            return;
+        }
+        // Get OpenAI API key
+        const openaiApiKey = openaiApiKeySecret.value();
+        if (!openaiApiKey) {
+            firebase_functions_1.logger.error('OpenAI API key not found in secret manager');
+            response.status(500).json({ error: 'API configuration error' });
+            return;
+        }
+        // Initialize OpenAI client
+        const openai = new openai_1.default({
+            apiKey: openaiApiKey
+        });
+        // We don't need to fetch messages here since we're just creating a summary
+        // based on the entire thread history which OpenAI has access to
+        // Create a summary prompt
+        const summaryPrompt = `
+        Based on our conversation so far, please create a summary of the user's profile with the following information:
+        1. A brief summary of their career interests and goals
+        2. A list of their key interests (as an array of strings)
+        3. A list of their career goals (as an array of strings)
+        4. A list of their skills (as an array of strings)
+        
+        Format the response as a JSON object with the following structure:
+        {
+          "text": "Brief summary paragraph",
+          "interests": ["interest1", "interest2", ...],
+          "careerGoals": ["goal1", "goal2", ...],
+          "skills": ["skill1", "skill2", ...]
+        }
+      `;
+        // Add the summary request to the thread
+        await openai.beta.threads.messages.create(threadId, {
+            role: 'user',
+            content: summaryPrompt
+        });
+        // Run the assistant on the thread
+        const run = await openai.beta.threads.runs.create(threadId, {
+            assistant_id: assistantId
+        });
+        // Poll for the run to complete
+        let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+        // Poll until the run is completed
+        while (runStatus.status !== 'completed') {
+            if (['failed', 'cancelled', 'expired'].includes(runStatus.status)) {
+                throw new Error(`Run failed with status: ${runStatus.status}`);
+            }
+            // Wait for a short time before polling again
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+        }
+        // Get the assistant's response
+        const updatedMessages = await openai.beta.threads.messages.list(threadId);
+        // Find the most recent assistant message
+        const assistantMessages = updatedMessages.data.filter(msg => msg.role === 'assistant');
+        if (assistantMessages.length === 0) {
+            throw new Error('No assistant response found');
+        }
+        const latestMessage = assistantMessages[0];
+        const content = latestMessage.content[0].type === 'text'
+            ? latestMessage.content[0].text.value
+            : 'Unable to process response';
+        // Parse the JSON response
+        let summaryData;
+        try {
+            // Extract JSON from the response (it might be wrapped in code blocks)
+            const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || content.match(/{[\s\S]*}/);
+            const jsonStr = jsonMatch ? jsonMatch[0].replace(/```json|```/g, '') : content;
+            summaryData = JSON.parse(jsonStr);
+        }
+        catch (error) {
+            firebase_functions_1.logger.error('Error parsing summary JSON', error);
+            summaryData = {
+                text: content,
+                interests: [],
+                careerGoals: [],
+                skills: []
+            };
+        }
+        firebase_functions_1.logger.info('Generated chat summary', { threadId });
+        // Return the summary
+        response.status(200).json(summaryData);
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Error in generateChatSummary function', error);
+        response.status(500).json({
+            error: 'Internal server error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+/**
+ * Get video recommendations based on user profile
+ */
+exports.getVideoRecommendations = (0, https_1.onRequest)({
+    cors: corsConfig,
+    timeoutSeconds: 30
+}, async (request, response) => {
+    try {
+        // Only allow POST requests
+        if (request.method !== 'POST') {
+            response.status(405).json({
+                error: 'Method not allowed. Use POST only.'
+            });
+            return;
+        }
+        // Validate origin for additional security
+        const origin = request.headers.origin;
+        if (!origin || !isOriginAllowed(origin)) {
+            firebase_functions_1.logger.warn('Unauthorized origin attempted to access getVideoRecommendations', { origin });
+            response.status(403).json({ error: 'Origin not allowed' });
+            return;
+        }
+        // Validate request body
+        // Note: careerGoals and skills are included for future enhancements
+        // but are not currently used in the recommendation algorithm
+        const { userId, interests, careerGoals: _careerGoals, skills: _skills, limit = 5 } = request.body;
+        if (!userId) {
+            response.status(400).json({
+                error: 'Missing required field: userId'
+            });
+            return;
+        }
+        // Import Firestore
+        const { db } = require('./firestore');
+        const { collection, query, where, getDocs, limit: firestoreLimit, orderBy } = require('firebase/firestore');
+        // Get videos from Firestore
+        const videosRef = collection(db, 'videos');
+        // Build query based on user profile
+        let videoQuery;
+        if (interests && interests.length > 0) {
+            // Query videos that match user interests
+            videoQuery = query(videosRef, where('category', 'in', interests.slice(0, 10)), // Firestore limits 'in' clauses to 10 values
+            orderBy('viewCount', 'desc'), firestoreLimit(limit));
+        }
+        else {
+            // Get popular videos if no interests are specified
+            videoQuery = query(videosRef, orderBy('viewCount', 'desc'), firestoreLimit(limit));
+        }
+        const videosSnapshot = await getDocs(videoQuery);
+        // Extract video IDs
+        const videoIds = videosSnapshot.docs.map((doc) => doc.id);
+        firebase_functions_1.logger.info('Generated video recommendations', { userId, videoCount: videoIds.length });
+        // Return the video IDs
+        response.status(200).json({ videoIds });
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Error in getVideoRecommendations function', error);
+        response.status(500).json({
+            error: 'Internal server error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
 });
 //# sourceMappingURL=index.js.map

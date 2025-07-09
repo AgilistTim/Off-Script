@@ -4,6 +4,8 @@ services:
     env: docker
     buildCommand: docker build -t off-script .
     startCommand: docker run -p $PORT:80 off-script
+    healthCheckPath: /
+    healthCheckTimeout: 5s
     envVars:
       - key: VITE_FIREBASE_API_KEY
         sync: false
@@ -26,4 +28,8 @@ services:
       - key: VITE_BUMPUPS_API_KEY
         sync: false
       - key: VITE_BUMPUPS_PROXY_URL
+        sync: false
+      - key: VITE_OPENAI_API_KEY
+        sync: false
+      - key: VITE_OPENAI_ASSISTANT_URL
         sync: false

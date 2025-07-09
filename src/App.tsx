@@ -1,14 +1,17 @@
+import React from 'react';
 import { RouterProvider } from 'react-router-dom';
-import { router } from './routes';
 import { AuthProvider } from './context/AuthContext';
-import './index.css';
+import { ChatProvider } from './context/ChatContext';
+import { router } from './routes';
 
-function App() {
+const App: React.FC = () => {
   return (
     <AuthProvider>
-      <RouterProvider router={router} />
+      <ChatProvider>
+        <RouterProvider router={router} />
+      </ChatProvider>
     </AuthProvider>
   );
-}
+};
 
 export default App;

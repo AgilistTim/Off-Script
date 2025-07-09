@@ -53,6 +53,8 @@ echo "  VITE_YOUTUBE_API_KEY: ${VITE_YOUTUBE_API_KEY:-NOT_SET} (redacted)"
 echo "  VITE_RECAPTCHA_SITE_KEY: ${VITE_RECAPTCHA_SITE_KEY:-NOT_SET} (redacted)"
 echo "  VITE_BUMPUPS_API_KEY: ${VITE_BUMPUPS_API_KEY:-NOT_SET} (redacted)"
 echo "  VITE_BUMPUPS_PROXY_URL: ${VITE_BUMPUPS_PROXY_URL:-NOT_SET}"
+echo "  VITE_OPENAI_API_KEY: ${VITE_OPENAI_API_KEY:-NOT_SET} (redacted)"
+echo "  VITE_OPENAI_ASSISTANT_URL: ${VITE_OPENAI_ASSISTANT_URL:-NOT_SET}"
 
 # Validate environment variables
 validate_environment_variables
@@ -96,6 +98,8 @@ sed -i "s|__FIREBASE_MEASUREMENT_ID__|${VITE_FIREBASE_MEASUREMENT_ID:-G-XXXXXXXX
 sed -i "s|__YOUTUBE_API_KEY__|${VITE_YOUTUBE_API_KEY:-}|g" "$ENV_FILE"
 sed -i "s|__RECAPTCHA_SITE_KEY__|${VITE_RECAPTCHA_SITE_KEY:-}|g" "$ENV_FILE"
 sed -i "s|__BUMPUPS_API_KEY__|${VITE_BUMPUPS_API_KEY:-}|g" "$ENV_FILE"
+sed -i "s|__OPENAI_API_KEY__|${VITE_OPENAI_API_KEY:-}|g" "$ENV_FILE"
+sed -i "s|__OPENAI_ASSISTANT_URL__|${VITE_OPENAI_ASSISTANT_URL:-}|g" "$ENV_FILE"
 
 # Handle BUMPUPS_PROXY_URL with default fallback
 BUMPUPS_PROXY_DEFAULT="https://us-central1-${VITE_FIREBASE_PROJECT_ID:-offscript-8f6eb}.cloudfunctions.net/bumpupsProxy"
@@ -107,6 +111,17 @@ if [ "$VITE_BUMPUPS_PROXY_URL" = "NOT_SET" ] || [ -z "$VITE_BUMPUPS_PROXY_URL" ]
 fi
 
 sed -i "s|__BUMPUPS_PROXY_URL__|${BUMPUPS_PROXY_FINAL}|g" "$ENV_FILE"
+
+# Handle OPENAI_ASSISTANT_URL with default fallback
+OPENAI_ASSISTANT_DEFAULT="https://us-central1-${VITE_FIREBASE_PROJECT_ID:-offscript-8f6eb}.cloudfunctions.net"
+OPENAI_ASSISTANT_FINAL="${VITE_OPENAI_ASSISTANT_URL:-$OPENAI_ASSISTANT_DEFAULT}"
+
+if [ "$VITE_OPENAI_ASSISTANT_URL" = "NOT_SET" ] || [ -z "$VITE_OPENAI_ASSISTANT_URL" ]; then
+  echo "🔧 Using default OpenAI Assistant URL: $OPENAI_ASSISTANT_DEFAULT"
+  OPENAI_ASSISTANT_FINAL="$OPENAI_ASSISTANT_DEFAULT"
+fi
+
+sed -i "s|__OPENAI_ASSISTANT_URL__|${OPENAI_ASSISTANT_FINAL}|g" "$ENV_FILE"
 
 if [ -n "$VITE_FIREBASE_API_KEY" ] && [ -n "$VITE_FIREBASE_PROJECT_ID" ]; then
   echo "✅ Environment variables successfully injected into $ENV_FILE"
