@@ -62,6 +62,7 @@ export interface ChatSummary {
  */
 export const createThread = async (): Promise<string> => {
   try {
+    console.log('Creating thread with API URL:', apiBaseUrl);
     const response = await axios.post(`${apiBaseUrl}/createChatThread`, {}, {
       headers: {
         'Content-Type': 'application/json'

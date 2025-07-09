@@ -59,69 +59,29 @@ echo "  VITE_OPENAI_ASSISTANT_URL: ${VITE_OPENAI_ASSISTANT_URL:-NOT_SET}"
 # Validate environment variables
 validate_environment_variables
 
-# Check if environment.js file exists
-if [ ! -f "$ENV_FILE" ]; then
-  echo "❌ ERROR: Environment file $ENV_FILE not found."
-  exit 1
-fi
-
 # Check if environment.template.js file exists
 if [ ! -f "$ENV_TEMPLATE" ]; then
   echo "❌ ERROR: Environment template file $ENV_TEMPLATE not found."
   exit 1
 fi
 
-# Check if the template file contains the expected placeholders
-if ! grep -q "__FIREBASE_API_KEY__" "$ENV_TEMPLATE" 2>/dev/null; then
-  echo "❌ ERROR: Environment template file does not contain expected placeholders."
-  exit 1
-fi
-
-# Validate required environment variables
-if [ -z "$VITE_FIREBASE_API_KEY" ] || [ -z "$VITE_FIREBASE_PROJECT_ID" ] || [ -z "$VITE_FIREBASE_AUTH_DOMAIN" ]; then
-  echo "❌ ERROR: Missing required environment variables."
-  echo "Required variables: VITE_FIREBASE_API_KEY, VITE_FIREBASE_PROJECT_ID, VITE_FIREBASE_AUTH_DOMAIN"
-  exit 1
-fi
-
-# Copy template to environment.js
-cp "$ENV_TEMPLATE" "$ENV_FILE"
-
-# Replace placeholders in environment.js with actual values
-sed -i "s|__FIREBASE_API_KEY__|${VITE_FIREBASE_API_KEY:-demo-key-missing}|g" "$ENV_FILE"
-sed -i "s|__FIREBASE_AUTH_DOMAIN__|${VITE_FIREBASE_AUTH_DOMAIN:-demo-domain-missing}|g" "$ENV_FILE"
-sed -i "s|__FIREBASE_PROJECT_ID__|${VITE_FIREBASE_PROJECT_ID:-demo-project-missing}|g" "$ENV_FILE"
-sed -i "s|__FIREBASE_STORAGE_BUCKET__|${VITE_FIREBASE_STORAGE_BUCKET:-demo-bucket-missing}|g" "$ENV_FILE"
-sed -i "s|__FIREBASE_MESSAGING_SENDER_ID__|${VITE_FIREBASE_MESSAGING_SENDER_ID:-000000000000}|g" "$ENV_FILE"
-sed -i "s|__FIREBASE_APP_ID__|${VITE_FIREBASE_APP_ID:-demo-app-id-missing}|g" "$ENV_FILE"
-sed -i "s|__FIREBASE_MEASUREMENT_ID__|${VITE_FIREBASE_MEASUREMENT_ID:-G-XXXXXXXXXX}|g" "$ENV_FILE"
-sed -i "s|__YOUTUBE_API_KEY__|${VITE_YOUTUBE_API_KEY:-}|g" "$ENV_FILE"
-sed -i "s|__RECAPTCHA_SITE_KEY__|${VITE_RECAPTCHA_SITE_KEY:-}|g" "$ENV_FILE"
-sed -i "s|__BUMPUPS_API_KEY__|${VITE_BUMPUPS_API_KEY:-}|g" "$ENV_FILE"
-sed -i "s|__OPENAI_API_KEY__|${VITE_OPENAI_API_KEY:-}|g" "$ENV_FILE"
-sed -i "s|__OPENAI_ASSISTANT_URL__|${VITE_OPENAI_ASSISTANT_URL:-}|g" "$ENV_FILE"
-
 # Handle BUMPUPS_PROXY_URL with default fallback
 BUMPUPS_PROXY_DEFAULT="https://us-central1-${VITE_FIREBASE_PROJECT_ID:-offscript-8f6eb}.cloudfunctions.net/bumpupsProxy"
-BUMPUPS_PROXY_FINAL="${VITE_BUMPUPS_PROXY_URL:-$BUMPUPS_PROXY_DEFAULT}"
-
 if [ "$VITE_BUMPUPS_PROXY_URL" = "NOT_SET" ] || [ -z "$VITE_BUMPUPS_PROXY_URL" ]; then
   echo "🔧 Using default bumpups proxy URL: $BUMPUPS_PROXY_DEFAULT"
-  BUMPUPS_PROXY_FINAL="$BUMPUPS_PROXY_DEFAULT"
+  export VITE_BUMPUPS_PROXY_URL="$BUMPUPS_PROXY_DEFAULT"
 fi
-
-sed -i "s|__BUMPUPS_PROXY_URL__|${BUMPUPS_PROXY_FINAL}|g" "$ENV_FILE"
 
 # Handle OPENAI_ASSISTANT_URL with default fallback
 OPENAI_ASSISTANT_DEFAULT="https://us-central1-${VITE_FIREBASE_PROJECT_ID:-offscript-8f6eb}.cloudfunctions.net"
-OPENAI_ASSISTANT_FINAL="${VITE_OPENAI_ASSISTANT_URL:-$OPENAI_ASSISTANT_DEFAULT}"
-
 if [ "$VITE_OPENAI_ASSISTANT_URL" = "NOT_SET" ] || [ -z "$VITE_OPENAI_ASSISTANT_URL" ]; then
   echo "🔧 Using default OpenAI Assistant URL: $OPENAI_ASSISTANT_DEFAULT"
-  OPENAI_ASSISTANT_FINAL="$OPENAI_ASSISTANT_DEFAULT"
+  export VITE_OPENAI_ASSISTANT_URL="$OPENAI_ASSISTANT_DEFAULT"
 fi
 
-sed -i "s|__OPENAI_ASSISTANT_URL__|${OPENAI_ASSISTANT_FINAL}|g" "$ENV_FILE"
+# Use envsubst to replace environment variables in the template
+echo "🔧 Generating environment.js from template..."
+envsubst < "$ENV_TEMPLATE" > "$ENV_FILE"
 
 if [ -n "$VITE_FIREBASE_API_KEY" ] && [ -n "$VITE_FIREBASE_PROJECT_ID" ]; then
   echo "✅ Environment variables successfully injected into $ENV_FILE"

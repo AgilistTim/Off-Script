@@ -4,8 +4,9 @@ services:
     env: docker
     buildCommand: docker build -t off-script .
     startCommand: docker run -p $PORT:80 off-script
-    healthCheckPath: /
-    healthCheckTimeout: 5s
+    healthCheckPath: /api/openai/healthCheck
+    healthCheckTimeout: 10s
+    autoDeploy: true
     envVars:
       - key: VITE_FIREBASE_API_KEY
         sync: false

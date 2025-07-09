@@ -17,6 +17,9 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
+# Install gettext for envsubst utility
+RUN apk add --no-cache gettext
+
 # Add security headers and remove server tokens
 RUN sed -i 's/#server_tokens off;/server_tokens off;/' /etc/nginx/nginx.conf
 
@@ -24,7 +27,7 @@ RUN sed -i 's/#server_tokens off;/server_tokens off;/' /etc/nginx/nginx.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # Copy template environment file
-COPY public/environment.template.js /usr/share/nginx/html/environment.js
+COPY public/environment.template.js /usr/share/nginx/html/environment.template.js
 
 # Copy nginx configuration with security headers
 COPY nginx.conf /etc/nginx/conf.d/default.conf
