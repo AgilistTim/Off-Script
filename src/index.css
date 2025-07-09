@@ -19,6 +19,22 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  
+  /* Notification animations */
+  .animate-slide-in-bottom {
+    animation: slideInBottom 0.5s ease-out;
+  }
+  
+  @keyframes slideInBottom {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
 }
 
 @layer base {

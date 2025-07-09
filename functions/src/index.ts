@@ -831,6 +831,160 @@ export const generateChatSummary = onRequest(
 );
 
 /**
+ * Generate a detailed chat summary with structured data
+ */
+export const generateDetailedChatSummary = onRequest(
+  {
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret],
+    timeoutSeconds: 120
+  },
+  async (request, response) => {
+    try {
+      // Only allow POST requests
+      if (request.method !== 'POST') {
+        response.status(405).json({ 
+          error: 'Method not allowed. Use POST only.' 
+        });
+        return;
+      }
+
+      // Validate origin for additional security
+      const origin = request.headers.origin;
+      if (!origin || !isOriginAllowed(origin)) {
+        logger.warn('Unauthorized origin attempted to access generateDetailedChatSummary', { origin });
+        response.status(403).json({ error: 'Origin not allowed' });
+        return;
+      }
+
+      // Validate request body
+      const { threadId, assistantId } = request.body;
+      
+      if (!threadId || !assistantId) {
+        response.status(400).json({ 
+          error: 'Missing required fields: threadId and assistantId' 
+        });
+        return;
+      }
+
+      // Get OpenAI API key
+      const openaiApiKey = openaiApiKeySecret.value();
+      
+      if (!openaiApiKey) {
+        logger.error('OpenAI API key not found in secret manager');
+        response.status(500).json({ error: 'API configuration error' });
+        return;
+      }
+
+      // Initialize OpenAI client
+      const openai = new OpenAI({
+        apiKey: openaiApiKey
+      });
+
+      // Create a detailed summary prompt
+      const detailedSummaryPrompt = `
+        Based on our conversation so far, please create a detailed profile of the user with the following information:
+        1. A concise summary of the conversation (1-2 paragraphs)
+        2. A list of the user's interests extracted from the conversation
+        3. A list of skills the user has or wants to develop
+        4. A list of career goals mentioned or implied
+        5. Suggested learning paths based on the conversation
+        6. 3-5 reflective questions that would help the user explore their career interests further
+        
+        Format your response as a JSON object with the following keys:
+        {
+          "text": "summary text",
+          "interests": ["interest1", "interest2", ...],
+          "skills": ["skill1", "skill2", ...],
+          "careerGoals": ["goal1", "goal2", ...],
+          "learningPaths": ["path1", "path2", ...],
+          "reflectiveQuestions": ["question1", "question2", ...]
+        }
+      `;
+
+      // Add the summary request to the thread
+      await openai.beta.threads.messages.create(threadId, {
+        role: 'user',
+        content: detailedSummaryPrompt
+      });
+
+      // Run the assistant on the thread
+      const run = await openai.beta.threads.runs.create(threadId, {
+        assistant_id: assistantId
+      });
+
+      // Poll for the run to complete
+      let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+      
+      // Poll until the run is completed
+      while (runStatus.status !== 'completed') {
+        if (['failed', 'cancelled', 'expired'].includes(runStatus.status)) {
+          throw new Error(`Run failed with status: ${runStatus.status}`);
+        }
+        
+        // Wait for a short time before polling again
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+      }
+
+      // Get the assistant's response
+      const updatedMessages = await openai.beta.threads.messages.list(threadId);
+      
+      // Find the most recent assistant message
+      const assistantMessages = updatedMessages.data.filter(msg => msg.role === 'assistant');
+      
+      if (assistantMessages.length === 0) {
+        throw new Error('No assistant response found');
+      }
+      
+      const latestMessage = assistantMessages[0];
+      const content = latestMessage.content[0].type === 'text' 
+        ? latestMessage.content[0].text.value 
+        : 'Unable to process response';
+
+      // Parse the JSON response
+      let summaryData;
+      try {
+        // Extract JSON from the response (it might be wrapped in code blocks)
+        const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) || 
+                          content.match(/```\s*([\s\S]*?)\s*```/) ||
+                          content.match(/{[\s\S]*}/);
+        
+        let jsonStr;
+        if (jsonMatch) {
+          jsonStr = jsonMatch[0].replace(/```json\s*|\s*```/g, '');
+        } else {
+          jsonStr = content;
+        }
+        
+        summaryData = JSON.parse(jsonStr);
+      } catch (error) {
+        logger.error('Error parsing detailed summary JSON', error);
+        summaryData = {
+          text: content,
+          interests: [],
+          skills: [],
+          careerGoals: [],
+          learningPaths: [],
+          reflectiveQuestions: []
+        };
+      }
+
+      logger.info('Generated detailed chat summary', { threadId });
+
+      // Return the detailed summary
+      response.status(200).json(summaryData);
+    } catch (error) {
+      logger.error('Error in generateDetailedChatSummary function', error);
+      response.status(500).json({ 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
+
+/**
  * Get video recommendations based on user profile
  */
 export const getVideoRecommendations = onRequest(
@@ -867,6 +1021,15 @@ export const getVideoRecommendations = onRequest(
         return;
       }
 
+      // DEBUG: Log the request parameters
+      logger.info('getVideoRecommendations request parameters', { 
+        userId, 
+        interests,
+        careerGoals,
+        skills,
+        limit
+      });
+
       // Get OpenAI API key
       const openaiApiKey = openaiApiKeySecret.value();
       
@@ -888,6 +1051,9 @@ export const getVideoRecommendations = onRequest(
         `Skills: ${skills.join(', ')}`
       ].filter(part => !part.endsWith(': ')).join('\n');
 
+      // DEBUG: Check if we have a meaningful profile
+      logger.info('Combined query for recommendations', { combinedQuery, length: combinedQuery.length });
+
       // If we have a meaningful profile, use embeddings for recommendations
       if (combinedQuery.length > 20) {
         try {
@@ -904,6 +1070,12 @@ export const getVideoRecommendations = onRequest(
           const embeddingsSnapshot = await db.collection('videoEmbeddings')
             .where('contentType', '==', 'metadata')
             .get();
+          
+          // DEBUG: Log the number of embeddings found
+          logger.info('Video embeddings query results', { 
+            count: embeddingsSnapshot.size,
+            empty: embeddingsSnapshot.empty 
+          });
           
           if (!embeddingsSnapshot.empty) {
             // Calculate similarity scores
@@ -925,18 +1097,27 @@ export const getVideoRecommendations = onRequest(
             logger.info('Generated video recommendations using embeddings', { 
               userId, 
               videoCount: topResults.length,
-              method: 'embeddings'
+              method: 'embeddings',
+              topResults
             });
             
             // Return the video IDs
             response.status(200).json({ videoIds: topResults });
             return;
+          } else {
+            logger.warn('No video embeddings found, falling back to category matching');
           }
         } catch (embeddingError) {
           // Log the error but continue with fallback method
           logger.error('Error using embeddings for recommendations, falling back to category matching', embeddingError);
         }
       }
+
+      // DEBUG: Check if we have interests to query with
+      logger.info('Falling back to category matching', { 
+        hasInterests: interests && interests.length > 0,
+        interestsCount: interests ? interests.length : 0
+      });
 
       // Fallback to category matching if embeddings aren't available or profile is too sparse
       let videoQuery;
@@ -948,14 +1129,29 @@ export const getVideoRecommendations = onRequest(
           .where('category', 'in', interests.slice(0, 10)) // Firestore limits 'in' clauses to 10 values
           .orderBy('viewCount', 'desc')
           .limit(limit);
+          
+        // DEBUG: Log the query parameters  
+        logger.info('Category-based query', { 
+          categories: interests.slice(0, 10),
+          limit
+        });
       } else {
         // Get popular videos if no interests are specified
         videoQuery = db.collection('videos')
           .orderBy('viewCount', 'desc')
           .limit(limit);
+          
+        // DEBUG: Log that we're using a fallback query
+        logger.info('Using fallback query (popular videos)', { limit });
       }
       
       const videosSnapshot = await videoQuery.get();
+      
+      // DEBUG: Log the query results
+      logger.info('Video query results', { 
+        count: videosSnapshot.size,
+        empty: videosSnapshot.empty
+      });
       
       // Extract video IDs
       const videoIds = videosSnapshot.docs.map((doc) => doc.id);
@@ -963,7 +1159,8 @@ export const getVideoRecommendations = onRequest(
       logger.info('Generated video recommendations using category matching', { 
         userId, 
         videoCount: videoIds.length,
-        method: 'category'
+        method: 'category',
+        videoIds
       });
 
       // Return the video IDs
@@ -1142,6 +1339,278 @@ export const searchVideos = onRequest(
       response.status(200).json({ videoIds: topResults });
     } catch (error) {
       logger.error('Error in searchVideos function', error);
+      response.status(500).json({ 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
+
+/**
+ * Get personalized video recommendations based on user preferences and chat history
+ */
+export const getPersonalizedVideoRecommendations = onRequest(
+  {
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret],
+    timeoutSeconds: 30
+  },
+  async (request, response) => {
+    try {
+      // Only allow POST requests
+      if (request.method !== 'POST') {
+        response.status(405).json({ 
+          error: 'Method not allowed. Use POST only.' 
+        });
+        return;
+      }
+
+      // Validate origin for additional security
+      const origin = request.headers.origin;
+      if (!origin || !isOriginAllowed(origin)) {
+        logger.warn('Unauthorized origin attempted to access getPersonalizedVideoRecommendations', { origin });
+        response.status(403).json({ error: 'Origin not allowed' });
+        return;
+      }
+
+      // Validate request body
+      const { 
+        userId, 
+        limit = 5, 
+        includeWatched = false,
+        feedbackType = null, // null, 'liked', 'disliked', 'saved'
+        chatSummaryId = null
+      } = request.body;
+      
+      if (!userId) {
+        response.status(400).json({ 
+          error: 'Missing required field: userId' 
+        });
+        return;
+      }
+
+      // Get OpenAI API key
+      const openaiApiKey = openaiApiKeySecret.value();
+      
+      if (!openaiApiKey) {
+        logger.error('OpenAI API key not found in secret manager');
+        response.status(500).json({ error: 'API configuration error' });
+        return;
+      }
+
+      // Initialize OpenAI client
+      const openai = new OpenAI({
+        apiKey: openaiApiKey
+      });
+
+      // Get user preferences
+      const userPrefsSnapshot = await db.collection('userPreferences').doc(userId).get();
+      const userPrefs = userPrefsSnapshot.exists ? userPrefsSnapshot.data() : {};
+      
+      // Get user watch history
+      const watchHistorySnapshot = await db.collection('userActivity')
+        .doc(userId)
+        .collection('watchHistory')
+        .orderBy('timestamp', 'desc')
+        .limit(20)
+        .get();
+      
+      const watchedVideoIds = watchHistorySnapshot.docs.map(doc => doc.data().videoId);
+      
+      // Get user feedback (likes, dislikes, saves)
+      const userFeedbackSnapshot = await db.collection('userActivity')
+        .doc(userId)
+        .collection('videoFeedback')
+        .get();
+      
+      const videoFeedback = userFeedbackSnapshot.docs.reduce((acc, doc) => {
+        const data = doc.data();
+        acc[doc.id] = {
+          liked: data.liked || false,
+          disliked: data.disliked || false,
+          saved: data.saved || false
+        };
+        return acc;
+      }, {} as Record<string, { liked: boolean, disliked: boolean, saved: boolean }>);
+      
+      // Get chat summary if provided
+      let chatSummary = null;
+      if (chatSummaryId) {
+        const chatSummarySnapshot = await db.collection('chatSummaries').doc(chatSummaryId).get();
+        if (chatSummarySnapshot.exists) {
+          chatSummary = chatSummarySnapshot.data();
+        }
+      }
+      
+      // If no chat summary provided, get the most recent one
+      if (!chatSummary) {
+        const recentSummariesSnapshot = await db.collection('chatSummaries')
+          .where('userId', '==', userId)
+          .orderBy('createdAt', 'desc')
+          .limit(1)
+          .get();
+        
+        if (!recentSummariesSnapshot.empty) {
+          chatSummary = recentSummariesSnapshot.docs[0].data();
+        }
+      }
+      
+      // Extract interests, skills, and career goals from chat summary
+      const interests = chatSummary?.interests || userPrefs?.interests || [];
+      const skills = chatSummary?.skills || userPrefs?.skills || [];
+      const careerGoals = chatSummary?.careerGoals || userPrefs?.careerGoals || [];
+      const learningPaths = chatSummary?.learningPaths || [];
+      
+      // Build a combined profile for recommendations
+      const combinedProfile = [
+        `Interests: ${interests.join(', ')}`,
+        `Skills: ${skills.join(', ')}`,
+        `Career Goals: ${careerGoals.join(', ')}`,
+        `Learning Paths: ${learningPaths.join(', ')}`
+      ].filter(part => !part.endsWith(': ')).join('\n');
+      
+      logger.info('Combined profile for personalized recommendations', { 
+        profileLength: combinedProfile.length,
+        interestsCount: interests.length,
+        skillsCount: skills.length,
+        goalsCount: careerGoals.length
+      });
+      
+      // If we have a meaningful profile, use embeddings for recommendations
+      if (combinedProfile.length > 20) {
+        try {
+          // Generate embedding for the combined profile
+          const embeddingResponse = await openai.embeddings.create({
+            model: 'text-embedding-3-small',
+            input: combinedProfile,
+            encoding_format: 'float'
+          });
+          
+          const profileEmbedding = embeddingResponse.data[0].embedding;
+          
+          // Get all video embeddings from Firestore
+          const embeddingsSnapshot = await db.collection('videoEmbeddings')
+            .where('contentType', '==', 'metadata')
+            .get();
+          
+          if (!embeddingsSnapshot.empty) {
+            // Calculate similarity scores
+            const similarities = embeddingsSnapshot.docs.map(doc => {
+              const embedding = doc.data();
+              const similarity = cosineSimilarity(profileEmbedding, embedding.embedding);
+              
+              // Apply feedback adjustments
+              let adjustedScore = similarity;
+              const feedback = videoFeedback[embedding.videoId];
+              
+              if (feedback) {
+                if (feedback.liked) adjustedScore *= 1.2; // Boost liked videos
+                if (feedback.disliked) adjustedScore *= 0.5; // Reduce disliked videos
+                if (feedback.saved) adjustedScore *= 1.3; // Boost saved videos
+                
+                // If filtering by feedback type
+                if (feedbackType === 'liked' && !feedback.liked) adjustedScore = 0;
+                if (feedbackType === 'disliked' && !feedback.disliked) adjustedScore = 0;
+                if (feedbackType === 'saved' && !feedback.saved) adjustedScore = 0;
+              }
+              
+              // Exclude watched videos if requested
+              if (!includeWatched && watchedVideoIds.includes(embedding.videoId)) {
+                adjustedScore = 0;
+              }
+              
+              return {
+                videoId: embedding.videoId,
+                similarity: adjustedScore
+              };
+            });
+            
+            // Sort by adjusted similarity (highest first) and take the top results
+            const topResults = similarities
+              .filter(item => item.similarity > 0) // Remove excluded videos
+              .sort((a, b) => b.similarity - a.similarity)
+              .slice(0, limit)
+              .map(item => item.videoId);
+            
+            logger.info('Generated personalized video recommendations using embeddings', { 
+              userId, 
+              videoCount: topResults.length,
+              method: 'embeddings',
+              topResults
+            });
+            
+            // Return the video IDs
+            response.status(200).json({ 
+              videoIds: topResults,
+              method: 'embeddings',
+              profileUsed: true
+            });
+            return;
+          }
+        } catch (embeddingError) {
+          // Log the error but continue with fallback method
+          logger.error('Error using embeddings for personalized recommendations, falling back to category matching', embeddingError);
+        }
+      }
+      
+      // Fallback to category matching
+      let videoQuery;
+      
+      if (interests && interests.length > 0) {
+        // Query videos that match user interests
+        videoQuery = db.collection('videos')
+          .where('category', 'in', interests.slice(0, 10)) // Firestore limits 'in' clauses to 10 values
+          .orderBy('viewCount', 'desc')
+          .limit(limit * 2); // Get more than needed to filter out watched videos
+      } else {
+        // Get popular videos if no interests are specified
+        videoQuery = db.collection('videos')
+          .orderBy('viewCount', 'desc')
+          .limit(limit * 2);
+      }
+      
+      const videosSnapshot = await videoQuery.get();
+      
+      // Filter out watched videos if requested
+      let videoIds = videosSnapshot.docs.map((doc) => doc.id);
+      
+      if (!includeWatched) {
+        videoIds = videoIds.filter(id => !watchedVideoIds.includes(id));
+      }
+      
+      // Apply feedback filters if requested
+      if (feedbackType) {
+        videoIds = videoIds.filter(id => {
+          const feedback = videoFeedback[id];
+          if (!feedback) return false;
+          
+          if (feedbackType === 'liked') return feedback.liked;
+          if (feedbackType === 'disliked') return feedback.disliked;
+          if (feedbackType === 'saved') return feedback.saved;
+          
+          return true;
+        });
+      }
+      
+      // Limit to requested number
+      videoIds = videoIds.slice(0, limit);
+      
+      logger.info('Generated personalized video recommendations using category matching', { 
+        userId, 
+        videoCount: videoIds.length,
+        method: 'category',
+        videoIds
+      });
+
+      // Return the video IDs
+      response.status(200).json({ 
+        videoIds,
+        method: 'category',
+        profileUsed: interests.length > 0
+      });
+    } catch (error) {
+      logger.error('Error in getPersonalizedVideoRecommendations function', error);
       response.status(500).json({ 
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'

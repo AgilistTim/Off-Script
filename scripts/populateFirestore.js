@@ -1,241 +1,193 @@
-// This script populates the Firestore database with initial data
-// Run with: node scripts/populateFirestore.js
+// Import Firebase Admin SDK
+import admin from 'firebase-admin';
+import { readFileSync } from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
 
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  serverTimestamp 
-} from 'firebase/firestore';
-import { db } from './firebaseConfig.js';
+// Get the current file's directory
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
-// Sample data for sectors
-const sectors = [
+// Initialize Firebase Admin SDK with emulator
+try {
+  // Initialize without credentials to use emulator
+  admin.initializeApp({
+    projectId: 'offscript-8f6eb'
+  });
+  
+  console.log('Initialized Firebase Admin for emulator');
+  
+  // Connect to the Firestore emulator
+  admin.firestore().settings({
+    host: 'localhost:8080',
+    ssl: false
+  });
+  
+  console.log('Connected to Firestore emulator at localhost:8080');
+} catch (error) {
+  console.error('Error initializing Firebase Admin:', error);
+  process.exit(1);
+}
+
+// Get Firestore instance
+const db = admin.firestore();
+
+// Sample videos related to AI, coding, and technology
+const sampleVideos = [
   {
-    id: 'tech',
-    name: 'Technology & AI',
-    description: 'Build the digital future with AI, data science, and software development',
-    iconUrl: 'https://example.com/tech-icon.svg',
-    imageUrl: 'https://example.com/tech-image.jpg',
-    careers: [
-      'Data Scientist', 
-      'AI Specialist', 
-      'Software Developer', 
-      'Cybersecurity Analyst'
-    ]
+    title: "Building AI Assistants with Large Language Models",
+    description: "Learn how to create powerful AI assistants using the latest large language models like GPT-4.",
+    sourceUrl: "https://www.youtube.com/watch?v=example1",
+    sourceType: "youtube",
+    sourceId: "example1",
+    thumbnailUrl: "https://i.ytimg.com/vi/example1/hqdefault.jpg",
+    duration: 1800, // 30 minutes
+    category: "artificial intelligence",
+    subcategory: "large language models",
+    tags: ["AI", "LLM", "chatbots", "GPT"],
+    skillsHighlighted: ["prompt engineering", "AI development", "Python"],
+    educationRequired: ["Bachelor's in Computer Science", "AI Certification"],
+    viewCount: 5000,
+    creator: "AI Academy",
+    metadataStatus: "enriched"
   },
   {
-    id: 'green-energy',
-    name: 'Green Energy & Sustainability',
-    description: 'Lead the UK\'s net-zero transition in renewable energy',
-    iconUrl: 'https://example.com/energy-icon.svg',
-    imageUrl: 'https://example.com/energy-image.jpg',
-    careers: [
-      'Wind Turbine Technician', 
-      'Solar Installer', 
-      'Energy Analyst', 
-      'Environmental Engineer'
-    ]
+    title: "Vector Storage for AI Applications",
+    description: "A deep dive into vector databases and how they power semantic search in modern AI applications.",
+    sourceUrl: "https://www.youtube.com/watch?v=example2",
+    sourceType: "youtube",
+    sourceId: "example2",
+    thumbnailUrl: "https://i.ytimg.com/vi/example2/hqdefault.jpg",
+    duration: 2400, // 40 minutes
+    category: "vector storage",
+    subcategory: "databases",
+    tags: ["vector database", "embeddings", "semantic search", "AI"],
+    skillsHighlighted: ["database design", "Python", "machine learning"],
+    educationRequired: ["Bachelor's in Computer Science"],
+    viewCount: 3500,
+    creator: "Database Experts",
+    metadataStatus: "enriched"
   },
   {
-    id: 'healthcare',
-    name: 'Healthcare & Life Sciences',
-    description: 'Support the NHS and growing healthcare technology sector',
-    iconUrl: 'https://example.com/healthcare-icon.svg',
-    imageUrl: 'https://example.com/healthcare-image.jpg',
-    careers: [
-      'Nurse Practitioner', 
-      'Healthcare Assistant', 
-      'Medical Technology', 
-      'Health Data Analyst'
-    ]
+    title: "Building Chatbots with Modern Frameworks",
+    description: "Step-by-step guide to creating interactive chatbots using modern JavaScript frameworks.",
+    sourceUrl: "https://www.youtube.com/watch?v=example3",
+    sourceType: "youtube",
+    sourceId: "example3",
+    thumbnailUrl: "https://i.ytimg.com/vi/example3/hqdefault.jpg",
+    duration: 1500, // 25 minutes
+    category: "chatbots",
+    subcategory: "development",
+    tags: ["chatbots", "JavaScript", "React", "Node.js"],
+    skillsHighlighted: ["JavaScript", "React", "API integration"],
+    educationRequired: ["Web Development Bootcamp"],
+    viewCount: 4200,
+    creator: "Web Dev Mastery",
+    metadataStatus: "enriched"
   },
   {
-    id: 'fintech',
-    name: 'FinTech & Digital Finance',
-    description: 'Join London\'s thriving financial technology ecosystem',
-    iconUrl: 'https://example.com/fintech-icon.svg',
-    imageUrl: 'https://example.com/fintech-image.jpg',
-    careers: [
-      'Fintech Engineer', 
-      'Blockchain Developer', 
-      'Financial Analyst', 
-      'Risk Assessor'
-    ]
+    title: "Low-Code/No-Code AI Development",
+    description: "How to build AI applications without extensive coding using low-code and no-code platforms.",
+    sourceUrl: "https://www.youtube.com/watch?v=example4",
+    sourceType: "youtube",
+    sourceId: "example4",
+    thumbnailUrl: "https://i.ytimg.com/vi/example4/hqdefault.jpg",
+    duration: 1200, // 20 minutes
+    category: "low-code/no-code",
+    subcategory: "AI development",
+    tags: ["low-code", "no-code", "AI", "automation"],
+    skillsHighlighted: ["workflow automation", "business logic", "AI integration"],
+    educationRequired: ["None required"],
+    viewCount: 6800,
+    creator: "No-Code Academy",
+    metadataStatus: "enriched"
   },
   {
-    id: 'skilled-trades',
-    name: 'Skilled Trades & Manufacturing',
-    description: 'Build and maintain the infrastructure powering modern Britain',
-    iconUrl: 'https://example.com/trades-icon.svg',
-    imageUrl: 'https://example.com/trades-image.jpg',
-    careers: [
-      'Electrician', 
-      'Plumber', 
-      'HVAC Technician', 
-      'Advanced Manufacturing'
-    ]
-  },
-  {
-    id: 'creative',
-    name: 'Creative & Digital Media',
-    description: 'Thrive in the UK\'s world-leading creative industries',
-    iconUrl: 'https://example.com/creative-icon.svg',
-    imageUrl: 'https://example.com/creative-image.jpg',
-    careers: [
-      'Content Creator', 
-      'Digital Designer', 
-      'Video Producer', 
-      'UX/UI Designer'
-    ]
+    title: "Software Engineering Best Practices",
+    description: "Essential best practices every software engineer should follow for clean, maintainable code.",
+    sourceUrl: "https://www.youtube.com/watch?v=example5",
+    sourceType: "youtube",
+    sourceId: "example5",
+    thumbnailUrl: "https://i.ytimg.com/vi/example5/hqdefault.jpg",
+    duration: 3600, // 60 minutes
+    category: "software",
+    subcategory: "engineering",
+    tags: ["software engineering", "clean code", "best practices", "code review"],
+    skillsHighlighted: ["code organization", "testing", "documentation"],
+    educationRequired: ["Computer Science Degree", "Software Engineering Experience"],
+    viewCount: 8500,
+    creator: "Code Quality Experts",
+    metadataStatus: "enriched"
   }
 ];
 
-// Sample data for careers
-const careers = [
-  {
-    id: 'data-scientist',
-    title: 'Data Scientist',
-    description: 'Analyze and interpret complex data to help organizations make better decisions',
-    salaryRange: {
-      min: 45000,
-      max: 90000,
-      currency: 'GBP'
-    },
-    educationRequirements: [
-      'Bachelor\'s degree in Computer Science, Statistics, or related field',
-      'Master\'s degree preferred',
-      'Certifications in data science or machine learning'
-    ],
-    skills: [
-      'Python',
-      'R',
-      'SQL',
-      'Machine Learning',
-      'Data Visualization',
-      'Statistical Analysis'
-    ],
-    dayInLife: 'Data scientists typically start their day reviewing analytics reports and checking model performance. They spend most of their time cleaning data, building models, and collaborating with cross-functional teams to implement data-driven solutions.',
-    growthPotential: 'Data scientists can advance to senior data scientist, lead data scientist, or data science manager roles. With experience, they may move into chief data officer positions.',
-    sectorId: 'tech',
-    videoUrls: [
-      'https://example.com/data-scientist-day-in-life.mp4',
-      'https://example.com/data-scientist-career-path.mp4'
-    ]
-  },
-  {
-    id: 'software-developer',
-    title: 'Software Developer',
-    description: 'Design, build, and maintain software applications and systems',
-    salaryRange: {
-      min: 35000,
-      max: 85000,
-      currency: 'GBP'
-    },
-    educationRequirements: [
-      'Bachelor\'s degree in Computer Science or related field',
-      'Coding bootcamp certification',
-      'Self-taught with portfolio'
-    ],
-    skills: [
-      'JavaScript',
-      'Python',
-      'Java',
-      'React',
-      'Node.js',
-      'Git'
-    ],
-    dayInLife: 'Software developers typically start their day with stand-up meetings to discuss progress and blockers. They spend most of their time writing code, reviewing pull requests, debugging issues, and collaborating with team members.',
-    growthPotential: 'Software developers can advance to senior developer, tech lead, or software architect roles. With additional skills, they may move into engineering management or CTO positions.',
-    sectorId: 'tech',
-    videoUrls: [
-      'https://example.com/software-developer-day-in-life.mp4',
-      'https://example.com/software-developer-career-path.mp4'
-    ]
-  },
-  {
-    id: 'nurse-practitioner',
-    title: 'Nurse Practitioner',
-    description: 'Provide advanced nursing care and treatment to patients',
-    salaryRange: {
-      min: 38000,
-      max: 65000,
-      currency: 'GBP'
-    },
-    educationRequirements: [
-      'Bachelor\'s degree in Nursing',
-      'Master\'s degree in Advanced Nursing Practice',
-      'Nursing and Midwifery Council (NMC) registration'
-    ],
-    skills: [
-      'Patient Assessment',
-      'Diagnostic Testing',
-      'Treatment Planning',
-      'Prescription Management',
-      'Patient Education',
-      'Electronic Health Records'
-    ],
-    dayInLife: 'Nurse practitioners typically start their day reviewing patient charts and preparing for appointments. They spend their time examining patients, diagnosing conditions, prescribing medications, and collaborating with physicians and other healthcare professionals.',
-    growthPotential: 'Nurse practitioners can advance to specialized roles in areas like pediatrics, geriatrics, or mental health. They may also move into clinical leadership, education, or healthcare administration.',
-    sectorId: 'healthcare',
-    videoUrls: [
-      'https://example.com/nurse-practitioner-day-in-life.mp4',
-      'https://example.com/nurse-practitioner-career-path.mp4'
-    ]
-  }
-];
-
-// Function to populate sectors
-async function populateSectors() {
-  console.log('Populating sectors...');
-  
-  for (const sector of sectors) {
-    const sectorRef = doc(db, 'sectors', sector.id);
-    
-    await setDoc(sectorRef, {
-      ...sector,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-    
-    console.log(`Added sector: ${sector.name}`);
-  }
-  
-  console.log('Sectors population complete!');
-}
-
-// Function to populate careers
-async function populateCareers() {
-  console.log('Populating careers...');
-  
-  for (const career of careers) {
-    const careerRef = doc(db, 'careers', career.id);
-    
-    await setDoc(careerRef, {
-      ...career,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-    
-    console.log(`Added career: ${career.title}`);
-  }
-  
-  console.log('Careers population complete!');
-}
-
-// Main function to populate all data
-async function populateAllData() {
+// Function to add videos to Firestore
+async function addVideosToFirestore() {
   try {
-    await populateSectors();
-    await populateCareers();
+    console.log('Starting to add sample videos to Firestore...');
     
-    console.log('All data has been successfully populated!');
+    for (const video of sampleVideos) {
+      // Add timestamp
+      const videoWithTimestamp = {
+        ...video,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+      };
+      
+      // Add to Firestore
+      const docRef = await db.collection('videos').add(videoWithTimestamp);
+      console.log(`Added video with ID: ${docRef.id}`);
+      
+      // Create embeddings for the video
+      await createEmbeddingForVideo(docRef.id, videoWithTimestamp);
+    }
+    
+    console.log('Successfully added all sample videos to Firestore!');
     process.exit(0);
   } catch (error) {
-    console.error('Error populating data:', error);
+    console.error('Error adding videos to Firestore:', error);
     process.exit(1);
   }
 }
 
-// Run the population script
-populateAllData(); 
+// Function to create embedding for a video
+async function createEmbeddingForVideo(videoId, videoData) {
+  try {
+    console.log(`Creating embedding for video ${videoId}...`);
+    
+    // Generate text representation of the video for embedding
+    const videoText = [
+      `Title: ${videoData.title || ''}`,
+      `Description: ${videoData.description || ''}`,
+      `Category: ${videoData.category || ''}`,
+      `Subcategory: ${videoData.subcategory || ''}`,
+      `Tags: ${(videoData.tags || []).join(', ')}`,
+      `Skills: ${(videoData.skillsHighlighted || []).join(', ')}`,
+      `Education: ${(videoData.educationRequired || []).join(', ')}`,
+      `Duration: ${videoData.duration || 0} seconds`
+    ].join('\n');
+    
+    // For demo purposes, create a simple mock embedding (normally you'd call OpenAI API)
+    const mockEmbedding = Array(1536).fill(0).map(() => Math.random() * 2 - 1);
+    
+    // Store the embedding in Firestore
+    const embeddingData = {
+      videoId,
+      embedding: mockEmbedding,
+      contentType: 'metadata',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      version: 'text-embedding-3-small'
+    };
+    
+    await db.collection('videoEmbeddings').doc(`${videoId}_metadata`).set(embeddingData);
+    console.log(`Created embedding for video ${videoId}`);
+    
+    return embeddingData;
+  } catch (error) {
+    console.error(`Error creating embedding for video ${videoId}:`, error);
+    return null;
+  }
+}
+
+// Execute the function
+addVideosToFirestore(); 

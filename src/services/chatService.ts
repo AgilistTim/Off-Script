@@ -11,7 +11,9 @@ import {
   orderBy, 
   serverTimestamp, 
   Timestamp,
-  limit as firestoreLimit
+  limit as firestoreLimit,
+  deleteDoc,
+  writeBatch
 } from 'firebase/firestore';
 import axios from 'axios';
 import { getEnvironmentConfig } from '../config/environment';
@@ -55,6 +57,9 @@ export interface ChatSummary {
   careerGoals: string[];
   skills: string[];
   createdAt: Date;
+  learningPaths?: string[];
+  reflectiveQuestions?: string[];
+  enriched?: boolean;
 }
 
 /**
@@ -169,13 +174,21 @@ export const storeMessage = async (
   try {
     const messagesRef = collection(db, 'chatThreads', firestoreThreadId, 'messages');
     
-    const newMessage = {
+    // Create the base message object
+    const newMessage: any = {
       content: message,
       role,
-      timestamp: serverTimestamp(),
-      threadId,
-      runId
+      timestamp: serverTimestamp()
     };
+    
+    // Only add threadId and runId if they are defined
+    if (threadId !== undefined) {
+      newMessage.threadId = threadId;
+    }
+    
+    if (runId !== undefined) {
+      newMessage.runId = runId;
+    }
     
     const docRef = await addDoc(messagesRef, newMessage);
     
@@ -220,10 +233,52 @@ export const getChatMessages = async (firestoreThreadId: string): Promise<ChatMe
 };
 
 /**
- * Generate a summary of the chat for user profiling
+ * Check if a thread has enough meaningful content for summary generation
  */
-export const generateChatSummary = async (firestoreThreadId: string, userId: string): Promise<ChatSummary> => {
+export const hasEnoughContentForSummary = async (firestoreThreadId: string): Promise<boolean> => {
   try {
+    const messages = await getChatMessages(firestoreThreadId);
+    
+    // Filter to only user messages (actual user input)
+    const userMessages = messages.filter(msg => msg.role === 'user');
+    
+    // Require at least 2 user messages with meaningful content
+    if (userMessages.length < 2) {
+      return false;
+    }
+    
+    // Check if messages have substantial content (more than just greetings)
+    const meaningfulMessages = userMessages.filter(msg => {
+      const content = msg.content.toLowerCase().trim();
+      // Skip very short messages, common greetings, or single words
+      if (content.length < 20) return false;
+      if (/^(hi|hello|hey|thanks|ok|yes|no|sure)$/i.test(content)) return false;
+      return true;
+    });
+    
+    // Require at least 1 meaningful message with combined length > 50 characters
+    const totalLength = meaningfulMessages.reduce((sum, msg) => sum + msg.content.length, 0);
+    return meaningfulMessages.length >= 1 && totalLength > 50;
+    
+  } catch (error) {
+    console.error('Error checking thread content:', error);
+    return false;
+  }
+};
+
+/**
+ * Generate a summary of the chat for user profiling (enhanced)
+ */
+export const generateChatSummary = async (firestoreThreadId: string, userId: string, forceGenerate: boolean = false): Promise<ChatSummary> => {
+  try {
+    // Check if thread has enough content for meaningful summary (unless forced)
+    if (!forceGenerate) {
+      const hasContent = await hasEnoughContentForSummary(firestoreThreadId);
+      if (!hasContent) {
+        throw new Error('Not enough meaningful conversation content for summary generation');
+      }
+    }
+
     // Get the OpenAI thread ID from the Firestore thread
     const threadDoc = await getDoc(doc(db, 'chatThreads', firestoreThreadId));
     
@@ -234,8 +289,8 @@ export const generateChatSummary = async (firestoreThreadId: string, userId: str
     const threadData = threadDoc.data();
     const openAIThreadId = threadData.threadId;
     
-    // Call the API to generate a summary
-    const response = await axios.post(`${apiBaseUrl}/generateChatSummary`, {
+    // Call the API to generate a summary with enhanced prompt
+    const response = await axios.post(`${apiBaseUrl}/generateDetailedChatSummary`, {
       threadId: openAIThreadId,
       assistantId: ASSISTANT_ID
     }, {
@@ -252,10 +307,13 @@ export const generateChatSummary = async (firestoreThreadId: string, userId: str
     const newSummary = {
       threadId: firestoreThreadId,
       userId,
-      summary: summary.text,
+      summary: summary.text || summary.summary || 'Career conversation in progress',
       interests: summary.interests || [],
       careerGoals: summary.careerGoals || [],
       skills: summary.skills || [],
+      learningPaths: summary.learningPaths || [],
+      reflectiveQuestions: summary.reflectiveQuestions || [],
+      enriched: true,
       createdAt: serverTimestamp()
     };
     
@@ -263,22 +321,49 @@ export const generateChatSummary = async (firestoreThreadId: string, userId: str
     
     // Update the thread with the summary
     await updateDoc(doc(db, 'chatThreads', firestoreThreadId), {
-      summary: summary.text
+      summary: newSummary.summary
     });
     
     return {
       id: docRef.id,
       threadId: firestoreThreadId,
       userId,
-      summary: summary.text,
-      interests: summary.interests || [],
-      careerGoals: summary.careerGoals || [],
-      skills: summary.skills || [],
+      summary: newSummary.summary,
+      interests: newSummary.interests,
+      careerGoals: newSummary.careerGoals,
+      skills: newSummary.skills,
+      learningPaths: newSummary.learningPaths,
+      reflectiveQuestions: newSummary.reflectiveQuestions,
+      enriched: true,
       createdAt: new Date()
     };
   } catch (error) {
     console.error('Error generating chat summary:', error);
     throw new Error('Failed to generate chat summary');
+  }
+};
+
+/**
+ * Manually generate or regenerate a summary for a thread
+ */
+export const regenerateChatSummary = async (firestoreThreadId: string, userId: string): Promise<ChatSummary> => {
+  try {
+    // Delete any existing summaries for this thread
+    const summariesRef = collection(db, 'chatSummaries');
+    const existingSummariesQuery = query(summariesRef, where('threadId', '==', firestoreThreadId));
+    const existingSummaries = await getDocs(existingSummariesQuery);
+    
+    const batch = writeBatch(db);
+    existingSummaries.docs.forEach(doc => {
+      batch.delete(doc.ref);
+    });
+    await batch.commit();
+    
+    // Generate a new summary, forcing generation regardless of content length
+    return await generateChatSummary(firestoreThreadId, userId, true);
+  } catch (error) {
+    console.error('Error regenerating chat summary:', error);
+    throw new Error('Failed to regenerate chat summary');
   }
 };
 
@@ -306,7 +391,28 @@ export const getVideoRecommendationsFromChat = async (
     
     if (querySnapshot.empty) {
       // Generate a new summary
-      summary = await generateChatSummary(firestoreThreadId, userId);
+      try {
+        summary = await generateChatSummary(firestoreThreadId, userId);
+      } catch (summaryError) {
+        console.error('Error generating chat summary:', summaryError);
+        // If we're using the emulator, we can't call the cloud function
+        // So we'll create a mock summary
+        if (window.location.hostname === 'localhost') {
+          console.log('Using mock summary for local development');
+          summary = {
+            id: 'mock-summary',
+            threadId: firestoreThreadId,
+            userId: userId,
+            summary: 'Mock summary for local development',
+            interests: ['artificial intelligence', 'chatbots', 'vector storage', 'software'],
+            careerGoals: ['build AI tools', 'create helpful AI assistants'],
+            skills: ['coding', 'using AI assistants'],
+            createdAt: new Date()
+          };
+        } else {
+          throw summaryError;
+        }
+      }
     } else {
       const summaryData = querySnapshot.docs[0].data();
       summary = {
@@ -321,22 +427,182 @@ export const getVideoRecommendationsFromChat = async (
       } as ChatSummary;
     }
     
-    // Call the API to get video recommendations based on the summary
-    const response = await axios.post(`${apiBaseUrl}/getVideoRecommendations`, {
-      userId,
-      interests: summary.interests || [],
-      careerGoals: summary.careerGoals || [],
-      skills: summary.skills || [],
-      limit: limitCount
-    }, {
-      headers: {
-        'Content-Type': 'application/json'
+    try {
+      // Call the API to get video recommendations based on the summary
+      const response = await axios.post(`${apiBaseUrl}/getVideoRecommendations`, {
+        userId,
+        interests: summary.interests || [],
+        careerGoals: summary.careerGoals || [],
+        skills: summary.skills || [],
+        limit: limitCount
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      return response.data.videoIds;
+    } catch (apiError) {
+      console.error('Error calling recommendation API:', apiError);
+      
+      // If we're using the emulator, we can't call the cloud function
+      // So we'll get videos directly from Firestore
+      if (window.location.hostname === 'localhost') {
+        console.log('Using direct Firestore query for local development');
+        
+        // Get videos that match interests or have highest view count
+        const interests = summary.interests || [];
+        
+        let videosQuery;
+        
+        if (interests.length > 0) {
+          // Try to match by category if we have interests
+          videosQuery = query(
+            collection(db, 'videos'),
+            where('category', 'in', interests.slice(0, 10)),
+            orderBy('viewCount', 'desc'),
+            firestoreLimit(limitCount)
+          );
+        } else {
+          // Otherwise just get popular videos
+          videosQuery = query(
+            collection(db, 'videos'),
+            orderBy('viewCount', 'desc'),
+            firestoreLimit(limitCount)
+          );
+        }
+        
+        const videosSnapshot = await getDocs(videosQuery);
+        
+        if (videosSnapshot.empty) {
+          console.log('No videos found in emulator');
+          return [];
+        }
+        
+        const videoIds = videosSnapshot.docs.map(doc => doc.id);
+        console.log('Found videos in emulator:', videoIds);
+        return videoIds;
+      } else {
+        throw apiError;
       }
-    });
-    
-    return response.data.videoIds;
+    }
   } catch (error) {
     console.error('Error getting video recommendations from chat:', error);
     throw new Error('Failed to get video recommendations');
+  }
+}; 
+
+/**
+ * Delete a chat thread and all associated data
+ */
+export const deleteChatThread = async (firestoreThreadId: string, userId: string): Promise<void> => {
+  try {
+    const batch = writeBatch(db);
+    
+    // 1. Delete all messages in the thread
+    const messagesRef = collection(db, 'chatThreads', firestoreThreadId, 'messages');
+    const messagesSnapshot = await getDocs(messagesRef);
+    
+    messagesSnapshot.docs.forEach(messageDoc => {
+      batch.delete(messageDoc.ref);
+    });
+    
+    // 2. Delete all summaries for this thread
+    const summariesRef = collection(db, 'chatSummaries');
+    const summariesQuery = query(summariesRef, where('threadId', '==', firestoreThreadId));
+    const summariesSnapshot = await getDocs(summariesQuery);
+    
+    summariesSnapshot.docs.forEach(summaryDoc => {
+      batch.delete(summaryDoc.ref);
+    });
+    
+    // 3. Delete any video recommendations associated with this thread
+    // (Note: This depends on how recommendations are stored - adjust as needed)
+    const videoProgressRef = collection(db, 'videoProgress');
+    const videoProgressQuery = query(
+      videoProgressRef, 
+      where('userId', '==', userId),
+      where('threadId', '==', firestoreThreadId)
+    );
+    const videoProgressSnapshot = await getDocs(videoProgressQuery);
+    
+    videoProgressSnapshot.docs.forEach(progressDoc => {
+      batch.delete(progressDoc.ref);
+    });
+    
+    // 4. Delete the thread document itself
+    const threadRef = doc(db, 'chatThreads', firestoreThreadId);
+    batch.delete(threadRef);
+    
+    // Execute all deletions in a batch
+    await batch.commit();
+    
+    console.log('Successfully deleted chat thread and all associated data:', firestoreThreadId);
+  } catch (error) {
+    console.error('Error deleting chat thread:', error);
+    throw new Error('Failed to delete chat thread');
+  }
+};
+
+/**
+ * Generate a meaningful title from chat summary
+ */
+export const generateChatTitle = (summary: ChatSummary): string => {
+  try {
+    // Use interests and career goals to create a meaningful title
+    const interests = summary.interests || [];
+    const careerGoals = summary.careerGoals || [];
+    const skills = summary.skills || [];
+    
+    // Priority order: career goals > interests > skills
+    if (careerGoals.length > 0) {
+      const primaryGoal = careerGoals[0];
+      if (interests.length > 0) {
+        return `Exploring ${primaryGoal} in ${interests[0]}`;
+      }
+      return `Career Path: ${primaryGoal}`;
+    }
+    
+    if (interests.length > 0) {
+      const primaryInterest = interests[0];
+      if (interests.length > 1) {
+        return `${primaryInterest} and ${interests[1]} Discussion`;
+      }
+      return `${primaryInterest} Exploration`;
+    }
+    
+    if (skills.length > 0) {
+      return `Developing ${skills[0]} Skills`;
+    }
+    
+    // Fallback to a portion of the summary text
+    if (summary.summary) {
+      const words = summary.summary.split(' ').slice(0, 6);
+      return words.join(' ') + (words.length === 6 ? '...' : '');
+    }
+    
+    return 'Career Conversation';
+  } catch (error) {
+    console.error('Error generating chat title:', error);
+    return 'Career Conversation';
+  }
+};
+
+/**
+ * Update chat thread title based on summary
+ */
+export const updateChatThreadTitle = async (firestoreThreadId: string, summary: ChatSummary): Promise<void> => {
+  try {
+    const newTitle = generateChatTitle(summary);
+    
+    await updateDoc(doc(db, 'chatThreads', firestoreThreadId), {
+      title: newTitle,
+      updatedAt: serverTimestamp()
+    });
+    
+    console.log('Updated chat thread title:', newTitle);
+  } catch (error) {
+    console.error('Error updating chat thread title:', error);
+    throw new Error('Failed to update chat thread title');
   }
 }; 

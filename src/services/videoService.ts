@@ -1,5 +1,5 @@
-import { collection, getDocs, query, where, doc, getDoc, addDoc, updateDoc, serverTimestamp, getCountFromServer, deleteDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { collection, getDocs, query, where, doc, getDoc, addDoc, updateDoc, serverTimestamp, getCountFromServer, deleteDoc, orderBy, limit as firestoreLimit } from 'firebase/firestore';
+import { db, getFirebaseFunctionUrl } from './firebase';
 import { User } from '../models/User';
 
 // Placeholder image URL for when thumbnails are not available
@@ -383,93 +383,205 @@ export const getUserVideoProgress = async (userId: string, videoId: string): Pro
 };
 
 // Get recommended videos based on user preferences and history
-export const getRecommendedVideos = async (user: User, limit: number = 5): Promise<Video[]> => {
+export const getRecommendedVideos = async (userId: string, limitCount: number = 4): Promise<Video[]> => {
   try {
-    // This is a simplified recommendation algorithm
-    // In a real-world application, you would implement more sophisticated logic
+    console.log(`Getting recommended videos for user: ${userId}`);
     
-    // Get user's preferred categories from profile
-    const preferredCategories = user.preferences?.interestedSectors || [];
-    
-    if (preferredCategories.length === 0) {
-      // If no preferences, return most popular videos
-      const videosRef = collection(db, 'videos');
-      const q = query(videosRef);
-      const videosSnapshot = await getDocs(q);
-      
-      const videos = videosSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      } as Video));
-      
-      // Sort by view count
-      return videos
-        .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
-        .slice(0, limit);
+    // First, try to call the Firebase Function for recommendations
+    try {
+      const response = await fetch(getFirebaseFunctionUrl('getVideoRecommendations'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId,
+          interests: [],
+          careerGoals: [],
+          skills: [],
+          limit: limitCount
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.videoIds && data.videoIds.length > 0) {
+          // Get the actual video documents
+          const videoPromises = data.videoIds.map((id: string) => getVideoById(id));
+          const videos = await Promise.all(videoPromises);
+          const validVideos = videos.filter((video): video is Video => video !== null);
+          
+          if (validVideos.length > 0) {
+            console.log(`Retrieved ${validVideos.length} recommended videos from function`);
+            return validVideos;
+          }
+        }
+      }
+    } catch (functionError) {
+      console.warn('Firebase function failed, falling back to direct query:', functionError);
     }
+
+    // If the function call failed or returned no results, fall back to direct queries
+    console.log('Falling back to direct Firestore queries...');
     
-    // Get videos from preferred categories
-    const videosRef = collection(db, 'videos');
-    const q = query(videosRef, where('category', 'in', preferredCategories));
-    const videosSnapshot = await getDocs(q);
+    // Helper function to normalize video data
+    const normalizeVideoData = (doc: any): Video => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.title || 'Untitled Video',
+        description: data.description || '',
+        category: data.category || 'General',
+        subcategory: data.subcategory || '',
+        sourceType: data.sourceType || 'youtube',
+        sourceId: data.sourceId || '',
+        sourceUrl: data.sourceUrl || '',
+        thumbnailUrl: data.thumbnailUrl || '',
+        duration: data.duration || 0,
+        creator: data.creator || 'Unknown Creator',
+        creatorUrl: data.creatorUrl || '',
+        publicationDate: data.publicationDate || data.curatedDate || new Date().toISOString(),
+        curatedDate: data.curatedDate || new Date().toISOString(),
+        tags: data.tags || [],
+        skillsHighlighted: data.skillsHighlighted || [],
+        educationRequired: data.educationRequired || [],
+        prompts: data.prompts || [],
+        relatedContent: data.relatedContent || [],
+        viewCount: data.viewCount || 0,
+        metadataStatus: data.metadataStatus || 'pending',
+        enrichmentFailed: data.enrichmentFailed || false,
+        enrichmentError: data.enrichmentError || '',
+        aiAnalysis: data.aiAnalysis || null,
+        metadata: data.metadata || null,
+        createdAt: data.createdAt || null
+      } as Video;
+    };
     
-    const videos = videosSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as Video));
+    // Strategy 1: Try to get videos ordered by viewCount
+    try {
+      const popularQuery = query(
+        collection(db, 'videos'),
+        orderBy('viewCount', 'desc'),
+        firestoreLimit(limitCount)
+      );
+      
+      const popularSnapshot = await getDocs(popularQuery);
+      
+      if (!popularSnapshot.empty) {
+        const videos = popularSnapshot.docs.map(normalizeVideoData);
+        console.log(`Retrieved ${videos.length} popular videos`);
+        return videos;
+      }
+    } catch (viewCountError) {
+      console.warn('ViewCount query failed:', viewCountError);
+    }
+
+    // Strategy 2: Try to get recent videos (ordered by createdAt or curatedDate)
+    try {
+      const recentQuery = query(
+        collection(db, 'videos'),
+        orderBy('createdAt', 'desc'),
+        firestoreLimit(limitCount)
+      );
+      
+      const recentSnapshot = await getDocs(recentQuery);
+      
+      if (!recentSnapshot.empty) {
+        const videos = recentSnapshot.docs.map(normalizeVideoData);
+        console.log(`Retrieved ${videos.length} recent videos`);
+        return videos;
+      }
+    } catch (createdAtError) {
+      console.warn('CreatedAt query failed:', createdAtError);
+    }
+
+    // Strategy 3: Just get any videos (no ordering)
+    try {
+      const anyQuery = query(collection(db, 'videos'), firestoreLimit(limitCount));
+      const anySnapshot = await getDocs(anyQuery);
+      
+      if (!anySnapshot.empty) {
+        const videos = anySnapshot.docs.map(normalizeVideoData);
+        console.log(`Retrieved ${videos.length} random videos`);
+        return videos;
+      }
+    } catch (anyError) {
+      console.warn('Any videos query failed:', anyError);
+    }
+
+    console.warn('No videos found in database');
+    return [];
     
-    // Sort by view count and return limited number
-    return videos
-      .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
-      .slice(0, limit);
   } catch (error) {
     console.error('Error fetching recommended videos:', error);
-    // Use fallback videos filtered by user preferences if available
-    try {
-      const fallbackVideos = await getAllVideos();
-      if (user.preferences?.interestedSectors && user.preferences.interestedSectors.length > 0) {
-        return fallbackVideos
-          .filter(video => user.preferences?.interestedSectors?.includes(video.category))
-          .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
-          .slice(0, limit);
-      }
-      return fallbackVideos
-        .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
-        .slice(0, limit);
-    } catch (fallbackError) {
-      console.error('Error fetching fallback videos:', fallbackError);
-      return [];
-    }
+    return [];
   }
 };
 
-// Get popular videos across all categories
-export const getPopularVideos = async (limit: number = 10): Promise<Video[]> => {
+// Get popular videos (fallback when recommendations fail)
+export const getPopularVideos = async (limitCount: number = 5): Promise<Video[]> => {
   try {
     const videosRef = collection(db, 'videos');
-    const q = query(videosRef, where('viewCount', '>', 0));
-    const videosSnapshot = await getDocs(q);
     
-    const videos = videosSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as Video[];
+    // Try to get videos ordered by view count
+    let q = query(videosRef, orderBy('viewCount', 'desc'), firestoreLimit(limitCount));
+    let videosSnapshot = await getDocs(q);
     
-    return videos
-      .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
-      .slice(0, limit);
-  } catch (error) {
-    console.error('Error fetching popular videos:', error);
-    // Use fallback videos sorted by view count
-    try {
-      const fallbackVideos = await getAllVideos();
-      return fallbackVideos
-        .sort((a, b) => (b.viewCount || 0) - (a.viewCount || 0))
-        .slice(0, limit);
-    } catch (fallbackError) {
-      console.error('Error fetching fallback videos:', fallbackError);
+    // If no videos with viewCount, try ordering by creation date
+    if (videosSnapshot.empty) {
+      try {
+        q = query(videosRef, orderBy('createdAt', 'desc'), firestoreLimit(limitCount));
+        videosSnapshot = await getDocs(q);
+      } catch (error) {
+        // If no createdAt field, just get any videos
+        q = query(videosRef, firestoreLimit(limitCount));
+        videosSnapshot = await getDocs(q);
+      }
+    }
+    
+    const videos = videosSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        title: data.title || 'Untitled Video',
+        description: data.description || '',
+        category: data.category || 'General',
+        subcategory: data.subcategory || '',
+        sourceType: data.sourceType || 'youtube',
+        sourceId: data.sourceId || '',
+        sourceUrl: data.sourceUrl || '',
+        thumbnailUrl: data.thumbnailUrl || '',
+        duration: data.duration || 0,
+        creator: data.creator || 'Unknown Creator',
+        creatorUrl: data.creatorUrl || '',
+        publicationDate: data.publicationDate || data.curatedDate || new Date().toISOString(),
+        curatedDate: data.curatedDate || new Date().toISOString(),
+        tags: data.tags || [],
+        skillsHighlighted: data.skillsHighlighted || [],
+        educationRequired: data.educationRequired || [],
+        prompts: data.prompts || [],
+        relatedContent: data.relatedContent || [],
+        viewCount: data.viewCount || 0,
+        metadataStatus: data.metadataStatus || 'pending',
+        enrichmentFailed: data.enrichmentFailed || false,
+        enrichmentError: data.enrichmentError || '',
+        aiAnalysis: data.aiAnalysis || null,
+        metadata: data.metadata || null,
+        createdAt: data.createdAt || null
+      } as Video;
+    });
+    
+    // If still no videos, return an empty array
+    if (videos.length === 0) {
+      console.warn('No videos found in database');
       return [];
     }
+    
+    console.log(`Retrieved ${videos.length} popular videos`);
+    return videos;
+  } catch (error) {
+    console.error('Error fetching popular videos:', error);
+    return [];
   }
 };
 
@@ -631,4 +743,87 @@ const extractYouTubeId = (url: string): string | null => {
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
   const match = url.match(regExp);
   return (match && match[2].length === 11) ? match[2] : null;
+}; 
+
+// Get personalized video recommendations
+export const getPersonalizedRecommendations = async (
+  userId: string, 
+  options: {
+    limit?: number;
+    includeWatched?: boolean;
+    feedbackType?: 'liked' | 'disliked' | 'saved' | null;
+    chatSummaryId?: string | null;
+  } = {}
+): Promise<Video[]> => {
+  try {
+    const { 
+      limit = 5, 
+      includeWatched = false, 
+      feedbackType = null, 
+      chatSummaryId = null 
+    } = options;
+    
+    // Use the utility function to get the correct URL
+    const functionUrl = getFirebaseFunctionUrl('getPersonalizedVideoRecommendations');
+    
+    // Get video IDs from the personalized recommendations API
+    const response = await fetch(functionUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        userId,
+        limit,
+        includeWatched,
+        feedbackType,
+        chatSummaryId
+      })
+    });
+    
+    if (!response.ok) {
+      throw new Error(`API error: ${response.status} ${response.statusText}`);
+    }
+    
+    const data = await response.json();
+    const videoIds = data.videoIds || [];
+    
+    if (videoIds.length === 0) {
+      return [];
+    }
+    
+    // Fetch the full video objects for each ID
+    const videos = await Promise.all(
+      videoIds.map(async (id: string) => {
+        try {
+          const video = await getVideoById(id);
+          return video;
+        } catch (error) {
+          console.error(`Error fetching video ${id}:`, error);
+          return null;
+        }
+      })
+    );
+    
+    // Filter out any null results (videos that couldn't be fetched)
+    return videos.filter((video): video is Video => video !== null);
+  } catch (error) {
+    console.error('Error fetching personalized recommendations:', error);
+    
+    // Fallback to regular recommendations if the API fails
+    if (userId) {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', userId));
+        if (userDoc.exists()) {
+          const userData = userDoc.data() as User;
+          return getRecommendedVideos(userId, options.limit);
+        }
+      } catch (fallbackError) {
+        console.error('Error in fallback recommendations:', fallbackError);
+      }
+    }
+    
+    // If all else fails, return popular videos
+    return getPopularVideos(options.limit);
+  }
 }; 

@@ -1,6 +1,5 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
-import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 
 // https://vitejs.dev/config/
@@ -13,29 +12,7 @@ export default defineConfig(({ mode }) => {
   
   return {
     plugins: [
-      react(),
-      VitePWA({
-        registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
-        manifest: {
-          name: 'OffScript',
-          short_name: 'OffScript',
-          description: 'Explore career paths through videos',
-          theme_color: '#ffffff',
-          icons: [
-            {
-              src: 'pwa-192x192.png',
-              sizes: '192x192',
-              type: 'image/png'
-            },
-            {
-              src: 'pwa-512x512.png',
-              sizes: '512x512',
-              type: 'image/png'
-            }
-          ]
-        }
-      })
+      react()
     ],
     resolve: {
       alias: {
@@ -52,7 +29,7 @@ export default defineConfig(({ mode }) => {
             proxy.on('error', (err, _req, _res) => {
               console.log('proxy error', err);
             });
-            proxy.on('proxyReq', (proxyReq, req, _res) => {
+            proxy.on('proxyReq', (_proxyReq, req, _res) => {
               console.log('Sending Request:', req.method, req.url);
             });
             proxy.on('proxyRes', (proxyRes, req, _res) => {

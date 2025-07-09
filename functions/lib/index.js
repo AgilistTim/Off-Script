@@ -26,7 +26,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getVideoRecommendations = exports.generateChatSummary = exports.sendChatMessage = exports.createChatThread = exports.healthCheck = exports.bumpupsProxy = exports.enrichVideoMetadata = void 0;
+exports.getPersonalizedVideoRecommendations = exports.searchVideos = exports.generateEmbedding = exports.getVideoRecommendations = exports.generateDetailedChatSummary = exports.generateChatSummary = exports.sendChatMessage = exports.createChatThread = exports.healthCheck = exports.bumpupsProxy = exports.enrichVideoMetadata = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https = __importStar(require("https"));
 const https_1 = require("firebase-functions/v2/https");
@@ -736,10 +736,143 @@ exports.generateChatSummary = (0, https_1.onRequest)({
     }
 });
 /**
+ * Generate a detailed chat summary with structured data
+ */
+exports.generateDetailedChatSummary = (0, https_1.onRequest)({
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret],
+    timeoutSeconds: 120
+}, async (request, response) => {
+    try {
+        // Only allow POST requests
+        if (request.method !== 'POST') {
+            response.status(405).json({
+                error: 'Method not allowed. Use POST only.'
+            });
+            return;
+        }
+        // Validate origin for additional security
+        const origin = request.headers.origin;
+        if (!origin || !isOriginAllowed(origin)) {
+            firebase_functions_1.logger.warn('Unauthorized origin attempted to access generateDetailedChatSummary', { origin });
+            response.status(403).json({ error: 'Origin not allowed' });
+            return;
+        }
+        // Validate request body
+        const { threadId, assistantId } = request.body;
+        if (!threadId || !assistantId) {
+            response.status(400).json({
+                error: 'Missing required fields: threadId and assistantId'
+            });
+            return;
+        }
+        // Get OpenAI API key
+        const openaiApiKey = openaiApiKeySecret.value();
+        if (!openaiApiKey) {
+            firebase_functions_1.logger.error('OpenAI API key not found in secret manager');
+            response.status(500).json({ error: 'API configuration error' });
+            return;
+        }
+        // Initialize OpenAI client
+        const openai = new openai_1.default({
+            apiKey: openaiApiKey
+        });
+        // Create a detailed summary prompt
+        const detailedSummaryPrompt = `
+        Based on our conversation so far, please create a detailed profile of the user with the following information:
+        1. A concise summary of the conversation (1-2 paragraphs)
+        2. A list of the user's interests extracted from the conversation
+        3. A list of skills the user has or wants to develop
+        4. A list of career goals mentioned or implied
+        5. Suggested learning paths based on the conversation
+        6. 3-5 reflective questions that would help the user explore their career interests further
+        
+        Format your response as a JSON object with the following keys:
+        {
+          "text": "summary text",
+          "interests": ["interest1", "interest2", ...],
+          "skills": ["skill1", "skill2", ...],
+          "careerGoals": ["goal1", "goal2", ...],
+          "learningPaths": ["path1", "path2", ...],
+          "reflectiveQuestions": ["question1", "question2", ...]
+        }
+      `;
+        // Add the summary request to the thread
+        await openai.beta.threads.messages.create(threadId, {
+            role: 'user',
+            content: detailedSummaryPrompt
+        });
+        // Run the assistant on the thread
+        const run = await openai.beta.threads.runs.create(threadId, {
+            assistant_id: assistantId
+        });
+        // Poll for the run to complete
+        let runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+        // Poll until the run is completed
+        while (runStatus.status !== 'completed') {
+            if (['failed', 'cancelled', 'expired'].includes(runStatus.status)) {
+                throw new Error(`Run failed with status: ${runStatus.status}`);
+            }
+            // Wait for a short time before polling again
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            runStatus = await openai.beta.threads.runs.retrieve(threadId, run.id);
+        }
+        // Get the assistant's response
+        const updatedMessages = await openai.beta.threads.messages.list(threadId);
+        // Find the most recent assistant message
+        const assistantMessages = updatedMessages.data.filter(msg => msg.role === 'assistant');
+        if (assistantMessages.length === 0) {
+            throw new Error('No assistant response found');
+        }
+        const latestMessage = assistantMessages[0];
+        const content = latestMessage.content[0].type === 'text'
+            ? latestMessage.content[0].text.value
+            : 'Unable to process response';
+        // Parse the JSON response
+        let summaryData;
+        try {
+            // Extract JSON from the response (it might be wrapped in code blocks)
+            const jsonMatch = content.match(/```json\s*([\s\S]*?)\s*```/) ||
+                content.match(/```\s*([\s\S]*?)\s*```/) ||
+                content.match(/{[\s\S]*}/);
+            let jsonStr;
+            if (jsonMatch) {
+                jsonStr = jsonMatch[0].replace(/```json\s*|\s*```/g, '');
+            }
+            else {
+                jsonStr = content;
+            }
+            summaryData = JSON.parse(jsonStr);
+        }
+        catch (error) {
+            firebase_functions_1.logger.error('Error parsing detailed summary JSON', error);
+            summaryData = {
+                text: content,
+                interests: [],
+                skills: [],
+                careerGoals: [],
+                learningPaths: [],
+                reflectiveQuestions: []
+            };
+        }
+        firebase_functions_1.logger.info('Generated detailed chat summary', { threadId });
+        // Return the detailed summary
+        response.status(200).json(summaryData);
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Error in generateDetailedChatSummary function', error);
+        response.status(500).json({
+            error: 'Internal server error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+/**
  * Get video recommendations based on user profile
  */
 exports.getVideoRecommendations = (0, https_1.onRequest)({
     cors: corsConfig,
+    secrets: [openaiApiKeySecret],
     timeoutSeconds: 30
 }, async (request, response) => {
     try {
@@ -758,35 +891,135 @@ exports.getVideoRecommendations = (0, https_1.onRequest)({
             return;
         }
         // Validate request body
-        // Note: careerGoals and skills are included for future enhancements
-        // but are not currently used in the recommendation algorithm
-        const { userId, interests, careerGoals: _careerGoals, skills: _skills, limit = 5 } = request.body;
+        const { userId, interests = [], careerGoals = [], skills = [], limit = 5 } = request.body;
         if (!userId) {
             response.status(400).json({
                 error: 'Missing required field: userId'
             });
             return;
         }
-        // Import Firestore
-        const { db } = require('./firestore');
-        const { collection, query, where, getDocs, limit: firestoreLimit, orderBy } = require('firebase/firestore');
-        // Get videos from Firestore
-        const videosRef = collection(db, 'videos');
-        // Build query based on user profile
+        // DEBUG: Log the request parameters
+        firebase_functions_1.logger.info('getVideoRecommendations request parameters', {
+            userId,
+            interests,
+            careerGoals,
+            skills,
+            limit
+        });
+        // Get OpenAI API key
+        const openaiApiKey = openaiApiKeySecret.value();
+        if (!openaiApiKey) {
+            firebase_functions_1.logger.error('OpenAI API key not found in secret manager');
+            response.status(500).json({ error: 'API configuration error' });
+            return;
+        }
+        // Initialize OpenAI client
+        const openai = new openai_1.default({
+            apiKey: openaiApiKey
+        });
+        // Create a combined query from user profile
+        const combinedQuery = [
+            `Interests: ${interests.join(', ')}`,
+            `Career Goals: ${careerGoals.join(', ')}`,
+            `Skills: ${skills.join(', ')}`
+        ].filter(part => !part.endsWith(': ')).join('\n');
+        // DEBUG: Check if we have a meaningful profile
+        firebase_functions_1.logger.info('Combined query for recommendations', { combinedQuery, length: combinedQuery.length });
+        // If we have a meaningful profile, use embeddings for recommendations
+        if (combinedQuery.length > 20) {
+            try {
+                // Generate embedding for the combined query
+                const embeddingResponse = await openai.embeddings.create({
+                    model: 'text-embedding-3-small',
+                    input: combinedQuery,
+                    encoding_format: 'float'
+                });
+                const queryEmbedding = embeddingResponse.data[0].embedding;
+                // Get all video embeddings from Firestore
+                const embeddingsSnapshot = await db.collection('videoEmbeddings')
+                    .where('contentType', '==', 'metadata')
+                    .get();
+                // DEBUG: Log the number of embeddings found
+                firebase_functions_1.logger.info('Video embeddings query results', {
+                    count: embeddingsSnapshot.size,
+                    empty: embeddingsSnapshot.empty
+                });
+                if (!embeddingsSnapshot.empty) {
+                    // Calculate similarity scores
+                    const similarities = embeddingsSnapshot.docs.map(doc => {
+                        const embedding = doc.data();
+                        const similarity = cosineSimilarity(queryEmbedding, embedding.embedding);
+                        return {
+                            videoId: embedding.videoId,
+                            similarity
+                        };
+                    });
+                    // Sort by similarity (highest first) and take the top results
+                    const topResults = similarities
+                        .sort((a, b) => b.similarity - a.similarity)
+                        .slice(0, limit)
+                        .map(item => item.videoId);
+                    firebase_functions_1.logger.info('Generated video recommendations using embeddings', {
+                        userId,
+                        videoCount: topResults.length,
+                        method: 'embeddings',
+                        topResults
+                    });
+                    // Return the video IDs
+                    response.status(200).json({ videoIds: topResults });
+                    return;
+                }
+                else {
+                    firebase_functions_1.logger.warn('No video embeddings found, falling back to category matching');
+                }
+            }
+            catch (embeddingError) {
+                // Log the error but continue with fallback method
+                firebase_functions_1.logger.error('Error using embeddings for recommendations, falling back to category matching', embeddingError);
+            }
+        }
+        // DEBUG: Check if we have interests to query with
+        firebase_functions_1.logger.info('Falling back to category matching', {
+            hasInterests: interests && interests.length > 0,
+            interestsCount: interests ? interests.length : 0
+        });
+        // Fallback to category matching if embeddings aren't available or profile is too sparse
         let videoQuery;
+        // Build query based on user profile
         if (interests && interests.length > 0) {
             // Query videos that match user interests
-            videoQuery = query(videosRef, where('category', 'in', interests.slice(0, 10)), // Firestore limits 'in' clauses to 10 values
-            orderBy('viewCount', 'desc'), firestoreLimit(limit));
+            videoQuery = db.collection('videos')
+                .where('category', 'in', interests.slice(0, 10)) // Firestore limits 'in' clauses to 10 values
+                .orderBy('viewCount', 'desc')
+                .limit(limit);
+            // DEBUG: Log the query parameters  
+            firebase_functions_1.logger.info('Category-based query', {
+                categories: interests.slice(0, 10),
+                limit
+            });
         }
         else {
             // Get popular videos if no interests are specified
-            videoQuery = query(videosRef, orderBy('viewCount', 'desc'), firestoreLimit(limit));
+            videoQuery = db.collection('videos')
+                .orderBy('viewCount', 'desc')
+                .limit(limit);
+            // DEBUG: Log that we're using a fallback query
+            firebase_functions_1.logger.info('Using fallback query (popular videos)', { limit });
         }
-        const videosSnapshot = await getDocs(videoQuery);
+        const videosSnapshot = await videoQuery.get();
+        // DEBUG: Log the query results
+        firebase_functions_1.logger.info('Video query results', {
+            count: videosSnapshot.size,
+            empty: videosSnapshot.empty
+        });
         // Extract video IDs
         const videoIds = videosSnapshot.docs.map((doc) => doc.id);
-        firebase_functions_1.logger.info('Generated video recommendations', { userId, videoCount: videoIds.length });
+        firebase_functions_1.logger.info('Generated video recommendations using category matching', {
+            userId,
+            videoCount: videoIds.length,
+            method: 'category',
+            videoIds
+        });
         // Return the video IDs
         response.status(200).json({ videoIds });
     }
@@ -798,4 +1031,407 @@ exports.getVideoRecommendations = (0, https_1.onRequest)({
         });
     }
 });
+/**
+ * Generate embeddings for text using OpenAI API
+ */
+exports.generateEmbedding = (0, https_1.onRequest)({
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret],
+    timeoutSeconds: 30
+}, async (request, response) => {
+    try {
+        // Only allow POST requests
+        if (request.method !== 'POST') {
+            response.status(405).json({
+                error: 'Method not allowed. Use POST only.'
+            });
+            return;
+        }
+        // Validate origin for additional security
+        const origin = request.headers.origin;
+        if (!origin || !isOriginAllowed(origin)) {
+            firebase_functions_1.logger.warn('Unauthorized origin attempted to access generateEmbedding', { origin });
+            response.status(403).json({ error: 'Origin not allowed' });
+            return;
+        }
+        // Validate request body
+        const { text, model = 'text-embedding-3-small' } = request.body;
+        if (!text) {
+            response.status(400).json({
+                error: 'Missing required field: text'
+            });
+            return;
+        }
+        // Get OpenAI API key
+        const openaiApiKey = openaiApiKeySecret.value();
+        if (!openaiApiKey) {
+            firebase_functions_1.logger.error('OpenAI API key not found in secret manager');
+            response.status(500).json({ error: 'API configuration error' });
+            return;
+        }
+        // Initialize OpenAI client
+        const openai = new openai_1.default({
+            apiKey: openaiApiKey
+        });
+        // Generate embedding
+        const embeddingResponse = await openai.embeddings.create({
+            model: model,
+            input: text,
+            encoding_format: 'float'
+        });
+        // Return the embedding
+        response.status(200).json({
+            embedding: embeddingResponse.data[0].embedding,
+            model: embeddingResponse.model,
+            object: embeddingResponse.object
+        });
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Error in generateEmbedding function', error);
+        response.status(500).json({
+            error: 'Internal server error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+/**
+ * Search for videos based on semantic similarity to a query
+ */
+exports.searchVideos = (0, https_1.onRequest)({
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret],
+    timeoutSeconds: 30
+}, async (request, response) => {
+    try {
+        // Only allow POST requests
+        if (request.method !== 'POST') {
+            response.status(405).json({
+                error: 'Method not allowed. Use POST only.'
+            });
+            return;
+        }
+        // Validate origin for additional security
+        const origin = request.headers.origin;
+        if (!origin || !isOriginAllowed(origin)) {
+            firebase_functions_1.logger.warn('Unauthorized origin attempted to access searchVideos', { origin });
+            response.status(403).json({ error: 'Origin not allowed' });
+            return;
+        }
+        // Validate request body
+        const { query, limit = 5, model = 'text-embedding-3-small' } = request.body;
+        if (!query) {
+            response.status(400).json({
+                error: 'Missing required field: query'
+            });
+            return;
+        }
+        // Get OpenAI API key
+        const openaiApiKey = openaiApiKeySecret.value();
+        if (!openaiApiKey) {
+            firebase_functions_1.logger.error('OpenAI API key not found in secret manager');
+            response.status(500).json({ error: 'API configuration error' });
+            return;
+        }
+        // Initialize OpenAI client
+        const openai = new openai_1.default({
+            apiKey: openaiApiKey
+        });
+        // Generate embedding for the query
+        const embeddingResponse = await openai.embeddings.create({
+            model: model,
+            input: query,
+            encoding_format: 'float'
+        });
+        const queryEmbedding = embeddingResponse.data[0].embedding;
+        // Get all video embeddings from Firestore
+        const embeddingsSnapshot = await db.collection('videoEmbeddings')
+            .where('contentType', '==', 'metadata')
+            .get();
+        if (embeddingsSnapshot.empty) {
+            response.status(200).json({ videoIds: [] });
+            return;
+        }
+        // Calculate similarity scores
+        const similarities = embeddingsSnapshot.docs.map(doc => {
+            const embedding = doc.data();
+            const similarity = cosineSimilarity(queryEmbedding, embedding.embedding);
+            return {
+                videoId: embedding.videoId,
+                similarity
+            };
+        });
+        // Sort by similarity (highest first) and take the top results
+        const topResults = similarities
+            .sort((a, b) => b.similarity - a.similarity)
+            .slice(0, limit)
+            .map(item => item.videoId);
+        // Return the video IDs
+        response.status(200).json({ videoIds: topResults });
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Error in searchVideos function', error);
+        response.status(500).json({
+            error: 'Internal server error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+/**
+ * Get personalized video recommendations based on user preferences and chat history
+ */
+exports.getPersonalizedVideoRecommendations = (0, https_1.onRequest)({
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret],
+    timeoutSeconds: 30
+}, async (request, response) => {
+    try {
+        // Only allow POST requests
+        if (request.method !== 'POST') {
+            response.status(405).json({
+                error: 'Method not allowed. Use POST only.'
+            });
+            return;
+        }
+        // Validate origin for additional security
+        const origin = request.headers.origin;
+        if (!origin || !isOriginAllowed(origin)) {
+            firebase_functions_1.logger.warn('Unauthorized origin attempted to access getPersonalizedVideoRecommendations', { origin });
+            response.status(403).json({ error: 'Origin not allowed' });
+            return;
+        }
+        // Validate request body
+        const { userId, limit = 5, includeWatched = false, feedbackType = null, // null, 'liked', 'disliked', 'saved'
+        chatSummaryId = null } = request.body;
+        if (!userId) {
+            response.status(400).json({
+                error: 'Missing required field: userId'
+            });
+            return;
+        }
+        // Get OpenAI API key
+        const openaiApiKey = openaiApiKeySecret.value();
+        if (!openaiApiKey) {
+            firebase_functions_1.logger.error('OpenAI API key not found in secret manager');
+            response.status(500).json({ error: 'API configuration error' });
+            return;
+        }
+        // Initialize OpenAI client
+        const openai = new openai_1.default({
+            apiKey: openaiApiKey
+        });
+        // Get user preferences
+        const userPrefsSnapshot = await db.collection('userPreferences').doc(userId).get();
+        const userPrefs = userPrefsSnapshot.exists ? userPrefsSnapshot.data() : {};
+        // Get user watch history
+        const watchHistorySnapshot = await db.collection('userActivity')
+            .doc(userId)
+            .collection('watchHistory')
+            .orderBy('timestamp', 'desc')
+            .limit(20)
+            .get();
+        const watchedVideoIds = watchHistorySnapshot.docs.map(doc => doc.data().videoId);
+        // Get user feedback (likes, dislikes, saves)
+        const userFeedbackSnapshot = await db.collection('userActivity')
+            .doc(userId)
+            .collection('videoFeedback')
+            .get();
+        const videoFeedback = userFeedbackSnapshot.docs.reduce((acc, doc) => {
+            const data = doc.data();
+            acc[doc.id] = {
+                liked: data.liked || false,
+                disliked: data.disliked || false,
+                saved: data.saved || false
+            };
+            return acc;
+        }, {});
+        // Get chat summary if provided
+        let chatSummary = null;
+        if (chatSummaryId) {
+            const chatSummarySnapshot = await db.collection('chatSummaries').doc(chatSummaryId).get();
+            if (chatSummarySnapshot.exists) {
+                chatSummary = chatSummarySnapshot.data();
+            }
+        }
+        // If no chat summary provided, get the most recent one
+        if (!chatSummary) {
+            const recentSummariesSnapshot = await db.collection('chatSummaries')
+                .where('userId', '==', userId)
+                .orderBy('createdAt', 'desc')
+                .limit(1)
+                .get();
+            if (!recentSummariesSnapshot.empty) {
+                chatSummary = recentSummariesSnapshot.docs[0].data();
+            }
+        }
+        // Extract interests, skills, and career goals from chat summary
+        const interests = chatSummary?.interests || userPrefs?.interests || [];
+        const skills = chatSummary?.skills || userPrefs?.skills || [];
+        const careerGoals = chatSummary?.careerGoals || userPrefs?.careerGoals || [];
+        const learningPaths = chatSummary?.learningPaths || [];
+        // Build a combined profile for recommendations
+        const combinedProfile = [
+            `Interests: ${interests.join(', ')}`,
+            `Skills: ${skills.join(', ')}`,
+            `Career Goals: ${careerGoals.join(', ')}`,
+            `Learning Paths: ${learningPaths.join(', ')}`
+        ].filter(part => !part.endsWith(': ')).join('\n');
+        firebase_functions_1.logger.info('Combined profile for personalized recommendations', {
+            profileLength: combinedProfile.length,
+            interestsCount: interests.length,
+            skillsCount: skills.length,
+            goalsCount: careerGoals.length
+        });
+        // If we have a meaningful profile, use embeddings for recommendations
+        if (combinedProfile.length > 20) {
+            try {
+                // Generate embedding for the combined profile
+                const embeddingResponse = await openai.embeddings.create({
+                    model: 'text-embedding-3-small',
+                    input: combinedProfile,
+                    encoding_format: 'float'
+                });
+                const profileEmbedding = embeddingResponse.data[0].embedding;
+                // Get all video embeddings from Firestore
+                const embeddingsSnapshot = await db.collection('videoEmbeddings')
+                    .where('contentType', '==', 'metadata')
+                    .get();
+                if (!embeddingsSnapshot.empty) {
+                    // Calculate similarity scores
+                    const similarities = embeddingsSnapshot.docs.map(doc => {
+                        const embedding = doc.data();
+                        const similarity = cosineSimilarity(profileEmbedding, embedding.embedding);
+                        // Apply feedback adjustments
+                        let adjustedScore = similarity;
+                        const feedback = videoFeedback[embedding.videoId];
+                        if (feedback) {
+                            if (feedback.liked)
+                                adjustedScore *= 1.2; // Boost liked videos
+                            if (feedback.disliked)
+                                adjustedScore *= 0.5; // Reduce disliked videos
+                            if (feedback.saved)
+                                adjustedScore *= 1.3; // Boost saved videos
+                            // If filtering by feedback type
+                            if (feedbackType === 'liked' && !feedback.liked)
+                                adjustedScore = 0;
+                            if (feedbackType === 'disliked' && !feedback.disliked)
+                                adjustedScore = 0;
+                            if (feedbackType === 'saved' && !feedback.saved)
+                                adjustedScore = 0;
+                        }
+                        // Exclude watched videos if requested
+                        if (!includeWatched && watchedVideoIds.includes(embedding.videoId)) {
+                            adjustedScore = 0;
+                        }
+                        return {
+                            videoId: embedding.videoId,
+                            similarity: adjustedScore
+                        };
+                    });
+                    // Sort by adjusted similarity (highest first) and take the top results
+                    const topResults = similarities
+                        .filter(item => item.similarity > 0) // Remove excluded videos
+                        .sort((a, b) => b.similarity - a.similarity)
+                        .slice(0, limit)
+                        .map(item => item.videoId);
+                    firebase_functions_1.logger.info('Generated personalized video recommendations using embeddings', {
+                        userId,
+                        videoCount: topResults.length,
+                        method: 'embeddings',
+                        topResults
+                    });
+                    // Return the video IDs
+                    response.status(200).json({
+                        videoIds: topResults,
+                        method: 'embeddings',
+                        profileUsed: true
+                    });
+                    return;
+                }
+            }
+            catch (embeddingError) {
+                // Log the error but continue with fallback method
+                firebase_functions_1.logger.error('Error using embeddings for personalized recommendations, falling back to category matching', embeddingError);
+            }
+        }
+        // Fallback to category matching
+        let videoQuery;
+        if (interests && interests.length > 0) {
+            // Query videos that match user interests
+            videoQuery = db.collection('videos')
+                .where('category', 'in', interests.slice(0, 10)) // Firestore limits 'in' clauses to 10 values
+                .orderBy('viewCount', 'desc')
+                .limit(limit * 2); // Get more than needed to filter out watched videos
+        }
+        else {
+            // Get popular videos if no interests are specified
+            videoQuery = db.collection('videos')
+                .orderBy('viewCount', 'desc')
+                .limit(limit * 2);
+        }
+        const videosSnapshot = await videoQuery.get();
+        // Filter out watched videos if requested
+        let videoIds = videosSnapshot.docs.map((doc) => doc.id);
+        if (!includeWatched) {
+            videoIds = videoIds.filter(id => !watchedVideoIds.includes(id));
+        }
+        // Apply feedback filters if requested
+        if (feedbackType) {
+            videoIds = videoIds.filter(id => {
+                const feedback = videoFeedback[id];
+                if (!feedback)
+                    return false;
+                if (feedbackType === 'liked')
+                    return feedback.liked;
+                if (feedbackType === 'disliked')
+                    return feedback.disliked;
+                if (feedbackType === 'saved')
+                    return feedback.saved;
+                return true;
+            });
+        }
+        // Limit to requested number
+        videoIds = videoIds.slice(0, limit);
+        firebase_functions_1.logger.info('Generated personalized video recommendations using category matching', {
+            userId,
+            videoCount: videoIds.length,
+            method: 'category',
+            videoIds
+        });
+        // Return the video IDs
+        response.status(200).json({
+            videoIds,
+            method: 'category',
+            profileUsed: interests.length > 0
+        });
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Error in getPersonalizedVideoRecommendations function', error);
+        response.status(500).json({
+            error: 'Internal server error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+/**
+ * Calculate cosine similarity between two vectors
+ */
+function cosineSimilarity(vecA, vecB) {
+    if (vecA.length !== vecB.length) {
+        return 0; // Return 0 similarity for vectors of different lengths
+    }
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    for (let i = 0; i < vecA.length; i++) {
+        dotProduct += vecA[i] * vecB[i];
+        normA += vecA[i] * vecA[i];
+        normB += vecB[i] * vecB[i];
+    }
+    normA = Math.sqrt(normA);
+    normB = Math.sqrt(normB);
+    if (normA === 0 || normB === 0) {
+        return 0;
+    }
+    return dotProduct / (normA * normB);
+}
 //# sourceMappingURL=index.js.map

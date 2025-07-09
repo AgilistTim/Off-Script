@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, initializeFirestore, connectFirestoreEmulator, Firestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, Firestore } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
 import { firebaseConfig, isProduction, isDevelopment } from '../config/environment';
@@ -26,29 +26,27 @@ declare global {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with appropriate settings based on environment
-let db: Firestore;
+// Initialize Firestore - always connect to production database
+const db: Firestore = initializeFirestore(app, {
+  ignoreUndefinedProperties: true,     // Ignore undefined properties to prevent errors
+  experimentalForceLongPolling: true,  // Force long polling instead of WebSockets to avoid CORS issues
+  experimentalAutoDetectLongPolling: false  // Disable auto-detection since we're forcing long polling
+});
 
-if (isDevelopment && false) { // Temporarily disable emulator connection
-  // Use default settings for development with emulator
-  db = getFirestore(app);
+console.log('🔄 Connected to Firestore production database');
+
+// Utility function to get the correct Firebase function URL
+export const getFirebaseFunctionUrl = (functionName: string): string => {
+  const isLocalhost = window.location.hostname === 'localhost';
+  const projectId = firebaseConfig.projectId || 'offscript-8f6eb';
   
-  // Connect to Firestore emulator
-  try {
-    connectFirestoreEmulator(db, 'localhost', 8080);
-    console.log('🔄 Connected to Firestore emulator');
-  } catch (error) {
-    console.warn('⚠️ Failed to connect to Firestore emulator:', error);
+  if (isLocalhost && isDevelopment) {
+    // For local development, use the deployed functions (not emulator)
+    return `https://us-central1-${projectId}.cloudfunctions.net/${functionName}`;
+  } else {
+    return `/${functionName}`; // In production, we use relative URLs that are handled by the hosting config
   }
-} else {
-  // Use optimized settings for production to avoid CORS issues
-  db = initializeFirestore(app, {
-    ignoreUndefinedProperties: true,     // Ignore undefined properties to prevent errors
-    experimentalForceLongPolling: true,  // Force long polling instead of WebSockets to avoid CORS issues
-    experimentalAutoDetectLongPolling: false  // Disable auto-detection since we're forcing long polling
-  });
-  console.log('🔄 Connected to Firestore production');
-}
+};
 
 export { db };
 export const auth = getAuth(app);

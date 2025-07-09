@@ -2,15 +2,20 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { MessageCircle, Plus, Loader2, ArrowUp, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useChatContext } from '../context/ChatContext';
+import { MessageList } from '../components/ui/message-list';
+import { 
+  ArrowUp, 
+  MessageCircle, 
+  Plus, 
+  Loader2, 
+  Sparkles,
+  Trash2,
+  X,
+  RefreshCw
+} from 'lucide-react';
 import { Link } from 'react-router-dom';
-
-// Import shadcn/ui components
-import { ChatContainer } from "@/components/ui/chat";
-import { MessageInput } from "@/components/ui/message-input";
-import { MessageList } from "@/components/ui/message-list";
 
 const AIChat: React.FC = () => {
   const { currentUser } = useAuth();
@@ -22,7 +27,10 @@ const AIChat: React.FC = () => {
     isTyping, 
     sendMessage, 
     createNewThread, 
-    selectThread,
+    selectThread, 
+    deleteThread,
+    currentSummary,
+    regenerateSummary,
     newRecommendations,
     clearNewRecommendationsFlag
   } = useChatContext();
@@ -30,6 +38,7 @@ const AIChat: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
   const [showThreads, setShowThreads] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{threadId: string, title: string} | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Auto-scroll to bottom of messages
@@ -93,6 +102,27 @@ const AIChat: React.FC = () => {
     setShowThreads(false);
   };
 
+  const handleDeleteThread = async (threadId: string, title: string) => {
+    setDeleteConfirmation({ threadId, title });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteConfirmation) return;
+    
+    try {
+      await deleteThread(deleteConfirmation.threadId);
+      setDeleteConfirmation(null);
+      setShowThreads(false); // Close the dropdown after deletion
+    } catch (error) {
+      console.error('Error deleting thread:', error);
+      // Could add error toast here
+    }
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirmation(null);
+  };
+
   // Convert our message format to the format expected by MessageList
   const formattedMessages = messages.map(msg => ({
     id: msg.id,
@@ -106,35 +136,47 @@ const AIChat: React.FC = () => {
     if (!newRecommendations) return null;
     
     return (
-      <div className="fixed bottom-24 right-4 max-w-sm z-50">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 border-l-4 border-amber-500 animate-fade-in-right">
+      <div className="fixed bottom-6 right-6 max-w-sm z-[100]">
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-5 border border-gray-200 dark:border-gray-600 animate-slide-in-bottom">
           <div className="flex items-start">
             <div className="flex-shrink-0 pt-0.5">
-              <Sparkles className="h-5 w-5 text-amber-500" />
+              <div className="w-8 h-8 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full flex items-center justify-center">
+                <Sparkles className="h-4 w-4 text-white" />
+              </div>
             </div>
             <div className="ml-3 w-0 flex-1">
-              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                New recommendations available!
+              <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                🎯 New recommendations available!
               </p>
-              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Check your dashboard for personalized video suggestions.
+              <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
+                Check your dashboard for personalized video suggestions based on your conversation.
               </p>
-              <div className="mt-2 flex">
+              <div className="mt-4 flex flex-col sm:flex-row gap-2">
                 <Link
                   to="/dashboard"
-                  className="inline-flex items-center px-3 py-2 border border-transparent text-xs leading-4 font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  className="inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
                   onClick={clearNewRecommendationsFlag}
                 >
                   View Recommendations
                 </Link>
                 <button
                   type="button"
-                  className="ml-3 inline-flex items-center px-3 py-2 border border-gray-300 shadow-sm text-xs leading-4 font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-200 dark:border-gray-600 dark:hover:bg-gray-600"
+                  className="inline-flex items-center justify-center px-4 py-2 border border-gray-300 dark:border-gray-600 shadow-sm text-sm font-medium rounded-lg text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200"
                   onClick={clearNewRecommendationsFlag}
                 >
                   Dismiss
                 </button>
               </div>
+            </div>
+            <div className="ml-2">
+              <button
+                type="button"
+                className="inline-flex rounded-md text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                onClick={clearNewRecommendationsFlag}
+              >
+                <span className="sr-only">Close</span>
+                <X className="h-5 w-5" />
+              </button>
             </div>
           </div>
         </div>
@@ -159,15 +201,34 @@ const AIChat: React.FC = () => {
             <p className="text-sm text-gray-500 dark:text-gray-400">
               {currentThread ? currentThread.title : 'Ask questions, reflect on videos, or get help with career planning'}
             </p>
+            {currentSummary && (
+              <div className="text-xs text-green-600 dark:text-green-400 mt-1">
+                Summary: {currentSummary.interests.length} interests, {currentSummary.skills.length} skills, {currentSummary.careerGoals.length} goals
+              </div>
+            )}
           </div>
           
-          {/* Thread selection button */}
-          <button 
-            onClick={() => setShowThreads(!showThreads)}
-            className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
-          >
-            <MessageCircle size={20} />
-          </button>
+          <div className="flex items-center space-x-2">
+            {/* Regenerate summary button */}
+            {currentThread && messages.length > 0 && (
+              <button
+                onClick={regenerateSummary}
+                disabled={isLoading}
+                className="p-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-colors disabled:opacity-50"
+                title="Regenerate summary from conversation"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            )}
+            
+            {/* Thread selection button */}
+            <button 
+              onClick={() => setShowThreads(!showThreads)}
+              className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+            >
+              <MessageCircle size={20} />
+            </button>
+          </div>
         </div>
         
         {/* Thread selection dropdown */}
@@ -186,26 +247,76 @@ const AIChat: React.FC = () => {
             <div className="p-2">
               {threads.length > 0 ? (
                 threads.map(thread => (
-                  <button
-                    key={thread.id}
-                    onClick={() => handleThreadSelect(thread.id)}
-                    className={`w-full p-2 mb-1 flex flex-col text-left rounded-md ${
-                      currentThread?.id === thread.id 
-                        ? 'bg-blue-50 dark:bg-blue-900/30' 
-                        : 'hover:bg-gray-100 dark:hover:bg-gray-700'
-                    }`}
-                  >
-                    <span className="font-medium truncate">{thread.title}</span>
-                    <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                      {thread.lastMessage || 'No messages'}
-                    </span>
-                  </button>
+                  <div key={thread.id} className="group relative">
+                    <button
+                      onClick={() => handleThreadSelect(thread.id)}
+                      className={`w-full p-2 mb-1 flex flex-col text-left rounded-md pr-8 ${
+                        currentThread?.id === thread.id 
+                          ? 'bg-blue-50 dark:bg-blue-900/30' 
+                          : 'hover:bg-gray-100 dark:hover:bg-gray-700'
+                      }`}
+                    >
+                      <span className="font-medium truncate">{thread.title}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                        {thread.lastMessage || 'No messages'}
+                      </span>
+                    </button>
+                    
+                    {/* Delete button */}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteThread(thread.id, thread.title);
+                      }}
+                      className="absolute top-1/2 -translate-y-1/2 right-2 p-1 opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded"
+                      title="Delete conversation"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
                 ))
               ) : (
                 <p className="text-sm text-gray-500 dark:text-gray-400 p-2">
                   No conversations yet
                 </p>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Delete confirmation dialog */}
+        {deleteConfirmation && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center mb-4">
+                <div className="flex-shrink-0 w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center">
+                  <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+                </div>
+                <div className="ml-4">
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                    Delete Conversation
+                  </h3>
+                </div>
+              </div>
+              
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+                Are you sure you want to delete "{deleteConfirmation.title}"? This will permanently remove the conversation, all messages, summary data, and any associated recommendations. This action cannot be undone.
+              </p>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  onClick={cancelDelete}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-600 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                >
+                  Delete
+                </button>
+              </div>
             </div>
           </div>
         )}

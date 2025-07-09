@@ -3,14 +3,33 @@ import { useAuth } from './AuthContext';
 import { 
   ChatMessage, 
   ChatThread as ChatThreadBase,
+  ChatSummary,
   createThread, 
   createChatThreadInFirestore, 
   getUserChatThreads, 
   sendMessage as sendMessageToAssistant, 
   storeMessage, 
   getChatMessages,
-  getVideoRecommendationsFromChat
+  getVideoRecommendationsFromChat,
+  deleteChatThread,
+  updateChatThreadTitle,
+  regenerateChatSummary,
+  hasEnoughContentForSummary
 } from '../services/chatService';
+import { db, getFirebaseFunctionUrl } from '../services/firebase';
+import { 
+  collection, 
+  query, 
+  where, 
+  orderBy, 
+  limit as firestoreLimit, 
+  getDocs, 
+  DocumentData, 
+  onSnapshot,
+  Timestamp,
+  doc,
+  getDoc
+} from 'firebase/firestore';
 
 // OpenAI Assistant ID
 const ASSISTANT_ID = 'asst_b6kBes7rHBC9gA4yJ9I5r5zm';
@@ -28,11 +47,16 @@ interface ChatContextType {
   isTyping: boolean;
   hasRecommendations: boolean;
   newRecommendations: boolean;
+  currentSummary: ChatSummary | null;
+  summaryUpdated: boolean;
   sendMessage: (message: string) => Promise<void>;
   createNewThread: () => Promise<string | undefined>;
   selectThread: (threadId: string) => Promise<void>;
+  deleteThread: (threadId: string) => Promise<void>;
   getRecommendedVideos: (limit?: number) => Promise<string[]>;
   clearNewRecommendationsFlag: () => void;
+  clearSummaryUpdatedFlag: () => void;
+  regenerateSummary: () => Promise<void>;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -54,6 +78,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isTyping, setIsTyping] = useState<boolean>(false);
   const [hasRecommendations, setHasRecommendations] = useState<boolean>(false);
   const [newRecommendations, setNewRecommendations] = useState<boolean>(false);
+  const [currentSummary, setCurrentSummary] = useState<ChatSummary | null>(null);
+  const [summaryUpdated, setSummaryUpdated] = useState<boolean>(false);
   
   // Fetch user's chat threads
   const fetchThreads = useCallback(async () => {
@@ -83,6 +109,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Load messages for this thread
           const threadMessages = await getChatMessages(threadToSelect.id);
           setMessages(threadMessages);
+          
+          // Fetch the current summary for this thread
+          await fetchThreadSummary(threadToSelect.id);
         } catch (error) {
           console.warn('Could not select initial thread:', error);
           // Don't rethrow, just continue
@@ -102,20 +131,188 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     fetchThreads();
   }, [currentUser, fetchThreads]);
   
-  // Load messages for the current thread
-  const loadMessages = async () => {
-    if (!currentThread) return;
+  // Set up real-time listener for chat threads
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    // Create a query for this user's chat threads
+    const threadsRef = collection(db, 'chatThreads');
+    const threadsQuery = query(
+      threadsRef,
+      where('userId', '==', currentUser.uid),
+      orderBy('updatedAt', 'desc')
+    );
+    
+    // Set up the listener
+    const unsubscribe = onSnapshot(threadsQuery, (snapshot) => {
+      const updatedThreads = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          userId: data.userId,
+          title: data.title,
+          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(),
+          updatedAt: data.updatedAt instanceof Timestamp ? data.updatedAt.toDate() : new Date(),
+          summary: data.summary,
+          lastMessage: data.lastMessage,
+          threadId: data.threadId
+        } as ChatThread;
+      });
+      
+      setThreads(updatedThreads);
+    }, (error) => {
+      console.error('Error in threads listener:', error);
+    });
+    
+    // Clean up listener on unmount
+    return () => unsubscribe();
+  }, [currentUser]);
+  
+  // Fetch the chat summary for a thread
+  const fetchThreadSummary = async (threadId: string) => {
+    if (!currentUser) return null;
     
     try {
-      setIsLoading(true);
-      const threadMessages = await getChatMessages(currentThread.id);
-      setMessages(threadMessages);
-      setIsLoading(false);
+      // Query Firestore for the latest summary for this thread
+      const summariesRef = collection(db, 'chatSummaries');
+      const q = query(
+        summariesRef,
+        where('threadId', '==', threadId),
+        orderBy('createdAt', 'desc'),
+        firestoreLimit(1)
+      );
+      
+      const snapshot = await getDocs(q);
+      
+      if (snapshot.empty) {
+        console.log('No summary found for thread:', threadId);
+        setCurrentSummary(null);
+        return null;
+      }
+      
+      const summaryDoc = snapshot.docs[0];
+      const summaryData = summaryDoc.data();
+      
+      const summary: ChatSummary = {
+        id: summaryDoc.id,
+        threadId: summaryData.threadId,
+        userId: summaryData.userId,
+        summary: summaryData.summary || '',
+        interests: summaryData.interests || [],
+        careerGoals: summaryData.careerGoals || [],
+        skills: summaryData.skills || [],
+        createdAt: summaryData.createdAt?.toDate() || new Date(),
+        learningPaths: summaryData.learningPaths || [],
+        reflectiveQuestions: summaryData.reflectiveQuestions || [],
+        enriched: summaryData.enriched || false
+      };
+      
+      console.log('Fetched summary for thread:', threadId, summary);
+      setCurrentSummary(summary);
+      return summary;
     } catch (error) {
-      console.error('Error loading messages:', error);
-      setIsLoading(false);
+      console.error('Error fetching thread summary:', error);
+      setCurrentSummary(null);
+      return null;
     }
   };
+  
+  // Set up real-time listener for the current thread's summary
+  useEffect(() => {
+    if (!currentUser || !currentThread) return;
+    
+    // Create a query for this thread's summaries
+    const summariesRef = collection(db, 'chatSummaries');
+    const summariesQuery = query(
+      summariesRef,
+      where('threadId', '==', currentThread.id),
+      orderBy('createdAt', 'desc'),
+      firestoreLimit(1)
+    );
+    
+    // Set up the listener
+    const unsubscribe = onSnapshot(summariesQuery, async (snapshot) => {
+      if (snapshot.empty) {
+        console.log('No summary found in real-time listener');
+        return;
+      }
+      
+      const summaryDoc = snapshot.docs[0];
+      const summaryData = summaryDoc.data();
+      
+      const summary: ChatSummary = {
+        id: summaryDoc.id,
+        threadId: summaryData.threadId,
+        userId: summaryData.userId,
+        summary: summaryData.summary || '',
+        interests: summaryData.interests || [],
+        careerGoals: summaryData.careerGoals || [],
+        skills: summaryData.skills || [],
+        createdAt: summaryData.createdAt?.toDate() || new Date(),
+        learningPaths: summaryData.learningPaths || [],
+        reflectiveQuestions: summaryData.reflectiveQuestions || [],
+        enriched: summaryData.enriched || false
+      };
+      
+      console.log('Real-time summary update:', summary);
+      setCurrentSummary(summary);
+      setSummaryUpdated(true);
+      
+      // Auto-update thread title based on summary
+      try {
+        await updateChatThreadTitle(currentThread.id, summary);
+        // Refresh threads to show updated title
+        fetchThreads();
+      } catch (error) {
+        console.error('Error updating chat thread title:', error);
+      }
+      
+      // If the summary was enriched, check for recommendations
+      if (summary.enriched) {
+        getRecommendedVideos(1).then(videos => {
+          setHasRecommendations(videos.length > 0);
+          if (videos.length > 0) {
+            setNewRecommendations(true);
+          }
+        }).catch(error => {
+          console.error('Error checking for recommendations after summary update:', error);
+        });
+      }
+    }, (error) => {
+      console.error('Error in summary listener:', error);
+    });
+    
+    // Clean up listener on unmount or when thread changes
+    return () => unsubscribe();
+  }, [currentUser, currentThread, fetchThreads]);
+  
+  // Set up real-time listener for messages in the current thread
+  useEffect(() => {
+    if (!currentThread) return;
+    
+    const messagesRef = collection(db, 'chatThreads', currentThread.id, 'messages');
+    const messagesQuery = query(messagesRef, orderBy('timestamp', 'asc'));
+    
+    const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+      const updatedMessages = snapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          content: data.content,
+          role: data.role,
+          timestamp: data.timestamp instanceof Timestamp ? data.timestamp.toDate() : new Date(),
+          threadId: data.threadId,
+          runId: data.runId
+        } as ChatMessage;
+      });
+      
+      setMessages(updatedMessages);
+    }, (error) => {
+      console.error('Error in messages listener:', error);
+    });
+    
+    return () => unsubscribe();
+  }, [currentThread]);
   
   // Create a new thread
   const createNewThread = async () => {
@@ -137,48 +334,30 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('Created Firestore thread:', firestoreThreadId, 'with OpenAI threadId:', openAIThreadId);
       
-      // Get the thread details
-      const newThreads = await getUserChatThreads(currentUser.uid);
+      // Create thread object immediately
+      const newThread: ChatThread = {
+        id: firestoreThreadId,
+        threadId: openAIThreadId,
+        userId: currentUser.uid,
+        title: 'New Conversation',
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
       
-      // Process threads to ensure threadId is set
-      const processedThreads = newThreads.map(thread => {
-        return {
-          ...thread,
-          threadId: thread.threadId || ''
-        } as ChatThread;
-      });
+      setCurrentThread(newThread);
       
-      setThreads(processedThreads);
-      
-      // Find and set the current thread
-      const newThread = processedThreads.find(t => t.id === firestoreThreadId);
-      if (newThread) {
-        // Ensure the OpenAI threadId is set
-        newThread.threadId = openAIThreadId;
-        setCurrentThread(newThread);
-        console.log('Set current thread:', newThread);
-      } else {
-        // If thread not found in the fetched threads, create a new one with the known IDs
-        const fallbackThread: ChatThread = {
-          id: firestoreThreadId,
-          threadId: openAIThreadId,
-          userId: currentUser.uid,
-          title: 'New Conversation',
-          createdAt: new Date(),
-          updatedAt: new Date()
-        };
-        setCurrentThread(fallbackThread);
-        console.log('Set fallback thread:', fallbackThread);
-      }
-      
-      // Clear messages
+      // Clear messages and summary
       setMessages([]);
+      setCurrentSummary(null);
       
       // Reset recommendations state for new thread
       setHasRecommendations(false);
       setNewRecommendations(false);
       
       setIsLoading(false);
+      
+      // Refresh threads list
+      fetchThreads();
       
       return firestoreThreadId;
     } catch (error) {
@@ -207,10 +386,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Selected thread:', thread);
       setCurrentThread(thread);
       
-      // Load messages
+      // Load messages (the real-time listener will handle this, but load immediately for faster UX)
       setIsLoading(true);
       const threadMessages = await getChatMessages(threadId);
       setMessages(threadMessages);
+      
+      // Fetch the thread summary
+      await fetchThreadSummary(threadId);
+      
       setIsLoading(false);
       
       // Check if this thread has recommendations
@@ -293,17 +476,6 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       await storeMessage(threadId, message, 'user', openAIThreadId);
       
-      // Add message to state
-      const userMessage: ChatMessage = {
-        id: Date.now().toString(),
-        content: message,
-        role: 'user',
-        timestamp: new Date(),
-        threadId: openAIThreadId
-      };
-      
-      setMessages(prev => [...prev, userMessage]);
-      
       // Show typing indicator
       setIsTyping(true);
       
@@ -319,21 +491,30 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         response.runId
       );
       
-      // Add assistant response to state
-      const assistantMessage: ChatMessage = {
-        id: response.id,
-        content: response.content,
-        role: 'assistant',
-        timestamp: response.timestamp,
-        threadId: openAIThreadId,
-        runId: response.runId
-      };
-      
-      setMessages(prev => [...prev, assistantMessage]);
       setIsTyping(false);
       
-      // Check for recommendations after each message
+      // The real-time listener will handle updating the messages state
+      
+      // Check if we should generate a summary and recommendations after each message
       try {
+        // Check if thread has enough content for a meaningful summary
+        const hasEnoughContent = await hasEnoughContentForSummary(threadId);
+        
+        if (hasEnoughContent && !currentSummary) {
+          // Try to generate a summary if we don't have one and there's enough content
+          try {
+            await regenerateChatSummary(threadId, currentUser.uid);
+            console.log('Auto-generated summary after message');
+            // Fetch the newly generated summary
+            await fetchThreadSummary(threadId);
+          } catch (summaryError) {
+            console.log('Summary generation skipped - not enough content yet:', summaryError instanceof Error ? summaryError.message : 'Unknown error');
+          }
+        } else {
+          // Fetch the updated summary to refresh if it exists
+          await fetchThreadSummary(threadId);
+        }
+        
         const recommendations = await getVideoRecommendationsFromChat(currentUser.uid, threadId, 1);
         const hasRecs = recommendations.length > 0;
         
@@ -357,32 +538,141 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
   
-  // Get video recommendations based on chat
+  // Get recommended videos based on the current thread
   const getRecommendedVideos = async (limit: number = 5): Promise<string[]> => {
-    if (!currentUser || !currentThread) {
-      return [];
-    }
+    if (!currentUser) return [];
     
     try {
-      const recommendations = await getVideoRecommendationsFromChat(
-        currentUser.uid,
-        currentThread.id,
-        limit
-      );
+      // If we have a current summary with interests, use it for personalized recommendations
+      if (currentSummary && (currentSummary.interests.length > 0 || currentSummary.skills.length > 0)) {
+        const { getPersonalizedRecommendations } = await import('../services/videoService');
+        
+        // Use the new personalized recommendations function
+        const recommendedVideos = await getPersonalizedRecommendations(currentUser.uid, {
+          limit,
+          includeWatched: false,
+          chatSummaryId: currentSummary.id
+        });
+        
+        // If we got recommendations, return the IDs
+        if (recommendedVideos.length > 0) {
+          setHasRecommendations(true);
+          return recommendedVideos.map(video => video.id);
+        }
+      }
       
-      // Update state based on whether we have recommendations
-      setHasRecommendations(recommendations.length > 0);
+      // If we don't have a summary or the personalized recommendations failed,
+      // fall back to the video recommendations from chat
       
-      return recommendations;
+      // Use the utility function to get the correct URL
+      const functionUrl = getFirebaseFunctionUrl('getVideoRecommendations');
+      
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: currentUser.uid,
+          interests: currentSummary?.interests || [],
+          careerGoals: currentSummary?.careerGoals || [],
+          skills: currentSummary?.skills || [],
+          limit
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      const videoIds = data.videoIds || [];
+      
+      if (videoIds.length > 0) {
+        setHasRecommendations(true);
+      }
+      
+      return videoIds;
     } catch (error) {
       console.error('Error getting video recommendations:', error);
-      return [];
+      
+      // If all else fails, try to get recommendations from the video service
+      try {
+        const { getRecommendedVideos, getPopularVideos } = await import('../services/videoService');
+        
+        // Try to get user data for recommendations
+        const userDocRef = doc(db, 'users', currentUser.uid);
+        const userDocSnapshot = await getDoc(userDocRef);
+        
+        if (userDocSnapshot.exists()) {
+          const userData = userDocSnapshot.data() as any;
+          const videos = await getRecommendedVideos(userData, limit);
+          return videos.map(video => video.id);
+        } else {
+          // Fall back to popular videos
+          const videos = await getPopularVideos(limit);
+          return videos.map(video => video.id);
+        }
+      } catch (fallbackError) {
+        console.error('Error in fallback recommendations:', fallbackError);
+        return [];
+      }
     }
   };
   
   // Clear the new recommendations flag
   const clearNewRecommendationsFlag = () => {
     setNewRecommendations(false);
+  };
+  
+  // Clear the summary updated flag
+  const clearSummaryUpdatedFlag = () => {
+    setSummaryUpdated(false);
+  };
+
+  // Delete a thread
+  const deleteThread = async (threadId: string) => {
+    if (!currentUser) return;
+    
+    try {
+      setIsLoading(true);
+      
+      // If we're deleting the current thread, clear it first
+      if (currentThread?.id === threadId) {
+        setCurrentThread(null);
+        setMessages([]);
+        setCurrentSummary(null);
+        setHasRecommendations(false);
+        setNewRecommendations(false);
+      }
+      
+      // Delete the thread and all associated data
+      await deleteChatThread(threadId, currentUser.uid);
+      
+      // Refresh the threads list
+      await fetchThreads();
+      
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error deleting thread:', error);
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  // Regenerate the current thread's summary
+  const regenerateSummary = async () => {
+    if (!currentUser || !currentThread) return;
+
+    try {
+      setIsLoading(true);
+      await regenerateChatSummary(currentThread.id, currentUser.uid);
+      setSummaryUpdated(true); // Indicate that the summary was updated
+      setIsLoading(false);
+    } catch (error) {
+      console.error('Error regenerating summary:', error);
+      setIsLoading(false);
+    }
   };
   
   const value: ChatContextType = {
@@ -393,11 +683,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     isTyping,
     hasRecommendations,
     newRecommendations,
+    currentSummary,
+    summaryUpdated,
     sendMessage,
     createNewThread,
     selectThread,
+    deleteThread,
     getRecommendedVideos,
-    clearNewRecommendationsFlag
+    clearNewRecommendationsFlag,
+    clearSummaryUpdatedFlag,
+    regenerateSummary
   };
   
   return (

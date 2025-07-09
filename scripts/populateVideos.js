@@ -1,14 +1,12 @@
-// This script populates the Firestore database with sample video data
-// Run with: node scripts/populateVideos.js
-
+// Import Firebase modules
 import { initializeApp } from 'firebase/app';
-import { getFirestore, collection, addDoc } from 'firebase/firestore';
-import dotenv from 'dotenv';
+import { getFirestore, collection, addDoc, getDocs } from 'firebase/firestore';
+import { config } from 'dotenv';
 
-// Setup dotenv
-dotenv.config();
+// Load environment variables
+config();
 
-// Firebase configuration
+// Firebase config
 const firebaseConfig = {
   apiKey: process.env.VITE_FIREBASE_API_KEY,
   authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
@@ -16,184 +14,167 @@ const firebaseConfig = {
   storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: process.env.VITE_FIREBASE_APP_ID,
+  measurementId: process.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 
-// Sample videos data
+// Sample videos with real YouTube IDs related to AI, coding, and technology
 const sampleVideos = [
   {
-    title: "Web Development Career Path",
-    description: "Learn about the different career paths in web development, from front-end to back-end and full-stack roles. This video covers the skills needed, salary expectations, and day-to-day responsibilities.",
-    category: "Technology & Digital",
-    subcategory: "Web Development",
+    title: "If I Wanted to Become a Software Engineer in 2025, This is What I'd Do",
+    description: "Complete roadmap for becoming a software engineer in 2025, covering essential skills, technologies, and career paths.",
+    sourceUrl: "https://www.youtube.com/watch?v=9bZkp7q19f0",
     sourceType: "youtube",
-    sourceId: "zXXKMSaS_5s", // This is a placeholder YouTube ID
-    sourceUrl: "https://www.youtube.com/watch?v=zXXKMSaS_5s",
-    thumbnailUrl: "https://img.youtube.com/vi/zXXKMSaS_5s/hqdefault.jpg",
-    duration: 485, // 8:05 minutes
-    creator: "Fireship",
-    creatorUrl: "https://www.youtube.com/@Fireship",
-    publicationDate: "2023-05-15",
+    sourceId: "9bZkp7q19f0",
+    thumbnailUrl: "https://i.ytimg.com/vi/9bZkp7q19f0/hqdefault.jpg",
+    duration: 1800, // 30 minutes
+    category: "Software Engineering",
+    subcategory: "Career Development",
+    tags: ["software engineering", "programming", "career advice", "2025", "tech skills"],
+    skillsHighlighted: ["Python", "JavaScript", "React", "System Design"],
+    educationRequired: ["Self-taught or Computer Science Degree"],
+    viewCount: 250000,
+    creator: "Sajjaad Khader",
+    publicationDate: "2024-12-15T10:00:00Z",
     curatedDate: new Date().toISOString(),
-    tags: ["web development", "career", "programming", "coding", "tech careers"],
-    skillsHighlighted: ["HTML", "CSS", "JavaScript", "React", "Node.js"],
-    educationRequired: ["Self-taught", "Bootcamp", "Computer Science Degree"],
-    prompts: [
-      {
-        id: "prompt1",
-        question: "Which web development path interests you most?",
-        options: ["Front-end", "Back-end", "Full-stack", "Not sure yet"]
-      },
-      {
-        id: "prompt2",
-        question: "What's your biggest challenge in learning web development?",
-        options: ["Time management", "Understanding concepts", "Finding resources", "Building projects"]
-      }
-    ],
+    prompts: [],
     relatedContent: [],
-    viewCount: 1250
+    metadataStatus: "enriched"
   },
   {
-    title: "Day in the Life of a Graphic Designer",
-    description: "Follow along as a professional graphic designer shows their typical workday, from client meetings to creating designs and managing feedback. Get insights into the creative process and tools used.",
-    category: "Creative & Media",
-    subcategory: "Graphic Design",
+    title: "Software Engineering Best Practices",
+    description: "Essential best practices every software engineer should know to write clean, maintainable code.",
+    sourceUrl: "https://www.youtube.com/watch?v=HmJInyS8JqI", 
     sourceType: "youtube",
-    sourceId: "C8QJmI_V3j4", // This is a placeholder YouTube ID
-    sourceUrl: "https://www.youtube.com/watch?v=C8QJmI_V3j4",
-    thumbnailUrl: "https://img.youtube.com/vi/C8QJmI_V3j4/hqdefault.jpg",
-    duration: 723, // 12:03 minutes
-    creator: "Design Made Simple",
-    creatorUrl: "https://www.youtube.com/@DesignMadeSimple",
-    publicationDate: "2023-06-22",
+    sourceId: "HmJInyS8JqI",
+    thumbnailUrl: "https://i.ytimg.com/vi/HmJInyS8JqI/hqdefault.jpg",
+    duration: 3600, // 60 minutes
+    category: "Software Engineering",
+    subcategory: "Best Practices",
+    tags: ["clean code", "software architecture", "best practices", "engineering"],
+    skillsHighlighted: ["Code Quality", "Architecture Design", "Testing"],
+    educationRequired: ["Basic Programming Knowledge"],
+    viewCount: 180000,
+    creator: "Code Quality Experts",
+    publicationDate: "2024-11-20T14:30:00Z",
     curatedDate: new Date().toISOString(),
-    tags: ["graphic design", "creative career", "design", "adobe", "day in the life"],
-    skillsHighlighted: ["Adobe Photoshop", "Adobe Illustrator", "Typography", "Color Theory", "Client Communication"],
-    educationRequired: ["Design Degree", "Certificate Program", "Self-taught"],
-    prompts: [
-      {
-        id: "prompt1",
-        question: "Which design software would you like to learn more about?",
-        options: ["Adobe Photoshop", "Adobe Illustrator", "Figma", "Sketch", "Other"]
-      }
-    ],
+    prompts: [],
     relatedContent: [],
-    viewCount: 876
+    metadataStatus: "enriched"
   },
   {
-    title: "Introduction to Plumbing: Essential Skills",
-    description: "Learn the fundamental skills needed to start a career in plumbing. This video covers basic tools, common repairs, and the path to becoming a licensed plumber.",
-    category: "Skilled Trades",
-    subcategory: "Plumbing",
-    sourceType: "youtube",
-    sourceId: "JeZKZ1mUTNo", // This is a placeholder YouTube ID
-    sourceUrl: "https://www.youtube.com/watch?v=JeZKZ1mUTNo",
-    thumbnailUrl: "https://img.youtube.com/vi/JeZKZ1mUTNo/hqdefault.jpg",
-    duration: 912, // 15:12 minutes
-    creator: "Trades Academy",
-    creatorUrl: "https://www.youtube.com/@TradesAcademy",
-    publicationDate: "2023-03-10",
+    title: "Low-Code/No-Code AI Development",
+    description: "Learn how to build AI applications without extensive coding using modern no-code platforms.",
+    sourceUrl: "https://www.youtube.com/watch?v=aircAruvnKk",
+    sourceType: "youtube", 
+    sourceId: "aircAruvnKk",
+    thumbnailUrl: "https://i.ytimg.com/vi/aircAruvnKk/hqdefault.jpg",
+    duration: 1200, // 20 minutes
+    category: "Artificial Intelligence",
+    subcategory: "No-Code Development",
+    tags: ["no-code", "AI", "machine learning", "automation"],
+    skillsHighlighted: ["No-Code Platforms", "AI Tools", "Process Automation"],
+    educationRequired: ["Basic Computer Literacy"],
+    viewCount: 320000,
+    creator: "No-Code Academy",
+    publicationDate: "2024-10-05T16:45:00Z",
     curatedDate: new Date().toISOString(),
-    tags: ["plumbing", "skilled trades", "vocational training", "apprenticeship"],
-    skillsHighlighted: ["Pipe Fitting", "Blueprint Reading", "Problem Solving", "Hand Tools", "Customer Service"],
-    educationRequired: ["Apprenticeship", "Vocational Training", "On-the-job Training"],
-    prompts: [
-      {
-        id: "prompt1",
-        question: "Are you interested in pursuing a plumbing apprenticeship?",
-        options: ["Yes, definitely", "Maybe in the future", "No, just learning basics", "I'm already in one"]
-      }
-    ],
+    prompts: [],
     relatedContent: [],
-    viewCount: 532
+    metadataStatus: "enriched"
   },
   {
-    title: "How to Start Your Own Small Business",
-    description: "A comprehensive guide to launching your own small business, covering business plans, funding options, legal requirements, and marketing strategies for new entrepreneurs.",
-    category: "Business & Entrepreneurship",
-    subcategory: "Small Business",
+    title: "Building AI Assistants with Large Language Models",
+    description: "Comprehensive guide to creating AI assistants using GPT-4 and other large language models.",
+    sourceUrl: "https://www.youtube.com/watch?v=kCc8FmEb1nY",
     sourceType: "youtube",
-    sourceId: "KBCcDrG2NjM", // This is a placeholder YouTube ID
-    sourceUrl: "https://www.youtube.com/watch?v=KBCcDrG2NjM",
-    thumbnailUrl: "https://img.youtube.com/vi/KBCcDrG2NjM/hqdefault.jpg",
-    duration: 1254, // 20:54 minutes
-    creator: "Entrepreneur Academy",
-    creatorUrl: "https://www.youtube.com/@EntrepreneurAcademy",
-    publicationDate: "2023-07-05",
+    sourceId: "kCc8FmEb1nY", 
+    thumbnailUrl: "https://i.ytimg.com/vi/kCc8FmEb1nY/hqdefault.jpg",
+    duration: 1800, // 30 minutes
+    category: "Artificial Intelligence",
+    subcategory: "Large Language Models",
+    tags: ["AI", "LLM", "chatbots", "GPT", "machine learning"],
+    skillsHighlighted: ["Prompt Engineering", "AI Development", "Python"],
+    educationRequired: ["Programming Experience", "AI Fundamentals"],
+    viewCount: 150000,
+    creator: "AI Academy",
+    publicationDate: "2024-09-12T11:20:00Z",
     curatedDate: new Date().toISOString(),
-    tags: ["entrepreneurship", "small business", "startup", "business plan", "marketing"],
-    skillsHighlighted: ["Business Planning", "Financial Management", "Marketing", "Leadership", "Problem Solving"],
-    educationRequired: ["No formal education required", "Business courses helpful", "Mentorship recommended"],
-    prompts: [
-      {
-        id: "prompt1",
-        question: "What type of business are you interested in starting?",
-        options: ["Service-based", "Product-based", "Online/Digital", "Not sure yet"]
-      },
-      {
-        id: "prompt2",
-        question: "What's your biggest concern about starting a business?",
-        options: ["Funding", "Finding customers", "Legal requirements", "Work-life balance"]
-      }
-    ],
+    prompts: [],
     relatedContent: [],
-    viewCount: 1876
+    metadataStatus: "enriched"
   },
   {
-    title: "Nursing Career Paths and Specializations",
-    description: "Explore the diverse career paths available in nursing, from hospital roles to specialized fields like pediatrics, oncology, and more. Learn about education requirements and certification processes.",
-    category: "Healthcare & Wellbeing",
-    subcategory: "Nursing",
+    title: "Frontend Development in 2024: React, Vue, or Angular?",
+    description: "Comparing the top frontend frameworks and choosing the right one for your career and projects.",
+    sourceUrl: "https://www.youtube.com/watch?v=cuHDQhDhvPE",
     sourceType: "youtube",
-    sourceId: "vT_hPv_RXhc", // This is a placeholder YouTube ID
-    sourceUrl: "https://www.youtube.com/watch?v=vT_hPv_RXhc",
-    thumbnailUrl: "https://img.youtube.com/vi/vT_hPv_RXhc/hqdefault.jpg",
-    duration: 845, // 14:05 minutes
-    creator: "Healthcare Careers",
-    creatorUrl: "https://www.youtube.com/@HealthcareCareers",
-    publicationDate: "2023-04-18",
+    sourceId: "cuHDQhDhvPE",
+    thumbnailUrl: "https://i.ytimg.com/vi/cuHDQhDhvPE/hqdefault.jpg",
+    duration: 2400, // 40 minutes
+    category: "Web Development",
+    subcategory: "Frontend Frameworks",
+    tags: ["React", "Vue", "Angular", "frontend", "JavaScript"],
+    skillsHighlighted: ["React", "Vue.js", "Angular", "TypeScript"],
+    educationRequired: ["JavaScript Fundamentals"],
+    viewCount: 280000,
+    creator: "Frontend Masters",
+    publicationDate: "2024-08-30T09:15:00Z",
     curatedDate: new Date().toISOString(),
-    tags: ["nursing", "healthcare", "medical career", "specialization", "patient care"],
-    skillsHighlighted: ["Patient Care", "Medical Knowledge", "Communication", "Critical Thinking", "Empathy"],
-    educationRequired: ["Nursing Degree", "Certification", "Continuing Education"],
-    prompts: [
-      {
-        id: "prompt1",
-        question: "Which nursing specialization interests you most?",
-        options: ["Emergency/Trauma", "Pediatrics", "Oncology", "Mental Health", "Other"]
-      }
-    ],
+    prompts: [],
     relatedContent: [],
-    viewCount: 945
+    metadataStatus: "enriched"
+  },
+  {
+    title: "Data Science Career Path: From Beginner to Expert",
+    description: "Complete roadmap for building a successful career in data science, including skills, tools, and opportunities.",
+    sourceUrl: "https://www.youtube.com/watch?v=ua-CiDNNj30",
+    sourceType: "youtube",
+    sourceId: "ua-CiDNNj30",
+    thumbnailUrl: "https://i.ytimg.com/vi/ua-CiDNNj30/hqdefault.jpg",
+    duration: 2700, // 45 minutes
+    category: "Data Science",
+    subcategory: "Career Development", 
+    tags: ["data science", "analytics", "Python", "SQL", "career"],
+    skillsHighlighted: ["Python", "SQL", "Statistics", "Machine Learning"],
+    educationRequired: ["Math/Statistics Background Helpful"],
+    viewCount: 190000,
+    creator: "Data Science Pros",
+    publicationDate: "2024-07-18T13:40:00Z",
+    curatedDate: new Date().toISOString(),
+    prompts: [],
+    relatedContent: [],
+    metadataStatus: "enriched"
   }
 ];
 
-// Function to add videos to Firestore
-async function addVideos() {
+async function populateVideos() {
   try {
-    const videosRef = collection(db, 'videos');
+    console.log('Starting to populate videos...');
     
-    for (const video of sampleVideos) {
-      await addDoc(videosRef, video);
-      console.log(`Added video: ${video.title}`);
+    // Check if videos already exist
+    const videosRef = collection(db, 'videos');
+    const existingVideos = await getDocs(videosRef);
+    
+    if (existingVideos.size > 0) {
+      console.log(`Found ${existingVideos.size} existing videos. Skipping population.`);
+      return;
     }
     
-    console.log('All videos have been added successfully!');
+    // Add sample videos
+    for (const video of sampleVideos) {
+      const docRef = await addDoc(videosRef, video);
+      console.log(`Added video: ${video.title} with ID: ${docRef.id}`);
+    }
+    
+    console.log(`Successfully populated ${sampleVideos.length} videos!`);
   } catch (error) {
-    console.error('Error adding videos:', error);
+    console.error('Error populating videos:', error);
   }
 }
 
-// Execute the function
-addVideos()
-  .then(() => {
-    console.log('Video population complete!');
-    process.exit(0);
-  })
-  .catch((error) => {
-    console.error('Error in video population script:', error);
-    process.exit(1);
-  }); 
+// Run the population
+populateVideos(); 
