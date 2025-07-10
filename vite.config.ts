@@ -19,6 +19,18 @@ export default defineConfig(({ mode }) => {
         '@': path.resolve(__dirname, './src')
       }
     },
+    optimizeDeps: {
+      include: [
+        'react-hot-toast',
+        'framer-motion',
+        'react-router-dom',
+        'firebase/app',
+        'firebase/auth',
+        'firebase/firestore',
+        'firebase/analytics'
+      ],
+      force: true
+    },
     server: {
       proxy: {
         '/api/openai': {

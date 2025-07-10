@@ -37,15 +37,11 @@ console.log('🔄 Connected to Firestore production database');
 
 // Utility function to get the correct Firebase function URL
 export const getFirebaseFunctionUrl = (functionName: string): string => {
-  const isLocalhost = window.location.hostname === 'localhost';
   const projectId = firebaseConfig.projectId || 'offscript-8f6eb';
   
-  if (isLocalhost && isDevelopment) {
-    // For local development, use the deployed functions (not emulator)
-    return `https://us-central1-${projectId}.cloudfunctions.net/${functionName}`;
-  } else {
-    return `/${functionName}`; // In production, we use relative URLs that are handled by the hosting config
-  }
+  // Always use the deployed Firebase Functions URL
+  // This ensures we use the actual Firebase Functions regardless of environment
+  return `https://us-central1-${projectId}.cloudfunctions.net/${functionName}`;
 };
 
 export { db };
