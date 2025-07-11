@@ -12,7 +12,7 @@ window.ENV = {
   VITE_FIREBASE_MEASUREMENT_ID: 'test-measurement-id',
   VITE_YOUTUBE_API_KEY: 'test-youtube-key',
   VITE_RECAPTCHA_SITE_KEY: 'test-recaptcha-key',
-  VITE_BUMPUPS_API_KEY: 'test-bumpups-key',
+  // SECURITY: VITE_BUMPUPS_API_KEY excluded for security
 };
 
 // Mock import.meta.env for testing

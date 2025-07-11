@@ -27,6 +27,7 @@ export interface EnvironmentConfig {
   apiKeys: {
     youtube?: string;
     recaptcha?: string;
+    bumpups?: string;
     // SECURITY NOTE: Sensitive API keys (bumpups, openai, webshare) are NOT exposed client-side
     // These are handled securely in Firebase Functions server-side
   };
@@ -84,7 +85,7 @@ const getViteEnvironment = (): Partial<EnvironmentConfig> => {
     apiKeys: {
       youtube: import.meta.env.VITE_YOUTUBE_API_KEY as string,
       recaptcha: import.meta.env.VITE_RECAPTCHA_SITE_KEY as string,
-      // SECURITY: Sensitive API keys removed from client-side
+      // SECURITY: bumpups API key excluded from client-side for security
       // bumpups, openai, and webshare keys are handled server-side in Firebase Functions
     },
     apiEndpoints: {
@@ -116,7 +117,7 @@ const getWindowEnvironment = (): Partial<EnvironmentConfig> => {
     apiKeys: {
       youtube: window.ENV.VITE_YOUTUBE_API_KEY,
       recaptcha: window.ENV.VITE_RECAPTCHA_SITE_KEY,
-      // SECURITY: Sensitive API keys removed from client-side runtime config
+      // SECURITY: bumpups API key excluded from client-side runtime config
     },
     apiEndpoints: {
       bumpupsProxy: window.ENV.VITE_BUMPUPS_PROXY_URL,

@@ -4,6 +4,8 @@ import { updateVideo } from './videoService';
 import { generateAllVideoEmbeddings } from './videoEmbeddingService';
 import { getFirebaseFunctionUrl } from './firebase';
 import transcriptService from './transcriptService';
+import { generateOpenAIVideoAnalysis, OpenAIVideoAnalysis } from './openaiVideoAnalysisService';
+import optimizedBumpupsService, { OptimizedBumpupsResponse } from './optimizedBumpupsService';
 
 export interface VideoProcessingOptions {
   // Processing stages to include
@@ -323,11 +325,8 @@ class UnifiedVideoProcessingService {
     const startTime = Date.now();
     
     try {
-      // Import the transcript extraction service dynamically
-      const { extractTranscript } = await import('./transcriptService');
-      
-      // Extract transcript using webshare proxies
-      const transcriptResult = await extractTranscript(video.sourceUrl);
+      // Use the transcript service instance
+      const transcriptResult = await transcriptService.extractTranscript(video.sourceUrl);
       
       if (!transcriptResult || !transcriptResult.fullText) {
         throw new Error('Failed to extract transcript');
@@ -367,7 +366,7 @@ class UnifiedVideoProcessingService {
         throw new Error('No transcript available for OpenAI analysis');
       }
       
-      const analysis = await openaiVideoAnalysisService.generateOpenAIVideoAnalysis(
+      const analysis = await generateOpenAIVideoAnalysis(
         video.transcript.fullText,
         {
           title: video.title,
