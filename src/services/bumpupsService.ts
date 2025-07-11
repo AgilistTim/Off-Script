@@ -67,8 +67,17 @@ class BumpupsService {
   private static instance: BumpupsService;
 
   constructor() {
-    this.apiUrl = env.apiEndpoints.bumpupsProxy || '';
-    console.log('BumpupsService initialized with URL:', this.apiUrl);
+    // Check if we should use emulators in development
+    const useEmulators = import.meta.env.MODE === 'development' && !import.meta.env.VITE_DISABLE_EMULATORS;
+    
+    if (useEmulators) {
+      const projectId = import.meta.env.VITE_FIREBASE_PROJECT_ID || 'offscript-8f6eb';
+      this.apiUrl = `http://localhost:5001/${projectId}/us-central1/bumpupsProxy`;
+      console.log('🧪 BumpupsService initialized with emulator URL:', this.apiUrl);
+    } else {
+      this.apiUrl = env.apiEndpoints.bumpupsProxy || '';
+      console.log('BumpupsService initialized with URL:', this.apiUrl);
+    }
   }
   
   /**

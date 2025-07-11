@@ -3,29 +3,59 @@ import admin from 'firebase-admin';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 // Get the current file's directory
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Initialize Firebase Admin SDK with emulator
+// Initialize Firebase Admin SDK
 try {
-  // Initialize without credentials to use emulator
-  admin.initializeApp({
-    projectId: 'offscript-8f6eb'
-  });
+  // Check for service account key file first
+  const serviceAccountPath = resolve(__dirname, '../firebase-service-account.json');
+  let serviceAccount = null;
   
-  console.log('Initialized Firebase Admin for emulator');
+  try {
+    if (readFileSync(serviceAccountPath)) {
+      serviceAccount = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
+      console.log('✅ Using service account key file');
+    }
+  } catch (error) {
+    // Service account file not found, use environment variables or default credentials
+  }
   
-  // Connect to the Firestore emulator
-  admin.firestore().settings({
-    host: 'localhost:8080',
-    ssl: false
-  });
+  if (serviceAccount) {
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+  } else {
+    // Use environment variables or default credentials
+    console.log('🔧 Using environment variables for Firebase initialization');
+    admin.initializeApp({
+      projectId: process.env.VITE_FIREBASE_PROJECT_ID || 'offscript-8f6eb'
+    });
+  }
   
-  console.log('Connected to Firestore emulator at localhost:8080');
+  console.log('✅ Firebase Admin initialized successfully');
+  
+  // For development with emulator (optional)
+  if (process.env.USE_FIRESTORE_EMULATOR === 'true') {
+    admin.firestore().settings({
+      host: 'localhost:8080',
+      ssl: false
+    });
+    console.log('🔧 Connected to Firestore emulator at localhost:8080');
+  }
+  
 } catch (error) {
-  console.error('Error initializing Firebase Admin:', error);
+  console.error('❌ Error initializing Firebase Admin:', error);
+  console.log('💡 To fix this:');
+  console.log('  1. Set VITE_FIREBASE_PROJECT_ID in your .env.local file, or');
+  console.log('  2. Download service account key and save as firebase-service-account.json, or');
+  console.log('  3. Ensure you are authenticated with Firebase CLI');
   process.exit(1);
 }
 

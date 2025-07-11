@@ -1,9 +1,11 @@
-// Enhanced video service that combines YouTube API, Bumpups AI analysis, and Firebase storage
+// Enhanced video service that combines YouTube API, Transcript + OpenAI analysis, and Firebase storage
 
 import { doc, setDoc, updateDoc, getDoc, collection, query, where, getDocs, Firestore } from 'firebase/firestore';
 import { db } from './firebase';
 import youtubeService from './youtubeService';
 import bumpupsService from './bumpupsService';
+import transcriptService from './transcriptService';
+import type { TranscriptResult, OpenAIAnalysisResult } from './transcriptService';
 
 // Type definitions for the EnhancedVideoData interface
 export interface EnhancedVideoData {
@@ -57,7 +59,16 @@ export interface EnhancedVideoData {
     
     // New career exploration format
     careerExplorationAnalysis?: string;
-    analysisType?: 'legacy' | 'career_exploration';
+    analysisType?: 'legacy' | 'career_exploration' | 'transcript_openai' | 'bumpups_fallback';
+    
+    // Transcript-based analysis fields
+    transcriptSummary?: string;
+    tokensUsed?: number;
+    transcriptInfo?: {
+      segmentCount: number;
+      extractedAt: string;
+      fullTextLength: number;
+    };
     
     // Common fields
     confidence: number;
@@ -73,6 +84,8 @@ export interface EnhancedVideoData {
   reflectiveQuestions?: string[];
   emotionalElements?: string[];
   challenges?: string[];
+  keyThemes?: string[];
+  aspirationalElements?: string[];
   salaryRange?: {
     min: number;
     max: number;
@@ -158,34 +171,173 @@ class EnhancedVideoService {
   }
 
   /**
-   * Perform AI analysis using Bumpups API
+   * Perform AI analysis using transcript + OpenAI (primary) with Bumpups as fallback
    */
   private async performAIAnalysis(videoId: string, youtubeUrl: string): Promise<void> {
     try {
-      // Perform AI analysis with career exploration focus
-      console.log('🧠 Starting career exploration analysis with Bumpups...');
-      const analysisResult = await bumpupsService.processVideo(youtubeUrl);
+      console.log('🎬 Starting transcript-first analysis pipeline...');
+
+      // Step 1: Extract transcript 
+      console.log('📝 Extracting transcript...');
+      const transcriptResult = await transcriptService.extractTranscript(youtubeUrl);
       
-      console.log(`✅ Career exploration analysis complete!`);
-      console.log(`📄 Analysis length: ${analysisResult.jobSummary?.length || 0} characters`);
+      if (!transcriptResult.success) {
+        console.warn('⚠️ Transcript extraction failed, falling back to Bumpups analysis');
+        await this.fallbackToBumpupsAnalysis(videoId, youtubeUrl);
+        return;
+      }
 
-      // Get current timestamp for analysis
+      console.log(`✅ Transcript extracted: ${transcriptResult.segmentCount} segments, ${transcriptResult.fullText.length} characters`);
+
+      // Step 2: Analyze transcript with OpenAI
+      console.log('🧠 Analyzing transcript with OpenAI...');
+      const openaiResult = await transcriptService.analyzeWithOpenAI(
+        transcriptResult.fullText, 
+        'Career Exploration' // Default category - could be enhanced later
+      );
+
+      if (!openaiResult.success || !openaiResult.analysis) {
+        console.warn('⚠️ OpenAI analysis failed, falling back to Bumpups analysis');
+        await this.fallbackToBumpupsAnalysis(videoId, youtubeUrl);
+        return;
+      }
+
+      console.log('✅ OpenAI analysis completed successfully');
+
+      // Step 3: Store the comprehensive analysis
       const currentTimestamp = new Date().toISOString();
-
-      // Update with AI analysis - ensure all fields have default values to avoid undefined
+      
       const aiAnalysis = {
-        careerExplorationAnalysis: analysisResult.jobSummary || '',
-        analyzedAt: currentTimestamp, // Ensure this is always defined
-        confidence: analysisResult.confidence || 90, // Default confidence if not provided
-        analysisType: 'career_exploration' as const,
+        // Store transcript summary and OpenAI analysis
+        transcriptSummary: openaiResult.analysis.summary,
+        careerExplorationAnalysis: this.formatCareerAnalysis(openaiResult.analysis),
+        confidence: 95, // High confidence for transcript-based analysis
+        analyzedAt: currentTimestamp,
+        analysisType: 'transcript_openai' as const,
+        tokensUsed: openaiResult.tokensUsed || 0,
+        
+        // Store transcript metadata
+        transcriptInfo: {
+          segmentCount: transcriptResult.segmentCount,
+          extractedAt: transcriptResult.extractedAt,
+          fullTextLength: transcriptResult.fullText.length
+        }
       };
 
-      // Extract enhanced metadata from the structured analysis
+      // Extract enhanced metadata from OpenAI analysis
+      const enhancedData = {
+        skillsHighlighted: openaiResult.analysis.softSkills || [],
+        careerPathways: openaiResult.analysis.careerPaths || [],
+        hashtags: openaiResult.analysis.hashtags || [],
+        challenges: openaiResult.analysis.challenges || [],
+        keyThemes: openaiResult.analysis.keyThemes || [],
+        aspirationalElements: openaiResult.analysis.aspirationalElements?.map(el => el.quote) || []
+      };
+
+      // Update video with comprehensive analysis
+      await this.updateVideoWithAnalysis(videoId, {
+        aiAnalysis,
+        ...enhancedData,
+        lastAnalyzed: currentTimestamp,
+        analysisStatus: 'completed',
+      });
+
+      console.log('🎉 Transcript-first analysis pipeline completed successfully');
+
+    } catch (error) {
+      console.error('❌ Transcript-first analysis pipeline failed:', error);
+      // Fallback to Bumpups if the entire pipeline fails
+      await this.fallbackToBumpupsAnalysis(videoId, youtubeUrl);
+    }
+  }
+
+  /**
+   * Format OpenAI analysis into career exploration markdown
+   */
+  private formatCareerAnalysis(analysis: OpenAIAnalysisResult['analysis']): string {
+    if (!analysis) return '';
+
+    let formatted = `# Career Exploration Insights\n\n`;
+
+    // 1. Key Career Themes
+    formatted += `## 1. Key Career Themes\n`;
+    (analysis.keyThemes || []).forEach(t => {
+      formatted += `- ${t}\n`;
+    });
+    formatted += `\n`;
+
+    // 2. Emotional and Aspirational Elements
+    formatted += `## 2. Emotional and Aspirational Elements\n`;
+    (analysis.aspirationalElements || []).forEach(el => {
+      formatted += `- ${el.timestamp} – "${el.quote}"\n`;
+    });
+    formatted += `\n`;
+
+    // 3. Relevant Soft Skills
+    formatted += `## 3. Relevant Soft Skills\n`;
+    (analysis.softSkills || []).forEach(s => {
+      formatted += `- ${s}\n`;
+    });
+    formatted += `\n`;
+
+    // 4. Work Environment & Challenges
+    formatted += `## 4. Work Environment & Challenges\n`;
+    (analysis.challenges || []).forEach(c => {
+      formatted += `- ${c}\n`;
+    });
+    formatted += `\n`;
+
+    // 5. Quotable Moments
+    formatted += `## 5. Quotable Moments\n`;
+    (analysis.aspirationalElements || []).forEach(el => {
+      formatted += `- ${el.timestamp} – "${el.quote}"\n`;
+    });
+    formatted += `\n`;
+
+    // 6. Reflective Questions (generate simple ones if none)
+    formatted += `## 6. Reflective Questions\n`;
+    const questions = [
+      `How could you apply the skill of ${analysis.softSkills?.[0] || 'communication'} in your own career journey?`,
+      `Which of the challenges mentioned resonates with you and why?`,
+      `What steps can you take this week to explore the ${analysis.careerPaths?.[0] || 'highlighted'} career path?`
+    ];
+    questions.forEach(q => formatted += `- ${q}\n`);
+    formatted += `\n`;
+
+    // 7. OffScript Career Pathways
+    formatted += `## 7. OffScript Career Pathways\n`;
+    (analysis.careerPaths || []).forEach(p => {
+      formatted += `- ${p}\n`;
+    });
+    formatted += `\n`;
+
+    // Summary
+    formatted += `## Summary\n${analysis.summary}\n`;
+
+    return formatted;
+  }
+
+  /**
+   * Fallback to Bumpups analysis when transcript pipeline fails
+   */
+  private async fallbackToBumpupsAnalysis(videoId: string, youtubeUrl: string): Promise<void> {
+    try {
+      console.log('🔄 Using Bumpups as fallback analysis method...');
+      
+      const analysisResult = await bumpupsService.processVideo(youtubeUrl);
+      const currentTimestamp = new Date().toISOString();
+
+      const aiAnalysis = {
+        careerExplorationAnalysis: analysisResult.jobSummary || '',
+        analyzedAt: currentTimestamp,
+        confidence: analysisResult.confidence || 80, // Lower confidence for fallback
+        analysisType: 'bumpups_fallback' as const,
+      };
+
       const enhancedSkills = analysisResult.skillsHighlighted || [];
       const careerPathways = analysisResult.careerPathways || [];
       const hashtags = analysisResult.hashtags || [];
 
-      // Update video with analysis
       await this.updateVideoWithAnalysis(videoId, {
         aiAnalysis,
         skillsHighlighted: enhancedSkills,
@@ -195,9 +347,9 @@ class EnhancedVideoService {
         analysisStatus: 'completed',
       });
 
-      console.log('🔄 Video updated with career exploration analysis');
+      console.log('✅ Fallback Bumpups analysis completed');
     } catch (error) {
-      console.error('❌ AI analysis failed:', error);
+      console.error('❌ Fallback Bumpups analysis also failed:', error);
       await this.updateAnalysisStatus(videoId, 'failed');
     }
   }

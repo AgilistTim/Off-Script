@@ -37,7 +37,72 @@ export interface Video {
   analysisStatus?: 'pending' | 'analyzing' | 'completed' | 'failed';
   enrichmentFailed?: boolean;
   enrichmentError?: string;
-  aiAnalysis?: any; // For compatibility with enhanced videos
+  aiAnalysis?: {
+    // Legacy bumpups analysis
+    summary?: any;
+    careerInfo?: any;
+    skillsIdentified?: string[];
+    careerExplorationAnalysis?: string;
+    analysisType?: 'legacy' | 'career_exploration';
+    confidence?: number;
+    analyzedAt?: string;
+    
+    // New OpenAI analysis
+    openaiAnalysis?: {
+      careerInsights: {
+        primaryCareerField: string;
+        relatedCareerPaths: string[];
+        skillsHighlighted: string[];
+        educationRequirements: string | string[];
+        careerStage: 'entry-level' | 'mid-level' | 'senior' | 'any';
+        salaryInsights?: {
+          mentioned: boolean;
+          range?: string;
+          context?: string;
+        };
+      };
+      contentAnalysis: {
+        summary: string;
+        keyTakeaways: string[];
+        targetAudience: string;
+        difficultyLevel: 'beginner' | 'intermediate' | 'advanced';
+        estimatedWatchTime: number | string;
+      };
+      engagement: {
+        hashtags: string[];
+        reflectionQuestions: string[];
+        actionableAdvice: string[];
+        inspirationalQuotes: string[];
+      };
+      keyMoments?: Array<{
+        timestamp: number | string;
+        title?: string;
+        description: string;
+        importance: 'high' | 'medium' | 'low';
+        type: 'skill' | 'advice' | 'example' | 'transition' | 'summary' | 'career-advice' | 'skill-demo' | 'success-story' | 'challenge' | 'tip';
+      }>;
+      analysisMetadata?: {
+        confidence: number;
+        processingTime: number;
+        transcriptLength: number;
+        analysisVersion: string;
+        analyzedAt: string;
+        error?: string;
+      };
+    };
+  };
+  transcript?: {
+    fullText: string;
+    segments: Array<{
+      text: string;
+      start: number;
+      duration: number;
+    }>;
+    segmentCount: number;
+    extractedAt?: any; // Firestore timestamp
+  };
+  careerPathways?: string[];
+  hashtags?: string[];
   metadata?: {
     extractedAt: any; // Firestore timestamp
     raw: {

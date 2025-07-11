@@ -1,7 +1,33 @@
 import React, { useState } from 'react';
 import { X, Plus, Upload, AlertCircle, CheckCircle, Settings } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-import videoProcessingService, { type VideoProcessingProgress, type ProcessedVideoResult } from '../../services/videoProcessingService';
+import enhancedVideoService from '../../services/enhancedVideoService';
+
+// Simple YouTube URL validation
+const validateYouTubeUrl = (url: string): { isValid: boolean; error?: string } => {
+  if (!url || typeof url !== 'string') {
+    return { isValid: false, error: 'URL is required' };
+  }
+
+  const trimmedUrl = url.trim();
+  if (!trimmedUrl) {
+    return { isValid: false, error: 'URL cannot be empty' };
+  }
+
+  const youtubePatterns = [
+    /^https?:\/\/(www\.)?youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+    /^https?:\/\/youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /^https?:\/\/(www\.)?youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/,
+    /^([a-zA-Z0-9_-]{11})$/ // Direct video ID
+  ];
+
+  const isValid = youtubePatterns.some(pattern => pattern.test(trimmedUrl));
+  if (!isValid) {
+    return { isValid: false, error: 'Please enter a valid YouTube URL' };
+  }
+
+  return { isValid: true };
+};
 
 interface EnhancedVideoFormProps {
   isOpen: boolean;
@@ -15,8 +41,12 @@ interface VideoToProcess {
   category: string;
   id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress: VideoProcessingProgress | null;
-  result?: ProcessedVideoResult;
+  progress: any;
+  result?: any;
+}
+
+interface ProcessingOptions {
+  includeBumpups: boolean;
 }
 
 interface BumpupsOptions {
@@ -26,7 +56,7 @@ interface BumpupsOptions {
   output_format: string;
 }
 
-const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
+export const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
   isOpen,
   onClose,
   onVideoAdded,
@@ -70,7 +100,7 @@ const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
     setValidationError(null);
     
     if (url.trim()) {
-      const validation = videoProcessingService.validateYouTubeUrl(url);
+      const validation = validateYouTubeUrl(url);
       if (!validation.isValid) {
         setValidationError(validation.error || 'Invalid URL');
       }
@@ -92,7 +122,7 @@ const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
       return;
     }
 
-    const validation = videoProcessingService.validateYouTubeUrl(videoUrl);
+    const validation = validateYouTubeUrl(videoUrl);
     if (!validation.isValid) {
       toast.error(validation.error || 'Invalid YouTube URL');
       return;
@@ -101,23 +131,17 @@ const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
     setIsProcessing(true);
 
     try {
-      // Pass the Bumpups options to the processing service
-      const result = await videoProcessingService.processVideoWithToasts(
-        videoUrl, 
-        category,
-        showAdvancedOptions ? bumpupsOptions : undefined
-      );
+      toast.loading('📝 Analyzing and processing video...', { id: 'video-process' });
       
-      if (result.success && result.videoData) {
-        onVideoAdded(result.videoData);
-        toast.success('🎉 Video added successfully!');
-        resetForm();
-        onClose();
-      } else {
-        toast.error(`Failed to process video: ${result.error}`);
-      }
+      const videoData = await enhancedVideoService.analyzeAndStoreVideo(videoUrl, category);
+      
+      toast.success('🎉 Video added successfully!', { id: 'video-process' });
+      onVideoAdded(videoData);
+      resetForm();
+      onClose();
     } catch (error) {
-      toast.error('An unexpected error occurred');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`❌ Error: ${errorMessage}`, { id: 'video-process' });
     } finally {
       setIsProcessing(false);
     }
@@ -125,89 +149,61 @@ const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
 
   // Process multiple videos
   const processBulkVideos = async () => {
-    if (!bulkUrls.trim() || !category.trim()) {
-      toast.error('Please enter URLs and select a category');
+    const validUrls = bulkUrls.split('\n').map(url => url.trim()).filter(url => url && validateYouTubeUrl(url).isValid);
+    
+    if (validUrls.length === 0) {
+      toast.error('Please enter at least one valid YouTube URL');
       return;
     }
 
-    const urls = bulkUrls.split('\n').map(url => url.trim()).filter(url => url);
-    if (urls.length === 0) {
-      toast.error('No valid URLs found');
+    if (!category.trim()) {
+      toast.error('Please select a category');
       return;
     }
 
     setIsProcessing(true);
-
-    // Initialize videos to process
-    const initialVideos: VideoToProcess[] = urls.map((url, index) => ({
-      url,
+    const toProcess: VideoToProcess[] = validUrls.map((url, index) => ({
+      url: url,
       category,
       id: `video-${index}`,
       status: 'pending',
       progress: null
     }));
 
-    setVideosToProcess(initialVideos);
+    setVideosToProcess(toProcess);
 
     try {
-      let overallProgressToast = toast.loading('📊 Starting bulk video processing...', { duration: Infinity });
-
-      const results = await videoProcessingService.processMultipleVideos(
-        urls,
-        category,
-        (completed, total, currentVideo) => {
-          // Update overall progress
-          toast.dismiss(overallProgressToast);
-          overallProgressToast = toast.loading(
-            `🔄 Processing ${completed}/${total} videos${currentVideo ? `: ${currentVideo}` : ''}`,
-            { duration: Infinity }
-          );
-        },
-        (url, progress) => {
-          // Update individual video progress
-          setVideosToProcess(prev => prev.map(video => 
-            video.url === url 
-              ? { 
-                  ...video, 
-                  status: progress.step === 'completed' ? 'completed' : 
-                         progress.step === 'failed' ? 'failed' : 'processing',
-                  progress 
-                }
-              : video
-          ));
-        },
-        showAdvancedOptions ? bumpupsOptions : undefined
+      const results = await enhancedVideoService.batchAnalyzeVideos(validUrls, category);
+      
+      // Update progress for all videos
+      setVideosToProcess(prev => 
+        prev.map(video => ({
+          ...video,
+          status: 'completed',
+          progress: { success: true }
+        }))
       );
 
-      toast.dismiss(overallProgressToast);
+      toast.success(`🎉 Successfully processed ${results.length} video(s)!`);
+      results.forEach(videoData => {
+        onVideoAdded(videoData);
+      });
 
-      const successful = results.filter(r => r.success).length;
-      const failed = results.filter(r => !r.success).length;
-
-      if (successful > 0) {
-        toast.success(`✅ ${successful} videos processed successfully!`);
-        // Add successful videos to the list
-        results.forEach(result => {
-          if (result.success && result.videoData) {
-            onVideoAdded(result.videoData);
-          }
-        });
-      }
-
-      if (failed > 0) {
-        toast.error(`❌ ${failed} videos failed to process`);
-      }
-
-      if (successful === results.length) {
-        // All successful - close modal
-        setTimeout(() => {
-          resetForm();
-          onClose();
-        }, 2000);
-      }
+      resetForm();
+      onClose();
 
     } catch (error) {
-      toast.error('Bulk processing failed');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      toast.error(`❌ Error: ${errorMessage}`);
+      
+      // Mark all as failed
+      setVideosToProcess(prev => 
+        prev.map(video => ({
+          ...video,
+          status: 'failed',
+          progress: { success: false, error: errorMessage }
+        }))
+      );
     } finally {
       setIsProcessing(false);
     }

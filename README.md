@@ -4,159 +4,172 @@ A React application for discovering alternative UK career pathways without unive
 
 ## Project Overview
 
-Off-Script helps UK job seekers find alternative career pathways that don't require expensive university education. The application provides information on high-growth sectors, salary data, and practical guidance for entering various industries without accumulating significant student debt.
+Off-Script helps UK job seekers find alternative career pathways that don't require expensive university education. The application provides information on high-growth sectors, salary data, and practical guidance for entering various industries.
 
 ## Features
 
-- **Career Sector Exploration**: Information on Technology & AI, Green Energy & Sustainability, Healthcare & Life Sciences, FinTech, Skilled Trades, and Creative & Digital Media
-- **Detailed Sector Information**: Average salaries, time to entry, growth rates, and in-demand roles
+- **Career Sector Exploration**: Technology & AI, Green Energy, Healthcare, FinTech, Skilled Trades, and Creative Industries
 - **AI Career Advisor**: Interactive chat interface for personalized career guidance
-- **Video Content**: Testimonials from professionals who entered fields through alternative pathways
+- **Video Content**: Professional testimonials and career insights
 - **Course Recommendations**: Relevant training programs for different career paths
-- **Alternative Pathways**: Information on non-university routes to career success
-- **User Authentication**: Sign up and login with email or Google account
-- **User Profiles**: Personalized profiles with career interests and preferences
+- **User Authentication**: Email/password and Google Sign-In
+- **Admin Panel**: Content management and analytics
 
 ## Technology Stack
 
-- React
-- TypeScript
-- Tailwind CSS
-- Firebase (Authentication, Firestore, Storage)
-- Vite
-- Docker (for deployment)
+- **Frontend**: React, TypeScript, Tailwind CSS, Vite
+- **Backend**: Firebase (Authentication, Firestore, Cloud Functions)
+- **Deployment**: Docker, Render
+- **APIs**: OpenAI, YouTube, Custom video analysis
 
-## Getting Started
+## Quick Start
 
-### Local Development
+### Prerequisites
 
-1. Clone the repository
+- Node.js 18+ and npm
+- Firebase account
+- Git
+
+### Installation
+
+1. **Clone the repository**
    ```bash
    git clone https://github.com/yourusername/off-script.git
    cd off-script
    ```
 
-2. Install dependencies
+2. **Install dependencies**
    ```bash
    npm install
+   cd functions && npm install && cd ..
    ```
 
-3. Set up Firebase credentials
-   - Copy `.env.local.example` to `.env.local`
-   - Add your Firebase credentials from Firebase Console > Project Settings > Web App
-   - **IMPORTANT: Never commit `.env.local` to git - it contains sensitive information**
+3. **Environment Setup**
+   
+   Copy the example environment file:
+   ```bash
+   cp env.example .env.local
+   ```
+   
+   Configure your `.env.local` with the following variables:
+   ```bash
+   # Firebase Configuration (Required)
+   VITE_FIREBASE_API_KEY=your_firebase_api_key
+   VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
+   VITE_FIREBASE_PROJECT_ID=your_project_id
+   VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
+   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+   VITE_FIREBASE_APP_ID=your_app_id
+   
+   # Admin Account (Required for scripts)
+   ADMIN_EMAIL=admin@yourcompany.com
+   ADMIN_PASSWORD=your_secure_password
+   
+   # API Keys (Optional - for enhanced features)
+   VITE_YOUTUBE_API_KEY=your_youtube_api_key
+   VITE_BUMPUPS_API_KEY=your_bumpups_api_key
+   ```
 
-4. Start the development server
+4. **Firebase Setup**
+   
+   Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
+   
+   Enable these services:
+   - Authentication (Email/Password and Google Sign-In)
+   - Firestore Database
+   - Cloud Functions
+   - Storage
+
+5. **Start Development**
    ```bash
    npm run dev
    ```
+   
+   The app will be available at `http://localhost:5173`
 
-5. Open your browser and navigate to `http://localhost:5173`
+## Development
 
-### Docker Development
+### Available Scripts
 
-1. Build and run the Docker container:
-   ```
-   docker-compose up
-   ```
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm run preview` - Preview production build
+- `npm test` - Run tests
+- `npm run lint` - Run ESLint
 
-2. Access the application at `http://localhost:8080`
+### Firebase Functions
 
-## Deployment
-
-This project is configured for deployment with Docker and Render. For detailed deployment instructions, see [DEPLOYMENT.md](DEPLOYMENT.md).
-
-## Firebase Setup
-
-This project uses Firebase for authentication and data storage. To set up Firebase for your own instance:
-
-1. Create a Firebase project at [https://console.firebase.google.com/](https://console.firebase.google.com/)
-
-2. Enable the following Firebase services:
-   - Authentication (Email/Password and Google Sign-In)
-   - Firestore Database
-   - Storage (for images and videos)
-
-3. Get your Firebase configuration from the Firebase console:
-   - Go to Project Settings > General
-   - Scroll down to "Your apps" section
-   - Copy the configuration values (apiKey, authDomain, etc.)
-   - Add these values to your `.env` file as described in the "Getting Started" section
-
-4. Authorize your domain for authentication:
-   - Go to Firebase Console > Authentication > Settings > Authorized domains
-   - Add your domain (e.g., your-app.onrender.com) to the list of authorized domains
-   - This is required for OAuth operations like Google Sign-In to work correctly
-   - Without this step, you may see CORS errors or authentication failures when accessing from your domain
-
-5. Deploy Firestore security rules:
-   ```
-   firebase deploy --only firestore:rules
-   ```
-
-6. Populate initial data (optional):
-   ```
-   node scripts/populateFirestore.js
-   ```
-
-## Database Structure
-
-The Firestore database has the following collections:
-
-- **users**: User profiles and preferences
-  - Fields: uid, email, displayName, photoURL, createdAt, lastLogin, role, preferences, profile
-
-- **sectors**: Career sectors information
-  - Fields: id, name, description, iconUrl, imageUrl, careers, createdAt, updatedAt
-
-- **careers**: Career details
-  - Fields: id, title, description, salaryRange, educationRequirements, skills, dayInLife, growthPotential, sectorId, videoUrls, createdAt, updatedAt
-
-## Authentication
-
-The application supports the following authentication methods:
-
-- Email/Password: Traditional signup and login
-- Google Sign-In: One-click authentication with Google account
-
-User profiles are automatically created in Firestore when a user signs up or logs in for the first time.
-
-## Video Metadata Extraction
-
-The application uses Firebase Cloud Functions to automatically extract basic metadata from video URLs. When an admin adds a new video URL:
-
-1. The video is saved to Firestore with basic information
-2. A Cloud Function is triggered that extracts metadata from the URL
-3. The extracted metadata is saved back to Firestore
-4. The UI is updated to show the enriched metadata
-
-### Metadata Extraction Features
-
-- Extracts basic metadata like title, thumbnail URL, and creator name
-- Uses YouTube oEmbed API for YouTube videos (no authentication required)
-- Implements thumbnail URL validation and fallbacks
-- Provides graceful error handling with meaningful messages
-- Includes a retry mechanism in the admin interface
-
-For YouTube videos, the extraction process:
-1. Extracts the video ID from the URL
-2. Fetches metadata from YouTube's oEmbed API
-3. Selects the best available thumbnail quality
-4. Saves the metadata to Firestore
-
-### Deploying the Functions
-
-To deploy the Firebase functions:
-
+Deploy functions:
 ```bash
-# Install dependencies
 cd functions
-npm install
-
-# Deploy to Firebase
 npm run deploy
 ```
 
+### Database Setup
+
+Populate initial data:
+```bash
+node scripts/populateFirestore.js
+```
+
+Create admin user:
+```bash
+node scripts/ensureAdminUser.js
+```
+
+## Production Deployment
+
+### Docker Deployment
+
+1. **Build and run locally:**
+   ```bash
+   docker-compose up --build
+   ```
+
+2. **Deploy to Render:**
+   - Connect your GitHub repository
+   - Set environment variables in Render dashboard
+   - Deploy automatically on git push
+
+### Environment Variables for Production
+
+Set these in your deployment platform:
+- All `VITE_FIREBASE_*` variables
+- `ADMIN_EMAIL` and `ADMIN_PASSWORD`
+- Optional API keys for enhanced features
+
+## Project Structure
+
+```
+off-script/
+├── src/
+│   ├── components/        # React components
+│   ├── pages/            # Page components
+│   ├── services/         # API services
+│   ├── config/           # Configuration
+│   └── utils/            # Utilities
+├── functions/            # Firebase Cloud Functions
+├── scripts/              # Database and admin scripts
+├── public/               # Static assets
+└── docker/               # Docker configuration
+```
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Test thoroughly
+5. Submit a pull request
+
+## Security Best Practices
+
+- Never commit `.env` or `.env.local` files
+- Use environment variables for all sensitive data
+- Rotate API keys regularly
+- Use strong passwords for admin accounts
+- Review Firebase security rules regularly
+
 ## License
 
-MIT 
+MIT License - see LICENSE file for details 

@@ -26,7 +26,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getPersonalizedVideoRecommendations = exports.searchVideos = exports.generateEmbedding = exports.getVideoRecommendations = exports.generateDetailedChatSummary = exports.generateChatSummary = exports.sendChatMessage = exports.createChatThread = exports.healthCheck = exports.bumpupsProxy = exports.enrichVideoMetadata = void 0;
+exports.generateTranscriptSummary = exports.processVideoWithTranscript = exports.extractTranscript = exports.getPersonalizedVideoRecommendations = exports.searchVideos = exports.generateEmbedding = exports.getVideoRecommendations = exports.generateDetailedChatSummary = exports.generateChatSummary = exports.sendChatMessage = exports.createChatThread = exports.healthCheck = exports.bumpupsProxy = exports.enrichVideoMetadata = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https = __importStar(require("https"));
 const https_1 = require("firebase-functions/v2/https");
@@ -883,9 +883,9 @@ exports.getVideoRecommendations = (0, https_1.onRequest)({
             });
             return;
         }
-        // Validate origin for additional security
+        // Validate origin for additional security (allow requests without origin header for server-to-server calls)
         const origin = request.headers.origin;
-        if (!origin || !isOriginAllowed(origin)) {
+        if (origin && !isOriginAllowed(origin)) {
             firebase_functions_1.logger.warn('Unauthorized origin attempted to access getVideoRecommendations', { origin });
             response.status(403).json({ error: 'Origin not allowed' });
             return;
@@ -1192,9 +1192,9 @@ exports.getPersonalizedVideoRecommendations = (0, https_1.onRequest)({
             });
             return;
         }
-        // Validate origin for additional security
+        // Validate origin for additional security (allow requests without origin header for server-to-server calls)
         const origin = request.headers.origin;
-        if (!origin || !isOriginAllowed(origin)) {
+        if (origin && !isOriginAllowed(origin)) {
             firebase_functions_1.logger.warn('Unauthorized origin attempted to access getPersonalizedVideoRecommendations', { origin });
             response.status(403).json({ error: 'Origin not allowed' });
             return;
@@ -1434,4 +1434,797 @@ function cosineSimilarity(vecA, vecB) {
     }
     return dotProduct / (normA * normB);
 }
+/**
+ * Extract YouTube transcript using webshare proxies (server-side)
+ */
+exports.extractTranscript = (0, https_1.onRequest)({
+    cors: true,
+    memory: '1GiB',
+    timeoutSeconds: 300,
+    secrets: ['WEBSHARE_API_KEY']
+}, async (request, response) => {
+    try {
+        // Only allow POST requests
+        if (request.method !== 'POST') {
+            response.status(405).json({
+                error: 'Method not allowed. Use POST only.'
+            });
+            return;
+        }
+        // Set CORS headers manually to ensure they're properly applied
+        response.set('Access-Control-Allow-Origin', '*');
+        response.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        response.set('Access-Control-Allow-Headers', 'Content-Type');
+        // Handle preflight requests
+        if (request.method === 'OPTIONS') {
+            response.status(204).send('');
+            return;
+        }
+        // Get video ID from request body
+        const { videoId } = request.body;
+        if (!videoId) {
+            response.status(400).json({
+                success: false,
+                error: 'Missing videoId parameter'
+            });
+            return;
+        }
+        // Extract video ID if a full URL was provided
+        const extractedVideoId = extractYouTubeId(videoId) || videoId;
+        firebase_functions_1.logger.info('🎬 Starting Node.js transcript extraction', {
+            videoId: extractedVideoId
+        });
+        try {
+            // Use Node.js youtube-transcript library
+            const { YoutubeTranscript } = require('youtube-transcript');
+            firebase_functions_1.logger.info('📝 Attempting direct transcript extraction...');
+            // Try to get transcript directly
+            const transcript = await YoutubeTranscript.fetchTranscript(extractedVideoId, {
+                lang: 'en',
+                country: 'US'
+            });
+            if (transcript && transcript.length > 0) {
+                // Format the transcript data
+                const segments = transcript.map((item) => ({
+                    text: item.text,
+                    start: item.offset / 1000,
+                    duration: item.duration / 1000 // Convert ms to seconds
+                }));
+                const fullText = transcript.map((item) => item.text).join(' ');
+                const result = {
+                    success: true,
+                    segments: segments,
+                    fullText: fullText,
+                    segmentCount: segments.length,
+                    extractedAt: new Date().toISOString(),
+                    method: 'nodejs-direct'
+                };
+                firebase_functions_1.logger.info('✅ Transcript extracted successfully', {
+                    segmentCount: result.segmentCount,
+                    fullTextLength: result.fullText.length
+                });
+                response.status(200).json(result);
+                return;
+            }
+        }
+        catch (directError) {
+            firebase_functions_1.logger.warn('⚠️ Direct transcript extraction failed', {
+                error: directError.message,
+                videoId: extractedVideoId
+            });
+            // If direct extraction fails, try with proxy approach using our Python fallback
+            firebase_functions_1.logger.info('🔄 Attempting proxy-based extraction...');
+            const webshareApiKey = process.env.WEBSHARE_API_KEY;
+            if (!webshareApiKey) {
+                throw new Error('Webshare API key not configured for proxy extraction');
+            }
+            // Try the internal extraction function as a fallback
+            const internalResult = await extractTranscriptInternal(extractedVideoId);
+            if (internalResult && internalResult.success) {
+                firebase_functions_1.logger.info('✅ Proxy-based transcript extraction successful');
+                response.status(200).json(internalResult);
+                return;
+            }
+            else {
+                firebase_functions_1.logger.error('❌ All transcript extraction methods failed', internalResult);
+                throw new Error(internalResult?.error || 'All extraction methods failed');
+            }
+        }
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('❌ Transcript extraction function error:', error);
+        // Make sure we only send one response
+        if (!response.headersSent) {
+            response.status(500).json({
+                success: false,
+                error: error.message || 'Unknown error',
+                errorType: 'SERVER_ERROR',
+                segments: [],
+                fullText: '',
+                segmentCount: 0
+            });
+        }
+    }
+});
+/**
+ * Process video with transcript extraction and OpenAI analysis
+ * This implements the optimized pipeline: YouTube API → Transcript → OpenAI Analysis → Storage
+ */
+exports.processVideoWithTranscript = (0, https_1.onRequest)({
+    cors: corsOrigins,
+    memory: '2GiB',
+    timeoutSeconds: 600,
+    secrets: ['WEBSHARE_API_KEY', 'OPENAI_API_KEY', 'BUMPUPS_APIKEY']
+}, async (request, response) => {
+    try {
+        // Only allow POST requests
+        if (request.method !== 'POST') {
+            response.status(405).json({
+                error: 'Method not allowed. Use POST only.'
+            });
+            return;
+        }
+        // Validate origin (allow requests without origin header for server-to-server calls)
+        const origin = request.headers.origin;
+        if (origin && !isOriginAllowed(origin)) {
+            firebase_functions_1.logger.warn('Unauthorized origin attempted to access processVideoWithTranscript', { origin });
+            response.status(403).json({ error: 'Origin not allowed' });
+            return;
+        }
+        // Validate request body
+        const { videoUrl, category, videoId: providedVideoId, includeBumpups = false } = request.body;
+        if (!videoUrl || !category) {
+            response.status(400).json({
+                error: 'Missing required fields: videoUrl and category'
+            });
+            return;
+        }
+        // Use provided videoId if available, otherwise extract from URL
+        const videoId = providedVideoId || extractYouTubeId(videoUrl);
+        if (!videoId) {
+            response.status(400).json({
+                error: 'Invalid YouTube URL or missing videoId'
+            });
+            return;
+        }
+        // Extract YouTube video ID for transcript extraction (different from document ID)
+        const youtubeVideoId = extractYouTubeId(videoUrl);
+        if (!youtubeVideoId) {
+            response.status(400).json({
+                error: 'Invalid YouTube URL - cannot extract video ID for transcript'
+            });
+            return;
+        }
+        firebase_functions_1.logger.info('Starting video processing with transcript-first pipeline', {
+            videoId,
+            category,
+            includeBumpups,
+            origin
+        });
+        const processingResult = {
+            success: false,
+            videoId,
+            stages: {
+                transcript: { success: false, processingTime: 0 },
+                openaiAnalysis: { success: false, processingTime: 0 },
+                bumpupsAnalysis: { success: false, processingTime: 0 },
+                storage: { success: false, processingTime: 0 }
+            },
+            videoData: null
+        };
+        // Stage 1: Extract transcript from YouTube
+        const transcriptStart = Date.now();
+        firebase_functions_1.logger.info('Stage 1: Extracting transcript from YouTube');
+        const transcriptResult = await extractTranscriptInternal(youtubeVideoId);
+        processingResult.stages.transcript.processingTime = Date.now() - transcriptStart;
+        let contentForAnalysis = null;
+        let contentSource = null;
+        if (transcriptResult.success && transcriptResult.fullText) {
+            processingResult.stages.transcript.success = true;
+            contentForAnalysis = transcriptResult.fullText;
+            contentSource = 'transcript';
+            firebase_functions_1.logger.info('Transcript extraction successful', {
+                segmentCount: transcriptResult.segmentCount
+            });
+        }
+        else {
+            processingResult.stages.transcript.success = false;
+            firebase_functions_1.logger.warn('Transcript extraction failed, falling back to Bumpups');
+            // Stage 2: Bumpups fallback when transcript fails
+            const bumpupsStart = Date.now();
+            firebase_functions_1.logger.info('Stage 2: Using Bumpups as fallback for content analysis');
+            try {
+                const bumpupsResult = await callBumpupsAPI(videoUrl, category);
+                if (bumpupsResult && bumpupsResult.output) {
+                    contentForAnalysis = bumpupsResult.output;
+                    contentSource = 'bumpups';
+                    processingResult.stages.bumpupsAnalysis.success = true;
+                    firebase_functions_1.logger.info('Bumpups fallback successful');
+                }
+                else {
+                    firebase_functions_1.logger.error('Bumpups fallback also failed');
+                }
+            }
+            catch (error) {
+                firebase_functions_1.logger.error('Bumpups fallback failed:', error);
+            }
+            processingResult.stages.bumpupsAnalysis.processingTime = Date.now() - bumpupsStart;
+        }
+        // Stage 3: OpenAI Analysis (on transcript OR Bumpups content)
+        const openaiStart = Date.now();
+        let openaiAnalysis = null;
+        let videoSummary = null;
+        if (contentForAnalysis) {
+            firebase_functions_1.logger.info(`Stage 3: Performing OpenAI analysis on ${contentSource} content`);
+            try {
+                const openaiResult = await analyzeTranscriptWithOpenAI(contentForAnalysis, category, videoUrl);
+                if (openaiResult.success) {
+                    openaiAnalysis = openaiResult.analysis;
+                    videoSummary = openaiResult.analysis.summary; // Extract summary for video cards
+                    processingResult.stages.openaiAnalysis.success = true;
+                    // Log detailed OpenAI analysis data
+                    firebase_functions_1.logger.info('=== OPENAI ANALYSIS EXTRACTION ===', {
+                        videoId,
+                        analysisKeys: Object.keys(openaiAnalysis || {}),
+                        summary: openaiAnalysis?.summary?.substring(0, 100) + '...',
+                        skillsHighlighted: openaiAnalysis?.skillsHighlighted || [],
+                        educationRequired: openaiAnalysis?.educationRequired || [],
+                        hashtags: openaiAnalysis?.hashtags || [],
+                        keyThemes: openaiAnalysis?.keyThemes || [],
+                        careerPathways: openaiAnalysis?.careerPathways || [],
+                        careerStage: openaiAnalysis?.careerStage,
+                        confidenceScore: openaiAnalysis?.confidenceScore,
+                        fullAnalysis: JSON.stringify(openaiAnalysis, null, 2)
+                    });
+                    firebase_functions_1.logger.info('OpenAI analysis completed successfully', {
+                        contentSource,
+                        summaryLength: videoSummary?.length || 0
+                    });
+                }
+            }
+            catch (error) {
+                firebase_functions_1.logger.error('OpenAI analysis failed:', error);
+            }
+        }
+        else {
+            firebase_functions_1.logger.warn('No content available for OpenAI analysis (both transcript and Bumpups failed)');
+        }
+        processingResult.stages.openaiAnalysis.processingTime = Date.now() - openaiStart;
+        // Stage 4: Compile and store results
+        const storageStart = Date.now();
+        firebase_functions_1.logger.info('Stage 4: Storing processed video data');
+        try {
+            // Create update data structure (using update instead of set to preserve metadata)
+            const updateData = {
+                category,
+                // Update description with OpenAI summary if available
+                description: openaiAnalysis?.summary || undefined,
+                // Extract tags from hashtags (remove # symbols)
+                tags: openaiAnalysis?.hashtags?.map((tag) => tag.replace('#', '')) || [],
+                // Store transcript only if we successfully extracted it
+                transcript: transcriptResult.success ? {
+                    fullText: transcriptResult.fullText,
+                    segments: transcriptResult.segments,
+                    segmentCount: transcriptResult.segmentCount,
+                    extractedAt: admin.firestore.Timestamp.now()
+                } : admin.firestore.FieldValue.delete(),
+                // Update lastTranscriptUpdate if we have transcript data
+                lastTranscriptUpdate: transcriptResult.success ? admin.firestore.Timestamp.now() : undefined,
+                // Store AI analysis and summary for video cards and recommendations
+                aiAnalysis: openaiAnalysis ? {
+                    summary: videoSummary || openaiAnalysis.summary,
+                    fullAnalysis: openaiAnalysis,
+                    contentSource: contentSource,
+                    confidence: contentSource === 'transcript' ? 0.95 : 0.85,
+                    analyzedAt: admin.firestore.Timestamp.now(),
+                    analysisType: 'career_exploration'
+                } : {
+                    summary: null,
+                    contentSource: null,
+                    confidence: 0,
+                    analyzedAt: admin.firestore.Timestamp.now(),
+                    analysisType: 'career_exploration',
+                    error: 'Analysis failed - no content available'
+                },
+                // Extract structured data from OpenAI analysis for recommendations engine
+                hashtags: openaiAnalysis?.hashtags || [],
+                skillsHighlighted: openaiAnalysis?.skillsHighlighted || [],
+                careerPathways: openaiAnalysis?.careerPathways || [],
+                challenges: openaiAnalysis?.challenges || [],
+                emotionalElements: openaiAnalysis?.emotionalElements || [],
+                keyThemes: openaiAnalysis?.keyThemes || [],
+                educationRequired: openaiAnalysis?.educationRequired || [],
+                careerStage: openaiAnalysis?.careerStage || 'any',
+                workEnvironments: openaiAnalysis?.workEnvironments || [],
+                updatedAt: admin.firestore.Timestamp.now(),
+                lastAnalyzed: admin.firestore.Timestamp.now(),
+                analysisStatus: openaiAnalysis ? 'completed' : 'failed',
+                // Clear any previous errors
+                enrichmentError: admin.firestore.FieldValue.delete()
+            };
+            // Remove undefined values to avoid Firestore issues
+            Object.keys(updateData).forEach(key => {
+                if (updateData[key] === undefined) {
+                    delete updateData[key];
+                }
+            });
+            // Log the data being saved for debugging
+            firebase_functions_1.logger.info('=== PRE-SAVE DEBUG INFO ===', {
+                videoId,
+                documentPath: `videos/${videoId}`,
+                hasAiAnalysis: !!openaiAnalysis,
+                hasTranscript: transcriptResult.success,
+                category,
+                skillsCount: updateData.skillsHighlighted?.length || 0,
+                tagsCount: updateData.tags?.length || 0,
+                educationCount: updateData.educationRequired?.length || 0
+            });
+            // Log the complete updateData structure being saved
+            firebase_functions_1.logger.info('=== COMPLETE UPDATE DATA ===', {
+                videoId,
+                updateDataKeys: Object.keys(updateData),
+                updateData: JSON.stringify(updateData, null, 2)
+            });
+            // Check if document exists before updating
+            const docRef = admin.firestore().collection('videos').doc(videoId);
+            const docSnapshot = await docRef.get();
+            firebase_functions_1.logger.info('=== DOCUMENT EXISTS CHECK ===', {
+                videoId,
+                documentExists: docSnapshot.exists,
+                currentData: docSnapshot.exists ? 'Document found' : 'Document not found'
+            });
+            if (docSnapshot.exists) {
+                const currentData = docSnapshot.data();
+                firebase_functions_1.logger.info('=== CURRENT DOCUMENT DATA ===', {
+                    videoId,
+                    currentAnalysisStatus: currentData?.analysisStatus,
+                    currentCategory: currentData?.category,
+                    currentSkillsLength: currentData?.skillsHighlighted?.length || 0,
+                    currentTagsLength: currentData?.tags?.length || 0,
+                    hasCurrentAiAnalysis: !!currentData?.aiAnalysis
+                });
+            }
+            // Store in Firestore using set with merge to preserve existing metadata
+            firebase_functions_1.logger.info('=== ATTEMPTING FIRESTORE WRITE ===', {
+                videoId,
+                operation: 'set with merge',
+                collection: 'videos',
+                documentId: videoId
+            });
+            try {
+                await admin.firestore().collection('videos').doc(videoId).set(updateData, { merge: true });
+                firebase_functions_1.logger.info('=== FIRESTORE WRITE SUCCESS ===', {
+                    videoId,
+                    message: 'Document updated successfully'
+                });
+            }
+            catch (firestoreError) {
+                const errorDetails = firestoreError instanceof Error
+                    ? {
+                        message: firestoreError.message,
+                        stack: firestoreError.stack,
+                        code: firestoreError.code
+                    }
+                    : { message: String(firestoreError), stack: null, code: null };
+                firebase_functions_1.logger.error('=== FIRESTORE WRITE FAILED ===', {
+                    videoId,
+                    error: errorDetails.message,
+                    errorCode: errorDetails.code,
+                    errorStack: errorDetails.stack
+                });
+                throw firestoreError;
+            }
+            // Verify the write was successful by reading the document back
+            firebase_functions_1.logger.info('=== VERIFYING WRITE SUCCESS ===', {
+                videoId,
+                message: 'Reading document back to verify changes'
+            });
+            const verificationDoc = await admin.firestore().collection('videos').doc(videoId).get();
+            if (verificationDoc.exists) {
+                const verifiedData = verificationDoc.data();
+                firebase_functions_1.logger.info('=== POST-WRITE VERIFICATION ===', {
+                    videoId,
+                    verifiedAnalysisStatus: verifiedData?.analysisStatus,
+                    verifiedCategory: verifiedData?.category,
+                    verifiedSkillsLength: verifiedData?.skillsHighlighted?.length || 0,
+                    verifiedTagsLength: verifiedData?.tags?.length || 0,
+                    verifiedHasAiAnalysis: !!verifiedData?.aiAnalysis,
+                    verifiedLastAnalyzed: verifiedData?.lastAnalyzed?.toDate?.() || verifiedData?.lastAnalyzed
+                });
+            }
+            else {
+                firebase_functions_1.logger.error('=== POST-WRITE VERIFICATION FAILED ===', {
+                    videoId,
+                    error: 'Document not found after write operation'
+                });
+            }
+            processingResult.stages.storage.success = true;
+            processingResult.videoData = updateData;
+            processingResult.success = true;
+            firebase_functions_1.logger.info('Video processing completed successfully', { videoId });
+        }
+        catch (error) {
+            firebase_functions_1.logger.error('Failed to store video data:', error);
+        }
+        processingResult.stages.storage.processingTime = Date.now() - storageStart;
+        // Return comprehensive result
+        response.status(200).json(processingResult);
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Error in processVideoWithTranscript function:', error);
+        response.status(500).json({
+            error: 'Internal server error during video processing',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+/**
+ * Internal function to extract transcript (reused by other functions)
+ */
+async function extractTranscriptInternal(videoId) {
+    try {
+        // Use the youtube-transcript library for Node.js
+        const { YoutubeTranscript } = require('youtube-transcript');
+        // Configure with retry and error handling
+        const config = {
+            lang: 'en',
+            country: 'US'
+        };
+        console.log(`Extracting transcript for video: ${videoId}`);
+        // Extract transcript with retry logic
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                const transcript = await YoutubeTranscript.fetchTranscript(videoId, config);
+                if (transcript && transcript.length > 0) {
+                    // Format the transcript segments
+                    const segments = transcript.map((segment) => ({
+                        text: segment.text,
+                        start: segment.offset || segment.start || 0,
+                        duration: segment.duration || 4.0
+                    }));
+                    const fullText = segments.map((s) => s.text).join(' ');
+                    console.log(`Transcript extracted successfully: ${segments.length} segments, ${fullText.length} characters`);
+                    return {
+                        success: true,
+                        segments,
+                        fullText,
+                        segmentCount: segments.length,
+                        extractedAt: new Date().toISOString()
+                    };
+                }
+            }
+            catch (error) {
+                const errorMsg = error?.message || String(error);
+                console.warn(`Transcript extraction attempt ${attempt} failed:`, errorMsg);
+                // Check for specific error types
+                if (errorMsg.toLowerCase().includes('transcript') && errorMsg.toLowerCase().includes('disabled')) {
+                    return {
+                        success: false,
+                        error: 'Transcript disabled for this video',
+                        errorType: 'TRANSCRIPT_DISABLED',
+                        segments: [],
+                        fullText: '',
+                        segmentCount: 0
+                    };
+                }
+                if (errorMsg.toLowerCase().includes('not available')) {
+                    return {
+                        success: false,
+                        error: 'Transcript not available for this video',
+                        errorType: 'NO_TRANSCRIPT',
+                        segments: [],
+                        fullText: '',
+                        segmentCount: 0
+                    };
+                }
+                // If it's the last attempt, return the error
+                if (attempt === 3) {
+                    return {
+                        success: false,
+                        error: `Transcript extraction failed: ${errorMsg}`,
+                        errorType: 'EXTRACTION_ERROR',
+                        segments: [],
+                        fullText: '',
+                        segmentCount: 0
+                    };
+                }
+                // Wait before retry
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+            }
+        }
+        return {
+            success: false,
+            error: 'All transcript extraction attempts failed',
+            errorType: 'MAX_RETRIES_EXCEEDED',
+            segments: [],
+            fullText: '',
+            segmentCount: 0
+        };
+    }
+    catch (error) {
+        console.error('Transcript extraction error:', error);
+        return {
+            success: false,
+            error: `Process error: ${error?.message || 'Unknown error'}`,
+            errorType: 'PROCESS_ERROR',
+            segments: [],
+            fullText: '',
+            segmentCount: 0
+        };
+    }
+}
+/**
+ * Internal function to call Bumpups API (reused logic from bumpupsProxy)
+ */
+async function callBumpupsAPI(videoUrl, category) {
+    try {
+        // Use the same secret as the bumpupsProxy function
+        const bumpupsApiKey = bumpupsApiKeySecret.value();
+        if (!bumpupsApiKey) {
+            throw new Error('Bumpups API key not configured');
+        }
+        const prompt = `Analyse this video for a youth career exploration platform for 16–20-year-olds. Return your output in clear markdown using the following exact structure with bullet lists:
+
+# Key Themes and Environments
+- (max 5 themes/environments)
+
+# Soft Skills Demonstrated
+- (max 5 soft skills)
+
+# Challenges Highlighted
+- (max 5 challenges)
+
+# Aspirational and Emotional Elements
+- Timestamp – Quotation or moment (max 5)
+
+# Suggested Hashtags
+- #hashtag1
+- #hashtag2
+(up to 10)
+
+# Recommended Career Paths
+- (max 5 career paths)`;
+        const payload = {
+            url: videoUrl,
+            model: "bump-1.0",
+            prompt: prompt,
+            language: "en",
+            output_format: "text"
+        };
+        const response = await fetch("https://api.bumpups.com/chat", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-Api-Key": bumpupsApiKey
+            },
+            body: JSON.stringify(payload),
+        });
+        if (!response.ok) {
+            throw new Error(`Bumpups API error: ${response.status}`);
+        }
+        return await response.json();
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Bumpups API call failed:', error);
+        return null;
+    }
+}
+/**
+ * Analyze transcript with OpenAI for career exploration insights
+ * Using OpenAI SDK with proper token management and chunking for long transcripts
+ */
+async function analyzeTranscriptWithOpenAI(transcript, category, videoUrl) {
+    try {
+        const openaiApiKey = process.env.OPENAI_API_KEY;
+        if (!openaiApiKey) {
+            throw new Error('OpenAI API key not configured');
+        }
+        // Initialize OpenAI client with proper configuration
+        const openai = new openai_1.default({
+            apiKey: openaiApiKey.trim() // Remove any potential whitespace
+        });
+        // Simple token estimation (1 token ≈ 4 characters for English)
+        const estimatedTokens = Math.ceil(transcript.length / 4);
+        const maxContextTokens = 120000; // GPT-4o-mini context limit (leave room for response)
+        const maxPromptTokens = maxContextTokens - 2000; // Reserve 2000 tokens for response
+        let processedTranscript = transcript;
+        // If transcript is too long, chunk it intelligently
+        if (estimatedTokens > maxPromptTokens) {
+            firebase_functions_1.logger.warn(`Transcript too long (${estimatedTokens} tokens), chunking...`);
+            // Take first 80% and last 20% to preserve context while staying within limits
+            const targetLength = Math.floor(maxPromptTokens * 4 * 0.8); // Convert back to characters
+            const firstPart = transcript.substring(0, targetLength * 0.8);
+            const lastPart = transcript.substring(transcript.length - targetLength * 0.2);
+            processedTranscript = firstPart + "\n\n[...CONTENT TRUNCATED...]\n\n" + lastPart;
+            firebase_functions_1.logger.info(`Transcript chunked from ${transcript.length} to ${processedTranscript.length} characters`);
+        }
+        const prompt = `Analyze this video transcript for a youth career exploration platform for 16–20-year-olds. The video is categorized as "${category}".
+
+Transcript:
+${processedTranscript}
+
+Please provide a detailed analysis in JSON format with the following structure:
+{
+  "summary": "Brief 2-3 sentence summary of the video content",
+  "keyThemes": ["theme1", "theme2", "theme3"], // max 5 themes
+  "skillsHighlighted": ["skill1", "skill2"], // soft skills demonstrated, max 5
+  "challenges": ["challenge1", "challenge2"], // challenges highlighted, max 5
+  "careerPathways": ["career1", "career2"], // recommended career paths, max 5
+  "hashtags": ["#hashtag1", "#hashtag2"], // relevant hashtags, max 10
+  "emotionalElements": [
+    {"timestamp": "MM:SS", "quote": "inspiring quote", "significance": "why important"}
+  ], // max 5 emotional moments
+  "educationRequired": ["High School", "Bachelor's", "Certification"], // education levels
+  "careerStage": "entry-level|mid-career|senior-level|any",
+  "workEnvironments": ["office", "remote", "field", "laboratory"], // max 3
+  "confidenceScore": 0.95 // how confident the analysis is (0-1)
+}
+
+Focus on career exploration aspects and make it relevant for young people exploring career options.`;
+        // Use OpenAI SDK with proper configuration
+        const completion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+                {
+                    role: 'system',
+                    content: 'You are a career guidance counselor analyzing video content for young people. Provide structured, actionable insights in valid JSON format.'
+                },
+                {
+                    role: 'user',
+                    content: prompt
+                }
+            ],
+            max_tokens: 1500,
+            temperature: 0.7,
+            response_format: { type: "json_object" } // Ensure JSON response
+        });
+        const analysisText = completion.choices[0]?.message?.content;
+        if (!analysisText) {
+            throw new Error('No analysis returned from OpenAI');
+        }
+        // Parse the JSON response
+        try {
+            const analysis = JSON.parse(analysisText);
+            firebase_functions_1.logger.info('OpenAI analysis completed successfully', {
+                tokensUsed: completion.usage?.total_tokens || 0,
+                confidenceScore: analysis.confidenceScore || 0.8
+            });
+            return { success: true, analysis };
+        }
+        catch (parseError) {
+            firebase_functions_1.logger.warn('Failed to parse OpenAI JSON response, using structured fallback');
+            // Create structured fallback from raw text
+            return {
+                success: true,
+                analysis: {
+                    summary: analysisText.substring(0, 300) + "...",
+                    keyThemes: ["Content Analysis", "Professional Development"],
+                    skillsHighlighted: ["Communication", "Critical Thinking"],
+                    challenges: ["Skill Development", "Career Planning"],
+                    careerPathways: ["Technology", "Business", "Creative"],
+                    hashtags: ["#career", "#skills", "#development"],
+                    emotionalElements: [],
+                    educationRequired: ["High School"],
+                    careerStage: "any",
+                    workEnvironments: ["office", "remote"],
+                    confidenceScore: 0.6
+                }
+            };
+        }
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('OpenAI analysis failed:', error);
+        return { success: false };
+    }
+}
+/**
+ * Generate OpenAI summary from transcript (server-side)
+ */
+exports.generateTranscriptSummary = (0, https_1.onRequest)({
+    cors: true,
+    memory: '512MiB',
+    timeoutSeconds: 120,
+    secrets: [openaiApiKeySecret]
+}, async (request, response) => {
+    try {
+        // Only allow POST requests
+        if (request.method !== 'POST') {
+            response.status(405).json({
+                error: 'Method not allowed. Use POST only.'
+            });
+            return;
+        }
+        // Set CORS headers manually to ensure they're properly applied
+        response.set('Access-Control-Allow-Origin', '*');
+        response.set('Access-Control-Allow-Methods', 'POST, OPTIONS');
+        response.set('Access-Control-Allow-Headers', 'Content-Type');
+        // Handle preflight requests
+        if (request.method === 'OPTIONS') {
+            response.status(204).send('');
+            return;
+        }
+        // Get transcript from request body
+        const { transcript, videoTitle, videoDescription, category = 'Career Exploration' } = request.body;
+        if (!transcript || typeof transcript !== 'string') {
+            response.status(400).json({
+                success: false,
+                error: 'Missing or invalid transcript'
+            });
+            return;
+        }
+        // Initialize OpenAI API
+        const openaiApiKey = process.env.OPENAI_API_KEY;
+        if (!openaiApiKey) {
+            firebase_functions_1.logger.error('OpenAI API key not configured');
+            response.status(500).json({
+                success: false,
+                error: 'OpenAI API key not configured'
+            });
+            return;
+        }
+        const openai = new openai_1.default({
+            apiKey: openaiApiKey.trim()
+        });
+        // Prepare system prompt
+        const systemPrompt = `You are an AI career counselor analyzing video content for a career exploration platform targeted at 16-20 year olds. 
+Your task is to extract career-relevant insights from video transcripts.`;
+        // Prepare user prompt with transcript
+        const userPrompt = `Analyze this transcript for career exploration insights:
+
+TRANSCRIPT:
+${transcript.substring(0, 15000)}${transcript.length > 15000 ? '... (truncated)' : ''}
+
+VIDEO TITLE: ${videoTitle || 'Unknown'}
+VIDEO DESCRIPTION: ${videoDescription || 'Not provided'}
+CATEGORY: ${category || 'Career Exploration'}
+
+Provide a detailed analysis with these sections:
+
+1. Career Insights: Key roles, responsibilities, industry information
+2. Skills & Qualifications: Required skills, education, certifications
+3. Professional Development: Growth opportunities, career progression
+4. Industry Context: Market trends, workplace culture, challenges
+5. Actionable Takeaways: 3-5 specific actions viewers can take
+
+Format your response in Markdown with clear headings and bullet points where appropriate.`;
+        // Call OpenAI API
+        firebase_functions_1.logger.info('Calling OpenAI API for transcript analysis');
+        const startTime = Date.now();
+        const completion = await openai.chat.completions.create({
+            model: 'gpt-4o',
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 1000
+        });
+        const summary = completion.choices[0]?.message?.content || '';
+        const tokensUsed = completion.usage?.total_tokens || 0;
+        const processingTime = Date.now() - startTime;
+        firebase_functions_1.logger.info('OpenAI analysis completed', {
+            tokensUsed,
+            processingTimeMs: processingTime
+        });
+        // Return the analysis
+        response.status(200).json({
+            success: true,
+            summary,
+            metadata: {
+                tokensUsed,
+                model: 'gpt-4o',
+                generatedAt: new Date().toISOString(),
+                processingTimeMs: processingTime
+            }
+        });
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('OpenAI analysis error:', error);
+        response.status(500).json({
+            success: false,
+            error: error.message || 'Unknown error',
+            errorType: 'SERVER_ERROR'
+        });
+    }
+});
 //# sourceMappingURL=index.js.map

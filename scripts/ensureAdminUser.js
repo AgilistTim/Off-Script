@@ -21,9 +21,16 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// Admin user credentials
+// Admin credentials
 const ADMIN_EMAIL = 'admin@offscript.com';
-const ADMIN_PASSWORD = 'admin123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+// Check for required environment variable
+if (!ADMIN_PASSWORD) {
+  console.error('❌ ADMIN_PASSWORD environment variable is required');
+  console.log('💡 Set ADMIN_PASSWORD in your .env.local file');
+  process.exit(1);
+}
 
 async function ensureAdminUser() {
   try {

@@ -47,7 +47,14 @@ export const auth = getAuth(app);
 
 // Admin credentials from environment variables
 export const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@offscript.com';
-export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+// Validate required environment variables
+if (!ADMIN_PASSWORD) {
+  console.error('❌ ADMIN_PASSWORD environment variable is required');
+  console.log('💡 Set ADMIN_PASSWORD in your .env.local file');
+  process.exit(1);
+}
 
 // Helper function to authenticate as admin
 export async function authenticateAdmin() {

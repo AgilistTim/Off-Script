@@ -39,3 +39,4 @@ public/environment.js
 firebase-debug.log
 ui-debug.log
 .runtimeconfig.json
+firebase-service-account.json

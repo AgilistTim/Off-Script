@@ -42,7 +42,14 @@ const auth = getAuth(app);
 
 // Admin credentials (should be set as environment variables in production)
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'admin@offscript.com';
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+// Validate required environment variables
+if (!ADMIN_PASSWORD) {
+  console.error('❌ ADMIN_PASSWORD environment variable is required');
+  console.log('💡 Set ADMIN_PASSWORD in your .env.local file');
+  process.exit(1);
+}
 
 // Real videos from documentation sources
 const realVideos = [

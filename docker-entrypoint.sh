@@ -79,9 +79,24 @@ if [ "$VITE_OPENAI_ASSISTANT_URL" = "NOT_SET" ] || [ -z "$VITE_OPENAI_ASSISTANT_
   export VITE_OPENAI_ASSISTANT_URL="$OPENAI_ASSISTANT_DEFAULT"
 fi
 
-# Use envsubst to replace environment variables in the template
+# Use sed to replace environment variables in the template (matching new format)
 echo "🔧 Generating environment.js from template..."
-envsubst < "$ENV_TEMPLATE" > "$ENV_FILE"
+cp "$ENV_TEMPLATE" "$ENV_FILE"
+
+# Replace placeholders with actual environment variables
+sed -i "s/__FIREBASE_API_KEY__/${VITE_FIREBASE_API_KEY}/g" "$ENV_FILE"
+sed -i "s/__FIREBASE_AUTH_DOMAIN__/${VITE_FIREBASE_AUTH_DOMAIN}/g" "$ENV_FILE"
+sed -i "s/__FIREBASE_PROJECT_ID__/${VITE_FIREBASE_PROJECT_ID}/g" "$ENV_FILE"
+sed -i "s/__FIREBASE_STORAGE_BUCKET__/${VITE_FIREBASE_STORAGE_BUCKET}/g" "$ENV_FILE"
+sed -i "s/__FIREBASE_MESSAGING_SENDER_ID__/${VITE_FIREBASE_MESSAGING_SENDER_ID}/g" "$ENV_FILE"
+sed -i "s/__FIREBASE_APP_ID__/${VITE_FIREBASE_APP_ID}/g" "$ENV_FILE"
+sed -i "s/__FIREBASE_MEASUREMENT_ID__/${VITE_FIREBASE_MEASUREMENT_ID}/g" "$ENV_FILE"
+sed -i "s/__YOUTUBE_API_KEY__/${VITE_YOUTUBE_API_KEY}/g" "$ENV_FILE"
+sed -i "s/__RECAPTCHA_SITE_KEY__/${VITE_RECAPTCHA_SITE_KEY}/g" "$ENV_FILE"
+sed -i "s/__BUMPUPS_API_KEY__/${VITE_BUMPUPS_API_KEY}/g" "$ENV_FILE"
+sed -i "s/__OPENAI_API_KEY__/${VITE_OPENAI_API_KEY}/g" "$ENV_FILE"
+sed -i "s/__BUMPUPS_PROXY_URL__/${VITE_BUMPUPS_PROXY_URL}/g" "$ENV_FILE"
+sed -i "s/__OPENAI_ASSISTANT_URL__/${VITE_OPENAI_ASSISTANT_URL}/g" "$ENV_FILE"
 
 if [ -n "$VITE_FIREBASE_API_KEY" ] && [ -n "$VITE_FIREBASE_PROJECT_ID" ]; then
   echo "✅ Environment variables successfully injected into $ENV_FILE"

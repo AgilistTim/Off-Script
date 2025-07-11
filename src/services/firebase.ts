@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore, initializeFirestore, Firestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
 import { firebaseConfig, isProduction, isDevelopment } from '../config/environment';
@@ -17,8 +17,8 @@ declare global {
       VITE_FIREBASE_MEASUREMENT_ID: string;
       VITE_YOUTUBE_API_KEY?: string;
       VITE_RECAPTCHA_SITE_KEY?: string;
-      VITE_BUMPUPS_API_KEY?: string;
       VITE_BUMPUPS_PROXY_URL?: string;
+      // SECURITY: Sensitive API keys excluded from runtime config
     };
   }
 }
@@ -26,27 +26,55 @@ declare global {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore - always connect to production database
-const db: Firestore = initializeFirestore(app, {
-  ignoreUndefinedProperties: true,     // Ignore undefined properties to prevent errors
-  experimentalForceLongPolling: true,  // Force long polling instead of WebSockets to avoid CORS issues
-  experimentalAutoDetectLongPolling: false  // Disable auto-detection since we're forcing long polling
+// Initialize auth will be done after app initialization below
+
+// Initialize Firestore - connect to emulator in development, production otherwise
+let db: Firestore;
+
+// Check if we're running in development mode and should use emulators
+console.log('🔍 Environment check:', {
+  MODE: import.meta.env.MODE,
+  VITE_DISABLE_EMULATORS: import.meta.env.VITE_DISABLE_EMULATORS,
+  isDevelopment: import.meta.env.MODE === 'development'
 });
 
-console.log('🔄 Connected to Firestore production database');
+const useEmulators = import.meta.env.MODE === 'development' && 
+                   import.meta.env.VITE_DISABLE_EMULATORS !== 'true';
+
+if (useEmulators) {
+  // Initialize Firestore with emulator settings
+  db = getFirestore(app);
+  
+  // Connect to local emulator with explicit host and port
+  connectFirestoreEmulator(db, '127.0.0.1', 8080);
+  console.log('🧪 Connected to Firestore emulator on 127.0.0.1:8080');
+} else {
+  // Connect to production database
+  db = initializeFirestore(app, {
+    ignoreUndefinedProperties: true,
+    experimentalForceLongPolling: true,
+    experimentalAutoDetectLongPolling: false
+  });
+  console.log('🔄 Connected to Firestore production database');
+}
 
 // Utility function to get the correct Firebase function URL
 export const getFirebaseFunctionUrl = (functionName: string): string => {
   const projectId = firebaseConfig.projectId || 'offscript-8f6eb';
   
-  // Always use the deployed Firebase Functions URL
-  // This ensures we use the actual Firebase Functions regardless of environment
-  return `https://us-central1-${projectId}.cloudfunctions.net/${functionName}`;
+  // Use emulator in development, production URL otherwise
+  if (useEmulators) {
+    return `http://127.0.0.1:5001/${projectId}/us-central1/${functionName}`;
+  } else {
+    return `https://us-central1-${projectId}.cloudfunctions.net/${functionName}`;
+  }
 };
 
-export { db };
-export const auth = getAuth(app);
-export const googleProvider = new GoogleAuthProvider();
+// Initialize auth after app setup
+const auth = getAuth(app);
+const googleProvider = new GoogleAuthProvider();
+
+export { db, auth, googleProvider };
 
 // Initialize Analytics if available
 let analytics = null;

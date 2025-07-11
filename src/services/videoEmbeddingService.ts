@@ -1,14 +1,11 @@
 import { collection, doc, getDoc, getDocs, setDoc, query as firestoreQuery, where, limit as firestoreLimit } from 'firebase/firestore';
 import { db } from './firebase';
 import { Video } from './videoService';
-import axios from 'axios';
-import { getEnvironmentConfig } from '../config/environment';
 
-// Get environment configuration
-const env = getEnvironmentConfig();
-const apiBaseUrl = env.apiEndpoints.openaiAssistant || '/api/openai';
+// SECURITY: OpenAI client removed from client-side code
+// All OpenAI operations are handled server-side through Firebase Functions
 
-// OpenAI embedding model to use
+// OpenAI embedding model reference (for documentation)
 const EMBEDDING_MODEL = 'text-embedding-3-small';
 
 // Interface for video embedding data
@@ -23,7 +20,7 @@ export interface VideoEmbedding {
 /**
  * Generate a text representation of a video for embedding
  */
-const generateVideoText = (video: Video): string => {
+const generateVideoText = (video: Video, includeTranscript: boolean = true): string => {
   // Combine all relevant video metadata into a single text string
   const textParts = [
     `Title: ${video.title || ''}`,
@@ -36,19 +33,70 @@ const generateVideoText = (video: Video): string => {
     `Duration: ${video.duration || 0} seconds`
   ];
   
-  // Add any AI-enhanced metadata if available
+  // Add transcript data if available and requested
+  if (includeTranscript && video.transcript && video.transcript.fullText) {
+    // Truncate transcript if too long (keep first 3000 chars for embedding efficiency)
+    const transcriptText = video.transcript.fullText.length > 3000 
+      ? video.transcript.fullText.substring(0, 3000) + '...'
+      : video.transcript.fullText;
+    textParts.push(`Transcript: ${transcriptText}`);
+  }
+  
+  // Add AI-enhanced metadata if available
   if (video.aiAnalysis) {
-    if (video.aiAnalysis.summary) {
-      textParts.push(`Summary: ${video.aiAnalysis.summary}`);
+    // Prioritize OpenAI analysis if available
+    if (video.aiAnalysis.openaiAnalysis) {
+      const openai = video.aiAnalysis.openaiAnalysis;
+      textParts.push(`Career Field: ${openai.careerInsights.primaryCareerField}`);
+      textParts.push(`Career Paths: ${openai.careerInsights.relatedCareerPaths.join(', ')}`);
+      textParts.push(`Skills Identified: ${openai.careerInsights.skillsHighlighted.join(', ')}`);
+      textParts.push(`Education Requirements: ${openai.careerInsights.educationRequirements}`);
+      textParts.push(`Content Summary: ${openai.contentAnalysis.summary}`);
+      textParts.push(`Key Takeaways: ${openai.contentAnalysis.keyTakeaways.join('. ')}`);
+      textParts.push(`Target Audience: ${openai.contentAnalysis.targetAudience}`);
+      textParts.push(`Actionable Advice: ${openai.engagement.actionableAdvice.join('. ')}`);
+      
+      // Add key moments context for better searchability
+      if (openai.keyMoments && openai.keyMoments.length > 0) {
+        const momentsText = openai.keyMoments
+          .map(moment => `${moment.title || 'Key moment'}: ${moment.description}`)
+          .join('. ');
+        textParts.push(`Key Moments: ${momentsText}`);
+      }
     }
-    
-    if (video.aiAnalysis.careerInfo) {
-      textParts.push(`Career Insights: ${JSON.stringify(video.aiAnalysis.careerInfo)}`);
+    // Fallback to legacy analysis
+    else {
+      if (video.aiAnalysis.summary) {
+        textParts.push(`Summary: ${video.aiAnalysis.summary}`);
+      }
+      
+      if (video.aiAnalysis.careerInfo) {
+        textParts.push(`Career Insights: ${JSON.stringify(video.aiAnalysis.careerInfo)}`);
+      }
+      
+      if (video.aiAnalysis.careerExplorationAnalysis) {
+        // Include career exploration analysis from bumpups
+        const analysisText = video.aiAnalysis.careerExplorationAnalysis.length > 1000
+          ? video.aiAnalysis.careerExplorationAnalysis.substring(0, 1000) + '...'
+          : video.aiAnalysis.careerExplorationAnalysis;
+        textParts.push(`Career Analysis: ${analysisText}`);
+      }
+      
+      if (video.aiAnalysis.skillsIdentified && video.aiAnalysis.skillsIdentified.length > 0) {
+        textParts.push(`Skills Identified: ${video.aiAnalysis.skillsIdentified.join(', ')}`);
+      }
     }
-    
-    if (video.aiAnalysis.skillsIdentified && video.aiAnalysis.skillsIdentified.length > 0) {
-      textParts.push(`Skills Identified: ${video.aiAnalysis.skillsIdentified.join(', ')}`);
-    }
+  }
+  
+  // Add career pathways if available
+  if (video.careerPathways && video.careerPathways.length > 0) {
+    textParts.push(`Career Pathways: ${video.careerPathways.join(', ')}`);
+  }
+  
+  // Add hashtags if available (prioritize OpenAI generated hashtags)
+  const hashtags = video.aiAnalysis?.openaiAnalysis?.engagement.hashtags || video.hashtags || [];
+  if (hashtags.length > 0) {
+    textParts.push(`Hashtags: ${hashtags.join(' ')}`);
   }
   
   return textParts.join('\n');
@@ -59,15 +107,11 @@ const generateVideoText = (video: Video): string => {
  */
 const generateEmbedding = async (text: string): Promise<number[] | null> => {
   try {
-    const response = await axios.post(`${apiBaseUrl}/generateEmbedding`, {
-      text
-    }, {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    return response.data.embedding;
+    // This function is no longer used directly for embedding generation
+    // as OpenAI API key is removed from client-side code.
+    // All embedding generation should be handled by Firebase Functions.
+    console.warn('generateEmbedding is deprecated. Embedding generation should be handled by Firebase Functions.');
+    return null;
   } catch (error) {
     console.error('Error generating embedding:', error);
     return null;

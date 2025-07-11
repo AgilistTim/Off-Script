@@ -27,8 +27,8 @@ export interface EnvironmentConfig {
   apiKeys: {
     youtube?: string;
     recaptcha?: string;
-    bumpups?: string;
-    openai?: string;
+    // SECURITY NOTE: Sensitive API keys (bumpups, openai, webshare) are NOT exposed client-side
+    // These are handled securely in Firebase Functions server-side
   };
   
   // API endpoints
@@ -84,8 +84,8 @@ const getViteEnvironment = (): Partial<EnvironmentConfig> => {
     apiKeys: {
       youtube: import.meta.env.VITE_YOUTUBE_API_KEY as string,
       recaptcha: import.meta.env.VITE_RECAPTCHA_SITE_KEY as string,
-      bumpups: import.meta.env.VITE_BUMPUPS_API_KEY as string,
-      openai: import.meta.env.VITE_OPENAI_API_KEY as string,
+      // SECURITY: Sensitive API keys removed from client-side
+      // bumpups, openai, and webshare keys are handled server-side in Firebase Functions
     },
     apiEndpoints: {
       bumpupsProxy: import.meta.env.VITE_BUMPUPS_PROXY_URL as string,
@@ -116,10 +116,11 @@ const getWindowEnvironment = (): Partial<EnvironmentConfig> => {
     apiKeys: {
       youtube: window.ENV.VITE_YOUTUBE_API_KEY,
       recaptcha: window.ENV.VITE_RECAPTCHA_SITE_KEY,
-      bumpups: window.ENV.VITE_BUMPUPS_API_KEY,
+      // SECURITY: Sensitive API keys removed from client-side runtime config
     },
     apiEndpoints: {
       bumpupsProxy: window.ENV.VITE_BUMPUPS_PROXY_URL,
+      // openaiAssistant endpoint can stay as it's just a URL
     },
   };
 };
@@ -158,13 +159,13 @@ const determineFeatureFlags = (config: Partial<EnvironmentConfig>): EnvironmentC
     enableYouTubeIntegration: config.features?.enableYouTubeIntegration ?? 
       Boolean(config.apiKeys?.youtube),
     
-    // Enable Bumpups integration if API key is available
+    // Enable Bumpups integration if proxy endpoint is available
     enableBumpupsIntegration: config.features?.enableBumpupsIntegration ?? 
-      Boolean(config.apiKeys?.bumpups),
+      Boolean(config.apiEndpoints?.bumpupsProxy),
       
-    // Enable OpenAI Assistant if API key is available
+    // Enable OpenAI Assistant if endpoint is available
     enableOpenAIAssistant: config.features?.enableOpenAIAssistant ?? 
-      Boolean(config.apiKeys?.openai)
+      Boolean(config.apiEndpoints?.openaiAssistant)
   };
 };
 
@@ -177,14 +178,24 @@ const generateApiEndpoints = (config: Partial<EnvironmentConfig>): EnvironmentCo
     openaiAssistant: config.apiEndpoints?.openaiAssistant
   };
   
-  // If we're in development and no bumpupsProxy is defined, use the local emulator
-  if (!endpoints.bumpupsProxy && _isDevelopment) {
-    endpoints.bumpupsProxy = 'http://localhost:5001/offscript-8f6eb/us-central1/bumpupsProxy';
-  }
-  
-  // If we're in development and no openaiAssistant is defined, use the local emulator
-  if (!endpoints.openaiAssistant && _isDevelopment) {
-    endpoints.openaiAssistant = 'http://localhost:5001/offscript-8f6eb/us-central1';
+  // Development: use local emulator for some, deployed for others with secret issues
+  // Production: use environment variables or defaults
+  if (_isDevelopment) {
+    if (!endpoints.bumpupsProxy) {
+      endpoints.bumpupsProxy = 'http://localhost:5001/offscript-8f6eb/us-central1/bumpupsProxy';
+    }
+    // Use deployed functions for OpenAI Assistant in development (emulator has secret issues)
+    if (!endpoints.openaiAssistant) {
+      endpoints.openaiAssistant = 'https://us-central1-offscript-8f6eb.cloudfunctions.net';
+    }
+  } else {
+    // Production: ensure we have proper endpoints as fallbacks
+    if (!endpoints.bumpupsProxy) {
+      endpoints.bumpupsProxy = 'https://us-central1-offscript-8f6eb.cloudfunctions.net/bumpupsProxy';
+    }
+    if (!endpoints.openaiAssistant) {
+      endpoints.openaiAssistant = 'https://us-central1-offscript-8f6eb.cloudfunctions.net';
+    }
   }
   
   return endpoints;
@@ -246,8 +257,7 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
     apiKeys: {
       youtube: fallbackConfig.apiKeys?.youtube,
       recaptcha: fallbackConfig.apiKeys?.recaptcha,
-      bumpups: fallbackConfig.apiKeys?.bumpups,
-      openai: fallbackConfig.apiKeys?.openai,
+      // SECURITY: Sensitive API keys not included in fallback config
     },
     apiEndpoints: generateApiEndpoints(fallbackConfig),
     environment: fallbackConfig.environment || 'development',

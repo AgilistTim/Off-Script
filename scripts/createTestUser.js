@@ -27,8 +27,15 @@ const firebaseConfig = {
 
 // Test user credentials
 const TEST_EMAIL = 'admin@offscript.com';
-const TEST_PASSWORD = 'admin123';
+const TEST_PASSWORD = process.env.ADMIN_PASSWORD;
 const TEST_DISPLAY_NAME = 'Admin User';
+
+// Check for required environment variable
+if (!TEST_PASSWORD) {
+  console.error('❌ ADMIN_PASSWORD environment variable is required');
+  console.log('💡 Set ADMIN_PASSWORD in your .env.local file');
+  process.exit(1);
+}
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
