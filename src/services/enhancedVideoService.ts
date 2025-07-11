@@ -109,7 +109,60 @@ class EnhancedVideoService {
   }
 
   /**
+   * Process video using the working Firebase function pipeline
+   * This calls the same function that the batch script uses successfully
+   */
+  async processVideoWithFirebaseFunction(youtubeUrl: string, category: string): Promise<EnhancedVideoData> {
+    console.log('🎯 Processing video via Firebase function:', youtubeUrl);
+
+    const videoId = youtubeService.extractVideoId(youtubeUrl);
+    if (!videoId) {
+      throw new Error('Invalid YouTube URL');
+    }
+
+    try {
+      // Call the working Firebase function (same one used by batch script)
+      const functionUrl = `https://us-central1-${process.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/processVideoWithTranscript`;
+      
+      console.log('📞 Calling Firebase function:', functionUrl);
+      
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          videoId,
+          youtubeUrl,
+          category
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Firebase function error (${response.status}): ${errorText}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Processing failed');
+      }
+
+      console.log('✅ Video processed successfully via Firebase function');
+      
+      // Return the processed video data
+      return result.data || result.videoData;
+      
+    } catch (error) {
+      console.error('❌ Firebase function processing failed:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Analyze a YouTube video and store comprehensive metadata
+   * @deprecated Use processVideoWithFirebaseFunction instead for reliable processing
    */
   async analyzeAndStoreVideo(youtubeUrl: string, category: string): Promise<EnhancedVideoData> {
     console.log('🎯 Starting comprehensive video analysis for:', youtubeUrl);
@@ -493,7 +546,7 @@ class EnhancedVideoService {
   }
 
   /**
-   * Batch analyze multiple videos
+   * Batch analyze multiple videos using the working Firebase function pipeline
    */
   async batchAnalyzeVideos(youtubeUrls: string[], category: string): Promise<EnhancedVideoData[]> {
     const results: EnhancedVideoData[] = [];
@@ -501,7 +554,8 @@ class EnhancedVideoService {
     for (const url of youtubeUrls) {
       try {
         console.log(`Processing ${results.length + 1}/${youtubeUrls.length}: ${url}`);
-        const result = await this.analyzeAndStoreVideo(url, category);
+        // Use the working Firebase function (same as single video processing)
+        const result = await this.processVideoWithFirebaseFunction(url, category);
         results.push(result);
         
         // Small delay to avoid rate limiting

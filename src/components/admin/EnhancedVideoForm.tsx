@@ -133,7 +133,8 @@ export const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
     try {
       toast.loading('📝 Analyzing and processing video...', { id: 'video-process' });
       
-      const videoData = await enhancedVideoService.analyzeAndStoreVideo(videoUrl, category);
+      // Use the working Firebase function pipeline (same as batch script)
+      const videoData = await enhancedVideoService.processVideoWithFirebaseFunction(videoUrl, category);
       
       toast.success('🎉 Video added successfully!', { id: 'video-process' });
       onVideoAdded(videoData);
