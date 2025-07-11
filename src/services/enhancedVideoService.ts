@@ -5,6 +5,7 @@ import { db } from './firebase';
 import youtubeService from './youtubeService';
 import bumpupsService from './bumpupsService';
 import transcriptService from './transcriptService';
+import { getEnvironmentConfig } from '../config/environment';
 import type { TranscriptResult, OpenAIAnalysisResult } from './transcriptService';
 
 // Type definitions for the EnhancedVideoData interface
@@ -121,8 +122,16 @@ class EnhancedVideoService {
     }
 
     try {
+      // Get the Firebase project ID from environment config
+      const envConfig = getEnvironmentConfig();
+      const projectId = envConfig.firebase.projectId;
+      
+      if (!projectId || projectId.includes('your-project') || projectId.includes('__FIREBASE_')) {
+        throw new Error('Firebase project ID not configured properly');
+      }
+      
       // Call the working Firebase function (same one used by batch script)
-      const functionUrl = `https://us-central1-${process.env.VITE_FIREBASE_PROJECT_ID}.cloudfunctions.net/processVideoWithTranscript`;
+      const functionUrl = `https://us-central1-${projectId}.cloudfunctions.net/processVideoWithTranscript`;
       
       console.log('📞 Calling Firebase function:', functionUrl);
       
