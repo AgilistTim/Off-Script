@@ -1349,6 +1349,7 @@ export const searchVideos = onRequest(
 
 /**
  * Get personalized video recommendations based on user preferences and chat history
+ * Now uses enhanced career-focused recommendation system when available
  */
 export const getPersonalizedVideoRecommendations = onRequest(
   {
@@ -1390,7 +1391,139 @@ export const getPersonalizedVideoRecommendations = onRequest(
         return;
       }
 
-      // Get OpenAI API key
+      // First try the enhanced career-focused recommendation system
+      try {
+        // Get user preferences
+        const userPrefsSnapshot = await db.collection('userPreferences').doc(userId).get();
+        const userPrefs = userPrefsSnapshot.exists ? userPrefsSnapshot.data() : {};
+        
+        // Get user watch history
+        const watchHistorySnapshot = await db.collection('userActivity')
+          .doc(userId)
+          .collection('watchHistory')
+          .orderBy('timestamp', 'desc')
+          .limit(20)
+          .get();
+        
+        const watchedVideoIds = watchHistorySnapshot.docs.map(doc => doc.data().videoId);
+        
+        // Get user feedback
+        const userFeedbackSnapshot = await db.collection('userActivity')
+          .doc(userId)
+          .collection('videoFeedback')
+          .get();
+        
+        const videoFeedback = userFeedbackSnapshot.docs.reduce((acc, doc) => {
+          const data = doc.data();
+          acc[doc.id] = {
+            liked: data.liked || false,
+            disliked: data.disliked || false,
+            saved: data.saved || false
+          };
+          return acc;
+        }, {} as Record<string, { liked: boolean, disliked: boolean, saved: boolean }>);
+        
+        // Get chat summary
+        let chatSummary = null;
+        if (chatSummaryId) {
+          const chatSummarySnapshot = await db.collection('chatSummaries').doc(chatSummaryId).get();
+          if (chatSummarySnapshot.exists) {
+            chatSummary = chatSummarySnapshot.data();
+          }
+        }
+        
+        if (!chatSummary) {
+          const recentSummariesSnapshot = await db.collection('chatSummaries')
+            .where('userId', '==', userId)
+            .orderBy('createdAt', 'desc')
+            .limit(1)
+            .get();
+          
+          if (!recentSummariesSnapshot.empty) {
+            chatSummary = recentSummariesSnapshot.docs[0].data();
+          }
+        }
+        
+        // Extract user profile
+        const userProfile = {
+          interests: chatSummary?.interests || userPrefs?.interests || [],
+          skills: chatSummary?.skills || userPrefs?.skills || [],
+          careerGoals: chatSummary?.careerGoals || userPrefs?.careerGoals || [],
+          learningPaths: chatSummary?.learningPaths || []
+        };
+        
+        // Check if we have a meaningful profile for enhanced recommendations
+        const hasProfile = userProfile.interests.length > 0 || userProfile.skills.length > 0 || 
+                          userProfile.careerGoals.length > 0 || userProfile.learningPaths.length > 0;
+        
+        if (hasProfile) {
+          // Get videos with analysis data for enhanced recommendations
+          const videosSnapshot = await db.collection('videos')
+            .where('analysisStatus', '==', 'completed')
+            .get();
+          
+          if (!videosSnapshot.empty) {
+            // Calculate career relevance scores for all videos
+            const scoredVideos = videosSnapshot.docs.map(doc => {
+              const video = { id: doc.id, ...doc.data() };
+              const relevanceScore = calculateCareerRelevanceScore(video, userProfile);
+              
+              // Apply feedback adjustments
+              let adjustedScore = relevanceScore;
+              const feedback = videoFeedback[video.id];
+              
+              if (feedback) {
+                if (feedback.liked) adjustedScore *= 1.3;
+                if (feedback.disliked) adjustedScore *= 0.3;
+                if (feedback.saved) adjustedScore *= 1.4;
+                
+                // Filter by feedback type if specified
+                if (feedbackType === 'liked' && !feedback.liked) adjustedScore = 0;
+                if (feedbackType === 'disliked' && !feedback.disliked) adjustedScore = 0;
+                if (feedbackType === 'saved' && !feedback.saved) adjustedScore = 0;
+              }
+              
+              // Exclude watched videos if requested
+              if (!includeWatched && watchedVideoIds.includes(video.id)) {
+                adjustedScore = 0;
+              }
+              
+              return {
+                videoId: video.id,
+                score: adjustedScore
+              };
+            });
+
+            // Sort by score and take top results
+            const topResults = scoredVideos
+              .filter(item => item.score > 0)
+              .sort((a, b) => b.score - a.score)
+              .slice(0, limit)
+              .map(item => item.videoId);
+
+            if (topResults.length > 0) {
+              logger.info('Generated personalized video recommendations using enhanced career matching', { 
+                userId,
+                videoCount: topResults.length,
+                method: 'enhanced-career',
+                totalAnalyzed: scoredVideos.length
+              });
+
+              response.status(200).json({ 
+                videoIds: topResults,
+                method: 'enhanced-career',
+                profileUsed: true,
+                totalAnalyzed: scoredVideos.length
+              });
+              return;
+            }
+          }
+        }
+      } catch (enhancedError) {
+        logger.error('Enhanced career recommendations failed, falling back to embeddings', enhancedError);
+      }
+
+      // Fallback to embeddings-based recommendations
       const openaiApiKey = openaiApiKeySecret.value();
       
       if (!openaiApiKey) {
@@ -1404,11 +1537,11 @@ export const getPersonalizedVideoRecommendations = onRequest(
         apiKey: openaiApiKey
       });
 
-      // Get user preferences
+      // Get user preferences for fallback
       const userPrefsSnapshot = await db.collection('userPreferences').doc(userId).get();
       const userPrefs = userPrefsSnapshot.exists ? userPrefsSnapshot.data() : {};
       
-      // Get user watch history
+      // Get user watch history for fallback
       const watchHistorySnapshot = await db.collection('userActivity')
         .doc(userId)
         .collection('watchHistory')
@@ -1418,7 +1551,7 @@ export const getPersonalizedVideoRecommendations = onRequest(
       
       const watchedVideoIds = watchHistorySnapshot.docs.map(doc => doc.data().videoId);
       
-      // Get user feedback (likes, dislikes, saves)
+      // Get user feedback for fallback
       const userFeedbackSnapshot = await db.collection('userActivity')
         .doc(userId)
         .collection('videoFeedback')
@@ -1434,7 +1567,7 @@ export const getPersonalizedVideoRecommendations = onRequest(
         return acc;
       }, {} as Record<string, { liked: boolean, disliked: boolean, saved: boolean }>);
       
-      // Get chat summary if provided
+      // Get chat summary for fallback
       let chatSummary = null;
       if (chatSummaryId) {
         const chatSummarySnapshot = await db.collection('chatSummaries').doc(chatSummaryId).get();
@@ -1443,7 +1576,6 @@ export const getPersonalizedVideoRecommendations = onRequest(
         }
       }
       
-      // If no chat summary provided, get the most recent one
       if (!chatSummary) {
         const recentSummariesSnapshot = await db.collection('chatSummaries')
           .where('userId', '==', userId)
@@ -1470,7 +1602,7 @@ export const getPersonalizedVideoRecommendations = onRequest(
         `Learning Paths: ${learningPaths.join(', ')}`
       ].filter(part => !part.endsWith(': ')).join('\n');
       
-      logger.info('Combined profile for personalized recommendations', { 
+      logger.info('Combined profile for personalized recommendations (fallback)', { 
         profileLength: combinedProfile.length,
         interestsCount: interests.length,
         skillsCount: skills.length,
@@ -1533,7 +1665,7 @@ export const getPersonalizedVideoRecommendations = onRequest(
               .slice(0, limit)
               .map(item => item.videoId);
             
-            logger.info('Generated personalized video recommendations using embeddings', { 
+            logger.info('Generated personalized video recommendations using embeddings (fallback)', { 
               userId, 
               videoCount: topResults.length,
               method: 'embeddings',
@@ -1554,7 +1686,7 @@ export const getPersonalizedVideoRecommendations = onRequest(
         }
       }
       
-      // Fallback to category matching
+      // Final fallback to category matching
       let videoQuery;
       
       if (interests && interests.length > 0) {
@@ -1596,7 +1728,7 @@ export const getPersonalizedVideoRecommendations = onRequest(
       // Limit to requested number
       videoIds = videoIds.slice(0, limit);
       
-      logger.info('Generated personalized video recommendations using category matching', { 
+      logger.info('Generated personalized video recommendations using category matching (final fallback)', { 
         userId, 
         videoCount: videoIds.length,
         method: 'category',
@@ -2560,3 +2692,334 @@ Format your response in Markdown with clear headings and bullet points where app
     }
   }
 ); 
+
+/**
+ * Enhanced career-focused video recommendation system
+ * Uses rich video analysis data for accurate matching
+ */
+function calculateCareerRelevanceScore(
+  video: any,
+  userProfile: {
+    interests: string[];
+    skills: string[];
+    careerGoals: string[];
+    learningPaths: string[];
+  }
+): number {
+  let score = 0;
+  const normalizedProfile = {
+    interests: userProfile.interests.map(i => i.toLowerCase()),
+    skills: userProfile.skills.map(s => s.toLowerCase()),
+    careerGoals: userProfile.careerGoals.map(g => g.toLowerCase()),
+    learningPaths: userProfile.learningPaths.map(p => p.toLowerCase())
+  };
+
+  // Extract career-focused data from video analysis
+  const videoAnalysis = video.aiAnalysis?.fullAnalysis || video.aiAnalysis || {};
+  const careerPathways = videoAnalysis.careerPathways || [];
+  const skillsHighlighted = videoAnalysis.skillsHighlighted || [];
+  const keyThemes = videoAnalysis.keyThemes || [];
+  const hashtags = videoAnalysis.hashtags || [];
+  const workEnvironments = videoAnalysis.workEnvironments || [];
+  const educationRequired = videoAnalysis.educationRequired || [];
+
+  // Career pathway matching (highest weight)
+  careerPathways.forEach((pathway: string) => {
+    const pathwayLower = pathway.toLowerCase();
+    normalizedProfile.careerGoals.forEach(goal => {
+      if (pathwayLower.includes(goal) || goal.includes(pathwayLower)) {
+        score += 15; // High score for career pathway matches
+      }
+    });
+    normalizedProfile.interests.forEach(interest => {
+      if (pathwayLower.includes(interest) || interest.includes(pathwayLower)) {
+        score += 10;
+      }
+    });
+  });
+
+  // Skills matching (high weight)
+  skillsHighlighted.forEach((skill: string) => {
+    const skillLower = skill.toLowerCase();
+    normalizedProfile.skills.forEach(userSkill => {
+      if (skillLower.includes(userSkill) || userSkill.includes(skillLower)) {
+        score += 8;
+      }
+    });
+    normalizedProfile.interests.forEach(interest => {
+      if (skillLower.includes(interest) || interest.includes(skillLower)) {
+        score += 6;
+      }
+    });
+  });
+
+  // Key themes matching (medium weight)
+  keyThemes.forEach((theme: string) => {
+    const themeLower = theme.toLowerCase();
+    normalizedProfile.interests.forEach(interest => {
+      if (themeLower.includes(interest) || interest.includes(themeLower)) {
+        score += 5;
+      }
+    });
+    normalizedProfile.careerGoals.forEach(goal => {
+      if (themeLower.includes(goal) || goal.includes(themeLower)) {
+        score += 7;
+      }
+    });
+  });
+
+  // Hashtag matching (medium weight)
+  hashtags.forEach((hashtag: string) => {
+    const hashtagLower = hashtag.toLowerCase().replace('#', '');
+    normalizedProfile.interests.forEach(interest => {
+      if (hashtagLower.includes(interest) || interest.includes(hashtagLower)) {
+        score += 4;
+      }
+    });
+    normalizedProfile.careerGoals.forEach(goal => {
+      if (hashtagLower.includes(goal) || goal.includes(hashtagLower)) {
+        score += 6;
+      }
+    });
+  });
+
+  // Learning path matching (high weight)
+  normalizedProfile.learningPaths.forEach(path => {
+    const pathLower = path.toLowerCase();
+    [...careerPathways, ...skillsHighlighted, ...keyThemes].forEach((item: string) => {
+      const itemLower = item.toLowerCase();
+      if (itemLower.includes(pathLower) || pathLower.includes(itemLower)) {
+        score += 8;
+      }
+    });
+  });
+
+  // Work environment preferences (if available in user profile)
+  workEnvironments.forEach((env: string) => {
+    const envLower = env.toLowerCase();
+    normalizedProfile.interests.forEach(interest => {
+      if (interest.includes(envLower) || envLower.includes(interest)) {
+        score += 3;
+      }
+    });
+  });
+
+  // Education level matching (if available in user profile)
+  educationRequired.forEach((edu: string) => {
+    const eduLower = edu.toLowerCase();
+    normalizedProfile.interests.forEach(interest => {
+      if (interest.includes(eduLower) || eduLower.includes(interest)) {
+        score += 2;
+      }
+    });
+  });
+
+  // Boost for videos with rich analysis (preference for quality content)
+  if (videoAnalysis.careerPathways?.length > 0 || videoAnalysis.skillsHighlighted?.length > 0) {
+    score += 2;
+  }
+
+  // Normalize score based on video's analysis completeness
+  const analysisCompleteness = [
+    careerPathways.length > 0,
+    skillsHighlighted.length > 0,
+    keyThemes.length > 0,
+    hashtags.length > 0
+  ].filter(Boolean).length;
+
+  if (analysisCompleteness > 0) {
+    score = score * (1 + (analysisCompleteness - 1) * 0.1); // Slight boost for complete analysis
+  }
+
+  return score;
+}
+
+/**
+ * Enhanced video recommendations using career-focused analysis
+ */
+export const getEnhancedCareerRecommendations = onRequest(
+  {
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret],
+    timeoutSeconds: 30
+  },
+  async (request, response) => {
+    try {
+      // Only allow POST requests
+      if (request.method !== 'POST') {
+        response.status(405).json({ 
+          error: 'Method not allowed. Use POST only.' 
+        });
+        return;
+      }
+
+      // Validate origin
+      const origin = request.headers.origin;
+      if (origin && !isOriginAllowed(origin)) {
+        logger.warn('Unauthorized origin attempted to access getEnhancedCareerRecommendations', { origin });
+        response.status(403).json({ error: 'Origin not allowed' });
+        return;
+      }
+
+      // Validate request body
+      const { 
+        userId, 
+        limit = 5, 
+        includeWatched = false,
+        feedbackType = null,
+        chatSummaryId = null
+      } = request.body;
+      
+      if (!userId) {
+        response.status(400).json({ 
+          error: 'Missing required field: userId' 
+        });
+        return;
+      }
+
+      // Get user preferences
+      const userPrefsSnapshot = await db.collection('userPreferences').doc(userId).get();
+      const userPrefs = userPrefsSnapshot.exists ? userPrefsSnapshot.data() : {};
+      
+      // Get user watch history
+      const watchHistorySnapshot = await db.collection('userActivity')
+        .doc(userId)
+        .collection('watchHistory')
+        .orderBy('timestamp', 'desc')
+        .limit(20)
+        .get();
+      
+      const watchedVideoIds = watchHistorySnapshot.docs.map(doc => doc.data().videoId);
+      
+      // Get user feedback
+      const userFeedbackSnapshot = await db.collection('userActivity')
+        .doc(userId)
+        .collection('videoFeedback')
+        .get();
+      
+      const videoFeedback = userFeedbackSnapshot.docs.reduce((acc, doc) => {
+        const data = doc.data();
+        acc[doc.id] = {
+          liked: data.liked || false,
+          disliked: data.disliked || false,
+          saved: data.saved || false
+        };
+        return acc;
+      }, {} as Record<string, { liked: boolean, disliked: boolean, saved: boolean }>);
+      
+      // Get chat summary
+      let chatSummary = null;
+      if (chatSummaryId) {
+        const chatSummarySnapshot = await db.collection('chatSummaries').doc(chatSummaryId).get();
+        if (chatSummarySnapshot.exists) {
+          chatSummary = chatSummarySnapshot.data();
+        }
+      }
+      
+      if (!chatSummary) {
+        const recentSummariesSnapshot = await db.collection('chatSummaries')
+          .where('userId', '==', userId)
+          .orderBy('createdAt', 'desc')
+          .limit(1)
+          .get();
+        
+        if (!recentSummariesSnapshot.empty) {
+          chatSummary = recentSummariesSnapshot.docs[0].data();
+        }
+      }
+      
+      // Extract user profile
+      const userProfile = {
+        interests: chatSummary?.interests || userPrefs?.interests || [],
+        skills: chatSummary?.skills || userPrefs?.skills || [],
+        careerGoals: chatSummary?.careerGoals || userPrefs?.careerGoals || [],
+        learningPaths: chatSummary?.learningPaths || []
+      };
+      
+      logger.info('Enhanced career recommendations user profile', { 
+        userId,
+        interestsCount: userProfile.interests.length,
+        skillsCount: userProfile.skills.length,
+        goalsCount: userProfile.careerGoals.length,
+        pathsCount: userProfile.learningPaths.length
+      });
+
+      // Get all videos with analysis data
+      const videosSnapshot = await db.collection('videos')
+        .where('analysisStatus', '==', 'completed')
+        .get();
+      
+      if (videosSnapshot.empty) {
+        logger.warn('No analyzed videos found for career recommendations');
+        response.status(200).json({ 
+          videoIds: [],
+          method: 'enhanced-career',
+          reason: 'no-analyzed-videos'
+        });
+        return;
+      }
+
+      // Calculate career relevance scores for all videos
+      const scoredVideos = videosSnapshot.docs.map(doc => {
+        const video = { id: doc.id, ...doc.data() };
+        const relevanceScore = calculateCareerRelevanceScore(video, userProfile);
+        
+        // Apply feedback adjustments
+        let adjustedScore = relevanceScore;
+        const feedback = videoFeedback[video.id];
+        
+        if (feedback) {
+          if (feedback.liked) adjustedScore *= 1.3;
+          if (feedback.disliked) adjustedScore *= 0.3;
+          if (feedback.saved) adjustedScore *= 1.4;
+          
+          // Filter by feedback type if specified
+          if (feedbackType === 'liked' && !feedback.liked) adjustedScore = 0;
+          if (feedbackType === 'disliked' && !feedback.disliked) adjustedScore = 0;
+          if (feedbackType === 'saved' && !feedback.saved) adjustedScore = 0;
+        }
+        
+        // Exclude watched videos if requested
+        if (!includeWatched && watchedVideoIds.includes(video.id)) {
+          adjustedScore = 0;
+        }
+        
+        return {
+          videoId: video.id,
+          score: adjustedScore,
+          originalScore: relevanceScore
+        };
+      });
+
+      // Sort by score and take top results
+      const topResults = scoredVideos
+        .filter(item => item.score > 0)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, limit)
+        .map(item => item.videoId);
+
+      logger.info('Enhanced career recommendations generated', { 
+        userId,
+        totalVideos: scoredVideos.length,
+        recommendedCount: topResults.length,
+        method: 'enhanced-career',
+        topScores: scoredVideos.slice(0, 5).map(v => ({ id: v.videoId, score: v.score }))
+      });
+
+      response.status(200).json({ 
+        videoIds: topResults,
+        method: 'enhanced-career',
+        profileUsed: true,
+        totalAnalyzed: scoredVideos.length
+      });
+
+    } catch (error) {
+      logger.error('Error in getEnhancedCareerRecommendations function', error);
+      response.status(500).json({ 
+        error: 'Internal server error',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
+
