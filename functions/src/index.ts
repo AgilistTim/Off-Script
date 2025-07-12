@@ -2100,18 +2100,26 @@ export const processVideoWithTranscript = onRequest(
             verifiedHasAiAnalysis: !!verifiedData?.aiAnalysis,
             verifiedLastAnalyzed: verifiedData?.lastAnalyzed?.toDate?.() || verifiedData?.lastAnalyzed
           });
+          
+          // Return the complete video object (not just the update fields)
+          processingResult.videoData = verifiedData; // Return complete video data
+          processingResult.stages.storage.success = true;
+          processingResult.success = true;
+          
+          logger.info('Video processing completed successfully', { videoId });
         } else {
           logger.error('=== POST-WRITE VERIFICATION FAILED ===', {
             videoId,
             error: 'Document not found after write operation'
           });
+          
+          // Fallback to update data if verification fails
+          processingResult.videoData = updateData;
+          processingResult.stages.storage.success = false;
+          processingResult.success = false;
+          
+          logger.error('Video processing failed during verification', { videoId });
         }
-        
-        processingResult.stages.storage.success = true;
-        processingResult.videoData = updateData;
-        processingResult.success = true;
-        
-        logger.info('Video processing completed successfully', { videoId });
         
       } catch (error) {
         logger.error('Failed to store video data:', error);
