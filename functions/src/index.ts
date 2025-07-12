@@ -1953,8 +1953,34 @@ export const processVideoWithTranscript = onRequest(
       logger.info('Stage 4: Storing processed video data');
       
       try {
+        // First, ensure we have basic YouTube metadata for the video
+        logger.info('Fetching basic YouTube metadata for video');
+        let basicMetadata = null;
+        try {
+          basicMetadata = await extractYouTubeBasicMetadata(videoUrl);
+          logger.info('Basic YouTube metadata fetched successfully', {
+            title: basicMetadata.title,
+            uploader: basicMetadata.uploader,
+            duration: basicMetadata.duration
+          });
+        } catch (metadataError) {
+          logger.warn('Failed to fetch basic YouTube metadata:', metadataError);
+        }
+        
         // Create update data structure (using update instead of set to preserve metadata)
         const updateData: any = {
+          // Include basic video metadata if available
+          ...(basicMetadata ? {
+            title: basicMetadata.title,
+            thumbnailUrl: basicMetadata.thumbnail,
+            sourceUrl: videoUrl,
+            sourceId: videoId,
+            sourceType: 'youtube',
+            creator: basicMetadata.uploader,
+            duration: basicMetadata.duration,
+            viewCount: 0, // Will be updated by other processes
+            curatedDate: admin.firestore.Timestamp.now(),
+          } : {}),
           category, // Update category
           // Update description with OpenAI summary if available
           description: openaiAnalysis?.summary || undefined,
