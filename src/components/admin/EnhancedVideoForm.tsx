@@ -399,7 +399,7 @@ export const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
 
               <button
                 onClick={processSingleVideo}
-                disabled={isProcessing || !!validationError || !videoUrl || !category}
+                disabled={isProcessing || !!validationError || !videoUrl}
                 className="w-full py-2 px-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white font-medium rounded-md shadow-sm flex items-center justify-center"
               >
                 {isProcessing ? (
@@ -491,7 +491,7 @@ export const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
                 <button
                   onClick={processBulkVideos}
                   className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 flex items-center disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isProcessing || !bulkUrls.trim() || !category.trim()}
+                  disabled={isProcessing || !bulkUrls.trim()}
                 >
                   {isProcessing ? (
                     <>
