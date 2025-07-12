@@ -51,9 +51,7 @@ echo "  VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID:-NOT_SET}"
 echo "  VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID:-NOT_SET}"
 echo "  VITE_YOUTUBE_API_KEY: ${VITE_YOUTUBE_API_KEY:-NOT_SET} (redacted)"
 echo "  VITE_RECAPTCHA_SITE_KEY: ${VITE_RECAPTCHA_SITE_KEY:-NOT_SET} (redacted)"
-echo "  VITE_BUMPUPS_API_KEY: ${VITE_BUMPUPS_API_KEY:-NOT_SET} (redacted)"
 echo "  VITE_BUMPUPS_PROXY_URL: ${VITE_BUMPUPS_PROXY_URL:-NOT_SET}"
-echo "  VITE_OPENAI_API_KEY: ${VITE_OPENAI_API_KEY:-NOT_SET} (redacted)"
 echo "  VITE_OPENAI_ASSISTANT_URL: ${VITE_OPENAI_ASSISTANT_URL:-NOT_SET}"
 
 # Validate environment variables
@@ -83,7 +81,7 @@ fi
 echo "🔧 Generating environment.js from template..."
 cp "$ENV_TEMPLATE" "$ENV_FILE"
 
-# Replace placeholders with actual environment variables
+# Replace placeholders with actual environment variables (client-safe only)
 sed -i "s|__FIREBASE_API_KEY__|${VITE_FIREBASE_API_KEY}|g" "$ENV_FILE"
 sed -i "s|__FIREBASE_AUTH_DOMAIN__|${VITE_FIREBASE_AUTH_DOMAIN}|g" "$ENV_FILE"
 sed -i "s|__FIREBASE_PROJECT_ID__|${VITE_FIREBASE_PROJECT_ID}|g" "$ENV_FILE"
@@ -93,8 +91,6 @@ sed -i "s|__FIREBASE_APP_ID__|${VITE_FIREBASE_APP_ID}|g" "$ENV_FILE"
 sed -i "s|__FIREBASE_MEASUREMENT_ID__|${VITE_FIREBASE_MEASUREMENT_ID}|g" "$ENV_FILE"
 sed -i "s|__YOUTUBE_API_KEY__|${VITE_YOUTUBE_API_KEY}|g" "$ENV_FILE"
 sed -i "s|__RECAPTCHA_SITE_KEY__|${VITE_RECAPTCHA_SITE_KEY}|g" "$ENV_FILE"
-sed -i "s|__BUMPUPS_API_KEY__|${VITE_BUMPUPS_API_KEY}|g" "$ENV_FILE"
-sed -i "s|__OPENAI_API_KEY__|${VITE_OPENAI_API_KEY}|g" "$ENV_FILE"
 sed -i "s|__BUMPUPS_PROXY_URL__|${VITE_BUMPUPS_PROXY_URL}|g" "$ENV_FILE"
 sed -i "s|__OPENAI_ASSISTANT_URL__|${VITE_OPENAI_ASSISTANT_URL}|g" "$ENV_FILE"
 
