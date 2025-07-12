@@ -141,9 +141,9 @@ class EnhancedVideoService {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          videoId,
-          youtubeUrl,
-          category
+          videoUrl: youtubeUrl,
+          category,
+          videoId // Optional parameter for document ID
         })
       });
 
