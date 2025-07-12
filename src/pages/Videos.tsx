@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getAllVideos, Video, getVideosByCategory } from '../services/videoService';
 import VideoGrid from '../components/video/VideoGrid';
 import { useAuth } from '../context/AuthContext';
+import { VIDEO_CATEGORIES, getCategoryName } from '../data/categories';
 
 const Videos: React.FC = () => {
   const { currentUser } = useAuth();
@@ -12,13 +13,7 @@ const Videos: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   
-  const categories = [
-    { id: 'technology', name: 'Technology & Digital' },
-    { id: 'creative', name: 'Creative & Media' },
-    { id: 'trades', name: 'Skilled Trades' },
-    { id: 'business', name: 'Business & Entrepreneurship' },
-    { id: 'healthcare', name: 'Healthcare & Wellbeing' }
-  ];
+  const categories = VIDEO_CATEGORIES;
 
   // Fetch all videos on component mount
   useEffect(() => {

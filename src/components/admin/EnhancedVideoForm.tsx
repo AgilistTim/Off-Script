@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { X, Plus, Upload, AlertCircle, CheckCircle, Settings } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 import enhancedVideoService from '../../services/enhancedVideoService';
+import { VIDEO_CATEGORIES, getCategoryName } from '../../data/categories';
 
 // Simple YouTube URL validation
 const validateYouTubeUrl = (url: string): { isValid: boolean; error?: string } => {
@@ -33,7 +34,6 @@ interface EnhancedVideoFormProps {
   isOpen: boolean;
   onClose: () => void;
   onVideoAdded: (videoData: any) => void;
-  categories: string[];
 }
 
 interface VideoToProcess {
@@ -59,8 +59,7 @@ interface BumpupsOptions {
 export const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
   isOpen,
   onClose,
-  onVideoAdded,
-  categories
+  onVideoAdded
 }) => {
   const [videoUrl, setVideoUrl] = useState('');
   const [category, setCategory] = useState('');
@@ -117,8 +116,8 @@ export const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
 
   // Process a single video
   const processSingleVideo = async () => {
-    if (!videoUrl.trim() || !category.trim()) {
-      toast.error('Please enter a valid URL and select a category');
+    if (!videoUrl.trim()) {
+      toast.error('Please enter a valid YouTube URL');
       return;
     }
 
@@ -134,7 +133,8 @@ export const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
       toast.loading('📝 Analyzing and processing video...', { id: 'video-process' });
       
       // Use the working Firebase function pipeline (same as batch script)
-      const videoData = await enhancedVideoService.processVideoWithFirebaseFunction(videoUrl, category);
+      // Category is optional - will be auto-determined if not provided
+      const videoData = await enhancedVideoService.processVideoWithFirebaseFunction(videoUrl, category || '');
       
       toast.success('🎉 Video added successfully!', { id: 'video-process' });
       onVideoAdded(videoData);
@@ -157,15 +157,12 @@ export const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
       return;
     }
 
-    if (!category.trim()) {
-      toast.error('Please select a category');
-      return;
-    }
+    // Category is now optional - will be auto-determined from content analysis
 
     setIsProcessing(true);
     const toProcess: VideoToProcess[] = validUrls.map((url, index) => ({
       url: url,
-      category,
+      category: category || '', // Optional category - will be auto-determined
       id: `video-${index}`,
       status: 'pending',
       progress: null
@@ -174,7 +171,7 @@ export const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
     setVideosToProcess(toProcess);
 
     try {
-      const results = await enhancedVideoService.batchAnalyzeVideos(validUrls, category);
+      const results = await enhancedVideoService.batchAnalyzeVideos(validUrls, category || '');
       
       // Update progress for all videos
       setVideosToProcess(prev => 
@@ -259,22 +256,24 @@ export const EnhancedVideoForm: React.FC<EnhancedVideoFormProps> = ({
           {/* Category Selector (common to both modes) */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Category *
+              Category (Optional - Auto-determined from content analysis)
             </label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
               className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100"
               disabled={isProcessing}
-              required
             >
-              <option value="">Select a category</option>
-              {categories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+              <option value="">Auto-determine from content</option>
+              {VIDEO_CATEGORIES.map((cat) => (
+                <option key={cat.id} value={cat.id}>
+                  {cat.name}
                 </option>
               ))}
             </select>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+              Leave blank to automatically determine category from video content analysis
+            </p>
           </div>
 
           {/* Advanced Options Toggle */}

@@ -4,6 +4,7 @@ import { likeVideo, dislikeVideo, getPersonalizedRecommendations, getUserPrefere
 import { useAuth } from '../../context/AuthContext';
 import { Search, ThumbsUp, ThumbsDown, Play, Eye } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { VIDEO_CATEGORIES, getCategoryName } from '../../data/categories';
 
 interface VerticalVideoFeedProps {
   category?: string;
@@ -25,15 +26,10 @@ const VerticalVideoFeed: React.FC<VerticalVideoFeedProps> = ({
   const [dislikedVideos, setDislikedVideos] = useState<Set<string>>(new Set());
   const [expandedVideos, setExpandedVideos] = useState<Set<string>>(new Set());
 
-  // Categories for filtering
+  // Categories for filtering (using centralized config)
   const categories = [
     { id: null, name: 'All' },
-    { id: 'technology', name: 'Technology & Digital' },
-    { id: 'creative', name: 'Creative & Media' },
-    { id: 'trades', name: 'Skilled Trades' },
-    { id: 'business', name: 'Business & Entrepreneurship' },
-    { id: 'healthcare', name: 'Healthcare & Wellbeing' },
-    { id: 'sustainability', name: 'Sustainability & Environment' }
+    ...VIDEO_CATEGORIES
   ];
 
   // Fetch videos when component mounts or category changes

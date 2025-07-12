@@ -16,6 +16,7 @@ import { toast, Toaster } from 'react-hot-toast';
 import EnhancedVideoForm from '../../components/admin/EnhancedVideoForm';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebase';
+import { VIDEO_CATEGORIES, getCategoryName, getCategoryColor } from '../../data/categories';
 
 const AdminVideos: React.FC = () => {
   const [videos, setVideos] = useState<Video[]>([]);
@@ -31,15 +32,8 @@ const AdminVideos: React.FC = () => {
   const [addVideoModalOpen, setAddVideoModalOpen] = useState<boolean>(false);
   const [editVideoModalOpen, setEditVideoModalOpen] = useState<boolean>(false);
 
-  // Categories for filtering
-  const categories = [
-    'technology',
-    'healthcare',
-    'finance',
-    'creative',
-    'trades',
-    'sustainability',
-  ];
+  // Categories for filtering (using centralized config)
+  const categories = VIDEO_CATEGORIES;
 
   useEffect(() => {
     fetchVideos();
@@ -365,7 +359,7 @@ const AdminVideos: React.FC = () => {
             >
               <option value="">Select a category</option>
               {categories.map(category => (
-                <option key={category} value={category}>{category}</option>
+                <option key={category.id} value={category.id}>{category.name}</option>
               ))}
             </select>
             {formErrors.category && (
@@ -599,7 +593,7 @@ const AdminVideos: React.FC = () => {
           >
             <option value="">All Categories</option>
             {categories.map(category => (
-              <option key={category} value={category}>{category}</option>
+              <option key={category.id} value={category.id}>{category.name}</option>
             ))}
           </select>
         </div>
@@ -703,7 +697,7 @@ const AdminVideos: React.FC = () => {
                       </td>
                       <td className="p-4 whitespace-nowrap">
                         <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                          {video.category}
+                          {getCategoryName(video.category)}
                         </span>
                       </td>
                       <td className="p-4 whitespace-nowrap">
@@ -796,7 +790,6 @@ const AdminVideos: React.FC = () => {
         isOpen={showEnhancedForm}
         onClose={() => setShowEnhancedForm(false)}
         onVideoAdded={handleVideoAdded}
-        categories={categories}
       />
     </div>
   );

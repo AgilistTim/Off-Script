@@ -1648,14 +1648,13 @@ function cosineSimilarity(vecA: number[], vecB: number[]): number {
 }
 
 /**
- * Extract YouTube transcript using webshare proxies (server-side)
+ * Extract YouTube transcript (disabled - returns failure to force bumpups fallback)
  */
 export const extractTranscript = onRequest(
   {
     cors: true, // Allow all origins for this function
-    memory: '1GiB',
-    timeoutSeconds: 300,
-    secrets: ['WEBSHARE_API_KEY']
+    memory: '256MiB',
+    timeoutSeconds: 30
   },
   async (request, response) => {
     try {
@@ -1692,76 +1691,19 @@ export const extractTranscript = onRequest(
       // Extract video ID if a full URL was provided
       const extractedVideoId = extractYouTubeId(videoId) || videoId;
       
-      logger.info('🎬 Starting Node.js transcript extraction', { 
+      logger.info('🎬 Transcript extraction disabled - using bumpups fallback', { 
         videoId: extractedVideoId
       });
 
-      try {
-        // Use Node.js youtube-transcript library
-        const { YoutubeTranscript } = require('youtube-transcript');
-        
-        logger.info('📝 Attempting direct transcript extraction...');
-        
-        // Try to get transcript directly
-        const transcript = await YoutubeTranscript.fetchTranscript(extractedVideoId, {
-          lang: 'en',
-          country: 'US'
-        });
-        
-        if (transcript && transcript.length > 0) {
-          // Format the transcript data
-          const segments = transcript.map((item: any) => ({
-            text: item.text,
-            start: item.offset / 1000, // Convert ms to seconds
-            duration: item.duration / 1000 // Convert ms to seconds
-          }));
-          
-          const fullText = transcript.map((item: any) => item.text).join(' ');
-          
-          const result = {
-            success: true,
-            segments: segments,
-            fullText: fullText,
-            segmentCount: segments.length,
-            extractedAt: new Date().toISOString(),
-            method: 'nodejs-direct'
-          };
-          
-          logger.info('✅ Transcript extracted successfully', {
-            segmentCount: result.segmentCount,
-            fullTextLength: result.fullText.length
-          });
-          
-          response.status(200).json(result);
-          return;
-        }
-        
-      } catch (directError: any) {
-        logger.warn('⚠️ Direct transcript extraction failed', {
-          error: directError.message,
-          videoId: extractedVideoId
-        });
-        
-        // If direct extraction fails, try with proxy approach using our Python fallback
-        logger.info('🔄 Attempting proxy-based extraction...');
-        
-        const webshareApiKey = process.env.WEBSHARE_API_KEY;
-        if (!webshareApiKey) {
-          throw new Error('Webshare API key not configured for proxy extraction');
-        }
-        
-        // Try the internal extraction function as a fallback
-        const internalResult = await extractTranscriptInternal(extractedVideoId);
-        
-        if (internalResult && internalResult.success) {
-          logger.info('✅ Proxy-based transcript extraction successful');
-          response.status(200).json(internalResult);
-          return;
-        } else {
-          logger.error('❌ All transcript extraction methods failed', internalResult);
-          throw new Error(internalResult?.error || 'All extraction methods failed');
-        }
-      }
+      // Always return failure to force bumpups fallback
+      response.status(200).json({ 
+        success: false, 
+        error: 'Transcript extraction disabled - using bumpups service',
+        errorType: 'DISABLED',
+        segments: [],
+        fullText: '',
+        segmentCount: 0
+      });
       
     } catch (error: any) {
       logger.error('❌ Transcript extraction function error:', error);
@@ -1790,7 +1732,7 @@ export const processVideoWithTranscript = onRequest(
     cors: corsOrigins,
     memory: '2GiB',
     timeoutSeconds: 600, // 10 minutes for full processing
-    secrets: ['WEBSHARE_API_KEY', 'OPENAI_API_KEY', 'BUMPUPS_APIKEY']
+    secrets: ['OPENAI_API_KEY', 'BUMPUPS_APIKEY']
   },
   async (request, response) => {
     try {
@@ -1813,12 +1755,15 @@ export const processVideoWithTranscript = onRequest(
       // Validate request body
       const { videoUrl, category, videoId: providedVideoId, includeBumpups = false } = request.body;
       
-      if (!videoUrl || !category) {
+      if (!videoUrl) {
         response.status(400).json({ 
-          error: 'Missing required fields: videoUrl and category' 
+          error: 'Missing required field: videoUrl' 
         });
         return;
       }
+      
+      // Category is now optional - will be determined automatically from AI analysis
+      const manualCategory = category || null;
 
       // Use provided videoId if available, otherwise extract from URL
       const videoId = providedVideoId || extractYouTubeId(videoUrl);
@@ -1840,7 +1785,7 @@ export const processVideoWithTranscript = onRequest(
 
       logger.info('Starting video processing with transcript-first pipeline', { 
         videoId,
-        category,
+        manualCategory,
         includeBumpups,
         origin
       });
@@ -1883,7 +1828,7 @@ export const processVideoWithTranscript = onRequest(
         logger.info('Stage 2: Using Bumpups as fallback for content analysis');
         
         try {
-          const bumpupsResult = await callBumpupsAPI(videoUrl, category);
+          const bumpupsResult = await callBumpupsAPI(videoUrl, manualCategory || 'general');
           if (bumpupsResult && bumpupsResult.output) {
             contentForAnalysis = bumpupsResult.output;
             contentSource = 'bumpups';
@@ -1910,7 +1855,7 @@ export const processVideoWithTranscript = onRequest(
         try {
           const openaiResult = await analyzeTranscriptWithOpenAI(
             contentForAnalysis,
-            category,
+            manualCategory || 'general',
             videoUrl
           );
           
@@ -1938,6 +1883,15 @@ export const processVideoWithTranscript = onRequest(
               contentSource,
               summaryLength: videoSummary?.length || 0 
             });
+            
+            // Determine category automatically if not provided manually
+            const determinedCategory = manualCategory || determineAutomaticCategory(openaiAnalysis);
+            
+            logger.info('=== CATEGORY DETERMINATION ===', {
+              manualCategory,
+              determinedCategory,
+              method: manualCategory ? 'manual' : 'automatic'
+            });
           }
         } catch (error) {
           logger.error('OpenAI analysis failed:', error);
@@ -1951,6 +1905,19 @@ export const processVideoWithTranscript = onRequest(
       // Stage 4: Compile and store results
       const storageStart = Date.now();
       logger.info('Stage 4: Storing processed video data');
+      
+      // Determine final category to use (manual if provided, otherwise automatic from analysis)
+      let finalCategory = manualCategory || 'business'; // Default fallback
+      if (openaiAnalysis) {
+        finalCategory = manualCategory || determineAutomaticCategory(openaiAnalysis);
+      }
+      
+      logger.info('=== FINAL CATEGORY DETERMINATION ===', {
+        manualCategory,
+        finalCategory,
+        hasOpenAIAnalysis: !!openaiAnalysis,
+        method: manualCategory ? 'manual' : 'automatic'
+      });
       
       try {
         // First, ensure we have basic YouTube metadata for the video
@@ -1981,7 +1948,7 @@ export const processVideoWithTranscript = onRequest(
             viewCount: 0, // Will be updated by other processes
             curatedDate: admin.firestore.Timestamp.now(),
           } : {}),
-          category, // Update category
+          category: finalCategory, // Update category (automatic or manual)
           // Update description with OpenAI summary if available
           description: openaiAnalysis?.summary || undefined,
           // Extract tags from hashtags (remove # symbols)
@@ -2041,7 +2008,7 @@ export const processVideoWithTranscript = onRequest(
           documentPath: `videos/${videoId}`,
           hasAiAnalysis: !!openaiAnalysis,
           hasTranscript: transcriptResult.success,
-          category,
+          category: finalCategory,
           skillsCount: updateData.skillsHighlighted?.length || 0,
           tagsCount: updateData.tags?.length || 0,
           educationCount: updateData.educationRequired?.length || 0
@@ -2167,110 +2134,21 @@ export const processVideoWithTranscript = onRequest(
 );
 
 /**
- * Internal function to extract transcript (reused by other functions)
+ * Internal function to extract transcript using Python Firebase Function
  */
 async function extractTranscriptInternal(videoId: string): Promise<any> {
-  try {
-    // Use the youtube-transcript library for Node.js
-    const { YoutubeTranscript } = require('youtube-transcript');
-    
-    // Configure with retry and error handling
-    const config = {
-      lang: 'en',
-      country: 'US'
-    };
-    
-    console.log(`Extracting transcript for video: ${videoId}`);
-    
-    // Extract transcript with retry logic
-    for (let attempt = 1; attempt <= 3; attempt++) {
-      try {
-        const transcript = await YoutubeTranscript.fetchTranscript(videoId, config);
-        
-        if (transcript && transcript.length > 0) {
-          // Format the transcript segments
-          const segments = transcript.map((segment: any) => ({
-            text: segment.text,
-            start: segment.offset || segment.start || 0,
-            duration: segment.duration || 4.0
-          }));
-          
-          const fullText = segments.map((s: any) => s.text).join(' ');
-          
-          console.log(`Transcript extracted successfully: ${segments.length} segments, ${fullText.length} characters`);
-          
-          return {
-            success: true,
-            segments,
-            fullText,
-            segmentCount: segments.length,
-            extractedAt: new Date().toISOString()
-          };
-        }
-      } catch (error: any) {
-        const errorMsg = error?.message || String(error);
-        console.warn(`Transcript extraction attempt ${attempt} failed:`, errorMsg);
-        
-        // Check for specific error types
-        if (errorMsg.toLowerCase().includes('transcript') && errorMsg.toLowerCase().includes('disabled')) {
-          return {
-            success: false,
-            error: 'Transcript disabled for this video',
-            errorType: 'TRANSCRIPT_DISABLED',
-            segments: [],
-            fullText: '',
-            segmentCount: 0
-          };
-        }
-        
-        if (errorMsg.toLowerCase().includes('not available')) {
-          return {
-            success: false,
-            error: 'Transcript not available for this video',
-            errorType: 'NO_TRANSCRIPT',
-            segments: [],
-            fullText: '',
-            segmentCount: 0
-          };
-        }
-        
-        // If it's the last attempt, return the error
-        if (attempt === 3) {
-          return {
-            success: false,
-            error: `Transcript extraction failed: ${errorMsg}`,
-            errorType: 'EXTRACTION_ERROR',
-            segments: [],
-            fullText: '',
-            segmentCount: 0
-          };
-        }
-        
-        // Wait before retry
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
-      }
-    }
-    
-    return {
-      success: false,
-      error: 'All transcript extraction attempts failed',
-      errorType: 'MAX_RETRIES_EXCEEDED',
-      segments: [],
-      fullText: '',
-      segmentCount: 0
-    };
-    
-  } catch (error: any) {
-    console.error('Transcript extraction error:', error);
-    return {
-      success: false,
-      error: `Process error: ${error?.message || 'Unknown error'}`,
-      errorType: 'PROCESS_ERROR',
-      segments: [],
-      fullText: '',
-      segmentCount: 0
-    };
-  }
+  // Transcript extraction has been disabled due to YouTube's anti-bot measures
+  // The pipeline now relies on bumpups service for video analysis
+  logger.info('Transcript extraction skipped - using bumpups service for video analysis');
+  
+  return {
+    success: false,
+    error: 'Transcript extraction disabled - using bumpups service',
+    errorType: 'DISABLED',
+    segments: [],
+    fullText: '',
+    segmentCount: 0
+  };
 }
 
 /**
@@ -2332,6 +2210,101 @@ async function callBumpupsAPI(videoUrl: string, category: string): Promise<any> 
     logger.error('Bumpups API call failed:', error);
     return null;
   }
+}
+
+/**
+ * Automatically determine video category based on OpenAI analysis
+ */
+function determineAutomaticCategory(analysis: any): string {
+  const careerPathways = analysis?.careerPathways || [];
+  const keyThemes = analysis?.keyThemes || [];
+  const workEnvironments = analysis?.workEnvironments || [];
+  const hashtags = analysis?.hashtags || [];
+  
+  // Combine all text for analysis
+  const allText = [
+    ...careerPathways,
+    ...keyThemes,
+    ...workEnvironments,
+    ...hashtags
+  ].join(' ').toLowerCase();
+  
+  // Define category keywords with weights
+  const categoryKeywords = {
+    technology: [
+      'software', 'tech', 'digital', 'data', 'ai', 'coding', 'programming', 'web', 'app', 'cyber',
+      'computer', 'engineer', 'developer', 'IT', 'artificial intelligence', 'machine learning',
+      'blockchain', 'cloud', 'database', 'algorithm', 'ux', 'ui', 'design system'
+    ],
+    healthcare: [
+      'medical', 'health', 'doctor', 'nurse', 'therapist', 'physician', 'hospital', 'clinic',
+      'patient', 'treatment', 'medicine', 'care', 'wellness', 'psychology', 'mental health',
+      'physical therapy', 'dentist', 'pharmacist', 'surgery', 'rehabilitation'
+    ],
+    creative: [
+      'art', 'design', 'music', 'film', 'creative', 'artist', 'photographer', 'writer', 'content',
+      'media', 'advertising', 'marketing', 'brand', 'video', 'audio', 'theatre', 'performance',
+      'animation', 'graphics', 'illustration', 'storytelling', 'journalism'
+    ],
+    trades: [
+      'construction', 'plumbing', 'electrical', 'mechanic', 'carpenter', 'welder', 'technician',
+      'repair', 'maintenance', 'installation', 'craftsmanship', 'skilled labor', 'manual work',
+      'hands-on', 'tools', 'building', 'manufacturing', 'automotive', 'HVAC', 'food service',
+      'cooking', 'chef', 'culinary', 'restaurant', 'kitchen', 'street vendor', 'food preparation'
+    ],
+    business: [
+      'business', 'management', 'entrepreneur', 'startup', 'finance', 'accounting', 'sales',
+      'marketing', 'consulting', 'administration', 'leadership', 'operations', 'strategy',
+      'project management', 'human resources', 'customer service', 'retail', 'commerce',
+      'small business', 'organization', 'planning', 'negotiation'
+    ],
+    sustainability: [
+      'environmental', 'sustainability', 'green', 'renewable', 'solar', 'wind', 'conservation',
+      'ecology', 'climate', 'recycling', 'organic', 'sustainable', 'carbon', 'energy efficient',
+      'environmental science', 'conservation biology', 'renewable energy', 'waste management'
+    ],
+    education: [
+      'education', 'teaching', 'teacher', 'instructor', 'professor', 'school', 'university',
+      'training', 'learning', 'curriculum', 'academic', 'classroom', 'student', 'educational',
+      'pedagogy', 'tutoring', 'mentoring', 'coaching', 'knowledge transfer'
+    ],
+    finance: [
+      'finance', 'banking', 'investment', 'accounting', 'insurance', 'financial advisor',
+      'analyst', 'economics', 'money management', 'budgeting', 'financial planning',
+      'credit', 'loans', 'wealth management', 'trading', 'portfolio', 'risk management'
+    ]
+  };
+  
+  // Calculate category scores
+  const categoryScores: { [key: string]: number } = {};
+  
+  for (const [category, keywords] of Object.entries(categoryKeywords)) {
+    let score = 0;
+    for (const keyword of keywords) {
+      // Count occurrences of keyword in the text
+      const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
+      const matches = allText.match(regex);
+      if (matches) {
+        score += matches.length;
+      }
+    }
+    categoryScores[category] = score;
+  }
+  
+  // Find the category with the highest score
+  const bestCategory = Object.entries(categoryScores).reduce((a, b) => 
+    categoryScores[a[0]] > categoryScores[b[0]] ? a : b
+  )[0];
+  
+  // Log the scoring for debugging
+  logger.info('=== AUTOMATIC CATEGORY DETERMINATION ===', {
+    categoryScores,
+    selectedCategory: bestCategory,
+    topKeywords: allText.split(' ').slice(0, 20)
+  });
+  
+  // Return the best category, or 'business' as fallback
+  return categoryScores[bestCategory] > 0 ? bestCategory : 'business';
 }
 
 /**

@@ -6,6 +6,7 @@ import SwipeableVideoCard from './SwipeableVideoCard';
 import VideoAssessment from './VideoAssessment';
 import { useAuth } from '../../context/AuthContext';
 import { Search, Filter, Loader } from 'lucide-react';
+import { VIDEO_CATEGORIES, getCategoryName } from '../../data/categories';
 
 interface InfiniteVideoFeedProps {
   category?: string;
@@ -35,12 +36,7 @@ const InfiniteVideoFeed: React.FC<InfiniteVideoFeedProps> = ({
   
   const categories = [
     { id: null, name: 'All' },
-    { id: 'technology', name: 'Technology & Digital' },
-    { id: 'creative', name: 'Creative & Media' },
-    { id: 'trades', name: 'Skilled Trades' },
-    { id: 'business', name: 'Business & Entrepreneurship' },
-    { id: 'healthcare', name: 'Healthcare & Wellbeing' },
-    { id: 'sustainability', name: 'Sustainability & Environment' }
+    ...VIDEO_CATEGORIES
   ];
 
   // Fetch videos on component mount

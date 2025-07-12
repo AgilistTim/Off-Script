@@ -37,67 +37,22 @@ class TranscriptService {
   private env = getEnvironmentConfig();
 
   /**
-   * Extract transcript from YouTube video using server-side function
+   * Extract transcript from YouTube video (DISABLED - returns failure)
+   * 
+   * Transcript extraction has been disabled due to YouTube's anti-bot measures.
+   * The application now relies on bumpups service for video analysis.
    */
   async extractTranscript(youtubeUrl: string): Promise<TranscriptResult> {
-    try {
-      // Extract video ID from URL
-      const videoId = this.extractVideoId(youtubeUrl);
-      if (!videoId) {
-        throw new Error('Invalid YouTube URL - could not extract video ID');
-      }
-
-      console.log(`🎬 Extracting transcript for video: ${videoId}`);
-
-      // Use the deployed Firebase Function - NO FALLBACK
-      const useProductionUrls = import.meta.env.VITE_DISABLE_EMULATORS === 'true';
-      
-      const functionUrl = useProductionUrls || this.env.environment === 'production'
-        ? 'https://us-central1-offscript-8f6eb.cloudfunctions.net/extractTranscript'
-        : 'http://127.0.0.1:5001/offscript-8f6eb/us-central1/extractTranscript';
-
-      console.log(`🌐 Calling transcript extraction function: ${functionUrl}`);
-
-      const response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Origin': window.location.origin
-        },
-        body: JSON.stringify({
-          videoId: videoId,
-          useWebshare: true // Server-side function will handle API key securely
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success) {
-          console.log(`✅ Real transcript extracted successfully: ${result.segmentCount} segments, ${result.fullText?.length || 0} characters`);
-          return result;
-        } else {
-          console.error(`❌ Firebase function returned unsuccessful result: ${result.error || 'Unknown error'}`);
-          console.error('Error details:', result);
-          throw new Error(`Transcript extraction failed: ${result.error || 'Unknown error'}`);
-        }
-      } else {
-        const errorText = await response.text();
-        console.error(`❌ Transcript extraction HTTP error: ${response.status} – ${errorText}`);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-    } catch (error) {
-      console.error('❌ Transcript extraction failed:', error);
-      return {
-        success: false,
-        fullText: '',
-        segments: [],
-        segmentCount: 0,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        extractedAt: new Date().toISOString()
-      };
-    }
+    console.log('🚫 Transcript extraction disabled - using bumpups service instead');
+    
+    return {
+      success: false,
+      fullText: '',
+      segments: [],
+      segmentCount: 0,
+      error: 'Transcript extraction disabled - application now uses bumpups service',
+      extractedAt: new Date().toISOString()
+    };
   }
 
   /**
