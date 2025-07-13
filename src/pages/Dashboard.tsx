@@ -4,9 +4,10 @@ import { useAuth } from '../context/AuthContext';
 import { useAppStore } from '../stores/useAppStore';
 import { useChatContext } from '../context/ChatContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Video, MessageSquare, BookOpen, Award, Sparkles, Lightbulb, Target, Briefcase, Code, Bell, X } from 'lucide-react';
+import { Video, MessageSquare, BookOpen, Award, Sparkles, Lightbulb, Target, Briefcase, Code, Bell, X, GraduationCap, MapPin } from 'lucide-react';
 import { getVideoById } from '../services/videoService';
 import VideoCard from '../components/video/VideoCard';
+import CareerGuidancePanel from '../components/career-guidance/CareerGuidancePanel';
 
 // Notification component
 interface NotificationProps {
@@ -102,12 +103,18 @@ const Dashboard: React.FC = () => {
     newRecommendations, 
     clearNewRecommendationsFlag,
     summaryUpdated,
-    clearSummaryUpdatedFlag
+    clearSummaryUpdatedFlag,
+    careerGuidance,
+    careerGuidanceLoading,
+    careerGuidanceError,
+    generateCareerGuidance,
+    refreshCareerGuidance
   } = useChatContext();
   
   const [recommendedVideos, setRecommendedVideos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' } | null>(null);
+  const [activeTab, setActiveTab] = useState<'videos' | 'career'>('videos');
   
   // Calculate stats
   const videosWatched = userProgress.videosWatched.length;
@@ -163,6 +170,13 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     fetchRecommendations();
   }, [fetchRecommendations]);
+
+  // Auto-switch to career tab when career guidance becomes available
+  useEffect(() => {
+    if (careerGuidance && !careerGuidanceLoading) {
+      setActiveTab('career');
+    }
+  }, [careerGuidance, careerGuidanceLoading]);
 
   // Extract insights from the current summary
   const interests = currentSummary?.interests || [];
@@ -252,161 +266,238 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
         
-        {/* AI Recommendations Section */}
+        {/* Personalized Guidance Section - Tabbed Interface */}
         <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-6">
             <div className="flex items-center">
               <Sparkles size={20} className="text-amber-500 mr-2" />
-              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Recommended For You</h2>
+              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Personalized Guidance</h2>
             </div>
-            <div className="flex items-center">
-              <button 
-                onClick={fetchRecommendations} 
-                className="mr-3 text-blue-600 dark:text-blue-400 hover:underline flex items-center"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-                Refresh
-              </button>
-              <Link to="/chat" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
-                Chat for more →
-              </Link>
-            </div>
+            <Link to="/chat" className="text-sm text-blue-600 dark:text-blue-400 hover:underline">
+              Chat for more →
+            </Link>
           </div>
-          
-          {loading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden animate-pulse h-48"></div>
-              ))}
-            </div>
-          ) : recommendedVideos.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              {recommendedVideos.map((videoId) => (
-                <DashboardVideoCard key={videoId} videoId={videoId} />
-              ))}
+
+          {/* Tab Navigation */}
+          <div className="flex space-x-1 mb-6 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
+            <button
+              onClick={() => setActiveTab('videos')}
+              className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'videos'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              <Video size={16} className="mr-2" />
+              Video Recommendations
+            </button>
+            <button
+              onClick={() => setActiveTab('career')}
+              className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'career'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              <GraduationCap size={16} className="mr-2" />
+              Career Guidance
+              {careerGuidance && (
+                <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full"></span>
+              )}
+            </button>
+          </div>
+
+          {/* Tab Content */}
+          {activeTab === 'videos' ? (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-800 dark:text-white">Video Recommendations</h3>
+                <button 
+                  onClick={fetchRecommendations} 
+                  className="text-blue-600 dark:text-blue-400 hover:underline flex items-center text-sm"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  Refresh
+                </button>
+              </div>
+              
+              {loading ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[1, 2, 3, 4].map((i) => (
+                    <div key={i} className="bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden animate-pulse h-48"></div>
+                  ))}
+                </div>
+              ) : recommendedVideos.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {recommendedVideos.map((videoId) => (
+                    <DashboardVideoCard key={videoId} videoId={videoId} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    Chat with our AI assistant to get personalized video recommendations based on your interests and career goals.
+                  </p>
+                  <Link 
+                    to="/chat" 
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <MessageSquare size={16} className="mr-2" />
+                    Start Chatting
+                  </Link>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="text-center py-8">
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
-                Chat with our AI assistant to get personalized video recommendations based on your interests and career goals.
-              </p>
-              <Link 
-                to="/chat" 
-                className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-              >
-                <MessageSquare size={16} className="mr-2" />
-                Start Chatting
-              </Link>
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-800 dark:text-white">UK Career Guidance</h3>
+                {careerGuidance && (
+                  <button 
+                    onClick={refreshCareerGuidance} 
+                    disabled={careerGuidanceLoading}
+                    className="text-blue-600 dark:text-blue-400 hover:underline flex items-center text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Refresh Guide
+                  </button>
+                )}
+              </div>
+              
+              {careerGuidanceLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                  <span className="ml-3 text-gray-600 dark:text-gray-400">Generating career guidance...</span>
+                </div>
+                             ) : careerGuidance ? (
+                 <div className="max-h-96 overflow-y-auto">
+                   <CareerGuidancePanel guidance={careerGuidance} />
+                 </div>
+              ) : careerGuidanceError ? (
+                <div className="text-center py-8">
+                  <p className="text-red-600 dark:text-red-400 mb-4">
+                    Unable to generate career guidance at the moment.
+                  </p>
+                  <button 
+                    onClick={generateCareerGuidance}
+                    className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                  >
+                    <GraduationCap size={16} className="mr-2" />
+                    Try Again
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <div className="mb-4">
+                    <MapPin size={48} className="mx-auto text-gray-400 dark:text-gray-500 mb-3" />
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                      Get comprehensive UK career guidance with training opportunities, volunteering options, and funding information.
+                    </p>
+                  </div>
+                  <div className="space-y-3">
+                    <button 
+                      onClick={generateCareerGuidance}
+                      className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mr-3"
+                    >
+                      <GraduationCap size={16} className="mr-2" />
+                      Generate Career Guide
+                    </button>
+                    <Link 
+                      to="/chat" 
+                      className="inline-flex items-center px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    >
+                      <MessageSquare size={16} className="mr-2" />
+                      Chat First
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
         
-        {/* Your Career Insights - Only shown if we have enriched data */}
+        {/* Quick Career Insights - Condensed version */}
         {hasEnrichedData && (
           <motion.div 
-            className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 mb-8"
+            className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-lg p-6 mb-8"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ delay: 0.3 }}
           >
-            <div className="flex items-center mb-4">
-              <Lightbulb size={20} className="text-amber-500 mr-2" />
-              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Your Career Insights</h2>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center">
+                <Lightbulb size={20} className="text-amber-500 mr-2" />
+                <h2 className="text-xl font-semibold text-gray-800 dark:text-white">Your Career Profile</h2>
+              </div>
+              <button
+                onClick={() => setActiveTab('career')}
+                className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
+              >
+                View detailed guidance →
+              </button>
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {interests.length > 0 && (
-                <motion.div 
-                  className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg"
-                  initial={{ x: -20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.4 }}
-                >
-                  <h3 className="flex items-center text-blue-700 dark:text-blue-400 font-medium mb-2">
-                    <Sparkles size={16} className="mr-2" /> Your Interests
+                <div className="bg-white dark:bg-gray-800/50 p-4 rounded-lg">
+                  <h3 className="flex items-center text-blue-700 dark:text-blue-400 font-medium mb-2 text-sm">
+                    <Sparkles size={14} className="mr-2" /> Interests
                   </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {interests.slice(0, 8).map((interest, index) => (
+                  <div className="flex flex-wrap gap-1">
+                    {interests.slice(0, 4).map((interest, index) => (
                       <span key={index} className="bg-blue-100 dark:bg-blue-800 text-blue-800 dark:text-blue-200 text-xs px-2 py-1 rounded-full">
                         {interest}
                       </span>
                     ))}
+                    {interests.length > 4 && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                        +{interests.length - 4} more
+                      </span>
+                    )}
                   </div>
-                </motion.div>
+                </div>
               )}
               
               {skills.length > 0 && (
-                <motion.div 
-                  className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg"
-                  initial={{ x: 20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.5 }}
-                >
-                  <h3 className="flex items-center text-green-700 dark:text-green-400 font-medium mb-2">
-                    <Code size={16} className="mr-2" /> Skills Identified
+                <div className="bg-white dark:bg-gray-800/50 p-4 rounded-lg">
+                  <h3 className="flex items-center text-green-700 dark:text-green-400 font-medium mb-2 text-sm">
+                    <Code size={14} className="mr-2" /> Skills
                   </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {skills.slice(0, 8).map((skill, index) => (
+                  <div className="flex flex-wrap gap-1">
+                    {skills.slice(0, 4).map((skill, index) => (
                       <span key={index} className="bg-green-100 dark:bg-green-800 text-green-800 dark:text-green-200 text-xs px-2 py-1 rounded-full">
                         {skill}
                       </span>
                     ))}
+                    {skills.length > 4 && (
+                      <span className="text-xs text-gray-500 dark:text-gray-400 px-2 py-1">
+                        +{skills.length - 4} more
+                      </span>
+                    )}
                   </div>
-                </motion.div>
+                </div>
               )}
               
               {careerGoals.length > 0 && (
-                <motion.div 
-                  className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-lg"
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.6 }}
-                >
-                  <h3 className="flex items-center text-purple-700 dark:text-purple-400 font-medium mb-2">
-                    <Target size={16} className="mr-2" /> Career Goals
+                <div className="bg-white dark:bg-gray-800/50 p-4 rounded-lg">
+                  <h3 className="flex items-center text-purple-700 dark:text-purple-400 font-medium mb-2 text-sm">
+                    <Target size={14} className="mr-2" /> Goals
                   </h3>
-                  <ul className="list-disc list-inside text-sm text-gray-700 dark:text-gray-300">
-                    {careerGoals.slice(0, 3).map((goal, index) => (
-                      <li key={index}>{goal}</li>
-                    ))}
-                  </ul>
-                </motion.div>
-              )}
-              
-              {learningPaths.length > 0 && (
-                <motion.div 
-                  className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg"
-                  initial={{ y: 20, opacity: 0 }}
-                  animate={{ y: 0, opacity: 1 }}
-                  transition={{ delay: 0.7 }}
-                >
-                  <h3 className="flex items-center text-amber-700 dark:text-amber-400 font-medium mb-2">
-                    <Briefcase size={16} className="mr-2" /> Recommended Learning Paths
-                  </h3>
-                  <ul className="list-disc list-inside text-sm text-gray-700 dark:text-gray-300">
-                    {learningPaths.slice(0, 3).map((path, index) => (
-                      <li key={index}>{path}</li>
-                    ))}
-                  </ul>
-                </motion.div>
+                  <div className="text-sm text-gray-700 dark:text-gray-300">
+                    <div>{careerGoals[0]}</div>
+                    {careerGoals.length > 1 && (
+                      <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        +{careerGoals.length - 1} more goal{careerGoals.length > 2 ? 's' : ''}
+                      </div>
+                    )}
+                  </div>
+                </div>
               )}
             </div>
-            
-            {reflectiveQuestions.length > 0 && (
-              <motion.div 
-                className="mt-6 bg-gray-50 dark:bg-gray-700 p-4 rounded-lg"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.8 }}
-              >
-                <h3 className="text-gray-700 dark:text-gray-300 font-medium mb-2">Reflective Question</h3>
-                <p className="text-gray-600 dark:text-gray-400 italic">
-                  "{reflectiveQuestions[Math.floor(Math.random() * reflectiveQuestions.length)]}"
-                </p>
-              </motion.div>
-            )}
           </motion.div>
         )}
         

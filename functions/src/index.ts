@@ -29,21 +29,42 @@ const corsOrigins = [
   'https://off-script-app.web.app'
 ];
 
-// CORS configuration for functions v2
+// CORS configuration for functions v2 - more permissive for Firebase domains
 const corsConfig = corsOrigins;
 
 // Helper function to validate origin against allowed list
 const isOriginAllowed = (origin: string | undefined): boolean => {
-  if (!origin) return false;
+  if (!origin) return true; // Allow requests without origin (server-to-server)
   
-  // Check against allowed origins
-  if (corsOrigins.some(allowedOrigin => origin === allowedOrigin)) {
+  // Check against allowed origins (exact match)
+  if (corsOrigins.includes(origin)) {
     return true;
   }
   
-  // Allow localhost in development with any port
-  const localhostRegex = /localhost:\d+$/;
-  return localhostRegex.test(origin);
+  // Allow any localhost in development with any port
+  if (origin.includes('localhost')) {
+    return true;
+  }
+  
+  // Allow any Firebase hosting domain for this project
+  if (origin.includes('offscript-8f6eb.web.app') || 
+      origin.includes('offscript-8f6eb.firebaseapp.com')) {
+    return true;
+  }
+  
+  return false;
+};
+
+// Helper function to set CORS headers properly
+const setCorsHeaders = (response: any, origin: string | undefined) => {
+  if (origin && isOriginAllowed(origin)) {
+    response.set('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    response.set('Access-Control-Allow-Origin', '*');
+  }
+  response.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  response.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  response.set('Access-Control-Max-Age', '3600');
 };
 
 /**
@@ -1359,6 +1380,18 @@ export const getPersonalizedVideoRecommendations = onRequest(
   },
   async (request, response) => {
     try {
+      const origin = request.get('origin') || request.get('referer');
+      
+      // Handle CORS preflight
+      if (request.method === 'OPTIONS') {
+        setCorsHeaders(response, origin);
+        response.status(204).send('');
+        return;
+      }
+
+      // Set CORS headers for all responses
+      setCorsHeaders(response, origin);
+
       // Only allow POST requests
       if (request.method !== 'POST') {
         response.status(405).json({ 
@@ -1367,8 +1400,7 @@ export const getPersonalizedVideoRecommendations = onRequest(
         return;
       }
 
-      // Validate origin for additional security (allow requests without origin header for server-to-server calls)
-      const origin = request.headers.origin;
+      // Validate origin for additional security
       if (origin && !isOriginAllowed(origin)) {
         logger.warn('Unauthorized origin attempted to access getPersonalizedVideoRecommendations', { origin });
         response.status(403).json({ error: 'Origin not allowed' });
@@ -3187,22 +3219,24 @@ export const generateCareerPathways = onRequest(
     try {
       const origin = request.get('origin') || request.get('referer');
       
-      if (!isOriginAllowed(origin)) {
-        logger.warn('Unauthorized origin attempted to access generateCareerPathways', { origin });
-        response.status(403).send('Forbidden: Unauthorized origin');
-        return;
-      }
-
+      // Handle CORS preflight
       if (request.method === 'OPTIONS') {
-        response.set('Access-Control-Allow-Origin', origin || '*');
-        response.set('Access-Control-Allow-Methods', 'POST');
-        response.set('Access-Control-Allow-Headers', 'Content-Type');
+        setCorsHeaders(response, origin);
         response.status(204).send('');
         return;
       }
 
+      // Set CORS headers for all responses
+      setCorsHeaders(response, origin);
+
       if (request.method !== 'POST') {
         response.status(405).send('Method Not Allowed');
+        return;
+      }
+
+      if (origin && !isOriginAllowed(origin)) {
+        logger.warn('Unauthorized origin attempted to access generateCareerPathways', { origin });
+        response.status(403).send('Forbidden: Unauthorized origin');
         return;
       }
 
@@ -3321,7 +3355,6 @@ Focus on real UK opportunities. Use actual UK training providers, recognized cha
         resourcesCount: careerGuidance.resources?.length || 0
       });
 
-      response.set('Access-Control-Allow-Origin', origin || '*');
       response.json({
         success: true,
         data: careerGuidance,
