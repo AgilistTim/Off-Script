@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import YouTube, { YouTubeEvent, YouTubePlayer as YTPlayer } from 'react-youtube';
 import { useAuth } from '../../context/AuthContext';
-import { saveVideoProgress, incrementVideoViewCount } from '../../services/videoService';
+import { saveVideoProgress, incrementVideoViewCount, getVideoById, Video } from '../../services/videoService';
+import { useVideoQuestions } from '../../hooks/useVideoQuestions';
+import InlineQuestionOverlay from './InlineQuestionOverlay';
 
 interface YouTubePlayerProps {
   videoId: string;
@@ -12,6 +14,13 @@ interface YouTubePlayerProps {
   startTime?: number;
   autoplay?: boolean;
   className?: string;
+  enableInlineQuestions?: boolean;
+  questionSettings?: {
+    maxQuestions?: number;
+    minTimeBetweenQuestions?: number;
+    autoGenerate?: boolean;
+    questionTypes?: ('binary_choice' | 'preference' | 'career_direction' | 'skill_interest')[];
+  };
 }
 
 const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
@@ -22,13 +31,52 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   onProgress,
   startTime = 0,
   autoplay = false,
-  className = ''
+  className = '',
+  enableInlineQuestions = true,
+  questionSettings = {}
 }) => {
   const { currentUser } = useAuth();
   const [player, setPlayer] = useState<YTPlayer | null>(null);
   const progressInterval = useRef<NodeJS.Timeout | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [hasStarted, setHasStarted] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [video, setVideo] = useState<Video | null>(null);
+  
+  // Load video data for questions system
+  useEffect(() => {
+    const loadVideo = async () => {
+      if (!firebaseVideoId || !enableInlineQuestions) return;
+      
+      try {
+        const videoData = await getVideoById(firebaseVideoId);
+        if (videoData) {
+          setVideo(videoData);
+        }
+      } catch (error) {
+        console.error('Error loading video data for questions:', error);
+      }
+    };
+
+    loadVideo();
+  }, [firebaseVideoId, enableInlineQuestions]);
+
+  // Initialize questions system
+  const {
+    questionState,
+    answerQuestion,
+    resetQuestions,
+    hasQuestionsForVideo,
+    isGeneratingQuestions
+  } = useVideoQuestions({
+    video: video || {} as Video,
+    isPlaying,
+    currentTime,
+    duration,
+    enableQuestions: enableInlineQuestions && !!video,
+    questionSettings
+  });
   
   // Clear interval on component unmount
   useEffect(() => {
@@ -42,6 +90,10 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
   // Handle player ready event
   const handleReady = (event: YouTubeEvent) => {
     setPlayer(event.target);
+    
+    // Get video duration
+    const videoDuration = event.target.getDuration();
+    setDuration(videoDuration);
     
     // If startTime is provided, seek to that position
     if (startTime > 0) {
@@ -81,23 +133,27 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         
         progressInterval.current = setInterval(() => {
           if (player && currentUser) {
-            const currentTime = player.getCurrentTime();
-            const duration = player.getDuration();
+            const currentVideoTime = player.getCurrentTime();
+            const videoDuration = player.getDuration();
+            
+            // Update local state for questions system
+            setCurrentTime(currentVideoTime);
+            setDuration(videoDuration);
             
             // Save progress to Firestore every 5 seconds
-            if (currentTime % 5 < 1) {
+            if (currentVideoTime % 5 < 1) {
               saveVideoProgress({
                 userId: currentUser.uid,
                 videoId: firebaseVideoId,
-                watchedSeconds: currentTime,
-                completed: currentTime / duration > 0.9, // Mark as completed if watched 90%
+                watchedSeconds: currentVideoTime,
+                completed: currentVideoTime / videoDuration > 0.9, // Mark as completed if watched 90%
                 reflectionResponses: []
               }).catch(console.error);
             }
             
             // Call onProgress callback if provided
             if (onProgress) {
-              onProgress(currentTime, duration);
+              onProgress(currentVideoTime, videoDuration);
             }
           }
         }, 1000);
@@ -115,14 +171,14 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         
         // Save current progress
         if (player && currentUser) {
-          const currentTime = player.getCurrentTime();
-          const duration = player.getDuration();
+          const currentVideoTime = player.getCurrentTime();
+          const videoDuration = player.getDuration();
           
           saveVideoProgress({
             userId: currentUser.uid,
             videoId: firebaseVideoId,
-            watchedSeconds: currentTime,
-            completed: state === YouTube.PlayerState.ENDED || currentTime / duration > 0.9,
+            watchedSeconds: currentVideoTime,
+            completed: state === YouTube.PlayerState.ENDED || currentVideoTime / videoDuration > 0.9,
             reflectionResponses: []
           }).catch(console.error);
         }
@@ -130,6 +186,19 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         
       default:
         break;
+    }
+  };
+
+  // Handle question answer
+  const handleQuestionAnswer = async (selectedOption: 'A' | 'B' | 'skip', responseTime: number) => {
+    await answerQuestion(selectedOption, responseTime);
+  };
+
+  // Handle question dismiss
+  const handleQuestionDismiss = () => {
+    // For now, treat dismiss as skip
+    if (questionState.currentQuestion) {
+      handleQuestionAnswer('skip', 0);
     }
   };
 
@@ -167,6 +236,39 @@ const YouTubePlayer: React.FC<YouTubePlayerProps> = ({
         iframeClassName="w-full h-full"
         style={{ display: 'block', width: '100%', height: '100%' }}
       />
+      
+      {/* Inline Questions Overlay */}
+      {enableInlineQuestions && questionState.currentQuestion && (
+        <InlineQuestionOverlay
+          question={questionState.currentQuestion}
+          isVisible={questionState.isQuestionVisible}
+          onAnswer={handleQuestionAnswer}
+          onDismiss={handleQuestionDismiss}
+          position="bottom"
+          showTimer={true}
+          autoHideDelay={15}
+        />
+      )}
+
+      {/* Question Generation Indicator (Development only) */}
+      {process.env.NODE_ENV === 'development' && isGeneratingQuestions && (
+        <div className="absolute top-4 right-4 bg-blue-500 text-white px-3 py-1 rounded-full text-sm z-30">
+          Generating questions...
+        </div>
+      )}
+
+      {/* Questions Debug Info (Development only) */}
+      {process.env.NODE_ENV === 'development' && enableInlineQuestions && video && (
+        <div className="absolute top-4 left-4 bg-black/50 text-white p-2 rounded text-xs z-30">
+          <div>Questions: {questionState.totalQuestions}</div>
+          <div>Answered: {questionState.questionsAnswered}</div>
+          <div>Has Questions: {hasQuestionsForVideo ? 'Yes' : 'No'}</div>
+          <div>Time: {Math.floor(currentTime)}s / {Math.floor(duration)}s</div>
+          {questionState.currentQuestion && (
+            <div>Next Q: {questionState.currentQuestion.timestamp}s</div>
+          )}
+        </div>
+      )}
     </div>
   );
 };

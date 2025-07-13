@@ -105,6 +105,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const lastCareerGuidanceGeneratedRef = useRef<{ threadId: string; summaryId: string } | null>(null);
   const lastVideoRecommendationsRef = useRef<{ threadId: string; summaryId: string; hasRecommendations: boolean } | null>(null);
   const isGeneratingGuidanceRef = useRef<boolean>(false);
+  const hasSelectedInitialThreadRef = useRef<boolean>(false);
   
   // Fetch user's chat threads
   const fetchThreads = useCallback(async () => {
@@ -127,10 +128,11 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // If there's at least one thread and no current thread is selected,
       // select the first thread, but don't throw an error if it fails
-      if (processedThreads.length > 0 && !currentThread) {
+      if (processedThreads.length > 0 && !hasSelectedInitialThreadRef.current) {
         try {
           const threadToSelect = processedThreads[0];
           setCurrentThread(threadToSelect);
+          hasSelectedInitialThreadRef.current = true;
           // Load messages for this thread
           const threadMessages = await getChatMessages(threadToSelect.id);
           setMessages(threadMessages);
@@ -148,17 +150,20 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error fetching chat threads:', error);
       setIsLoading(false);
     }
-  }, [currentUser, currentThread]);
+  }, [currentUser]);
   
   // Load threads when user changes
   useEffect(() => {
     setIsLoading(true);
+    hasSelectedInitialThreadRef.current = false; // Reset when user changes
     fetchThreads();
   }, [currentUser, fetchThreads]);
   
   // Set up real-time listener for chat threads
   useEffect(() => {
     if (!currentUser) return;
+    
+    console.log('Setting up real-time listener for chat threads for user:', currentUser.uid);
     
     // Create a query for this user's chat threads
     const threadsRef = collection(db, 'chatThreads');
@@ -170,6 +175,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Set up the listener
     const unsubscribe = onSnapshot(threadsQuery, (snapshot) => {
+      console.log('Real-time threads update received:', snapshot.size, 'threads');
       const updatedThreads = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -190,45 +196,60 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     
     // Clean up listener on unmount
-    return () => unsubscribe();
+    return () => {
+      console.log('Cleaning up real-time listener for chat threads');
+      unsubscribe();
+    };
   }, [currentUser]);
 
-  // Debounced career guidance generation
-  const debouncedGenerateCareerGuidance = useCallback(() => {
+  // Auto-generate career guidance when summary is updated (debounced)
+  const debouncedGenerateCareerGuidance = useCallback((summary: ChatSummary) => {
     if (careerGuidanceTimeoutRef.current) {
       clearTimeout(careerGuidanceTimeoutRef.current);
     }
     
-    careerGuidanceTimeoutRef.current = setTimeout(() => {
-      if (currentSummary && currentThread && 
-          (currentSummary.interests.length > 0 || currentSummary.careerGoals.length > 0) &&
-          !isGeneratingGuidanceRef.current) {
-        
-        // Check if we already generated guidance for this thread+summary combination
-        const cacheKey = `${currentThread.id}_${currentSummary.id}`;
-        const lastGenerated = lastCareerGuidanceGeneratedRef.current;
-        
-        if (lastGenerated && 
-            lastGenerated.threadId === currentThread.id && 
-            lastGenerated.summaryId === currentSummary.id) {
-          console.log('Career guidance already generated for this thread+summary combination, skipping');
-          return;
-        }
-        
-        console.log('Auto-generating career guidance for updated summary with debounce');
-        isGeneratingGuidanceRef.current = true;
-        generateCareerGuidance()
-          .finally(() => {
-            isGeneratingGuidanceRef.current = false;
-            // Update cache
-            lastCareerGuidanceGeneratedRef.current = {
-              threadId: currentThread.id,
-              summaryId: currentSummary.id
-            };
-          });
+    careerGuidanceTimeoutRef.current = setTimeout(async () => {
+      if (!currentUser || !currentThread || isGeneratingGuidanceRef.current) return;
+      
+      console.log('🎯 ChatContext: Debounced career guidance generation triggered');
+      console.log('🎯 ChatContext: Summary:', summary);
+      console.log('🎯 ChatContext: Current thread:', currentThread.id);
+      console.log('🎯 ChatContext: Current user:', currentUser.uid);
+      
+      // Check if we already generated guidance for this thread and summary
+      const lastGenerated = lastCareerGuidanceGeneratedRef.current;
+      if (lastGenerated && lastGenerated.threadId === currentThread.id && lastGenerated.summaryId === summary.id) {
+        console.log('🎯 ChatContext: Career guidance already generated for this thread and summary');
+        return;
       }
-    }, CAREER_GUIDANCE_DEBOUNCE_MS);
-  }, [currentSummary, currentThread]);
+      
+      try {
+        isGeneratingGuidanceRef.current = true;
+        setCareerGuidanceLoading(true);
+        setCareerGuidanceError(null);
+        
+        console.log('🎯 ChatContext: Calling generateThreadCareerGuidance');
+        const guidance = await careerPathwayService.generateThreadCareerGuidance(
+          currentThread.id,
+          currentUser.uid,
+          summary
+        );
+        
+        console.log('🎯 ChatContext: Generated career guidance successfully:', guidance);
+        setCareerGuidance(guidance);
+        
+        // Update the last generated reference
+        lastCareerGuidanceGeneratedRef.current = { threadId: currentThread.id, summaryId: summary.id };
+        
+      } catch (error) {
+        console.error('❌ ChatContext: Error in debounced career guidance generation:', error);
+        setCareerGuidanceError(error instanceof Error ? error.message : 'Failed to generate career guidance');
+      } finally {
+        setCareerGuidanceLoading(false);
+        isGeneratingGuidanceRef.current = false;
+      }
+    }, 2000);
+  }, [currentUser, currentThread]);
 
   // Debounced video recommendations check
   const debouncedCheckVideoRecommendations = useCallback((summary: ChatSummary) => {
@@ -329,7 +350,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (currentSummary && currentThread && 
         (currentSummary.interests.length > 0 || currentSummary.careerGoals.length > 0) &&
         !careerGuidance && !careerGuidanceLoading && !isGeneratingGuidanceRef.current) {
-      debouncedGenerateCareerGuidance();
+      debouncedGenerateCareerGuidance(currentSummary);
     }
   }, [currentSummary, currentThread, careerGuidance, careerGuidanceLoading, debouncedGenerateCareerGuidance]);
   
@@ -386,6 +407,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     if (!currentUser || !currentThread) return;
     
+    console.log('Setting up real-time listener for summary for thread:', currentThread.id);
+    
     // Create a query for this thread's summaries
     const summariesRef = collection(db, 'chatSummaries');
     const summariesQuery = query(
@@ -426,8 +449,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Auto-update thread title based on summary
       try {
         await updateChatThreadTitle(currentThread.id, summary);
-        // Refresh threads to show updated title
-        fetchThreads();
+        // Don't call fetchThreads here - let the real-time threads listener handle the update
       } catch (error) {
         console.error('Error updating chat thread title:', error);
       }
@@ -439,17 +461,23 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     
     // Clean up listener on unmount or when thread changes
-    return () => unsubscribe();
-  }, [currentUser, currentThread, fetchThreads]);
+    return () => {
+      console.log('Cleaning up real-time listener for summary');
+      unsubscribe();
+    };
+  }, [currentUser, currentThread, debouncedCheckVideoRecommendations]);
   
   // Set up real-time listener for messages in the current thread
   useEffect(() => {
     if (!currentThread) return;
     
+    console.log('Setting up real-time listener for messages in thread:', currentThread.id);
+    
     const messagesRef = collection(db, 'chatThreads', currentThread.id, 'messages');
     const messagesQuery = query(messagesRef, orderBy('timestamp', 'asc'));
     
     const unsubscribe = onSnapshot(messagesQuery, (snapshot) => {
+      console.log('Real-time messages update received:', snapshot.size, 'messages');
       const updatedMessages = snapshot.docs.map(doc => {
         const data = doc.data();
         return {
@@ -467,7 +495,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('Error in messages listener:', error);
     });
     
-    return () => unsubscribe();
+    return () => {
+      console.log('Cleaning up real-time listener for messages');
+      unsubscribe();
+    };
   }, [currentThread]);
 
   // Cleanup timeouts on unmount
@@ -535,8 +566,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setIsLoading(false);
       
-      // Refresh threads list
-      fetchThreads();
+      // Don't call fetchThreads here - let the real-time threads listener handle updates
       
       return firestoreThreadId;
     } catch (error) {
@@ -646,8 +676,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentThread(threadToUse);
         setIsLoading(false);
         
-        // Also fetch threads to update the list
-        fetchThreads();
+        // Don't call fetchThreads here - let the real-time threads listener handle updates
       } catch (error) {
         console.error('Error creating thread for message:', error);
         setIsLoading(false);
@@ -692,8 +721,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Check if we should generate a summary (debounced to avoid frequent calls)
       debouncedRefreshSummaryAndRecommendations(threadId);
       
-      // Refresh threads to get updated lastMessage
-      fetchThreads();
+      // Don't call fetchThreads here - let the real-time threads listener handle updates
     } catch (error) {
       console.error('Error sending message:', error);
       setIsTyping(false);
@@ -821,8 +849,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error deleting thread career guidance:', error);
       }
       
-      // Refresh the threads list
-      await fetchThreads();
+      // Don't call fetchThreads here - let the real-time threads listener handle the removal
       
       setIsLoading(false);
     } catch (error) {
@@ -847,24 +874,31 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Generate career guidance (thread-specific)
+  // Generate career guidance
   const generateCareerGuidance = async () => {
-    if (!currentUser || !currentSummary || !currentThread) return;
-
-    setCareerGuidanceLoading(true);
-    setCareerGuidanceError(null);
-
+    if (!currentThread || !currentSummary || !currentUser) return;
+    
+    console.log('🎯 ChatContext: Starting career guidance generation');
+    console.log('🎯 ChatContext: Current thread:', currentThread.id);
+    console.log('🎯 ChatContext: Current summary:', currentSummary);
+    console.log('🎯 ChatContext: Current user:', currentUser.uid);
+    
     try {
+      setCareerGuidanceLoading(true);
+      setCareerGuidanceError(null);
+      
       const guidance = await careerPathwayService.generateThreadCareerGuidance(
-        currentThread.id, 
-        currentUser.uid, 
+        currentThread.id,
+        currentUser.uid,
         currentSummary
       );
+      
+      console.log('🎯 ChatContext: Generated career guidance:', guidance);
       setCareerGuidance(guidance);
-      console.log('Generated thread-specific career guidance:', guidance);
+      
     } catch (error) {
+      console.error('❌ ChatContext: Error generating career guidance:', error);
       setCareerGuidanceError(error instanceof Error ? error.message : 'Failed to generate career guidance');
-      console.error('Error generating career guidance:', error);
     } finally {
       setCareerGuidanceLoading(false);
     }

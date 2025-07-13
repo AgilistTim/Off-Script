@@ -114,12 +114,15 @@ class CareerPathwayService {
   async generateCareerGuidance(chatSummary: ChatSummary): Promise<ComprehensiveCareerGuidance> {
     try {
       console.log('🎯 Generating comprehensive career guidance for user');
+      console.log('🎯 Chat summary:', chatSummary);
       
       // Extract user profile from chat summary
       const userProfile = this.extractUserProfile(chatSummary);
+      console.log('🎯 Extracted user profile:', userProfile);
       
       // Generate career pathways using AI analysis
       const pathways = await this.generateCareerPathways(userProfile);
+      console.log('🎯 Generated pathways:', pathways);
       
       // Get cross-cutting UK resources
       const crossCuttingResources = this.getCrossCuttingResources();
@@ -127,7 +130,7 @@ class CareerPathwayService {
       // Create action plan
       const actionPlan = this.generateActionPlan(pathways[0], userProfile);
       
-      return {
+      const guidance = {
         userProfile,
         primaryPathway: pathways[0],
         alternativePathways: pathways.slice(1, 3),
@@ -136,29 +139,51 @@ class CareerPathwayService {
         actionPlan
       };
       
+      console.log('🎯 Generated comprehensive career guidance:', guidance);
+      return guidance;
+      
     } catch (error) {
-      console.error('Error generating career guidance:', error);
+      console.error('❌ Error generating career guidance:', error);
       throw new Error('Failed to generate comprehensive career guidance');
     }
   }
 
   /**
-   * Generate and store thread-specific career guidance
+   * Generate and store thread-specific career guidance (with upsert logic)
    */
   async generateThreadCareerGuidance(threadId: string, userId: string, chatSummary: ChatSummary): Promise<ComprehensiveCareerGuidance> {
     try {
-      console.log('🎯 Generating thread-specific career guidance for:', threadId);
+      console.log('🎯 Generating thread-specific career guidance for:', threadId, 'user:', userId);
       
-      // Generate the career guidance
+      // Check if guidance already exists
+      const existingGuidance = await this.getThreadCareerGuidance(threadId, userId);
+      
+      if (existingGuidance) {
+        console.log('🔍 Existing career guidance found for thread:', threadId);
+        
+        // Check if summary has changed significantly to warrant regeneration
+        const shouldRegenerate = this.shouldRegenerateGuidance(existingGuidance, chatSummary);
+        
+        if (!shouldRegenerate) {
+          console.log('🎯 Using existing career guidance (no significant changes detected)');
+          return existingGuidance;
+        }
+        
+        console.log('🎯 Regenerating career guidance due to significant changes in conversation');
+      }
+      
+      // Generate new career guidance
       const guidance = await this.generateCareerGuidance(chatSummary);
+      console.log('🎯 Generated career guidance:', guidance);
       
       // Store in Firestore with thread association
       await this.storeThreadCareerGuidance(threadId, userId, guidance);
+      console.log('🎯 Successfully stored thread-specific career guidance');
       
       return guidance;
       
     } catch (error) {
-      console.error('Error generating thread-specific career guidance:', error);
+      console.error('❌ Error generating thread-specific career guidance:', error);
       throw new Error('Failed to generate thread-specific career guidance');
     }
   }
@@ -168,6 +193,8 @@ class CareerPathwayService {
    */
   private async storeThreadCareerGuidance(threadId: string, userId: string, guidance: ComprehensiveCareerGuidance): Promise<void> {
     try {
+      console.log('🔍 CareerPathwayService: Storing career guidance for thread:', threadId, 'user:', userId);
+      
       const { db } = await import('./firebase');
       const { doc, setDoc } = await import('firebase/firestore');
       
@@ -180,11 +207,13 @@ class CareerPathwayService {
         updatedAt: new Date()
       };
       
+      console.log('🔍 CareerPathwayService: Storing guidance data:', guidanceData);
+      
       await setDoc(doc(db, 'threadCareerGuidance', guidanceData.id), guidanceData);
-      console.log('✅ Stored thread-specific career guidance');
+      console.log('✅ Stored thread-specific career guidance with ID:', guidanceData.id);
       
     } catch (error) {
-      console.error('Error storing thread career guidance:', error);
+      console.error('❌ Error storing thread career guidance:', error);
       throw error;
     }
   }
@@ -224,6 +253,8 @@ class CareerPathwayService {
    */
   async getUserCareerExplorations(userId: string): Promise<CareerExplorationSummary[]> {
     try {
+      console.log('🔍 CareerPathwayService: Getting career explorations for user:', userId);
+      
       const { db } = await import('./firebase');
       const { collection, query, where, orderBy, getDocs } = await import('firebase/firestore');
       
@@ -234,26 +265,30 @@ class CareerPathwayService {
       );
       
       const querySnapshot = await getDocs(guidanceQuery);
+      console.log('🔍 CareerPathwayService: Found', querySnapshot.size, 'thread career guidance documents');
       
       const explorations: CareerExplorationSummary[] = [];
       
       // Get thread titles for each exploration
       for (const doc of querySnapshot.docs) {
         const data = doc.data() as ThreadCareerGuidance;
+        console.log('🔍 CareerPathwayService: Processing thread:', data.threadId);
         
         // Get thread title
         const threadTitle = await this.getThreadTitle(data.threadId);
+        console.log('🔍 CareerPathwayService: Thread title:', threadTitle);
         
         explorations.push({
           threadId: data.threadId,
           threadTitle: threadTitle || 'Career Exploration',
           primaryCareerPath: data.guidance.primaryPathway.title,
-          lastUpdated: data.updatedAt,
+          lastUpdated: (data.updatedAt as any)?.toDate ? (data.updatedAt as any).toDate() : new Date(data.updatedAt),
           match: data.guidance.primaryPathway.match,
           description: data.guidance.primaryPathway.description
         });
       }
       
+      console.log('🔍 CareerPathwayService: Returning', explorations.length, 'explorations:', explorations);
       return explorations;
       
     } catch (error) {
@@ -304,6 +339,88 @@ class CareerPathwayService {
     } catch (error) {
       console.error('Error deleting thread career guidance:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Determine if career guidance should be regenerated based on conversation changes
+   */
+  private shouldRegenerateGuidance(existingGuidance: ComprehensiveCareerGuidance, newSummary: ChatSummary): boolean {
+    // If no existing guidance or missing user profile, regenerate
+    if (!existingGuidance?.userProfile) return true;
+    
+    const existingProfile = existingGuidance.userProfile;
+    const newProfile = this.extractUserProfile(newSummary);
+    
+    // Check if goals have changed significantly
+    const goalChanges = this.arraysDifferSignificantly(existingProfile.goals || [], newProfile.goals || []);
+    if (goalChanges) {
+      console.log('🔄 Goals changed significantly, regenerating guidance');
+      return true;
+    }
+    
+    // Check if interests have changed significantly (more than 2 new interests)
+    const interestChanges = this.arraysDifferSignificantly(existingProfile.interests || [], newProfile.interests || [], 2);
+    if (interestChanges) {
+      console.log('🔄 Interests changed significantly, regenerating guidance');
+      return true;
+    }
+    
+    // Check if career stage changed
+    if (existingProfile.careerStage !== newProfile.careerStage) {
+      console.log('🔄 Career stage changed, regenerating guidance');
+      return true;
+    }
+    
+    // Check if guidance is older than 7 days
+    const guidanceAge = this.getGuidanceAge(existingGuidance.generatedAt);
+    if (guidanceAge > 7) {
+      console.log('🔄 Guidance is older than 7 days, regenerating');
+      return true;
+    }
+    
+    console.log('🎯 No significant changes detected, using existing guidance');
+    return false;
+  }
+
+  /**
+   * Check if two arrays differ significantly
+   */
+  private arraysDifferSignificantly(existing: string[], newArray: string[], threshold: number = 1): boolean {
+    const existingSet = new Set(existing.map(item => item.toLowerCase()));
+    const newSet = new Set(newArray.map(item => item.toLowerCase()));
+    
+    // Count new items not in existing array
+    const newItems = [...newSet].filter(item => !existingSet.has(item));
+    
+    return newItems.length > threshold;
+  }
+
+  /**
+   * Get age of guidance in days
+   */
+  private getGuidanceAge(generatedAt: Date | any): number {
+    try {
+      let date: Date;
+      
+      if (generatedAt instanceof Date) {
+        date = generatedAt;
+      } else if (generatedAt?.seconds) {
+        // Firestore timestamp
+        date = new Date(generatedAt.seconds * 1000);
+      } else {
+        // Fallback: assume it's very old to trigger regeneration
+        return 30;
+      }
+      
+      const now = new Date();
+      const diffTime = Math.abs(now.getTime() - date.getTime());
+      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      
+      return diffDays;
+    } catch (error) {
+      console.error('Error calculating guidance age:', error);
+      return 30; // Assume old to trigger regeneration
     }
   }
 

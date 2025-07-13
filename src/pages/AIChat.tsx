@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useChatContext } from '../context/ChatContext';
 import { MessageList } from '../components/ui/message-list';
-import CareerGuidancePanel from '../components/career-guidance/CareerGuidancePanel';
+import ChatCareerGuidance from '../components/career-guidance/ChatCareerGuidance';
 import { 
   ArrowUp, 
   MessageCircle, 
@@ -322,7 +322,7 @@ const AIChat: React.FC = () => {
           ) : (
             <div className="p-2">
               {careerGuidance ? (
-                <CareerGuidancePanel 
+                <ChatCareerGuidance 
                   guidance={careerGuidance}
                   onRefresh={refreshCareerGuidance}
                   isLoading={careerGuidanceLoading}

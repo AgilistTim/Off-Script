@@ -595,9 +595,19 @@ export const updateChatThreadTitle = async (firestoreThreadId: string, summary: 
   try {
     const newTitle = generateChatTitle(summary);
     
+    // Check if title has actually changed to avoid unnecessary updates
+    const threadDoc = await getDoc(doc(db, 'chatThreads', firestoreThreadId));
+    if (threadDoc.exists()) {
+      const currentTitle = threadDoc.data().title;
+      if (currentTitle === newTitle) {
+        console.log('Title unchanged, skipping update:', newTitle);
+        return;
+      }
+    }
+    
+    // Only update the title, don't update updatedAt to prevent cascading listener updates
     await updateDoc(doc(db, 'chatThreads', firestoreThreadId), {
-      title: newTitle,
-      updatedAt: serverTimestamp()
+      title: newTitle
     });
     
     console.log('Updated chat thread title:', newTitle);
