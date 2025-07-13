@@ -113,6 +113,30 @@ service cloud.firestore {
       allow read, write: if isAuthenticated() && isOwner(userId);
     }
     
+    // Thread-specific career guidance - users can only access their own guidance
+    match /threadCareerGuidance/{guidanceId} {
+      allow read: if isAuthenticated() && 
+        (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      
+      allow update, delete: if isAuthenticated() && 
+        (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
+    // Career explorations summary - users can only access their own explorations
+    match /careerExplorations/{explorationId} {
+      allow read: if isAuthenticated() && 
+        (resource.data.userId == request.auth.uid || isAdmin());
+      
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      
+      allow update, delete: if isAuthenticated() && 
+        (resource.data.userId == request.auth.uid || isAdmin());
+    }
+    
     // Default deny
     match /{document=**} {
       allow read, write: if false;

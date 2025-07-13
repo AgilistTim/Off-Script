@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from './AuthContext';
 import { 
   ChatMessage, 
@@ -34,6 +34,11 @@ import careerPathwayService, { ComprehensiveCareerGuidance, CareerExplorationSum
 
 // OpenAI Assistant ID
 const ASSISTANT_ID = 'asst_b6kBes7rHBC9gA4yJ9I5r5zm';
+
+// Debounce delay constants
+const CAREER_GUIDANCE_DEBOUNCE_MS = 3000; // 3 second delay
+const VIDEO_RECOMMENDATIONS_DEBOUNCE_MS = 2000; // 2 second delay
+const SUMMARY_REFRESH_DEBOUNCE_MS = 5000; // 5 second delay
 
 // Extend the ChatThread interface to include threadId
 interface ChatThread extends ChatThreadBase {
@@ -92,6 +97,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [careerGuidanceLoading, setCareerGuidanceLoading] = useState<boolean>(false);
   const [careerGuidanceError, setCareerGuidanceError] = useState<string | null>(null);
   const [careerExplorations, setCareerExplorations] = useState<CareerExplorationSummary[]>([]);
+  
+  // Refs for debouncing and caching
+  const careerGuidanceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const videoRecommendationsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const summaryRefreshTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastCareerGuidanceGeneratedRef = useRef<{ threadId: string; summaryId: string } | null>(null);
+  const lastVideoRecommendationsRef = useRef<{ threadId: string; summaryId: string; hasRecommendations: boolean } | null>(null);
+  const isGeneratingGuidanceRef = useRef<boolean>(false);
   
   // Fetch user's chat threads
   const fetchThreads = useCallback(async () => {
@@ -180,16 +193,145 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => unsubscribe();
   }, [currentUser]);
 
-  // Auto-generate career guidance when summary is available
-  useEffect(() => {
-    if (currentSummary && 
-        (currentSummary.interests.length > 0 || currentSummary.careerGoals.length > 0) &&
-        !careerGuidance && 
-        !careerGuidanceLoading) {
-      console.log('Auto-generating career guidance for updated summary');
-      generateCareerGuidance();
+  // Debounced career guidance generation
+  const debouncedGenerateCareerGuidance = useCallback(() => {
+    if (careerGuidanceTimeoutRef.current) {
+      clearTimeout(careerGuidanceTimeoutRef.current);
     }
-  }, [currentSummary, careerGuidance, careerGuidanceLoading]);
+    
+    careerGuidanceTimeoutRef.current = setTimeout(() => {
+      if (currentSummary && currentThread && 
+          (currentSummary.interests.length > 0 || currentSummary.careerGoals.length > 0) &&
+          !isGeneratingGuidanceRef.current) {
+        
+        // Check if we already generated guidance for this thread+summary combination
+        const cacheKey = `${currentThread.id}_${currentSummary.id}`;
+        const lastGenerated = lastCareerGuidanceGeneratedRef.current;
+        
+        if (lastGenerated && 
+            lastGenerated.threadId === currentThread.id && 
+            lastGenerated.summaryId === currentSummary.id) {
+          console.log('Career guidance already generated for this thread+summary combination, skipping');
+          return;
+        }
+        
+        console.log('Auto-generating career guidance for updated summary with debounce');
+        isGeneratingGuidanceRef.current = true;
+        generateCareerGuidance()
+          .finally(() => {
+            isGeneratingGuidanceRef.current = false;
+            // Update cache
+            lastCareerGuidanceGeneratedRef.current = {
+              threadId: currentThread.id,
+              summaryId: currentSummary.id
+            };
+          });
+      }
+    }, CAREER_GUIDANCE_DEBOUNCE_MS);
+  }, [currentSummary, currentThread]);
+
+  // Debounced video recommendations check
+  const debouncedCheckVideoRecommendations = useCallback((summary: ChatSummary) => {
+    if (videoRecommendationsTimeoutRef.current) {
+      clearTimeout(videoRecommendationsTimeoutRef.current);
+    }
+    
+    videoRecommendationsTimeoutRef.current = setTimeout(() => {
+      if (!currentThread || !summary.enriched) return;
+      
+      // Check if we already checked recommendations for this thread+summary combination
+      const lastRecommendations = lastVideoRecommendationsRef.current;
+      
+      if (lastRecommendations && 
+          lastRecommendations.threadId === currentThread.id && 
+          lastRecommendations.summaryId === summary.id) {
+        console.log('Video recommendations already checked for this thread+summary combination, skipping');
+        return;
+      }
+      
+      console.log('Checking video recommendations with debounce');
+      getRecommendedVideos(1).then(videos => {
+        const hasRecs = videos.length > 0;
+        
+        // Only set newRecommendations to true if we didn't have recommendations before
+        if (hasRecs && !hasRecommendations) {
+          setNewRecommendations(true);
+        }
+        
+        setHasRecommendations(hasRecs);
+        
+        // Update cache
+        lastVideoRecommendationsRef.current = {
+          threadId: currentThread.id,
+          summaryId: summary.id,
+          hasRecommendations: hasRecs
+        };
+      }).catch(error => {
+        console.error('Error checking for recommendations after summary update:', error);
+      });
+    }, VIDEO_RECOMMENDATIONS_DEBOUNCE_MS);
+  }, [currentThread, hasRecommendations]);
+
+  // Debounced summary refresh and recommendations check
+  const debouncedRefreshSummaryAndRecommendations = useCallback((threadId: string) => {
+    if (summaryRefreshTimeoutRef.current) {
+      clearTimeout(summaryRefreshTimeoutRef.current);
+    }
+    
+    summaryRefreshTimeoutRef.current = setTimeout(async () => {
+      if (!currentUser) return;
+      
+      try {
+        console.log('Refreshing summary and checking recommendations with debounce');
+        
+        // Check if thread has enough content for a meaningful summary
+        const hasEnoughContent = await hasEnoughContentForSummary(threadId);
+        
+        if (hasEnoughContent && !currentSummary) {
+          // Try to generate a summary if we don't have one and there's enough content
+          try {
+            await regenerateChatSummary(threadId, currentUser.uid);
+            console.log('Auto-generated summary after message');
+          } catch (summaryError) {
+            console.log('Summary generation skipped - not enough content yet:', summaryError instanceof Error ? summaryError.message : 'Unknown error');
+          }
+        }
+        
+                 // Always fetch the latest summary (real-time listener will handle this, but fetch for immediate feedback)
+         try {
+           await fetchThreadSummary(threadId);
+         } catch (error) {
+           console.error('Error fetching thread summary:', error);
+         }
+        
+        // Check for recommendations with smart caching
+        try {
+          const recommendations = await getVideoRecommendationsFromChat(currentUser.uid, threadId, 1);
+          const hasRecs = recommendations.length > 0;
+          
+          // Only set newRecommendations to true if we didn't have recommendations before
+          if (hasRecs && !hasRecommendations) {
+            setNewRecommendations(true);
+          }
+          
+          setHasRecommendations(hasRecs);
+        } catch (error) {
+          console.error('Error checking for recommendations:', error);
+        }
+      } catch (error) {
+        console.error('Error in debounced summary refresh:', error);
+      }
+         }, SUMMARY_REFRESH_DEBOUNCE_MS);
+   }, [currentUser, currentSummary, hasRecommendations]);
+
+  // Auto-generate career guidance when summary is available (with smart caching)
+  useEffect(() => {
+    if (currentSummary && currentThread && 
+        (currentSummary.interests.length > 0 || currentSummary.careerGoals.length > 0) &&
+        !careerGuidance && !careerGuidanceLoading && !isGeneratingGuidanceRef.current) {
+      debouncedGenerateCareerGuidance();
+    }
+  }, [currentSummary, currentThread, careerGuidance, careerGuidanceLoading, debouncedGenerateCareerGuidance]);
   
   // Fetch the chat summary for a thread
   const fetchThreadSummary = async (threadId: string) => {
@@ -290,17 +432,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.error('Error updating chat thread title:', error);
       }
       
-      // If the summary was enriched, check for recommendations
-      if (summary.enriched) {
-        getRecommendedVideos(1).then(videos => {
-          setHasRecommendations(videos.length > 0);
-          if (videos.length > 0) {
-            setNewRecommendations(true);
-          }
-        }).catch(error => {
-          console.error('Error checking for recommendations after summary update:', error);
-        });
-      }
+      // Check for recommendations with debouncing and caching
+      debouncedCheckVideoRecommendations(summary);
     }, (error) => {
       console.error('Error in summary listener:', error);
     });
@@ -336,6 +469,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     return () => unsubscribe();
   }, [currentThread]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (careerGuidanceTimeoutRef.current) {
+        clearTimeout(careerGuidanceTimeoutRef.current);
+      }
+      if (videoRecommendationsTimeoutRef.current) {
+        clearTimeout(videoRecommendationsTimeoutRef.current);
+      }
+      if (summaryRefreshTimeoutRef.current) {
+        clearTimeout(summaryRefreshTimeoutRef.current);
+      }
+    };
+  }, []);
   
   // Create a new thread
   const createNewThread = async () => {
@@ -381,6 +529,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setHasRecommendations(false);
       setNewRecommendations(false);
       
+      // Clear caches for new thread
+      lastCareerGuidanceGeneratedRef.current = null;
+      lastVideoRecommendationsRef.current = null;
+      
       setIsLoading(false);
       
       // Refresh threads list
@@ -412,6 +564,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       console.log('Selected thread:', thread);
       setCurrentThread(thread);
+      
+      // Clear caches when switching threads
+      lastCareerGuidanceGeneratedRef.current = null;
+      lastVideoRecommendationsRef.current = null;
       
       // Load messages (the real-time listener will handle this, but load immediately for faster UX)
       setIsLoading(true);
@@ -533,39 +689,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // The real-time listener will handle updating the messages state
       
-      // Check if we should generate a summary and recommendations after each message
-      try {
-        // Check if thread has enough content for a meaningful summary
-        const hasEnoughContent = await hasEnoughContentForSummary(threadId);
-        
-        if (hasEnoughContent && !currentSummary) {
-          // Try to generate a summary if we don't have one and there's enough content
-          try {
-            await regenerateChatSummary(threadId, currentUser.uid);
-            console.log('Auto-generated summary after message');
-            // Fetch the newly generated summary
-            await fetchThreadSummary(threadId);
-          } catch (summaryError) {
-            console.log('Summary generation skipped - not enough content yet:', summaryError instanceof Error ? summaryError.message : 'Unknown error');
-          }
-        } else {
-          // Fetch the updated summary to refresh if it exists
-          await fetchThreadSummary(threadId);
-        }
-        
-        const recommendations = await getVideoRecommendationsFromChat(currentUser.uid, threadId, 1);
-        const hasRecs = recommendations.length > 0;
-        
-        // Only set newRecommendations to true if we didn't have recommendations before
-        // but now we do
-        if (hasRecs && !hasRecommendations) {
-          setNewRecommendations(true);
-        }
-        
-        setHasRecommendations(hasRecs);
-      } catch (error) {
-        console.error('Error checking for recommendations:', error);
-      }
+      // Check if we should generate a summary (debounced to avoid frequent calls)
+      debouncedRefreshSummaryAndRecommendations(threadId);
       
       // Refresh threads to get updated lastMessage
       fetchThreads();
@@ -577,7 +702,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
   
   // Get recommended videos based on the current thread
-  const getRecommendedVideos = async (limit: number = 5): Promise<string[]> => {
+  const getRecommendedVideos = useCallback(async (limit: number = 5): Promise<string[]> => {
     if (!currentUser) return [];
     
     try {
@@ -655,7 +780,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return [];
       }
     }
-  };
+  }, [currentUser, currentSummary]);
   
   // Clear the new recommendations flag
   const clearNewRecommendationsFlag = () => {
