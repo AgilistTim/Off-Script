@@ -239,48 +239,48 @@ const Dashboard: React.FC = () => {
 
           <CardContent className="p-0">
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="border-b border-gray-200 px-6">
-                <TabsList className="grid w-full grid-cols-3 h-14 bg-gray-50">
+              <div className="border-b border-gray-200 px-3 md:px-6">
+                <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 h-auto md:h-14 bg-gray-50 gap-1 md:gap-0 p-1">
                   <TabsTrigger 
                     value="overview"
-                    className="flex items-center space-x-2 text-base data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                    className="flex items-center justify-center md:space-x-2 text-sm md:text-base py-3 md:py-0 data-[state=active]:bg-white data-[state=active]:shadow-sm"
                   >
-                    <Target className="w-5 h-5" />
-                    <span>Overview</span>
+                    <Target className="w-4 h-4 md:w-5 md:h-5" />
+                    <span className="ml-2 md:ml-0">Overview</span>
                   </TabsTrigger>
                   <TabsTrigger 
                     value="videos"
-                    className="flex items-center space-x-2 text-base data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                    className="flex items-center justify-center md:space-x-2 text-sm md:text-base py-3 md:py-0 data-[state=active]:bg-white data-[state=active]:shadow-sm"
                   >
-                    <Play className="w-5 h-5" />
-                    <span>Videos</span>
+                    <Play className="w-4 h-4 md:w-5 md:h-5" />
+                    <span className="ml-2 md:ml-0">Videos</span>
                   </TabsTrigger>
                   <TabsTrigger 
                     value="current-path"
-                    className="flex items-center space-x-2 text-base data-[state=active]:bg-white data-[state=active]:shadow-sm"
+                    className="flex items-center justify-center md:space-x-2 text-sm md:text-base py-3 md:py-0 data-[state=active]:bg-white data-[state=active]:shadow-sm"
                   >
-                    <GraduationCap className="w-5 h-5" />
-                    <span>Current Path</span>
+                    <GraduationCap className="w-4 h-4 md:w-5 md:h-5" />
+                    <span className="ml-2 md:ml-0">Current Path</span>
                     {careerGuidance && (
-                      <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                      <div className="w-2 h-2 bg-blue-500 rounded-full ml-1"></div>
                     )}
                   </TabsTrigger>
                 </TabsList>
               </div>
 
-              <div className="p-6">
+              <div className="p-3 md:p-6">
                 <TabsContent value="overview" className="mt-0">
                   <CareerExplorationOverview onSelectExploration={handleSelectExploration} />
                 </TabsContent>
 
                 <TabsContent value="videos" className="mt-0">
-                  <div className="space-y-6">
-                    <div className="flex items-center justify-between">
+                  <div className="space-y-4 md:space-y-6">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div>
-                        <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                        <h3 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white">
                           Recommended Videos
                         </h3>
-                        <p className="text-gray-600 dark:text-gray-300 mt-1">
+                        <p className="text-sm md:text-base text-gray-600 dark:text-gray-300 mt-1">
                           Curated content to support your career development
                         </p>
                       </div>
@@ -294,13 +294,13 @@ const Dashboard: React.FC = () => {
                     </div>
                     
                     {loading ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                         {[1, 2, 3, 4].map((i) => (
                           <div key={i} className="bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden animate-pulse h-48"></div>
                         ))}
                       </div>
                     ) : recommendedVideos.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
                         {recommendedVideos.map((videoId) => (
                           <DashboardVideoCard key={videoId} videoId={videoId} />
                         ))}

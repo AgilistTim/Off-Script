@@ -57,6 +57,7 @@ const AIChat: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [sidebarTab, setSidebarTab] = useState<'videos' | 'guidance'>('videos');
+  const [showSidebar, setShowSidebar] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Auto-scroll to bottom of messages (only when not searching)
@@ -242,7 +243,30 @@ const AIChat: React.FC = () => {
     if (!showRecommendations) return null;
     
     return (
-      <div className="w-96 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
+      <>
+        {/* Mobile overlay */}
+        {showSidebar && (
+          <div 
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 md:hidden"
+            onClick={() => setShowSidebar(false)}
+          />
+        )}
+        
+        {/* Sidebar */}
+        <div className={`
+          ${showSidebar ? 'translate-x-0' : 'translate-x-full'} 
+          md:translate-x-0 
+          fixed md:relative 
+          right-0 md:right-auto 
+          top-0 md:top-auto 
+          h-full md:h-auto 
+          w-80 md:w-96 
+          bg-white dark:bg-gray-800 
+          border-l border-gray-200 dark:border-gray-700 
+          flex flex-col 
+          transition-transform duration-300 ease-in-out 
+          z-50 md:z-auto
+        `}>
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
@@ -405,26 +429,27 @@ const AIChat: React.FC = () => {
             )}
           </div>
         </div>
-      </div>
+        </div>
+      </>
     );
   };
   
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="max-w-6xl mx-auto px-2 md:px-4 lg:px-0">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden h-[70vh] flex relative"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden min-h-[500px] h-[70vh] md:h-[75vh] lg:h-[80vh] flex flex-col md:flex-row relative"
       >
         <div className="flex-1 flex flex-col">
           {/* Chat header */}
-          <div className="p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex justify-between items-center">
-            <div className="flex-1">
-              <h1 className="text-xl font-semibold text-gray-800 dark:text-white">
+          <div className="p-3 md:p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex justify-between items-center">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white">
                 AI Career Assistant
               </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-xs md:text-sm text-gray-500 dark:text-gray-400 truncate">
                 {currentThread ? currentThread.title : 'Ask questions, reflect on videos, or get help with career planning'}
               </p>
               {currentSummary && (
@@ -457,6 +482,17 @@ const AIChat: React.FC = () => {
                   title="Regenerate summary from conversation"
                 >
                   <RefreshCw className="w-4 h-4" />
+                </button>
+              )}
+              
+              {/* Mobile sidebar toggle (only shown when recommendations are available) */}
+              {showRecommendations && (
+                <button
+                  onClick={() => setShowSidebar(!showSidebar)}
+                  className="md:hidden p-2 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
+                  title="Toggle guidance panel"
+                >
+                  <Sparkles className="w-4 h-4" />
                 </button>
               )}
               
@@ -605,7 +641,7 @@ const AIChat: React.FC = () => {
           {/* Chat container */}
           <div className="flex flex-col flex-1 overflow-hidden">
             {/* Messages area */}
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="flex-1 overflow-y-auto p-3 md:p-4">
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-4">
                   <div className="bg-blue-100 dark:bg-blue-900/30 p-4 rounded-full mb-4">
@@ -640,7 +676,7 @@ const AIChat: React.FC = () => {
             </div>
             
             {/* Input area */}
-            <div className="p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <div className="p-3 md:p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
               <form 
                 className="flex items-center"
                 onSubmit={handleSendMessage}
@@ -658,15 +694,15 @@ const AIChat: React.FC = () => {
                         handleSendMessage();
                       }
                     }}
-                    className="w-full px-4 py-3 pr-12 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+                    className="w-full px-3 md:px-4 py-2 md:py-3 pr-10 md:pr-12 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-sm md:text-base"
                   />
                   
                   <button
                     type="submit"
                     disabled={isLoading || !newMessage.trim()}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 p-2 bg-blue-600 text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+                    className="absolute right-1 md:right-2 top-1/2 -translate-y-1/2 p-1.5 md:p-2 bg-blue-600 text-white rounded-full disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
                   >
-                    <ArrowUp size={18} />
+                    <ArrowUp size={16} className="md:w-[18px] md:h-[18px]" />
                   </button>
                 </div>
               </form>

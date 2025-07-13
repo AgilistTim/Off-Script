@@ -154,42 +154,42 @@ const CareerGuidancePanel: React.FC<CareerGuidancePanelProps> = ({
       <Card>
         <CardContent className="p-0">
           <Tabs defaultValue="overview" className="w-full">
-            <div className="border-b border-gray-200 px-6 pt-6">
-              <TabsList className="grid w-full grid-cols-4 h-12">
+            <div className="border-b border-gray-200 px-3 md:px-6 pt-4 md:pt-6">
+              <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 h-auto md:h-12 gap-1 md:gap-0 p-1">
                 <TabsTrigger 
                   value="overview" 
-                  className="flex items-center space-x-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+                  className="flex items-center justify-center md:space-x-2 text-sm md:text-base py-3 md:py-0 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
                 >
-                  <Target className="w-4 h-4" />
-                  <span>Overview</span>
+                  <Target className="w-3 h-3 md:w-4 md:h-4" />
+                  <span className="ml-1 md:ml-0 hidden sm:inline">Overview</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="pathway" 
-                  className="flex items-center space-x-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+                  className="flex items-center justify-center md:space-x-2 text-sm md:text-base py-3 md:py-0 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
                 >
-                  <Briefcase className="w-4 h-4" />
-                  <span>Career Path</span>
+                  <Briefcase className="w-3 h-3 md:w-4 md:h-4" />
+                  <span className="ml-1 md:ml-0 hidden sm:inline">Career Path</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="training" 
-                  className="flex items-center space-x-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+                  className="flex items-center justify-center md:space-x-2 text-sm md:text-base py-3 md:py-0 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
                 >
-                  <BookOpen className="w-4 h-4" />
-                  <span>Learning</span>
+                  <BookOpen className="w-3 h-3 md:w-4 md:h-4" />
+                  <span className="ml-1 md:ml-0 hidden sm:inline">Learning</span>
                 </TabsTrigger>
                 <TabsTrigger 
                   value="action" 
-                  className="flex items-center space-x-2 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
+                  className="flex items-center justify-center md:space-x-2 text-sm md:text-base py-3 md:py-0 data-[state=active]:bg-blue-600 data-[state=active]:text-white"
                 >
-                  <Play className="w-4 h-4" />
-                  <span>Take Action</span>
+                  <Play className="w-3 h-3 md:w-4 md:h-4" />
+                  <span className="ml-1 md:ml-0 hidden sm:inline">Take Action</span>
                 </TabsTrigger>
               </TabsList>
             </div>
 
-            <div className="p-6">
-              <TabsContent value="overview" className="space-y-6 mt-0">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="p-3 md:p-6">
+              <TabsContent value="overview" className="space-y-4 md:space-y-6 mt-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
                   {/* User Profile Summary */}
                   <Card>
                     <CardHeader>
