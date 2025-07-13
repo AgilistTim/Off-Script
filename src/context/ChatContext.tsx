@@ -30,6 +30,7 @@ import {
   doc,
   getDoc
 } from 'firebase/firestore';
+import careerPathwayService, { ComprehensiveCareerGuidance } from '../services/careerPathwayService';
 
 // OpenAI Assistant ID
 const ASSISTANT_ID = 'asst_b6kBes7rHBC9gA4yJ9I5r5zm';
@@ -49,11 +50,16 @@ interface ChatContextType {
   newRecommendations: boolean;
   currentSummary: ChatSummary | null;
   summaryUpdated: boolean;
+  careerGuidance: ComprehensiveCareerGuidance | null;
+  careerGuidanceLoading: boolean;
+  careerGuidanceError: string | null;
   sendMessage: (message: string) => Promise<void>;
   createNewThread: () => Promise<string | undefined>;
   selectThread: (threadId: string) => Promise<void>;
   deleteThread: (threadId: string) => Promise<void>;
   getRecommendedVideos: (limit?: number) => Promise<string[]>;
+  generateCareerGuidance: () => Promise<void>;
+  refreshCareerGuidance: () => Promise<void>;
   clearNewRecommendationsFlag: () => void;
   clearSummaryUpdatedFlag: () => void;
   regenerateSummary: () => Promise<void>;
@@ -80,6 +86,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [newRecommendations, setNewRecommendations] = useState<boolean>(false);
   const [currentSummary, setCurrentSummary] = useState<ChatSummary | null>(null);
   const [summaryUpdated, setSummaryUpdated] = useState<boolean>(false);
+  const [careerGuidance, setCareerGuidance] = useState<ComprehensiveCareerGuidance | null>(null);
+  const [careerGuidanceLoading, setCareerGuidanceLoading] = useState<boolean>(false);
+  const [careerGuidanceError, setCareerGuidanceError] = useState<string | null>(null);
   
   // Fetch user's chat threads
   const fetchThreads = useCallback(async () => {
@@ -167,6 +176,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Clean up listener on unmount
     return () => unsubscribe();
   }, [currentUser]);
+
+  // Auto-generate career guidance when summary is available
+  useEffect(() => {
+    if (currentSummary && 
+        (currentSummary.interests.length > 0 || currentSummary.careerGoals.length > 0) &&
+        !careerGuidance && 
+        !careerGuidanceLoading) {
+      console.log('Auto-generating career guidance for updated summary');
+      generateCareerGuidance();
+    }
+  }, [currentSummary, careerGuidance, careerGuidanceLoading]);
   
   // Fetch the chat summary for a thread
   const fetchThreadSummary = async (threadId: string) => {
@@ -562,10 +582,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       // If we don't have a summary or the personalized recommendations failed,
-      // fall back to the video recommendations from chat
+      // fall back to the NEW personalized video recommendations with semantic scoring
       
-      // Use the utility function to get the correct URL
-      const functionUrl = getFirebaseFunctionUrl('getVideoRecommendations');
+      // Use the utility function to get the correct URL for the NEW function
+      const functionUrl = getFirebaseFunctionUrl('getPersonalizedVideoRecommendations');
       
       const response = await fetch(functionUrl, {
         method: 'POST',
@@ -574,10 +594,9 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
         body: JSON.stringify({
           userId: currentUser.uid,
-          interests: currentSummary?.interests || [],
-          careerGoals: currentSummary?.careerGoals || [],
-          skills: currentSummary?.skills || [],
-          limit
+          limit,
+          includeWatched: false,
+          chatSummaryId: currentSummary?.id || null
         })
       });
       
@@ -674,6 +693,44 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     }
   };
+
+  // Generate career guidance
+  const generateCareerGuidance = async () => {
+    if (!currentUser || !currentSummary) return;
+
+    setCareerGuidanceLoading(true);
+    setCareerGuidanceError(null);
+
+    try {
+      const guidance = await careerPathwayService.generateCareerGuidance(currentSummary);
+      setCareerGuidance(guidance);
+      console.log('Generated career guidance:', guidance);
+    } catch (error) {
+      setCareerGuidanceError(error instanceof Error ? error.message : 'Failed to generate career guidance');
+      console.error('Error generating career guidance:', error);
+    } finally {
+      setCareerGuidanceLoading(false);
+    }
+  };
+
+  // Refresh career guidance
+  const refreshCareerGuidance = async () => {
+    if (!currentUser || !currentSummary) return;
+
+    setCareerGuidanceLoading(true);
+    setCareerGuidanceError(null);
+
+    try {
+      const refreshedGuidance = await careerPathwayService.generateCareerGuidance(currentSummary);
+      setCareerGuidance(refreshedGuidance);
+      console.log('Refreshed career guidance:', refreshedGuidance);
+    } catch (error) {
+      setCareerGuidanceError(error instanceof Error ? error.message : 'Failed to refresh career guidance');
+      console.error('Error refreshing career guidance:', error);
+    } finally {
+      setCareerGuidanceLoading(false);
+    }
+  };
   
   const value: ChatContextType = {
     currentThread,
@@ -685,11 +742,16 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     newRecommendations,
     currentSummary,
     summaryUpdated,
+    careerGuidance,
+    careerGuidanceLoading,
+    careerGuidanceError,
     sendMessage,
     createNewThread,
     selectThread,
     deleteThread,
     getRecommendedVideos,
+    generateCareerGuidance,
+    refreshCareerGuidance,
     clearNewRecommendationsFlag,
     clearSummaryUpdatedFlag,
     regenerateSummary

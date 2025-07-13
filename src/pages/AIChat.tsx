@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { useChatContext } from '../context/ChatContext';
 import { MessageList } from '../components/ui/message-list';
+import CareerGuidancePanel from '../components/career-guidance/CareerGuidancePanel';
 import { 
   ArrowUp, 
   MessageCircle, 
@@ -14,7 +15,9 @@ import {
   Trash2,
   X,
   RefreshCw,
-  Search
+  Search,
+  Target,
+  PlayCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { getVideoById, Video } from '../services/videoService';
@@ -36,7 +39,12 @@ const AIChat: React.FC = () => {
     regenerateSummary,
     newRecommendations,
     clearNewRecommendationsFlag,
-    getRecommendedVideos
+    getRecommendedVideos,
+    careerGuidance,
+    careerGuidanceLoading,
+    careerGuidanceError,
+    generateCareerGuidance,
+    refreshCareerGuidance
   } = useChatContext();
   
   const [newMessage, setNewMessage] = useState('');
@@ -48,6 +56,7 @@ const AIChat: React.FC = () => {
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearch, setShowSearch] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'videos' | 'guidance'>('videos');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   // Auto-scroll to bottom of messages (only when not searching)
@@ -93,6 +102,14 @@ const AIChat: React.FC = () => {
 
     fetchRecommendations();
   }, [newRecommendations, currentUser, getRecommendedVideos]);
+
+  // Auto-show career guidance when it becomes available
+  useEffect(() => {
+    if (careerGuidance && !showRecommendations) {
+      setShowRecommendations(true);
+      setSidebarTab('guidance');
+    }
+  }, [careerGuidance, showRecommendations]);
   
   // Handle sending a new message
   const handleSendMessage = async (e?: React.FormEvent) => {
@@ -225,16 +242,16 @@ const AIChat: React.FC = () => {
     if (!showRecommendations) return null;
     
     return (
-      <div className="w-80 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
+      <div className="w-96 bg-white dark:bg-gray-800 border-l border-gray-200 dark:border-gray-700 flex flex-col">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center">
               <div className="w-8 h-8 bg-gradient-to-r from-amber-400 to-orange-500 rounded-full flex items-center justify-center mr-3">
                 <Sparkles className="h-4 w-4 text-white" />
               </div>
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-                  🎯 Recommended For You
+                  Personalized Guidance
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400">
                   Based on your conversation
@@ -248,50 +265,144 @@ const AIChat: React.FC = () => {
               <X className="h-5 w-5" />
             </button>
           </div>
+          
+          {/* Tab buttons */}
+          <div className="flex space-x-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <button
+              onClick={() => setSidebarTab('videos')}
+              className={`flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                sidebarTab === 'videos'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+              }`}
+            >
+              <PlayCircle className="h-4 w-4 mr-2" />
+              Videos
+            </button>
+            <button
+              onClick={() => setSidebarTab('guidance')}
+              className={`flex-1 flex items-center justify-center px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                sidebarTab === 'guidance'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-gray-100 shadow'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+              }`}
+            >
+              <Target className="h-4 w-4 mr-2" />
+              Career Guide
+            </button>
+          </div>
         </div>
         
-        <div className="flex-1 overflow-y-auto p-4">
-          {loadingRecommendations ? (
-            <div className="flex flex-col items-center justify-center h-32">
-              <Loader2 className="h-6 w-6 animate-spin text-blue-500 mb-2" />
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                Loading recommendations...
-              </p>
-            </div>
-          ) : recommendedVideos.length > 0 ? (
-            <div className="space-y-4">
-              {recommendedVideos.map((video) => (
-                <div key={video.id} className="transform hover:scale-105 transition-transform">
-                  <VideoCard video={video} className="shadow-sm" />
+        <div className="flex-1 overflow-y-auto">
+          {sidebarTab === 'videos' ? (
+            <div className="p-4">
+              {loadingRecommendations ? (
+                <div className="flex flex-col items-center justify-center h-32">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-500 mb-2" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Loading recommendations...
+                  </p>
                 </div>
-              ))}
+              ) : recommendedVideos.length > 0 ? (
+                <div className="space-y-4">
+                  {recommendedVideos.map((video) => (
+                    <div key={video.id} className="transform hover:scale-105 transition-transform">
+                      <VideoCard video={video} className="shadow-sm" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                    No recommendations available yet. Continue chatting to get personalized suggestions!
+                  </p>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="text-center py-8">
-              <p className="text-gray-500 dark:text-gray-400 mb-4">
-                No recommendations available yet. Continue chatting to get personalized suggestions!
-              </p>
+            <div className="p-2">
+              {careerGuidance ? (
+                <CareerGuidancePanel 
+                  guidance={careerGuidance}
+                  onRefresh={refreshCareerGuidance}
+                  isLoading={careerGuidanceLoading}
+                />
+              ) : careerGuidanceLoading ? (
+                <div className="flex flex-col items-center justify-center h-32">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-500 mb-2" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Generating career guidance...
+                  </p>
+                </div>
+              ) : careerGuidanceError ? (
+                <div className="text-center py-8">
+                  <p className="text-red-500 dark:text-red-400 mb-4">
+                    {careerGuidanceError}
+                  </p>
+                  <button
+                    onClick={generateCareerGuidance}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-gray-500 dark:text-gray-400 mb-4">
+                    Continue chatting to generate personalized career guidance!
+                  </p>
+                  {currentSummary && (
+                    <button
+                      onClick={generateCareerGuidance}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                    >
+                      Generate Career Guidance
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
         
         <div className="p-4 border-t border-gray-200 dark:border-gray-700">
           <div className="flex gap-2">
-            <button
-              onClick={handleRefreshRecommendations}
-              disabled={loadingRecommendations}
-              className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Refresh
-            </button>
-            <Link
-              to="/dashboard"
-              className="flex-1 flex items-center justify-center px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm"
-              onClick={clearNewRecommendationsFlag}
-            >
-              View All
-            </Link>
+            {sidebarTab === 'videos' ? (
+              <>
+                <button
+                  onClick={handleRefreshRecommendations}
+                  disabled={loadingRecommendations}
+                  className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh
+                </button>
+                <Link
+                  to="/dashboard"
+                  className="flex-1 flex items-center justify-center px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm"
+                  onClick={clearNewRecommendationsFlag}
+                >
+                  View All
+                </Link>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={refreshCareerGuidance}
+                  disabled={careerGuidanceLoading}
+                  className="flex-1 flex items-center justify-center px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Guide
+                </button>
+                <Link
+                  to="/dashboard"
+                  className="flex-1 flex items-center justify-center px-3 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 text-sm"
+                >
+                  Dashboard
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </div>
