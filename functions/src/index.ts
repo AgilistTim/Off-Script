@@ -1391,6 +1391,20 @@ export const getPersonalizedVideoRecommendations = onRequest(
         return;
       }
 
+      // Initialize OpenAI client early so it's available for semantic scoring
+      const openaiApiKey = openaiApiKeySecret.value();
+      
+      if (!openaiApiKey) {
+        logger.error('OpenAI API key not found in secret manager');
+        response.status(500).json({ error: 'API configuration error' });
+        return;
+      }
+
+      // Initialize OpenAI client
+      const openai = new OpenAI({
+        apiKey: openaiApiKey
+      });
+
       // First try the enhanced career-focused recommendation system
       try {
         // Get user preferences
@@ -1462,14 +1476,41 @@ export const getPersonalizedVideoRecommendations = onRequest(
             .where('analysisStatus', '==', 'completed')
             .get();
           
+          // Debug: Log categories of videos being processed
+          const videoCategories = videosSnapshot.docs.reduce((acc, doc) => {
+            const category = doc.data().category || 'uncategorized';
+            acc[category] = (acc[category] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+          
+          // Debug: Log specific software development videos found in the query
+          const softwareVideosFromQuery = videosSnapshot.docs.filter(doc => {
+            const title = doc.data().title?.toLowerCase() || '';
+            return title.includes('software engineer') || title.includes('software developer');
+          }).map(doc => ({
+            id: doc.id,
+            title: doc.data().title,
+            category: doc.data().category
+          }));
+          
+          logger.info('Personalized recommendations - video categories found', {
+            totalVideos: videosSnapshot.docs.length,
+            categories: videoCategories,
+            hasTechnology: videoCategories.technology || 0,
+            hasBusinessSoftware: videoCategories.business || 0,
+            softwareVideosFound: softwareVideosFromQuery.length,
+            softwareVideoIds: softwareVideosFromQuery.map(v => v.id),
+            softwareVideoTitles: softwareVideosFromQuery.map(v => v.title)
+          });
+          
           if (!videosSnapshot.empty) {
-            // Calculate career relevance scores for all videos
-            const scoredVideos = videosSnapshot.docs.map(doc => {
+            // Use semantic scoring for more accurate recommendations
+            const scoredVideos = await Promise.all(videosSnapshot.docs.map(async (doc) => {
               const video = { id: doc.id, ...doc.data() };
-              const relevanceScore = calculateCareerRelevanceScore(video, userProfile);
+              const semanticScore = await calculateSemanticRelevanceScore(video, userProfile, openai);
               
               // Apply feedback adjustments
-              let adjustedScore = relevanceScore;
+              let adjustedScore = semanticScore;
               const feedback = videoFeedback[video.id];
               
               if (feedback) {
@@ -1488,30 +1529,67 @@ export const getPersonalizedVideoRecommendations = onRequest(
                 adjustedScore = 0;
               }
               
+              // Debug: Log scoring for software development videos
+              const videoData = doc.data();
+              const title = videoData.title?.toLowerCase() || '';
+              if (title.includes('software engineer') || title.includes('software developer')) {
+                logger.info('Software development video semantic scoring', {
+                  videoId: video.id,
+                  title: videoData.title,
+                  semanticScore: semanticScore,
+                  adjustedScore: adjustedScore,
+                  hasFeedback: !!feedback,
+                  isWatched: watchedVideoIds.includes(video.id),
+                  includeWatched: includeWatched
+                });
+              }
+              
               return {
                 videoId: video.id,
-                score: adjustedScore
+                score: adjustedScore,
+                originalScore: semanticScore
               };
-            });
+            }));
 
             // Sort by score and take top results
-            const topResults = scoredVideos
-              .filter(item => item.score > 0)
+            const filteredVideos = scoredVideos.filter(item => item.score > 0);
+            const topResults = filteredVideos
               .sort((a, b) => b.score - a.score)
               .slice(0, limit)
               .map(item => item.videoId);
 
+            // Debug: Check if any software development videos made it through filtering
+            const softwareVideosInResults = topResults.filter(videoId => {
+              const videoDoc = videosSnapshot.docs.find(doc => doc.id === videoId);
+              if (!videoDoc) return false;
+              const title = videoDoc.data().title?.toLowerCase() || '';
+              return title.includes('software engineer') || title.includes('software developer');
+            });
+
+            logger.info('Final recommendation results', {
+              totalScored: scoredVideos.length,
+              totalFiltered: filteredVideos.length,
+              topResultsCount: topResults.length,
+              softwareVideosInResults: softwareVideosInResults.length,
+              softwareVideoIds: softwareVideosInResults,
+              topScores: filteredVideos.slice(0, 10).map(v => ({ 
+                id: v.videoId, 
+                score: v.score, 
+                originalScore: v.originalScore 
+              }))
+            });
+
             if (topResults.length > 0) {
-              logger.info('Generated personalized video recommendations using enhanced career matching', { 
+              logger.info('Generated personalized video recommendations using OpenAI semantic scoring', { 
                 userId,
                 videoCount: topResults.length,
-                method: 'enhanced-career',
+                method: 'semantic-ai',
                 totalAnalyzed: scoredVideos.length
               });
 
               response.status(200).json({ 
                 videoIds: topResults,
-                method: 'enhanced-career',
+                method: 'semantic-ai',
                 profileUsed: true,
                 totalAnalyzed: scoredVideos.length
               });
@@ -1523,20 +1601,7 @@ export const getPersonalizedVideoRecommendations = onRequest(
         logger.error('Enhanced career recommendations failed, falling back to embeddings', enhancedError);
       }
 
-      // Fallback to embeddings-based recommendations
-      const openaiApiKey = openaiApiKeySecret.value();
-      
-      if (!openaiApiKey) {
-        logger.error('OpenAI API key not found in secret manager');
-        response.status(500).json({ error: 'API configuration error' });
-        return;
-      }
-
-      // Initialize OpenAI client
-      const openai = new OpenAI({
-        apiKey: openaiApiKey
-      });
-
+      // Fallback to embeddings-based recommendations (openai client already initialized above)
       // Get user preferences for fallback
       const userPrefsSnapshot = await db.collection('userPreferences').doc(userId).get();
       const userPrefs = userPrefsSnapshot.exists ? userPrefsSnapshot.data() : {};
@@ -2693,146 +2758,7 @@ Format your response in Markdown with clear headings and bullet points where app
   }
 ); 
 
-/**
- * Enhanced career-focused video recommendation system
- * Uses rich video analysis data for accurate matching
- */
-function calculateCareerRelevanceScore(
-  video: any,
-  userProfile: {
-    interests: string[];
-    skills: string[];
-    careerGoals: string[];
-    learningPaths: string[];
-  }
-): number {
-  let score = 0;
-  const normalizedProfile = {
-    interests: userProfile.interests.map(i => i.toLowerCase()),
-    skills: userProfile.skills.map(s => s.toLowerCase()),
-    careerGoals: userProfile.careerGoals.map(g => g.toLowerCase()),
-    learningPaths: userProfile.learningPaths.map(p => p.toLowerCase())
-  };
-
-  // Extract career-focused data from video analysis
-  const videoAnalysis = video.aiAnalysis?.fullAnalysis || video.aiAnalysis || {};
-  const careerPathways = videoAnalysis.careerPathways || [];
-  const skillsHighlighted = videoAnalysis.skillsHighlighted || [];
-  const keyThemes = videoAnalysis.keyThemes || [];
-  const hashtags = videoAnalysis.hashtags || [];
-  const workEnvironments = videoAnalysis.workEnvironments || [];
-  const educationRequired = videoAnalysis.educationRequired || [];
-
-  // Career pathway matching (highest weight)
-  careerPathways.forEach((pathway: string) => {
-    const pathwayLower = pathway.toLowerCase();
-    normalizedProfile.careerGoals.forEach(goal => {
-      if (pathwayLower.includes(goal) || goal.includes(pathwayLower)) {
-        score += 15; // High score for career pathway matches
-      }
-    });
-    normalizedProfile.interests.forEach(interest => {
-      if (pathwayLower.includes(interest) || interest.includes(pathwayLower)) {
-        score += 10;
-      }
-    });
-  });
-
-  // Skills matching (high weight)
-  skillsHighlighted.forEach((skill: string) => {
-    const skillLower = skill.toLowerCase();
-    normalizedProfile.skills.forEach(userSkill => {
-      if (skillLower.includes(userSkill) || userSkill.includes(skillLower)) {
-        score += 8;
-      }
-    });
-    normalizedProfile.interests.forEach(interest => {
-      if (skillLower.includes(interest) || interest.includes(skillLower)) {
-        score += 6;
-      }
-    });
-  });
-
-  // Key themes matching (medium weight)
-  keyThemes.forEach((theme: string) => {
-    const themeLower = theme.toLowerCase();
-    normalizedProfile.interests.forEach(interest => {
-      if (themeLower.includes(interest) || interest.includes(themeLower)) {
-        score += 5;
-      }
-    });
-    normalizedProfile.careerGoals.forEach(goal => {
-      if (themeLower.includes(goal) || goal.includes(themeLower)) {
-        score += 7;
-      }
-    });
-  });
-
-  // Hashtag matching (medium weight)
-  hashtags.forEach((hashtag: string) => {
-    const hashtagLower = hashtag.toLowerCase().replace('#', '');
-    normalizedProfile.interests.forEach(interest => {
-      if (hashtagLower.includes(interest) || interest.includes(hashtagLower)) {
-        score += 4;
-      }
-    });
-    normalizedProfile.careerGoals.forEach(goal => {
-      if (hashtagLower.includes(goal) || goal.includes(hashtagLower)) {
-        score += 6;
-      }
-    });
-  });
-
-  // Learning path matching (high weight)
-  normalizedProfile.learningPaths.forEach(path => {
-    const pathLower = path.toLowerCase();
-    [...careerPathways, ...skillsHighlighted, ...keyThemes].forEach((item: string) => {
-      const itemLower = item.toLowerCase();
-      if (itemLower.includes(pathLower) || pathLower.includes(itemLower)) {
-        score += 8;
-      }
-    });
-  });
-
-  // Work environment preferences (if available in user profile)
-  workEnvironments.forEach((env: string) => {
-    const envLower = env.toLowerCase();
-    normalizedProfile.interests.forEach(interest => {
-      if (interest.includes(envLower) || envLower.includes(interest)) {
-        score += 3;
-      }
-    });
-  });
-
-  // Education level matching (if available in user profile)
-  educationRequired.forEach((edu: string) => {
-    const eduLower = edu.toLowerCase();
-    normalizedProfile.interests.forEach(interest => {
-      if (interest.includes(eduLower) || eduLower.includes(interest)) {
-        score += 2;
-      }
-    });
-  });
-
-  // Boost for videos with rich analysis (preference for quality content)
-  if (videoAnalysis.careerPathways?.length > 0 || videoAnalysis.skillsHighlighted?.length > 0) {
-    score += 2;
-  }
-
-  // Normalize score based on video's analysis completeness
-  const analysisCompleteness = [
-    careerPathways.length > 0,
-    skillsHighlighted.length > 0,
-    keyThemes.length > 0,
-    hashtags.length > 0
-  ].filter(Boolean).length;
-
-  if (analysisCompleteness > 0) {
-    score = score * (1 + (analysisCompleteness - 1) * 0.1); // Slight boost for complete analysis
-  }
-
-  return score;
-}
+// Old string matching function removed - replaced with OpenAI semantic scoring
 
 /**
  * Enhanced video recommendations using career-focused analysis
@@ -2941,13 +2867,43 @@ export const getEnhancedCareerRecommendations = onRequest(
         interestsCount: userProfile.interests.length,
         skillsCount: userProfile.skills.length,
         goalsCount: userProfile.careerGoals.length,
-        pathsCount: userProfile.learningPaths.length
+        pathsCount: userProfile.learningPaths.length,
+        actualInterests: userProfile.interests,
+        actualSkills: userProfile.skills,
+        actualGoals: userProfile.careerGoals,
+        actualPaths: userProfile.learningPaths
+      });
+
+      // Initialize OpenAI client for semantic scoring
+      const openaiApiKey = openaiApiKeySecret.value();
+      if (!openaiApiKey) {
+        logger.error('OpenAI API key not found in secret manager');
+        response.status(500).json({ error: 'API configuration error' });
+        return;
+      }
+      
+      const openai = new OpenAI({
+        apiKey: openaiApiKey
       });
 
       // Get all videos with analysis data
       const videosSnapshot = await db.collection('videos')
         .where('analysisStatus', '==', 'completed')
         .get();
+      
+      // Debug: Log categories of videos being processed
+      const videoCategories = videosSnapshot.docs.reduce((acc, doc) => {
+        const category = doc.data().category || 'uncategorized';
+        acc[category] = (acc[category] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      
+      logger.info('Enhanced career recommendations - video categories found', {
+        totalVideos: videosSnapshot.docs.length,
+        categories: videoCategories,
+        hasTechnology: videoCategories.technology || 0,
+        hasBusinessSoftware: videoCategories.business || 0
+      });
       
       if (videosSnapshot.empty) {
         logger.warn('No analyzed videos found for career recommendations');
@@ -2959,13 +2915,13 @@ export const getEnhancedCareerRecommendations = onRequest(
         return;
       }
 
-      // Calculate career relevance scores for all videos
-      const scoredVideos = videosSnapshot.docs.map(doc => {
+      // Use semantic scoring for enhanced career recommendations
+      const scoredVideos = await Promise.all(videosSnapshot.docs.map(async (doc) => {
         const video = { id: doc.id, ...doc.data() };
-        const relevanceScore = calculateCareerRelevanceScore(video, userProfile);
+        const semanticScore = await calculateSemanticRelevanceScore(video, userProfile, openai);
         
         // Apply feedback adjustments
-        let adjustedScore = relevanceScore;
+        let adjustedScore = semanticScore;
         const feedback = videoFeedback[video.id];
         
         if (feedback) {
@@ -2987,9 +2943,9 @@ export const getEnhancedCareerRecommendations = onRequest(
         return {
           videoId: video.id,
           score: adjustedScore,
-          originalScore: relevanceScore
+          originalScore: semanticScore
         };
-      });
+      }));
 
       // Sort by score and take top results
       const topResults = scoredVideos
@@ -3003,7 +2959,14 @@ export const getEnhancedCareerRecommendations = onRequest(
         totalVideos: scoredVideos.length,
         recommendedCount: topResults.length,
         method: 'enhanced-career',
-        topScores: scoredVideos.slice(0, 5).map(v => ({ id: v.videoId, score: v.score }))
+        topScores: scoredVideos.slice(0, 10).map(v => ({ id: v.videoId, score: v.score, originalScore: v.originalScore })),
+        videoAnalysisStatusCheck: videosSnapshot.docs.slice(0, 3).map(doc => ({
+          id: doc.id,
+          hasAnalysis: !!doc.data().aiAnalysis,
+          analysisType: doc.data().aiAnalysis?.analysisType,
+          hasCareerPathways: !!(doc.data().aiAnalysis?.careerPathways || doc.data().careerPathways),
+          hasSkills: !!(doc.data().aiAnalysis?.skillsHighlighted || doc.data().skillsHighlighted)
+        }))
       });
 
       response.status(200).json({ 
@@ -3018,6 +2981,363 @@ export const getEnhancedCareerRecommendations = onRequest(
       response.status(500).json({ 
         error: 'Internal server error',
         details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+);
+
+// Debug function to check database state
+export const debugVideoDatabase = onRequest(
+  { cors: corsConfig },
+  async (request, response) => {
+    try {
+      logger.info('Debug: Checking video database state...');
+      
+      // Get all videos
+      const allVideos = await db.collection('videos').get();
+      
+      // Count by analysis status
+      const statusCounts: Record<string, number> = {};
+      const softwareVideos: any[] = [];
+      
+      allVideos.forEach(doc => {
+        const data = doc.data();
+        const status = data.analysisStatus || 'no-status';
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+        
+        // Check for software development videos
+        const title = data.title?.toLowerCase() || '';
+        if (title.includes('software engineer') || title.includes('software developer') || 
+            title.includes('programming') || title.includes('coding')) {
+          softwareVideos.push({
+            id: doc.id,
+            title: data.title,
+            category: data.category,
+            analysisStatus: data.analysisStatus,
+            hasAiAnalysis: !!data.aiAnalysis,
+            videoUrl: data.videoUrl
+          });
+        }
+      });
+      
+      // Check specifically for completed technology videos
+      const completedVideos = await db.collection('videos')
+        .where('analysisStatus', '==', 'completed')
+        .get();
+      
+      const completedTechVideos = completedVideos.docs.filter(doc => {
+        const data = doc.data();
+        return data.category === 'technology';
+      });
+      
+      const response_data = {
+        totalVideos: allVideos.size,
+        statusCounts,
+        softwareVideos: softwareVideos.length,
+        softwareVideoDetails: softwareVideos,
+        completedVideos: completedVideos.size,
+        completedTechVideos: completedTechVideos.length,
+        completedTechVideoIds: completedTechVideos.map(doc => ({
+          id: doc.id,
+          title: doc.data().title,
+          category: doc.data().category
+        }))
+      };
+      
+      logger.info('Debug video database results', response_data);
+      
+      response.json(response_data);
+      
+    } catch (error) {
+      logger.error('Debug video database error', error);
+      response.status(500).json({ error: 'Failed to debug video database' });
+    }
+  }
+);
+
+/**
+ * OpenAI-powered semantic scoring for video relevance
+ * Uses GPT to understand the nuanced relationship between user goals and video content
+ */
+async function calculateSemanticRelevanceScore(
+  video: any,
+  userProfile: {
+    interests: string[];
+    skills: string[];
+    careerGoals: string[];
+    learningPaths: string[];
+  },
+  openai: OpenAI
+): Promise<number> {
+  try {
+    // Extract video analysis data
+    const videoAnalysis = video.aiAnalysis?.fullAnalysis || video.aiAnalysis || {};
+    const careerPathways = videoAnalysis.careerPathways || video.careerPathways || [];
+    const skillsHighlighted = videoAnalysis.skillsHighlighted || video.skillsHighlighted || [];
+    const keyThemes = videoAnalysis.keyThemes || [];
+    const hashtags = videoAnalysis.hashtags || video.hashtags || [];
+    const summary = videoAnalysis.summary || '';
+    
+    // Create video context
+    const videoContext = {
+      title: video.title || '',
+      category: video.category || '',
+      careerPathways: careerPathways.slice(0, 5), // Limit to prevent token overflow
+      skillsHighlighted: skillsHighlighted.slice(0, 5),
+      keyThemes: keyThemes.slice(0, 5),
+      hashtags: hashtags.slice(0, 5),
+      summary: summary.slice(0, 300) // Limit summary length
+    };
+    
+    // Create user profile context
+    const userContext = {
+      careerGoals: userProfile.careerGoals,
+      interests: userProfile.interests,
+      skills: userProfile.skills,
+      learningPaths: userProfile.learningPaths
+    };
+    
+    const prompt = `You are an expert career counselor evaluating how well a video matches a user's career goals and interests.
+
+USER PROFILE:
+- Career Goals: ${userContext.careerGoals.join(', ')}
+- Interests: ${userContext.interests.join(', ')}
+- Skills: ${userContext.skills.join(', ')}
+- Learning Paths: ${userContext.learningPaths.join(', ')}
+
+VIDEO CONTENT:
+- Title: ${videoContext.title}
+- Category: ${videoContext.category}
+- Career Pathways: ${videoContext.careerPathways.join(', ')}
+- Skills Highlighted: ${videoContext.skillsHighlighted.join(', ')}
+- Key Themes: ${videoContext.keyThemes.join(', ')}
+- Hashtags: ${videoContext.hashtags.join(', ')}
+- Summary: ${videoContext.summary}
+
+TASK: Rate how relevant this video is to the user's career goals and interests on a scale of 0-100, where:
+- 0-20: Not relevant at all
+- 21-40: Somewhat related but not directly relevant
+- 41-60: Moderately relevant, some useful content
+- 61-80: Highly relevant, strong match with user goals
+- 81-100: Perfect match, exactly what the user is looking for
+
+Consider:
+1. Specificity: Exact matches to career goals should score higher than general matches
+2. Context: Software engineering is very different from other types of engineering
+3. Relevance: How directly does this video help the user achieve their stated goals?
+4. Practical value: Would this video provide actionable insights for their career path?
+
+Respond with ONLY a number between 0-100. No explanation needed.`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini', // Use faster, cheaper model for scoring
+      messages: [
+        { role: 'user', content: prompt }
+      ],
+      temperature: 0.1, // Low temperature for consistent scoring
+      max_tokens: 10 // We only need a number
+    });
+
+    const scoreText = completion.choices[0]?.message?.content?.trim() || '0';
+    const score = parseInt(scoreText, 10);
+    
+    // Validate score
+    if (isNaN(score) || score < 0 || score > 100) {
+      logger.warn('Invalid semantic score received', { 
+        videoId: video.id, 
+        scoreText, 
+        parsedScore: score 
+      });
+      return 0;
+    }
+
+    // Debug log for software development videos
+    const title = video.title?.toLowerCase() || '';
+    if (title.includes('software engineer') || title.includes('software developer')) {
+      logger.info('Semantic score for software development video', {
+        videoId: video.id,
+        title: video.title,
+        semanticScore: score,
+        userGoals: userContext.careerGoals
+      });
+    }
+
+    return score;
+    
+  } catch (error: any) {
+    logger.error('Semantic scoring error', { 
+      videoId: video.id, 
+      error: error.message 
+    });
+    return 0; // Fall back to 0 if OpenAI call fails
+  }
+}
+
+/**
+ * Generate comprehensive career pathways with training, volunteering, and funding information
+ */
+export const generateCareerPathways = onRequest(
+  {
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret],
+    memory: "512MiB",
+    timeoutSeconds: 120,
+  },
+  async (request, response) => {
+    try {
+      const origin = request.get('origin') || request.get('referer');
+      
+      if (!isOriginAllowed(origin)) {
+        logger.warn('Unauthorized origin attempted to access generateCareerPathways', { origin });
+        response.status(403).send('Forbidden: Unauthorized origin');
+        return;
+      }
+
+      if (request.method === 'OPTIONS') {
+        response.set('Access-Control-Allow-Origin', origin || '*');
+        response.set('Access-Control-Allow-Methods', 'POST');
+        response.set('Access-Control-Allow-Headers', 'Content-Type');
+        response.status(204).send('');
+        return;
+      }
+
+      if (request.method !== 'POST') {
+        response.status(405).send('Method Not Allowed');
+        return;
+      }
+
+      const { userProfile } = request.body;
+
+      if (!userProfile) {
+        response.status(400).json({ 
+          error: 'User profile is required',
+          received: request.body 
+        });
+        return;
+      }
+
+      logger.info('Generating career pathways for user profile', {
+        interests: userProfile.interests?.length || 0,
+        skills: userProfile.skills?.length || 0,
+        goals: userProfile.goals?.length || 0,
+        careerStage: userProfile.careerStage
+      });
+
+      const openai = new OpenAI({
+        apiKey: openaiApiKeySecret.value(),
+      });
+
+      const systemPrompt = `You are a UK career guidance specialist with comprehensive knowledge of training providers, volunteering opportunities, and funding schemes across the UK. Generate detailed, actionable career guidance with real UK-specific resources.`;
+
+      const userPrompt = `Generate comprehensive UK career guidance for a user with this profile:
+
+INTERESTS: ${userProfile.interests?.join(', ') || 'Not specified'}
+SKILLS: ${userProfile.skills?.join(', ') || 'Not specified'}  
+GOALS: ${userProfile.goals?.join(', ') || 'Not specified'}
+CAREER STAGE: ${userProfile.careerStage || 'exploring'}
+
+Provide a JSON response with this exact structure:
+
+{
+  "primaryPathway": {
+    "title": "Career pathway name",
+    "description": "Brief description of the career path",
+    "timeline": "Expected timeline (e.g., '6-12 months')",
+    "requirements": ["skill1", "skill2"],
+    "progression": ["step1", "step2", "step3"]
+  },
+  "training": [
+    {
+      "title": "Course name",
+      "provider": "Training provider name",
+      "duration": "Course length",
+      "cost": "Course cost with £ symbol",
+      "location": "UK location or 'Online'",
+      "description": "Brief course description",
+      "link": "Real UK course URL if available, or '#' if not"
+    }
+  ],
+  "volunteering": [
+    {
+      "title": "Volunteer role title",
+      "organization": "UK organization name",
+      "timeCommitment": "Weekly time commitment",
+      "location": "UK location or 'Various locations'", 
+      "description": "Role description",
+      "benefits": "Skills/experience gained",
+      "link": "Real UK organization URL if available, or '#' if not"
+    }
+  ],
+  "funding": [
+    {
+      "title": "Funding scheme name",
+      "provider": "Government/organization providing funding",
+      "amount": "Funding amount with £ symbol",
+      "eligibility": "Who can apply",
+      "description": "What the funding covers",
+      "link": "Real UK funding scheme URL if available, or '#' if not"
+    }
+  ],
+  "resources": [
+    {
+      "title": "Resource name",
+      "organization": "UK organization/website",
+      "description": "What this resource provides",
+      "link": "Real UK resource URL if available, or '#' if not"
+    }
+  ]
+}
+
+Focus on real UK opportunities. Use actual UK training providers, recognized charities, government schemes, and career services where possible.`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt }
+        ],
+        temperature: 0.7,
+        max_tokens: 2000,
+      });
+
+      const responseText = completion.choices[0]?.message?.content;
+      
+      if (!responseText) {
+        throw new Error('No response from OpenAI');
+      }
+
+      let careerGuidance;
+      try {
+        careerGuidance = JSON.parse(responseText);
+      } catch (parseError) {
+        logger.error('Failed to parse OpenAI response as JSON', { responseText });
+        throw new Error('Invalid JSON response from OpenAI');
+      }
+
+      logger.info('Successfully generated career pathways', {
+        trainingCount: careerGuidance.training?.length || 0,
+        volunteeringCount: careerGuidance.volunteering?.length || 0,
+        fundingCount: careerGuidance.funding?.length || 0,
+        resourcesCount: careerGuidance.resources?.length || 0
+      });
+
+      response.set('Access-Control-Allow-Origin', origin || '*');
+      response.json({
+        success: true,
+        data: careerGuidance,
+        generatedAt: new Date().toISOString()
+      });
+
+    } catch (error: any) {
+      logger.error('Error in generateCareerPathways function', {
+        error: error.message,
+        stack: error.stack
+      });
+      
+      response.status(500).json({
+        success: false,
+        error: 'Failed to generate career pathways',
+        message: error.message
       });
     }
   }
