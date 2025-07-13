@@ -1503,46 +1503,20 @@ export const getPersonalizedVideoRecommendations = onRequest(
                           userProfile.careerGoals.length > 0 || userProfile.learningPaths.length > 0;
         
         if (hasProfile) {
-          // Get videos with analysis data for enhanced recommendations
+          // Get videos with analysis data for enhanced recommendations (LIMIT to prevent timeout)
           const videosSnapshot = await db.collection('videos')
             .where('analysisStatus', '==', 'completed')
+            .limit(50) // CRITICAL: Limit to prevent timeout
             .get();
           
-          // Debug: Log categories of videos being processed
-          const videoCategories = videosSnapshot.docs.reduce((acc, doc) => {
-            const category = doc.data().category || 'uncategorized';
-            acc[category] = (acc[category] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>);
-          
-          // Debug: Log specific software development videos found in the query
-          const softwareVideosFromQuery = videosSnapshot.docs.filter(doc => {
-            const title = doc.data().title?.toLowerCase() || '';
-            return title.includes('software engineer') || title.includes('software developer');
-          }).map(doc => ({
-            id: doc.id,
-            title: doc.data().title,
-            category: doc.data().category
-          }));
-          
-          logger.info('Personalized recommendations - video categories found', {
-            totalVideos: videosSnapshot.docs.length,
-            categories: videoCategories,
-            hasTechnology: videoCategories.technology || 0,
-            hasBusinessSoftware: videoCategories.business || 0,
-            softwareVideosFound: softwareVideosFromQuery.length,
-            softwareVideoIds: softwareVideosFromQuery.map(v => v.id),
-            softwareVideoTitles: softwareVideosFromQuery.map(v => v.title)
-          });
-          
           if (!videosSnapshot.empty) {
-            // Use semantic scoring for more accurate recommendations
-            const scoredVideos = await Promise.all(videosSnapshot.docs.map(async (doc) => {
+            // Use EFFICIENT scoring without OpenAI calls for every video
+            const scoredVideos = videosSnapshot.docs.map((doc) => {
               const video = { id: doc.id, ...doc.data() };
-              const semanticScore = await calculateSemanticRelevanceScore(video, userProfile, openai);
+              const efficientScore = calculateEfficientRelevanceScore(video, userProfile);
               
               // Apply feedback adjustments
-              let adjustedScore = semanticScore;
+              let adjustedScore = efficientScore;
               const feedback = videoFeedback[video.id];
               
               if (feedback) {
@@ -1565,10 +1539,10 @@ export const getPersonalizedVideoRecommendations = onRequest(
               const videoData = doc.data();
               const title = videoData.title?.toLowerCase() || '';
               if (title.includes('software engineer') || title.includes('software developer')) {
-                logger.info('Software development video semantic scoring', {
+                logger.info('Software development video efficient scoring', {
                   videoId: video.id,
                   title: videoData.title,
-                  semanticScore: semanticScore,
+                  efficientScore: efficientScore,
                   adjustedScore: adjustedScore,
                   hasFeedback: !!feedback,
                   isWatched: watchedVideoIds.includes(video.id),
@@ -1579,9 +1553,9 @@ export const getPersonalizedVideoRecommendations = onRequest(
               return {
                 videoId: video.id,
                 score: adjustedScore,
-                originalScore: semanticScore
+                originalScore: efficientScore
               };
-            }));
+            });
 
             // Sort by score and take top results
             const filteredVideos = scoredVideos.filter(item => item.score > 0);
@@ -3088,7 +3062,78 @@ export const debugVideoDatabase = onRequest(
 );
 
 /**
- * OpenAI-powered semantic scoring for video relevance
+ * Calculate relevance score efficiently without OpenAI calls
+ */
+function calculateEfficientRelevanceScore(
+  video: any,
+  userProfile: {
+    interests: string[];
+    skills: string[];
+    careerGoals: string[];
+    learningPaths: string[];
+  }
+): number {
+  let score = 0;
+  
+  // Extract video data
+  const videoAnalysis = video.aiAnalysis?.fullAnalysis || video.aiAnalysis || {};
+  const careerPathways = videoAnalysis.careerPathways || video.careerPathways || [];
+  const skillsHighlighted = videoAnalysis.skillsHighlighted || video.skillsHighlighted || [];
+  const keyThemes = videoAnalysis.keyThemes || [];
+  const hashtags = videoAnalysis.hashtags || video.hashtags || [];
+  const title = (video.title || '').toLowerCase();
+  const category = (video.category || '').toLowerCase();
+  const description = (video.description || '').toLowerCase();
+  
+  // Category matching (20 points max)
+  const userInterests = userProfile.interests.map(i => i.toLowerCase());
+  const userGoals = userProfile.careerGoals.map(g => g.toLowerCase());
+  
+  if (userInterests.some(interest => category.includes(interest) || interest.includes(category))) {
+    score += 20;
+  }
+  
+  // Title and description keyword matching (30 points max)
+  const allUserTerms = [...userInterests, ...userGoals, ...userProfile.skills.map(s => s.toLowerCase())];
+  for (const term of allUserTerms) {
+    if (title.includes(term)) score += 5;
+    if (description.includes(term)) score += 3;
+  }
+  
+  // Career pathways matching (25 points max)
+  const matchingPathways = careerPathways.filter((pathway: string) => 
+    userGoals.some(goal => 
+      goal.includes(pathway.toLowerCase()) || pathway.toLowerCase().includes(goal)
+    )
+  );
+  score += Math.min(25, matchingPathways.length * 8);
+  
+  // Skills matching (20 points max)
+  const matchingSkills = skillsHighlighted.filter((skill: string) =>
+    userProfile.skills.some(userSkill =>
+      userSkill.toLowerCase().includes(skill.toLowerCase()) || 
+      skill.toLowerCase().includes(userSkill.toLowerCase())
+    )
+  );
+  score += Math.min(20, matchingSkills.length * 5);
+  
+  // Hashtags and themes matching (5 points max)
+  const allTags = [...hashtags, ...keyThemes].map(tag => tag.toLowerCase());
+  for (const term of allUserTerms) {
+    if (allTags.some(tag => tag.includes(term) || term.includes(tag))) {
+      score += 1;
+    }
+  }
+  
+  // Base popularity score (0-5 points)
+  const viewCount = video.viewCount || 0;
+  score += Math.min(5, viewCount / 1000);
+  
+  return Math.min(100, score); // Cap at 100
+}
+
+/**
+ * OpenAI-powered semantic scoring for video relevance (EXPENSIVE - USE SPARINGLY)
  * Uses GPT to understand the nuanced relationship between user goals and video content
  */
 async function calculateSemanticRelevanceScore(
