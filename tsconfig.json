@@ -28,5 +28,5 @@
     }
   },
   "include": ["src", "vite.config.ts"],
-  "exclude": ["src/index.ts", "functions/**/*", "src/components/ui/chat.tsx", "src/components/ui/markdown-renderer.tsx", "src/components/video/EnhancedVideoGrid.tsx"]
+  "exclude": ["src/index.ts", "functions/**/*", "src/components/ui/chat.tsx", "src/components/ui/markdown-renderer.tsx", "src/components/video/EnhancedVideoGrid.tsx", "src/test/**/*"]
 }
