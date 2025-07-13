@@ -26,7 +26,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateTranscriptSummary = exports.processVideoWithTranscript = exports.extractTranscript = exports.getPersonalizedVideoRecommendations = exports.searchVideos = exports.generateEmbedding = exports.getVideoRecommendations = exports.generateDetailedChatSummary = exports.generateChatSummary = exports.sendChatMessage = exports.createChatThread = exports.healthCheck = exports.bumpupsProxy = exports.enrichVideoMetadata = void 0;
+exports.generateCareerPathways = exports.debugVideoDatabase = exports.getEnhancedCareerRecommendations = exports.generateTranscriptSummary = exports.processVideoWithTranscript = exports.extractTranscript = exports.getPersonalizedVideoRecommendations = exports.searchVideos = exports.generateEmbedding = exports.getVideoRecommendations = exports.generateDetailedChatSummary = exports.generateChatSummary = exports.sendChatMessage = exports.createChatThread = exports.healthCheck = exports.bumpupsProxy = exports.enrichVideoMetadata = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https = __importStar(require("https"));
 const https_1 = require("firebase-functions/v2/https");
@@ -52,19 +52,38 @@ const corsOrigins = [
     'https://app.off-script.app',
     'https://off-script-app.web.app'
 ];
-// CORS configuration for functions v2
+// CORS configuration for functions v2 - more permissive for Firebase domains
 const corsConfig = corsOrigins;
 // Helper function to validate origin against allowed list
 const isOriginAllowed = (origin) => {
     if (!origin)
-        return false;
-    // Check against allowed origins
-    if (corsOrigins.some(allowedOrigin => origin === allowedOrigin)) {
+        return true; // Allow requests without origin (server-to-server)
+    // Check against allowed origins (exact match)
+    if (corsOrigins.includes(origin)) {
         return true;
     }
-    // Allow localhost in development with any port
-    const localhostRegex = /localhost:\d+$/;
-    return localhostRegex.test(origin);
+    // Allow any localhost in development with any port
+    if (origin.includes('localhost')) {
+        return true;
+    }
+    // Allow any Firebase hosting domain for this project
+    if (origin.includes('offscript-8f6eb.web.app') ||
+        origin.includes('offscript-8f6eb.firebaseapp.com')) {
+        return true;
+    }
+    return false;
+};
+// Helper function to set CORS headers properly
+const setCorsHeaders = (response, origin) => {
+    if (origin && isOriginAllowed(origin)) {
+        response.set('Access-Control-Allow-Origin', origin);
+    }
+    else if (!origin) {
+        response.set('Access-Control-Allow-Origin', '*');
+    }
+    response.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    response.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    response.set('Access-Control-Max-Age', '3600');
 };
 /**
  * Recursively removes undefined values from an object
@@ -1178,6 +1197,7 @@ exports.searchVideos = (0, https_1.onRequest)({
 });
 /**
  * Get personalized video recommendations based on user preferences and chat history
+ * Now uses enhanced career-focused recommendation system when available
  */
 exports.getPersonalizedVideoRecommendations = (0, https_1.onRequest)({
     cors: corsConfig,
@@ -1185,6 +1205,15 @@ exports.getPersonalizedVideoRecommendations = (0, https_1.onRequest)({
     timeoutSeconds: 30
 }, async (request, response) => {
     try {
+        const origin = request.get('origin') || request.get('referer');
+        // Handle CORS preflight
+        if (request.method === 'OPTIONS') {
+            setCorsHeaders(response, origin);
+            response.status(204).send('');
+            return;
+        }
+        // Set CORS headers for all responses
+        setCorsHeaders(response, origin);
         // Only allow POST requests
         if (request.method !== 'POST') {
             response.status(405).json({
@@ -1192,8 +1221,7 @@ exports.getPersonalizedVideoRecommendations = (0, https_1.onRequest)({
             });
             return;
         }
-        // Validate origin for additional security (allow requests without origin header for server-to-server calls)
-        const origin = request.headers.origin;
+        // Validate origin for additional security
         if (origin && !isOriginAllowed(origin)) {
             firebase_functions_1.logger.warn('Unauthorized origin attempted to access getPersonalizedVideoRecommendations', { origin });
             response.status(403).json({ error: 'Origin not allowed' });
@@ -1208,7 +1236,7 @@ exports.getPersonalizedVideoRecommendations = (0, https_1.onRequest)({
             });
             return;
         }
-        // Get OpenAI API key
+        // Initialize OpenAI client early so it's available for semantic scoring
         const openaiApiKey = openaiApiKeySecret.value();
         if (!openaiApiKey) {
             firebase_functions_1.logger.error('OpenAI API key not found in secret manager');
@@ -1219,10 +1247,169 @@ exports.getPersonalizedVideoRecommendations = (0, https_1.onRequest)({
         const openai = new openai_1.default({
             apiKey: openaiApiKey
         });
-        // Get user preferences
+        // First try the enhanced career-focused recommendation system
+        try {
+            // Get user preferences
+            const userPrefsSnapshot = await db.collection('userPreferences').doc(userId).get();
+            const userPrefs = userPrefsSnapshot.exists ? userPrefsSnapshot.data() : {};
+            // Get user watch history
+            const watchHistorySnapshot = await db.collection('userActivity')
+                .doc(userId)
+                .collection('watchHistory')
+                .orderBy('timestamp', 'desc')
+                .limit(20)
+                .get();
+            const watchedVideoIds = watchHistorySnapshot.docs.map(doc => doc.data().videoId);
+            // Get user feedback
+            const userFeedbackSnapshot = await db.collection('userActivity')
+                .doc(userId)
+                .collection('videoFeedback')
+                .get();
+            const videoFeedback = userFeedbackSnapshot.docs.reduce((acc, doc) => {
+                const data = doc.data();
+                acc[doc.id] = {
+                    liked: data.liked || false,
+                    disliked: data.disliked || false,
+                    saved: data.saved || false
+                };
+                return acc;
+            }, {});
+            // Get chat summary
+            let chatSummary = null;
+            if (chatSummaryId) {
+                const chatSummarySnapshot = await db.collection('chatSummaries').doc(chatSummaryId).get();
+                if (chatSummarySnapshot.exists) {
+                    chatSummary = chatSummarySnapshot.data();
+                }
+            }
+            if (!chatSummary) {
+                const recentSummariesSnapshot = await db.collection('chatSummaries')
+                    .where('userId', '==', userId)
+                    .orderBy('createdAt', 'desc')
+                    .limit(1)
+                    .get();
+                if (!recentSummariesSnapshot.empty) {
+                    chatSummary = recentSummariesSnapshot.docs[0].data();
+                }
+            }
+            // Extract user profile
+            const userProfile = {
+                interests: chatSummary?.interests || userPrefs?.interests || [],
+                skills: chatSummary?.skills || userPrefs?.skills || [],
+                careerGoals: chatSummary?.careerGoals || userPrefs?.careerGoals || [],
+                learningPaths: chatSummary?.learningPaths || []
+            };
+            // Check if we have a meaningful profile for enhanced recommendations
+            const hasProfile = userProfile.interests.length > 0 || userProfile.skills.length > 0 ||
+                userProfile.careerGoals.length > 0 || userProfile.learningPaths.length > 0;
+            if (hasProfile) {
+                // Get MORE videos for better recommendations (increased from 50 to 100)
+                const videosSnapshot = await db.collection('videos')
+                    .where('analysisStatus', '==', 'completed')
+                    .limit(100) // Increased limit for better selection
+                    .get();
+                if (!videosSnapshot.empty) {
+                    // Use ENHANCED scoring with better matching
+                    const scoredVideos = videosSnapshot.docs.map((doc) => {
+                        const video = { id: doc.id, ...doc.data() };
+                        const enhancedScore = calculateEnhancedRelevanceScore(video, userProfile);
+                        // Apply feedback adjustments
+                        let adjustedScore = enhancedScore;
+                        const feedback = videoFeedback[video.id];
+                        if (feedback) {
+                            if (feedback.liked)
+                                adjustedScore *= 1.3;
+                            if (feedback.disliked)
+                                adjustedScore *= 0.3;
+                            if (feedback.saved)
+                                adjustedScore *= 1.4;
+                            // Filter by feedback type if specified
+                            if (feedbackType === 'liked' && !feedback.liked)
+                                adjustedScore = 0;
+                            if (feedbackType === 'disliked' && !feedback.disliked)
+                                adjustedScore = 0;
+                            if (feedbackType === 'saved' && !feedback.saved)
+                                adjustedScore = 0;
+                        }
+                        // Exclude watched videos if requested
+                        if (!includeWatched && watchedVideoIds.includes(video.id)) {
+                            adjustedScore = 0;
+                        }
+                        // Debug: Log scoring for software development videos
+                        const videoData = doc.data();
+                        const title = videoData.title?.toLowerCase() || '';
+                        if (title.includes('software engineer') || title.includes('software developer')) {
+                            firebase_functions_1.logger.info('Software development video enhanced scoring', {
+                                videoId: video.id,
+                                title: videoData.title,
+                                enhancedScore: enhancedScore,
+                                adjustedScore: adjustedScore,
+                                category: videoData.category,
+                                userInterests: userProfile.interests,
+                                userGoals: userProfile.careerGoals,
+                                hasFeedback: !!feedback,
+                                isWatched: watchedVideoIds.includes(video.id),
+                                includeWatched: includeWatched
+                            });
+                        }
+                        return {
+                            videoId: video.id,
+                            score: adjustedScore,
+                            originalScore: enhancedScore
+                        };
+                    });
+                    // Sort by score and take top results
+                    const filteredVideos = scoredVideos.filter(item => item.score > 0);
+                    const topResults = filteredVideos
+                        .sort((a, b) => b.score - a.score)
+                        .slice(0, limit)
+                        .map(item => item.videoId);
+                    // Debug: Check if any software development videos made it through filtering
+                    const softwareVideosInResults = topResults.filter(videoId => {
+                        const videoDoc = videosSnapshot.docs.find(doc => doc.id === videoId);
+                        if (!videoDoc)
+                            return false;
+                        const title = videoDoc.data().title?.toLowerCase() || '';
+                        return title.includes('software engineer') || title.includes('software developer');
+                    });
+                    firebase_functions_1.logger.info('Final recommendation results', {
+                        totalScored: scoredVideos.length,
+                        totalFiltered: filteredVideos.length,
+                        topResultsCount: topResults.length,
+                        softwareVideosInResults: softwareVideosInResults.length,
+                        softwareVideoIds: softwareVideosInResults,
+                        topScores: filteredVideos.slice(0, 10).map(v => ({
+                            id: v.videoId,
+                            score: v.score,
+                            originalScore: v.originalScore
+                        }))
+                    });
+                    if (topResults.length > 0) {
+                        firebase_functions_1.logger.info('Generated personalized video recommendations using enhanced scoring', {
+                            userId,
+                            videoCount: topResults.length,
+                            method: 'enhanced-semantic',
+                            totalAnalyzed: scoredVideos.length
+                        });
+                        response.status(200).json({
+                            videoIds: topResults,
+                            method: 'enhanced-semantic',
+                            profileUsed: true,
+                            totalAnalyzed: scoredVideos.length
+                        });
+                        return;
+                    }
+                }
+            }
+        }
+        catch (enhancedError) {
+            firebase_functions_1.logger.error('Enhanced career recommendations failed, falling back to embeddings', enhancedError);
+        }
+        // Fallback to embeddings-based recommendations (openai client already initialized above)
+        // Get user preferences for fallback
         const userPrefsSnapshot = await db.collection('userPreferences').doc(userId).get();
         const userPrefs = userPrefsSnapshot.exists ? userPrefsSnapshot.data() : {};
-        // Get user watch history
+        // Get user watch history for fallback
         const watchHistorySnapshot = await db.collection('userActivity')
             .doc(userId)
             .collection('watchHistory')
@@ -1230,7 +1417,7 @@ exports.getPersonalizedVideoRecommendations = (0, https_1.onRequest)({
             .limit(20)
             .get();
         const watchedVideoIds = watchHistorySnapshot.docs.map(doc => doc.data().videoId);
-        // Get user feedback (likes, dislikes, saves)
+        // Get user feedback for fallback
         const userFeedbackSnapshot = await db.collection('userActivity')
             .doc(userId)
             .collection('videoFeedback')
@@ -1244,7 +1431,7 @@ exports.getPersonalizedVideoRecommendations = (0, https_1.onRequest)({
             };
             return acc;
         }, {});
-        // Get chat summary if provided
+        // Get chat summary for fallback
         let chatSummary = null;
         if (chatSummaryId) {
             const chatSummarySnapshot = await db.collection('chatSummaries').doc(chatSummaryId).get();
@@ -1252,7 +1439,6 @@ exports.getPersonalizedVideoRecommendations = (0, https_1.onRequest)({
                 chatSummary = chatSummarySnapshot.data();
             }
         }
-        // If no chat summary provided, get the most recent one
         if (!chatSummary) {
             const recentSummariesSnapshot = await db.collection('chatSummaries')
                 .where('userId', '==', userId)
@@ -1275,7 +1461,7 @@ exports.getPersonalizedVideoRecommendations = (0, https_1.onRequest)({
             `Career Goals: ${careerGoals.join(', ')}`,
             `Learning Paths: ${learningPaths.join(', ')}`
         ].filter(part => !part.endsWith(': ')).join('\n');
-        firebase_functions_1.logger.info('Combined profile for personalized recommendations', {
+        firebase_functions_1.logger.info('Combined profile for personalized recommendations (fallback)', {
             profileLength: combinedProfile.length,
             interestsCount: interests.length,
             skillsCount: skills.length,
@@ -1333,7 +1519,7 @@ exports.getPersonalizedVideoRecommendations = (0, https_1.onRequest)({
                         .sort((a, b) => b.similarity - a.similarity)
                         .slice(0, limit)
                         .map(item => item.videoId);
-                    firebase_functions_1.logger.info('Generated personalized video recommendations using embeddings', {
+                    firebase_functions_1.logger.info('Generated personalized video recommendations using embeddings (fallback)', {
                         userId,
                         videoCount: topResults.length,
                         method: 'embeddings',
@@ -1353,7 +1539,7 @@ exports.getPersonalizedVideoRecommendations = (0, https_1.onRequest)({
                 firebase_functions_1.logger.error('Error using embeddings for personalized recommendations, falling back to category matching', embeddingError);
             }
         }
-        // Fallback to category matching
+        // Final fallback to category matching
         let videoQuery;
         if (interests && interests.length > 0) {
             // Query videos that match user interests
@@ -1391,7 +1577,7 @@ exports.getPersonalizedVideoRecommendations = (0, https_1.onRequest)({
         }
         // Limit to requested number
         videoIds = videoIds.slice(0, limit);
-        firebase_functions_1.logger.info('Generated personalized video recommendations using category matching', {
+        firebase_functions_1.logger.info('Generated personalized video recommendations using category matching (final fallback)', {
             userId,
             videoCount: videoIds.length,
             method: 'category',
@@ -2234,6 +2420,600 @@ Format your response in Markdown with clear headings and bullet points where app
             success: false,
             error: error.message || 'Unknown error',
             errorType: 'SERVER_ERROR'
+        });
+    }
+});
+// Old string matching function removed - replaced with OpenAI semantic scoring
+/**
+ * Enhanced video recommendations using career-focused analysis
+ */
+exports.getEnhancedCareerRecommendations = (0, https_1.onRequest)({
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret],
+    timeoutSeconds: 30
+}, async (request, response) => {
+    try {
+        // Only allow POST requests
+        if (request.method !== 'POST') {
+            response.status(405).json({
+                error: 'Method not allowed. Use POST only.'
+            });
+            return;
+        }
+        // Validate origin
+        const origin = request.headers.origin;
+        if (origin && !isOriginAllowed(origin)) {
+            firebase_functions_1.logger.warn('Unauthorized origin attempted to access getEnhancedCareerRecommendations', { origin });
+            response.status(403).json({ error: 'Origin not allowed' });
+            return;
+        }
+        // Validate request body
+        const { userId, limit = 5, includeWatched = false, feedbackType = null, chatSummaryId = null } = request.body;
+        if (!userId) {
+            response.status(400).json({
+                error: 'Missing required field: userId'
+            });
+            return;
+        }
+        // Get user preferences
+        const userPrefsSnapshot = await db.collection('userPreferences').doc(userId).get();
+        const userPrefs = userPrefsSnapshot.exists ? userPrefsSnapshot.data() : {};
+        // Get user watch history
+        const watchHistorySnapshot = await db.collection('userActivity')
+            .doc(userId)
+            .collection('watchHistory')
+            .orderBy('timestamp', 'desc')
+            .limit(20)
+            .get();
+        const watchedVideoIds = watchHistorySnapshot.docs.map(doc => doc.data().videoId);
+        // Get user feedback
+        const userFeedbackSnapshot = await db.collection('userActivity')
+            .doc(userId)
+            .collection('videoFeedback')
+            .get();
+        const videoFeedback = userFeedbackSnapshot.docs.reduce((acc, doc) => {
+            const data = doc.data();
+            acc[doc.id] = {
+                liked: data.liked || false,
+                disliked: data.disliked || false,
+                saved: data.saved || false
+            };
+            return acc;
+        }, {});
+        // Get chat summary
+        let chatSummary = null;
+        if (chatSummaryId) {
+            const chatSummarySnapshot = await db.collection('chatSummaries').doc(chatSummaryId).get();
+            if (chatSummarySnapshot.exists) {
+                chatSummary = chatSummarySnapshot.data();
+            }
+        }
+        if (!chatSummary) {
+            const recentSummariesSnapshot = await db.collection('chatSummaries')
+                .where('userId', '==', userId)
+                .orderBy('createdAt', 'desc')
+                .limit(1)
+                .get();
+            if (!recentSummariesSnapshot.empty) {
+                chatSummary = recentSummariesSnapshot.docs[0].data();
+            }
+        }
+        // Extract user profile
+        const userProfile = {
+            interests: chatSummary?.interests || userPrefs?.interests || [],
+            skills: chatSummary?.skills || userPrefs?.skills || [],
+            careerGoals: chatSummary?.careerGoals || userPrefs?.careerGoals || [],
+            learningPaths: chatSummary?.learningPaths || []
+        };
+        firebase_functions_1.logger.info('Enhanced career recommendations user profile', {
+            userId,
+            interestsCount: userProfile.interests.length,
+            skillsCount: userProfile.skills.length,
+            goalsCount: userProfile.careerGoals.length,
+            pathsCount: userProfile.learningPaths.length,
+            actualInterests: userProfile.interests,
+            actualSkills: userProfile.skills,
+            actualGoals: userProfile.careerGoals,
+            actualPaths: userProfile.learningPaths
+        });
+        // Initialize OpenAI client for semantic scoring
+        const openaiApiKey = openaiApiKeySecret.value();
+        if (!openaiApiKey) {
+            firebase_functions_1.logger.error('OpenAI API key not found in secret manager');
+            response.status(500).json({ error: 'API configuration error' });
+            return;
+        }
+        const openai = new openai_1.default({
+            apiKey: openaiApiKey
+        });
+        // Get all videos with analysis data
+        const videosSnapshot = await db.collection('videos')
+            .where('analysisStatus', '==', 'completed')
+            .get();
+        // Debug: Log categories of videos being processed
+        const videoCategories = videosSnapshot.docs.reduce((acc, doc) => {
+            const category = doc.data().category || 'uncategorized';
+            acc[category] = (acc[category] || 0) + 1;
+            return acc;
+        }, {});
+        firebase_functions_1.logger.info('Enhanced career recommendations - video categories found', {
+            totalVideos: videosSnapshot.docs.length,
+            categories: videoCategories,
+            hasTechnology: videoCategories.technology || 0,
+            hasBusinessSoftware: videoCategories.business || 0
+        });
+        if (videosSnapshot.empty) {
+            firebase_functions_1.logger.warn('No analyzed videos found for career recommendations');
+            response.status(200).json({
+                videoIds: [],
+                method: 'enhanced-career',
+                reason: 'no-analyzed-videos'
+            });
+            return;
+        }
+        // Use semantic scoring for enhanced career recommendations
+        const scoredVideos = await Promise.all(videosSnapshot.docs.map(async (doc) => {
+            const video = { id: doc.id, ...doc.data() };
+            const semanticScore = await calculateSemanticRelevanceScore(video, userProfile, openai);
+            // Apply feedback adjustments
+            let adjustedScore = semanticScore;
+            const feedback = videoFeedback[video.id];
+            if (feedback) {
+                if (feedback.liked)
+                    adjustedScore *= 1.3;
+                if (feedback.disliked)
+                    adjustedScore *= 0.3;
+                if (feedback.saved)
+                    adjustedScore *= 1.4;
+                // Filter by feedback type if specified
+                if (feedbackType === 'liked' && !feedback.liked)
+                    adjustedScore = 0;
+                if (feedbackType === 'disliked' && !feedback.disliked)
+                    adjustedScore = 0;
+                if (feedbackType === 'saved' && !feedback.saved)
+                    adjustedScore = 0;
+            }
+            // Exclude watched videos if requested
+            if (!includeWatched && watchedVideoIds.includes(video.id)) {
+                adjustedScore = 0;
+            }
+            return {
+                videoId: video.id,
+                score: adjustedScore,
+                originalScore: semanticScore
+            };
+        }));
+        // Sort by score and take top results
+        const topResults = scoredVideos
+            .filter(item => item.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, limit)
+            .map(item => item.videoId);
+        firebase_functions_1.logger.info('Enhanced career recommendations generated', {
+            userId,
+            totalVideos: scoredVideos.length,
+            recommendedCount: topResults.length,
+            method: 'enhanced-career',
+            topScores: scoredVideos.slice(0, 10).map(v => ({ id: v.videoId, score: v.score, originalScore: v.originalScore })),
+            videoAnalysisStatusCheck: videosSnapshot.docs.slice(0, 3).map(doc => ({
+                id: doc.id,
+                hasAnalysis: !!doc.data().aiAnalysis,
+                analysisType: doc.data().aiAnalysis?.analysisType,
+                hasCareerPathways: !!(doc.data().aiAnalysis?.careerPathways || doc.data().careerPathways),
+                hasSkills: !!(doc.data().aiAnalysis?.skillsHighlighted || doc.data().skillsHighlighted)
+            }))
+        });
+        response.status(200).json({
+            videoIds: topResults,
+            method: 'enhanced-career',
+            profileUsed: true,
+            totalAnalyzed: scoredVideos.length
+        });
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Error in getEnhancedCareerRecommendations function', error);
+        response.status(500).json({
+            error: 'Internal server error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
+    }
+});
+// Debug function to check database state
+exports.debugVideoDatabase = (0, https_1.onRequest)({ cors: corsConfig }, async (request, response) => {
+    try {
+        firebase_functions_1.logger.info('Debug: Checking video database state...');
+        // Get all videos
+        const allVideos = await db.collection('videos').get();
+        // Count by analysis status
+        const statusCounts = {};
+        const softwareVideos = [];
+        allVideos.forEach(doc => {
+            const data = doc.data();
+            const status = data.analysisStatus || 'no-status';
+            statusCounts[status] = (statusCounts[status] || 0) + 1;
+            // Check for software development videos
+            const title = data.title?.toLowerCase() || '';
+            if (title.includes('software engineer') || title.includes('software developer') ||
+                title.includes('programming') || title.includes('coding')) {
+                softwareVideos.push({
+                    id: doc.id,
+                    title: data.title,
+                    category: data.category,
+                    analysisStatus: data.analysisStatus,
+                    hasAiAnalysis: !!data.aiAnalysis,
+                    videoUrl: data.videoUrl
+                });
+            }
+        });
+        // Check specifically for completed technology videos
+        const completedVideos = await db.collection('videos')
+            .where('analysisStatus', '==', 'completed')
+            .get();
+        const completedTechVideos = completedVideos.docs.filter(doc => {
+            const data = doc.data();
+            return data.category === 'technology';
+        });
+        const response_data = {
+            totalVideos: allVideos.size,
+            statusCounts,
+            softwareVideos: softwareVideos.length,
+            softwareVideoDetails: softwareVideos,
+            completedVideos: completedVideos.size,
+            completedTechVideos: completedTechVideos.length,
+            completedTechVideoIds: completedTechVideos.map(doc => ({
+                id: doc.id,
+                title: doc.data().title,
+                category: doc.data().category
+            }))
+        };
+        firebase_functions_1.logger.info('Debug video database results', response_data);
+        response.json(response_data);
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Debug video database error', error);
+        response.status(500).json({ error: 'Failed to debug video database' });
+    }
+});
+/**
+ * Calculate relevance score efficiently without OpenAI calls
+ */
+function calculateEnhancedRelevanceScore(video, userProfile) {
+    let score = 0;
+    // Extract video data
+    const videoAnalysis = video.aiAnalysis?.fullAnalysis || video.aiAnalysis || {};
+    const careerPathways = videoAnalysis.careerPathways || video.careerPathways || [];
+    const skillsHighlighted = videoAnalysis.skillsHighlighted || video.skillsHighlighted || [];
+    const keyThemes = videoAnalysis.keyThemes || [];
+    const hashtags = videoAnalysis.hashtags || video.hashtags || [];
+    const title = (video.title || '').toLowerCase();
+    const category = (video.category || '').toLowerCase();
+    const description = (video.description || '').toLowerCase();
+    // Normalize user inputs
+    const userInterests = userProfile.interests.map(i => i.toLowerCase());
+    const userGoals = userProfile.careerGoals.map(g => g.toLowerCase());
+    const userSkills = userProfile.skills.map(s => s.toLowerCase());
+    // Enhanced category matching (25 points max)
+    const categoryMappings = {
+        'technology': ['software', 'programming', 'coding', 'development', 'tech', 'computer', 'digital', 'ai', 'machine learning', 'data science'],
+        'healthcare': ['medical', 'health', 'nursing', 'doctor', 'medicine', 'wellness', 'therapy', 'care'],
+        'creative': ['art', 'design', 'music', 'film', 'video', 'content', 'media', 'creative', 'animation'],
+        'business': ['business', 'management', 'marketing', 'sales', 'entrepreneurship', 'startup', 'leadership'],
+        'finance': ['finance', 'accounting', 'banking', 'investment', 'money', 'financial', 'economics'],
+        'education': ['teaching', 'education', 'training', 'learning', 'instructor', 'coach', 'tutor'],
+        'trades': ['construction', 'culinary', 'manufacturing', 'electrical', 'plumbing', 'mechanic', 'trades'],
+        'sustainability': ['environment', 'sustainability', 'green', 'renewable', 'climate', 'conservation']
+    };
+    // Check if user interests match video category (direct or through mappings)
+    for (const interest of userInterests) {
+        if (category.includes(interest) || interest.includes(category)) {
+            score += 25;
+            break;
+        }
+        // Check category mappings
+        for (const [cat, keywords] of Object.entries(categoryMappings)) {
+            if (category === cat && keywords.some(keyword => interest.includes(keyword) || keyword.includes(interest))) {
+                score += 20;
+                break;
+            }
+        }
+    }
+    // Enhanced title and description matching (35 points max)
+    const allUserTerms = [...userInterests, ...userGoals, ...userSkills];
+    let keywordScore = 0;
+    for (const term of allUserTerms) {
+        // Exact matches get higher scores
+        if (title.includes(term))
+            keywordScore += 8;
+        if (description.includes(term))
+            keywordScore += 5;
+        // Partial matches for compound terms
+        const termWords = term.split(/\s+/);
+        if (termWords.length > 1) {
+            for (const word of termWords) {
+                if (word.length > 3) { // Only check meaningful words
+                    if (title.includes(word))
+                        keywordScore += 3;
+                    if (description.includes(word))
+                        keywordScore += 2;
+                }
+            }
+        }
+    }
+    score += Math.min(35, keywordScore);
+    // Career pathways matching (20 points max)
+    const matchingPathways = careerPathways.filter((pathway) => userGoals.some(goal => goal.includes(pathway.toLowerCase()) ||
+        pathway.toLowerCase().includes(goal) ||
+        // Check for word-level matches
+        goal.split(/\s+/).some(goalWord => pathway.toLowerCase().includes(goalWord) && goalWord.length > 3)));
+    score += Math.min(20, matchingPathways.length * 7);
+    // Skills matching (15 points max)
+    const matchingSkills = skillsHighlighted.filter((skill) => userSkills.some(userSkill => userSkill.includes(skill.toLowerCase()) ||
+        skill.toLowerCase().includes(userSkill) ||
+        // Check for word-level matches
+        userSkill.split(/\s+/).some(skillWord => skill.toLowerCase().includes(skillWord) && skillWord.length > 3)));
+    score += Math.min(15, matchingSkills.length * 4);
+    // Hashtags and themes matching (5 points max)
+    const allTags = [...hashtags, ...keyThemes].map(tag => tag.toLowerCase());
+    let tagScore = 0;
+    for (const term of allUserTerms) {
+        if (allTags.some(tag => tag.includes(term) || term.includes(tag))) {
+            tagScore += 1;
+        }
+    }
+    score += Math.min(5, tagScore);
+    // Base popularity score (0-5 points)
+    const viewCount = video.viewCount || 0;
+    score += Math.min(5, viewCount / 1000);
+    return Math.min(100, score); // Cap at 100
+}
+/**
+ * OpenAI-powered semantic scoring for video relevance (EXPENSIVE - USE SPARINGLY)
+ * Uses GPT to understand the nuanced relationship between user goals and video content
+ */
+async function calculateSemanticRelevanceScore(video, userProfile, openai) {
+    try {
+        // Extract video analysis data
+        const videoAnalysis = video.aiAnalysis?.fullAnalysis || video.aiAnalysis || {};
+        const careerPathways = videoAnalysis.careerPathways || video.careerPathways || [];
+        const skillsHighlighted = videoAnalysis.skillsHighlighted || video.skillsHighlighted || [];
+        const keyThemes = videoAnalysis.keyThemes || [];
+        const hashtags = videoAnalysis.hashtags || video.hashtags || [];
+        const summary = videoAnalysis.summary || '';
+        // Create video context
+        const videoContext = {
+            title: video.title || '',
+            category: video.category || '',
+            careerPathways: careerPathways.slice(0, 5),
+            skillsHighlighted: skillsHighlighted.slice(0, 5),
+            keyThemes: keyThemes.slice(0, 5),
+            hashtags: hashtags.slice(0, 5),
+            summary: summary.slice(0, 300) // Limit summary length
+        };
+        // Create user profile context
+        const userContext = {
+            careerGoals: userProfile.careerGoals,
+            interests: userProfile.interests,
+            skills: userProfile.skills,
+            learningPaths: userProfile.learningPaths
+        };
+        const prompt = `You are an expert career counselor evaluating how well a video matches a user's career goals and interests.
+
+USER PROFILE:
+- Career Goals: ${userContext.careerGoals.join(', ')}
+- Interests: ${userContext.interests.join(', ')}
+- Skills: ${userContext.skills.join(', ')}
+- Learning Paths: ${userContext.learningPaths.join(', ')}
+
+VIDEO CONTENT:
+- Title: ${videoContext.title}
+- Category: ${videoContext.category}
+- Career Pathways: ${videoContext.careerPathways.join(', ')}
+- Skills Highlighted: ${videoContext.skillsHighlighted.join(', ')}
+- Key Themes: ${videoContext.keyThemes.join(', ')}
+- Hashtags: ${videoContext.hashtags.join(', ')}
+- Summary: ${videoContext.summary}
+
+TASK: Rate how relevant this video is to the user's career goals and interests on a scale of 0-100, where:
+- 0-20: Not relevant at all
+- 21-40: Somewhat related but not directly relevant
+- 41-60: Moderately relevant, some useful content
+- 61-80: Highly relevant, strong match with user goals
+- 81-100: Perfect match, exactly what the user is looking for
+
+Consider:
+1. Specificity: Exact matches to career goals should score higher than general matches
+2. Context: Software engineering is very different from other types of engineering
+3. Relevance: How directly does this video help the user achieve their stated goals?
+4. Practical value: Would this video provide actionable insights for their career path?
+
+Respond with ONLY a number between 0-100. No explanation needed.`;
+        const completion = await openai.chat.completions.create({
+            model: 'gpt-4o-mini',
+            messages: [
+                { role: 'user', content: prompt }
+            ],
+            temperature: 0.1,
+            max_tokens: 10 // We only need a number
+        });
+        const scoreText = completion.choices[0]?.message?.content?.trim() || '0';
+        const score = parseInt(scoreText, 10);
+        // Validate score
+        if (isNaN(score) || score < 0 || score > 100) {
+            firebase_functions_1.logger.warn('Invalid semantic score received', {
+                videoId: video.id,
+                scoreText,
+                parsedScore: score
+            });
+            return 0;
+        }
+        // Debug log for software development videos
+        const title = video.title?.toLowerCase() || '';
+        if (title.includes('software engineer') || title.includes('software developer')) {
+            firebase_functions_1.logger.info('Semantic score for software development video', {
+                videoId: video.id,
+                title: video.title,
+                semanticScore: score,
+                userGoals: userContext.careerGoals
+            });
+        }
+        return score;
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Semantic scoring error', {
+            videoId: video.id,
+            error: error.message
+        });
+        return 0; // Fall back to 0 if OpenAI call fails
+    }
+}
+/**
+ * Generate comprehensive career pathways with training, volunteering, and funding information
+ */
+exports.generateCareerPathways = (0, https_1.onRequest)({
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret],
+    memory: "512MiB",
+    timeoutSeconds: 120,
+}, async (request, response) => {
+    try {
+        const origin = request.get('origin') || request.get('referer');
+        // Handle CORS preflight
+        if (request.method === 'OPTIONS') {
+            setCorsHeaders(response, origin);
+            response.status(204).send('');
+            return;
+        }
+        // Set CORS headers for all responses
+        setCorsHeaders(response, origin);
+        if (request.method !== 'POST') {
+            response.status(405).send('Method Not Allowed');
+            return;
+        }
+        if (origin && !isOriginAllowed(origin)) {
+            firebase_functions_1.logger.warn('Unauthorized origin attempted to access generateCareerPathways', { origin });
+            response.status(403).send('Forbidden: Unauthorized origin');
+            return;
+        }
+        const { userProfile } = request.body;
+        if (!userProfile) {
+            response.status(400).json({
+                error: 'User profile is required',
+                received: request.body
+            });
+            return;
+        }
+        firebase_functions_1.logger.info('Generating career pathways for user profile', {
+            interests: userProfile.interests?.length || 0,
+            skills: userProfile.skills?.length || 0,
+            goals: userProfile.goals?.length || 0,
+            careerStage: userProfile.careerStage
+        });
+        const openai = new openai_1.default({
+            apiKey: openaiApiKeySecret.value(),
+        });
+        const systemPrompt = `You are a UK career guidance specialist with comprehensive knowledge of training providers, volunteering opportunities, and funding schemes across the UK. Generate detailed, actionable career guidance with real UK-specific resources.`;
+        const userPrompt = `Generate comprehensive UK career guidance for a user with this profile:
+
+INTERESTS: ${userProfile.interests?.join(', ') || 'Not specified'}
+SKILLS: ${userProfile.skills?.join(', ') || 'Not specified'}  
+GOALS: ${userProfile.goals?.join(', ') || 'Not specified'}
+CAREER STAGE: ${userProfile.careerStage || 'exploring'}
+
+Provide a JSON response with this exact structure:
+
+{
+  "primaryPathway": {
+    "title": "Career pathway name",
+    "description": "Brief description of the career path",
+    "timeline": "Expected timeline (e.g., '6-12 months')",
+    "requirements": ["skill1", "skill2"],
+    "progression": ["step1", "step2", "step3"]
+  },
+  "training": [
+    {
+      "title": "Course name",
+      "provider": "Training provider name",
+      "duration": "Course length",
+      "cost": "Course cost with £ symbol",
+      "location": "UK location or 'Online'",
+      "description": "Brief course description",
+      "link": "Real UK course URL if available, or '#' if not"
+    }
+  ],
+  "volunteering": [
+    {
+      "title": "Volunteer role title",
+      "organization": "UK organization name",
+      "timeCommitment": "Weekly time commitment",
+      "location": "UK location or 'Various locations'", 
+      "description": "Role description",
+      "benefits": "Skills/experience gained",
+      "link": "Real UK organization URL if available, or '#' if not"
+    }
+  ],
+  "funding": [
+    {
+      "title": "Funding scheme name",
+      "provider": "Government/organization providing funding",
+      "amount": "Funding amount with £ symbol",
+      "eligibility": "Who can apply",
+      "description": "What the funding covers",
+      "link": "Real UK funding scheme URL if available, or '#' if not"
+    }
+  ],
+  "resources": [
+    {
+      "title": "Resource name",
+      "organization": "UK organization/website",
+      "description": "What this resource provides",
+      "link": "Real UK resource URL if available, or '#' if not"
+    }
+  ]
+}
+
+Focus on real UK opportunities. Use actual UK training providers, recognized charities, government schemes, and career services where possible.`;
+        const completion = await openai.chat.completions.create({
+            model: "gpt-4",
+            messages: [
+                { role: "system", content: systemPrompt },
+                { role: "user", content: userPrompt }
+            ],
+            temperature: 0.7,
+            max_tokens: 2000,
+        });
+        const responseText = completion.choices[0]?.message?.content;
+        if (!responseText) {
+            throw new Error('No response from OpenAI');
+        }
+        let careerGuidance;
+        try {
+            careerGuidance = JSON.parse(responseText);
+        }
+        catch (parseError) {
+            firebase_functions_1.logger.error('Failed to parse OpenAI response as JSON', { responseText });
+            throw new Error('Invalid JSON response from OpenAI');
+        }
+        firebase_functions_1.logger.info('Successfully generated career pathways', {
+            trainingCount: careerGuidance.training?.length || 0,
+            volunteeringCount: careerGuidance.volunteering?.length || 0,
+            fundingCount: careerGuidance.funding?.length || 0,
+            resourcesCount: careerGuidance.resources?.length || 0
+        });
+        response.json({
+            success: true,
+            data: careerGuidance,
+            generatedAt: new Date().toISOString()
+        });
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Error in generateCareerPathways function', {
+            error: error.message,
+            stack: error.stack
+        });
+        response.status(500).json({
+            success: false,
+            error: 'Failed to generate career pathways',
+            message: error.message
         });
     }
 });

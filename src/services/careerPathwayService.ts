@@ -179,12 +179,85 @@ class CareerPathwayService {
         throw new Error('Failed to generate AI career pathways');
       }
 
-      const aiPathways = await response.json();
+      const aiResponse = await response.json();
       
-      // Enhance AI-generated pathways with curated UK resources
-      return aiPathways.pathways.map((pathway: any, index: number) => {
-        return this.enhanceWithUKResources(pathway, userProfile, index === 0);
-      });
+      // Check if the response is successful and has data
+      if (!aiResponse.success || !aiResponse.data) {
+        throw new Error('Invalid response from career pathways API');
+      }
+      
+      const aiData = aiResponse.data;
+      
+      // Transform the OpenAI response into CareerPathway format
+      const primaryPathway: CareerPathway = {
+        id: 'ai-generated-primary',
+        title: aiData.primaryPathway?.title || 'AI-Generated Career Path',
+        description: aiData.primaryPathway?.description || 'AI-generated career guidance',
+        match: 95,
+        trainingOptions: aiData.training?.map((t: any) => ({
+          title: t.title,
+          level: 'Various',
+          duration: t.duration,
+          cost: t.cost,
+          provider: t.provider,
+          description: t.description,
+          link: t.link
+        })) || [],
+        volunteeringOpportunities: aiData.volunteering?.map((v: any) => ({
+          organization: v.organization,
+          role: v.title,
+          description: v.description,
+          location: v.location,
+          link: v.link,
+          timeCommitment: v.timeCommitment,
+          skillsGained: v.benefits?.split(', ') || [],
+          careerPathConnection: 'Directly relevant to your career goals'
+        })) || [],
+        fundingOptions: aiData.funding?.map((f: any) => ({
+          name: f.title,
+          amount: f.amount,
+          eligibility: f.eligibility?.split(', ') || [],
+          description: f.description,
+          link: f.link
+        })) || [],
+        nextSteps: {
+          immediate: aiData.primaryPathway?.requirements || [],
+          shortTerm: aiData.primaryPathway?.progression?.slice(0, 2) || [],
+          longTerm: aiData.primaryPathway?.progression?.slice(2) || []
+        },
+        reflectiveQuestions: [
+          'How does this career path align with your personal values?',
+          'What aspects of this field excite you most?',
+          'Which skills would you like to develop further?'
+        ],
+        keyResources: aiData.resources?.map((r: any) => ({
+          title: r.title,
+          description: r.description,
+          link: r.link
+        })) || [],
+        progressionPath: [
+          {
+            stage: 'Entry Level',
+            description: 'Start with volunteering and basic training',
+            timeframe: '0-6 months',
+            requirements: ['Basic skills', 'Volunteer experience']
+          },
+          {
+            stage: 'Developing',
+            description: 'Complete formal training and gain experience',
+            timeframe: '6-18 months',
+            requirements: ['Relevant qualification', 'Practical experience']
+          },
+          {
+            stage: 'Established',
+            description: 'Secure employment and continue professional development',
+            timeframe: '18+ months',
+            requirements: ['Work experience', 'Ongoing training']
+          }
+        ]
+      };
+      
+      return [primaryPathway];
 
     } catch (error) {
       console.warn('AI pathway generation failed, using curated pathways:', error);
@@ -294,7 +367,8 @@ class CareerPathwayService {
           location: 'Across the UK',
           timeCommitment: '3-6 hours per week',
           skillsGained: ['Emotional support', 'Communication', 'Empathy and resilience'],
-          careerPathConnection: 'Experience in specialized care environments'
+          careerPathConnection: 'Experience in specialized care environments',
+          link: 'https://www.sueryder.org/support-us/volunteer'
         },
         {
           organization: 'British Red Cross',
@@ -303,7 +377,8 @@ class CareerPathwayService {
           location: 'Community-based across UK',
           timeCommitment: '2-4 hours per week',
           skillsGained: ['Community care', 'Independence support', 'Social interaction'],
-          careerPathConnection: 'Foundation for community care roles'
+          careerPathConnection: 'Foundation for community care roles',
+          link: 'https://www.redcross.org.uk/get-involved/volunteer'
         }
       ],
       fundingOptions: [

@@ -1503,20 +1503,20 @@ export const getPersonalizedVideoRecommendations = onRequest(
                           userProfile.careerGoals.length > 0 || userProfile.learningPaths.length > 0;
         
         if (hasProfile) {
-          // Get videos with analysis data for enhanced recommendations (LIMIT to prevent timeout)
+          // Get MORE videos for better recommendations (increased from 50 to 100)
           const videosSnapshot = await db.collection('videos')
             .where('analysisStatus', '==', 'completed')
-            .limit(50) // CRITICAL: Limit to prevent timeout
+            .limit(100) // Increased limit for better selection
             .get();
           
           if (!videosSnapshot.empty) {
-            // Use EFFICIENT scoring without OpenAI calls for every video
+            // Use ENHANCED scoring with better matching
             const scoredVideos = videosSnapshot.docs.map((doc) => {
               const video = { id: doc.id, ...doc.data() };
-              const efficientScore = calculateEfficientRelevanceScore(video, userProfile);
+              const enhancedScore = calculateEnhancedRelevanceScore(video, userProfile);
               
               // Apply feedback adjustments
-              let adjustedScore = efficientScore;
+              let adjustedScore = enhancedScore;
               const feedback = videoFeedback[video.id];
               
               if (feedback) {
@@ -1539,11 +1539,14 @@ export const getPersonalizedVideoRecommendations = onRequest(
               const videoData = doc.data();
               const title = videoData.title?.toLowerCase() || '';
               if (title.includes('software engineer') || title.includes('software developer')) {
-                logger.info('Software development video efficient scoring', {
+                logger.info('Software development video enhanced scoring', {
                   videoId: video.id,
                   title: videoData.title,
-                  efficientScore: efficientScore,
+                  enhancedScore: enhancedScore,
                   adjustedScore: adjustedScore,
+                  category: videoData.category,
+                  userInterests: userProfile.interests,
+                  userGoals: userProfile.careerGoals,
                   hasFeedback: !!feedback,
                   isWatched: watchedVideoIds.includes(video.id),
                   includeWatched: includeWatched
@@ -1553,7 +1556,7 @@ export const getPersonalizedVideoRecommendations = onRequest(
               return {
                 videoId: video.id,
                 score: adjustedScore,
-                originalScore: efficientScore
+                originalScore: enhancedScore
               };
             });
 
@@ -1586,16 +1589,16 @@ export const getPersonalizedVideoRecommendations = onRequest(
             });
 
             if (topResults.length > 0) {
-              logger.info('Generated personalized video recommendations using OpenAI semantic scoring', { 
+              logger.info('Generated personalized video recommendations using enhanced scoring', { 
                 userId,
                 videoCount: topResults.length,
-                method: 'semantic-ai',
+                method: 'enhanced-semantic',
                 totalAnalyzed: scoredVideos.length
               });
 
               response.status(200).json({ 
                 videoIds: topResults,
-                method: 'semantic-ai',
+                method: 'enhanced-semantic',
                 profileUsed: true,
                 totalAnalyzed: scoredVideos.length
               });
@@ -3064,7 +3067,7 @@ export const debugVideoDatabase = onRequest(
 /**
  * Calculate relevance score efficiently without OpenAI calls
  */
-function calculateEfficientRelevanceScore(
+function calculateEnhancedRelevanceScore(
   video: any,
   userProfile: {
     interests: string[];
@@ -3085,45 +3088,99 @@ function calculateEfficientRelevanceScore(
   const category = (video.category || '').toLowerCase();
   const description = (video.description || '').toLowerCase();
   
-  // Category matching (20 points max)
+  // Normalize user inputs
   const userInterests = userProfile.interests.map(i => i.toLowerCase());
   const userGoals = userProfile.careerGoals.map(g => g.toLowerCase());
+  const userSkills = userProfile.skills.map(s => s.toLowerCase());
   
-  if (userInterests.some(interest => category.includes(interest) || interest.includes(category))) {
-    score += 20;
+  // Enhanced category matching (25 points max)
+  const categoryMappings = {
+    'technology': ['software', 'programming', 'coding', 'development', 'tech', 'computer', 'digital', 'ai', 'machine learning', 'data science'],
+    'healthcare': ['medical', 'health', 'nursing', 'doctor', 'medicine', 'wellness', 'therapy', 'care'],
+    'creative': ['art', 'design', 'music', 'film', 'video', 'content', 'media', 'creative', 'animation'],
+    'business': ['business', 'management', 'marketing', 'sales', 'entrepreneurship', 'startup', 'leadership'],
+    'finance': ['finance', 'accounting', 'banking', 'investment', 'money', 'financial', 'economics'],
+    'education': ['teaching', 'education', 'training', 'learning', 'instructor', 'coach', 'tutor'],
+    'trades': ['construction', 'culinary', 'manufacturing', 'electrical', 'plumbing', 'mechanic', 'trades'],
+    'sustainability': ['environment', 'sustainability', 'green', 'renewable', 'climate', 'conservation']
+  };
+  
+  // Check if user interests match video category (direct or through mappings)
+  for (const interest of userInterests) {
+    if (category.includes(interest) || interest.includes(category)) {
+      score += 25;
+      break;
+    }
+    
+    // Check category mappings
+    for (const [cat, keywords] of Object.entries(categoryMappings)) {
+      if (category === cat && keywords.some(keyword => 
+        interest.includes(keyword) || keyword.includes(interest)
+      )) {
+        score += 20;
+        break;
+      }
+    }
   }
   
-  // Title and description keyword matching (30 points max)
-  const allUserTerms = [...userInterests, ...userGoals, ...userProfile.skills.map(s => s.toLowerCase())];
+  // Enhanced title and description matching (35 points max)
+  const allUserTerms = [...userInterests, ...userGoals, ...userSkills];
+  let keywordScore = 0;
+  
   for (const term of allUserTerms) {
-    if (title.includes(term)) score += 5;
-    if (description.includes(term)) score += 3;
+    // Exact matches get higher scores
+    if (title.includes(term)) keywordScore += 8;
+    if (description.includes(term)) keywordScore += 5;
+    
+    // Partial matches for compound terms
+    const termWords = term.split(/\s+/);
+    if (termWords.length > 1) {
+      for (const word of termWords) {
+        if (word.length > 3) { // Only check meaningful words
+          if (title.includes(word)) keywordScore += 3;
+          if (description.includes(word)) keywordScore += 2;
+        }
+      }
+    }
   }
   
-  // Career pathways matching (25 points max)
+  score += Math.min(35, keywordScore);
+  
+  // Career pathways matching (20 points max)
   const matchingPathways = careerPathways.filter((pathway: string) => 
     userGoals.some(goal => 
-      goal.includes(pathway.toLowerCase()) || pathway.toLowerCase().includes(goal)
+      goal.includes(pathway.toLowerCase()) || 
+      pathway.toLowerCase().includes(goal) ||
+      // Check for word-level matches
+      goal.split(/\s+/).some(goalWord => 
+        pathway.toLowerCase().includes(goalWord) && goalWord.length > 3
+      )
     )
   );
-  score += Math.min(25, matchingPathways.length * 8);
+  score += Math.min(20, matchingPathways.length * 7);
   
-  // Skills matching (20 points max)
+  // Skills matching (15 points max)
   const matchingSkills = skillsHighlighted.filter((skill: string) =>
-    userProfile.skills.some(userSkill =>
-      userSkill.toLowerCase().includes(skill.toLowerCase()) || 
-      skill.toLowerCase().includes(userSkill.toLowerCase())
+    userSkills.some(userSkill =>
+      userSkill.includes(skill.toLowerCase()) || 
+      skill.toLowerCase().includes(userSkill) ||
+      // Check for word-level matches
+      userSkill.split(/\s+/).some(skillWord => 
+        skill.toLowerCase().includes(skillWord) && skillWord.length > 3
+      )
     )
   );
-  score += Math.min(20, matchingSkills.length * 5);
+  score += Math.min(15, matchingSkills.length * 4);
   
   // Hashtags and themes matching (5 points max)
   const allTags = [...hashtags, ...keyThemes].map(tag => tag.toLowerCase());
+  let tagScore = 0;
   for (const term of allUserTerms) {
     if (allTags.some(tag => tag.includes(term) || term.includes(tag))) {
-      score += 1;
+      tagScore += 1;
     }
   }
+  score += Math.min(5, tagScore);
   
   // Base popularity score (0-5 points)
   const viewCount = video.viewCount || 0;

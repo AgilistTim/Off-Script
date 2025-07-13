@@ -348,14 +348,14 @@ const VerticalVideoFeed: React.FC<VerticalVideoFeedProps> = ({
                 
                 {/* Tags and category */}
                 <div className="flex flex-wrap gap-2 mb-4">
-                  {video.tags.slice(0, 3).map((tag, tagIndex) => (
+                  {video.tags?.slice(0, 3).map((tag, tagIndex) => (
                     <span 
                       key={tagIndex} 
                       className="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full text-sm"
                     >
                       {tag}
                     </span>
-                  ))}
+                  )) || []}
                   <span className="px-2 py-1 bg-primary-blue/10 text-primary-blue rounded-full text-sm">
                     {video.category}
                   </span>
