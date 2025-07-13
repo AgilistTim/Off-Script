@@ -8,6 +8,7 @@ import { Video, MessageSquare, BookOpen, Award, Sparkles, Lightbulb, Target, Bri
 import { getVideoById } from '../services/videoService';
 import VideoCard from '../components/video/VideoCard';
 import CareerGuidancePanel from '../components/career-guidance/CareerGuidancePanel';
+import CareerExplorationOverview from '../components/career-guidance/CareerExplorationOverview';
 
 // Notification component
 interface NotificationProps {
@@ -108,13 +109,15 @@ const Dashboard: React.FC = () => {
     careerGuidanceLoading,
     careerGuidanceError,
     generateCareerGuidance,
-    refreshCareerGuidance
+    refreshCareerGuidance,
+    selectThread,
+    getUserCareerExplorations
   } = useChatContext();
   
   const [recommendedVideos, setRecommendedVideos] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' } | null>(null);
-  const [activeTab, setActiveTab] = useState<'videos' | 'career'>('videos');
+  const [activeTab, setActiveTab] = useState<'overview' | 'videos' | 'career'>('overview');
   
   // Calculate stats
   const videosWatched = userProgress.videosWatched.length;
@@ -177,6 +180,16 @@ const Dashboard: React.FC = () => {
       setActiveTab('career');
     }
   }, [careerGuidance, careerGuidanceLoading]);
+
+  // Handle selecting a career exploration
+  const handleSelectExploration = async (threadId: string) => {
+    try {
+      await selectThread(threadId);
+      setActiveTab('career');
+    } catch (error) {
+      console.error('Error selecting thread:', error);
+    }
+  };
 
   // Extract insights from the current summary
   const interests = currentSummary?.interests || [];
@@ -281,6 +294,17 @@ const Dashboard: React.FC = () => {
           {/* Tab Navigation */}
           <div className="flex space-x-1 mb-6 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg">
             <button
+              onClick={() => setActiveTab('overview')}
+              className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'overview'
+                  ? 'bg-white dark:bg-gray-600 text-gray-900 dark:text-white shadow-sm'
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
+              }`}
+            >
+              <Briefcase size={16} className="mr-2" />
+              Overview
+            </button>
+            <button
               onClick={() => setActiveTab('videos')}
               className={`flex-1 flex items-center justify-center px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeTab === 'videos'
@@ -289,7 +313,7 @@ const Dashboard: React.FC = () => {
               }`}
             >
               <Video size={16} className="mr-2" />
-              Video Recommendations
+              Videos
             </button>
             <button
               onClick={() => setActiveTab('career')}
@@ -300,7 +324,7 @@ const Dashboard: React.FC = () => {
               }`}
             >
               <GraduationCap size={16} className="mr-2" />
-              Career Guidance
+              Current Path
               {careerGuidance && (
                 <span className="ml-2 w-2 h-2 bg-blue-500 rounded-full"></span>
               )}
@@ -308,7 +332,11 @@ const Dashboard: React.FC = () => {
           </div>
 
           {/* Tab Content */}
-          {activeTab === 'videos' ? (
+          {activeTab === 'overview' ? (
+            <div>
+              <CareerExplorationOverview onSelectExploration={handleSelectExploration} />
+            </div>
+          ) : activeTab === 'videos' ? (
             <div>
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-medium text-gray-800 dark:text-white">Video Recommendations</h3>

@@ -88,6 +88,24 @@ export interface ComprehensiveCareerGuidance {
   };
 }
 
+export interface CareerExplorationSummary {
+  threadId: string;
+  threadTitle: string;
+  primaryCareerPath: string;
+  lastUpdated: Date;
+  match: number;
+  description: string;
+}
+
+interface ThreadCareerGuidance {
+  id: string;
+  threadId: string;
+  userId: string;
+  guidance: ComprehensiveCareerGuidance;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 class CareerPathwayService {
   
   /**
@@ -121,6 +139,171 @@ class CareerPathwayService {
     } catch (error) {
       console.error('Error generating career guidance:', error);
       throw new Error('Failed to generate comprehensive career guidance');
+    }
+  }
+
+  /**
+   * Generate and store thread-specific career guidance
+   */
+  async generateThreadCareerGuidance(threadId: string, userId: string, chatSummary: ChatSummary): Promise<ComprehensiveCareerGuidance> {
+    try {
+      console.log('🎯 Generating thread-specific career guidance for:', threadId);
+      
+      // Generate the career guidance
+      const guidance = await this.generateCareerGuidance(chatSummary);
+      
+      // Store in Firestore with thread association
+      await this.storeThreadCareerGuidance(threadId, userId, guidance);
+      
+      return guidance;
+      
+    } catch (error) {
+      console.error('Error generating thread-specific career guidance:', error);
+      throw new Error('Failed to generate thread-specific career guidance');
+    }
+  }
+
+  /**
+   * Store career guidance for a specific thread
+   */
+  private async storeThreadCareerGuidance(threadId: string, userId: string, guidance: ComprehensiveCareerGuidance): Promise<void> {
+    try {
+      const { db } = await import('./firebase');
+      const { doc, setDoc } = await import('firebase/firestore');
+      
+      const guidanceData: ThreadCareerGuidance = {
+        id: `${threadId}_guidance`,
+        threadId,
+        userId,
+        guidance,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      await setDoc(doc(db, 'threadCareerGuidance', guidanceData.id), guidanceData);
+      console.log('✅ Stored thread-specific career guidance');
+      
+    } catch (error) {
+      console.error('Error storing thread career guidance:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Retrieve career guidance for a specific thread
+   */
+  async getThreadCareerGuidance(threadId: string, userId: string): Promise<ComprehensiveCareerGuidance | null> {
+    try {
+      const { db } = await import('./firebase');
+      const { doc, getDoc } = await import('firebase/firestore');
+      
+      const guidanceDoc = await getDoc(doc(db, 'threadCareerGuidance', `${threadId}_guidance`));
+      
+      if (!guidanceDoc.exists()) {
+        return null;
+      }
+      
+      const data = guidanceDoc.data() as ThreadCareerGuidance;
+      
+      // Verify this guidance belongs to the requesting user
+      if (data.userId !== userId) {
+        console.warn('Unauthorized access to thread career guidance');
+        return null;
+      }
+      
+      return data.guidance;
+      
+    } catch (error) {
+      console.error('Error retrieving thread career guidance:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get all career explorations for a user (for overview panel)
+   */
+  async getUserCareerExplorations(userId: string): Promise<CareerExplorationSummary[]> {
+    try {
+      const { db } = await import('./firebase');
+      const { collection, query, where, orderBy, getDocs } = await import('firebase/firestore');
+      
+      const guidanceQuery = query(
+        collection(db, 'threadCareerGuidance'),
+        where('userId', '==', userId),
+        orderBy('updatedAt', 'desc')
+      );
+      
+      const querySnapshot = await getDocs(guidanceQuery);
+      
+      const explorations: CareerExplorationSummary[] = [];
+      
+      // Get thread titles for each exploration
+      for (const doc of querySnapshot.docs) {
+        const data = doc.data() as ThreadCareerGuidance;
+        
+        // Get thread title
+        const threadTitle = await this.getThreadTitle(data.threadId);
+        
+        explorations.push({
+          threadId: data.threadId,
+          threadTitle: threadTitle || 'Career Exploration',
+          primaryCareerPath: data.guidance.primaryPathway.title,
+          lastUpdated: data.updatedAt,
+          match: data.guidance.primaryPathway.match,
+          description: data.guidance.primaryPathway.description
+        });
+      }
+      
+      return explorations;
+      
+    } catch (error) {
+      console.error('Error getting user career explorations:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get thread title from Firestore
+   */
+  private async getThreadTitle(threadId: string): Promise<string | null> {
+    try {
+      const { db } = await import('./firebase');
+      const { doc, getDoc } = await import('firebase/firestore');
+      
+      const threadDoc = await getDoc(doc(db, 'chatThreads', threadId));
+      
+      if (!threadDoc.exists()) {
+        return null;
+      }
+      
+      return threadDoc.data().title || 'Career Exploration';
+      
+    } catch (error) {
+      console.error('Error getting thread title:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Delete career guidance for a specific thread
+   */
+  async deleteThreadCareerGuidance(threadId: string, userId: string): Promise<void> {
+    try {
+      const { db } = await import('./firebase');
+      const { doc, deleteDoc, getDoc } = await import('firebase/firestore');
+      
+      const guidanceRef = doc(db, 'threadCareerGuidance', `${threadId}_guidance`);
+      
+      // Verify ownership before deletion
+      const guidanceDoc = await getDoc(guidanceRef);
+      if (guidanceDoc.exists() && guidanceDoc.data().userId === userId) {
+        await deleteDoc(guidanceRef);
+        console.log('✅ Deleted thread-specific career guidance');
+      }
+      
+    } catch (error) {
+      console.error('Error deleting thread career guidance:', error);
+      throw error;
     }
   }
 

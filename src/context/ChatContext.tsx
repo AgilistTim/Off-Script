@@ -30,7 +30,7 @@ import {
   doc,
   getDoc
 } from 'firebase/firestore';
-import careerPathwayService, { ComprehensiveCareerGuidance } from '../services/careerPathwayService';
+import careerPathwayService, { ComprehensiveCareerGuidance, CareerExplorationSummary } from '../services/careerPathwayService';
 
 // OpenAI Assistant ID
 const ASSISTANT_ID = 'asst_b6kBes7rHBC9gA4yJ9I5r5zm';
@@ -53,6 +53,7 @@ interface ChatContextType {
   careerGuidance: ComprehensiveCareerGuidance | null;
   careerGuidanceLoading: boolean;
   careerGuidanceError: string | null;
+  careerExplorations: CareerExplorationSummary[];
   sendMessage: (message: string) => Promise<void>;
   createNewThread: () => Promise<string | undefined>;
   selectThread: (threadId: string) => Promise<void>;
@@ -60,6 +61,7 @@ interface ChatContextType {
   getRecommendedVideos: (limit?: number) => Promise<string[]>;
   generateCareerGuidance: () => Promise<void>;
   refreshCareerGuidance: () => Promise<void>;
+  getUserCareerExplorations: () => Promise<CareerExplorationSummary[]>;
   clearNewRecommendationsFlag: () => void;
   clearSummaryUpdatedFlag: () => void;
   regenerateSummary: () => Promise<void>;
@@ -89,6 +91,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [careerGuidance, setCareerGuidance] = useState<ComprehensiveCareerGuidance | null>(null);
   const [careerGuidanceLoading, setCareerGuidanceLoading] = useState<boolean>(false);
   const [careerGuidanceError, setCareerGuidanceError] = useState<string | null>(null);
+  const [careerExplorations, setCareerExplorations] = useState<CareerExplorationSummary[]>([]);
   
   // Fetch user's chat threads
   const fetchThreads = useCallback(async () => {
@@ -370,6 +373,10 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setMessages([]);
       setCurrentSummary(null);
       
+      // Clear career guidance for new thread
+      setCareerGuidance(null);
+      setCareerGuidanceError(null);
+      
       // Reset recommendations state for new thread
       setHasRecommendations(false);
       setNewRecommendations(false);
@@ -413,6 +420,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Fetch the thread summary
       await fetchThreadSummary(threadId);
+      
+      // Load thread-specific career guidance if it exists
+      try {
+        const threadGuidance = await careerPathwayService.getThreadCareerGuidance(threadId, currentUser.uid);
+        setCareerGuidance(threadGuidance);
+        setCareerGuidanceError(null);
+      } catch (error) {
+        console.error('Error loading thread career guidance:', error);
+        setCareerGuidance(null);
+        setCareerGuidanceError(null);
+      }
       
       setIsLoading(false);
       
@@ -663,10 +681,20 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setCurrentSummary(null);
         setHasRecommendations(false);
         setNewRecommendations(false);
+        // Clear career guidance when deleting current thread
+        setCareerGuidance(null);
+        setCareerGuidanceError(null);
       }
       
       // Delete the thread and all associated data
       await deleteChatThread(threadId, currentUser.uid);
+      
+      // Delete thread-specific career guidance
+      try {
+        await careerPathwayService.deleteThreadCareerGuidance(threadId, currentUser.uid);
+      } catch (error) {
+        console.error('Error deleting thread career guidance:', error);
+      }
       
       // Refresh the threads list
       await fetchThreads();
@@ -694,17 +722,21 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Generate career guidance
+  // Generate career guidance (thread-specific)
   const generateCareerGuidance = async () => {
-    if (!currentUser || !currentSummary) return;
+    if (!currentUser || !currentSummary || !currentThread) return;
 
     setCareerGuidanceLoading(true);
     setCareerGuidanceError(null);
 
     try {
-      const guidance = await careerPathwayService.generateCareerGuidance(currentSummary);
+      const guidance = await careerPathwayService.generateThreadCareerGuidance(
+        currentThread.id, 
+        currentUser.uid, 
+        currentSummary
+      );
       setCareerGuidance(guidance);
-      console.log('Generated career guidance:', guidance);
+      console.log('Generated thread-specific career guidance:', guidance);
     } catch (error) {
       setCareerGuidanceError(error instanceof Error ? error.message : 'Failed to generate career guidance');
       console.error('Error generating career guidance:', error);
@@ -713,22 +745,40 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Refresh career guidance
+  // Refresh career guidance (thread-specific)
   const refreshCareerGuidance = async () => {
-    if (!currentUser || !currentSummary) return;
+    if (!currentUser || !currentSummary || !currentThread) return;
 
     setCareerGuidanceLoading(true);
     setCareerGuidanceError(null);
 
     try {
-      const refreshedGuidance = await careerPathwayService.generateCareerGuidance(currentSummary);
+      const refreshedGuidance = await careerPathwayService.generateThreadCareerGuidance(
+        currentThread.id, 
+        currentUser.uid, 
+        currentSummary
+      );
       setCareerGuidance(refreshedGuidance);
-      console.log('Refreshed career guidance:', refreshedGuidance);
+      console.log('Refreshed thread-specific career guidance:', refreshedGuidance);
     } catch (error) {
       setCareerGuidanceError(error instanceof Error ? error.message : 'Failed to refresh career guidance');
       console.error('Error refreshing career guidance:', error);
     } finally {
       setCareerGuidanceLoading(false);
+    }
+  };
+
+  // Get user's career explorations
+  const getUserCareerExplorations = async (): Promise<CareerExplorationSummary[]> => {
+    if (!currentUser) return [];
+
+    try {
+      const explorations = await careerPathwayService.getUserCareerExplorations(currentUser.uid);
+      setCareerExplorations(explorations);
+      return explorations;
+    } catch (error) {
+      console.error('Error getting user career explorations:', error);
+      return [];
     }
   };
   
@@ -745,6 +795,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     careerGuidance,
     careerGuidanceLoading,
     careerGuidanceError,
+    careerExplorations,
     sendMessage,
     createNewThread,
     selectThread,
@@ -752,6 +803,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
     getRecommendedVideos,
     generateCareerGuidance,
     refreshCareerGuidance,
+    getUserCareerExplorations,
     clearNewRecommendationsFlag,
     clearSummaryUpdatedFlag,
     regenerateSummary
