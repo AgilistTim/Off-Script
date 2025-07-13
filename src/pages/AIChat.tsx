@@ -440,11 +440,15 @@ const AIChat: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden min-h-[500px] h-[70vh] md:h-[75vh] lg:h-[80vh] flex flex-col md:flex-row relative"
+        className="bg-white dark:bg-gray-800 rounded-lg shadow-md overflow-hidden min-h-[calc(100vh-120px)] md:min-h-[500px] h-[calc(100vh-120px)] md:h-[75vh] lg:h-[80vh] flex flex-col md:flex-row relative"
+        style={{ 
+          maxHeight: 'calc(100vh - 120px)',
+          WebkitOverflowScrolling: 'touch'
+        }}
       >
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-h-0">
           {/* Chat header */}
-          <div className="p-3 md:p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex justify-between items-center">
+          <div className="p-3 md:p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex justify-between items-center flex-shrink-0">
             <div className="flex-1 min-w-0">
               <h1 className="text-lg md:text-xl font-semibold text-gray-800 dark:text-white">
                 AI Career Assistant
@@ -508,7 +512,7 @@ const AIChat: React.FC = () => {
 
           {/* Search bar */}
           {showSearch && (
-            <div className="p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <div className="p-4 border-b dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
                 <input
@@ -639,9 +643,9 @@ const AIChat: React.FC = () => {
           )}
           
           {/* Chat container */}
-          <div className="flex flex-col flex-1 overflow-hidden">
+          <div className="flex flex-col flex-1 min-h-0">
             {/* Messages area */}
-            <div className="flex-1 overflow-y-auto p-3 md:p-4">
+            <div className="flex-1 overflow-y-auto p-3 md:p-4 touch-pan-y overscroll-contain">
               {messages.length === 0 ? (
                 <div className="h-full flex flex-col items-center justify-center text-center p-4">
                   <div className="bg-blue-100 dark:bg-blue-900/30 p-4 rounded-full mb-4">
@@ -676,7 +680,7 @@ const AIChat: React.FC = () => {
             </div>
             
             {/* Input area */}
-            <div className="p-3 md:p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <div className="p-3 md:p-4 border-t dark:border-gray-700 bg-gray-50 dark:bg-gray-800 flex-shrink-0">
               <form 
                 className="flex items-center"
                 onSubmit={handleSendMessage}
@@ -695,6 +699,7 @@ const AIChat: React.FC = () => {
                       }
                     }}
                     className="w-full px-3 md:px-4 py-2 md:py-3 pr-10 md:pr-12 rounded-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 text-sm md:text-base"
+                    style={{ fontSize: '16px' }}
                   />
                   
                   <button
