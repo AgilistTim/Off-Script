@@ -546,8 +546,8 @@ const CareerGuidancePanel: React.FC<CareerGuidancePanelProps> = ({
                                     <div className="mt-3 ml-6 p-3 bg-white rounded border">
                                       <div className="text-xs font-medium text-gray-900">Recommended Resources</div>
                                       <div className="text-xs text-gray-600 mt-1">
-                                        • Prospects.ac.uk - Career insights and guidance<br/>
                                         • National Career Service - Free advice and tools<br/>
+                                        • gov.uk/volunteering - Official volunteering opportunities<br/>
                                         • Industry professional associations
                                       </div>
                                     </div>
@@ -576,7 +576,7 @@ const CareerGuidancePanel: React.FC<CareerGuidancePanelProps> = ({
                                   
                                   {isResearchAction && (
                                     <Button size="sm" variant="outline" asChild>
-                                      <a href="https://www.prospects.ac.uk" target="_blank" rel="noopener noreferrer">
+                                      <a href="https://nationalcareers.service.gov.uk/explore-careers/job-sector" target="_blank" rel="noopener noreferrer">
                                         <ExternalLink className="w-3 h-3 mr-1" />
                                         Start Research
                                       </a>
@@ -645,7 +645,7 @@ const CareerGuidancePanel: React.FC<CareerGuidancePanelProps> = ({
                     <CardContent>
                       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         <Button variant="outline" size="sm" asChild>
-                          <a href="https://do-it.org" target="_blank" rel="noopener noreferrer">
+                          <a href="https://www.gov.uk/volunteering" target="_blank" rel="noopener noreferrer">
                             <Users className="w-4 h-4 mr-2" />
                             Find Volunteer Roles
                           </a>
@@ -669,7 +669,7 @@ const CareerGuidancePanel: React.FC<CareerGuidancePanelProps> = ({
                           </a>
                         </Button>
                         <Button variant="outline" size="sm" asChild>
-                          <a href="https://www.prospects.ac.uk" target="_blank" rel="noopener noreferrer">
+                          <a href="https://nationalcareers.service.gov.uk/explore-careers/job-sector" target="_blank" rel="noopener noreferrer">
                             <Lightbulb className="w-4 h-4 mr-2" />
                             Job Market Info
                           </a>
