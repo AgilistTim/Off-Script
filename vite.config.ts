@@ -14,6 +14,11 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react()
     ],
+    define: {
+      // Add process.env for Node.js libraries compatibility
+      global: 'globalThis',
+      'process.env': JSON.stringify({}),
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src')
