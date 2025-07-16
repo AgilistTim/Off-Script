@@ -227,7 +227,10 @@ export const AdaptiveAIResponse: React.FC<AdaptiveAIResponseProps> = ({
   };
 
   React.useEffect(() => {
-    generateResponse();
+    // Only generate responses when there's actual user input
+    if (userMessage && userMessage.trim().length > 0) {
+      generateResponse();
+    }
   }, [userMessage, persona, conversationPhase]);
 
   return null; // This is a logic-only component

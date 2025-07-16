@@ -3,6 +3,8 @@ import { useConversation } from '@elevenlabs/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserPersona } from './PersonaDetector';
 import { useAuth } from '../../context/AuthContext';
+import { CareerInsight } from '../../services/conversationAnalyzer';
+import { EnhancedCareerProfile } from '../../services/careerProfileBuilder';
 
 export interface ElevenLabsConversationProps {
   onMessageSent?: (message: string) => void;
@@ -12,6 +14,9 @@ export interface ElevenLabsConversationProps {
   className?: string;
   userPersona: UserPersona;
   onPersonaUpdate?: (persona: UserPersona) => void;
+  onInsightDiscovered?: (insight: CareerInsight) => void;
+  onProfileUpdate?: (profile: EnhancedCareerProfile) => void;
+  onRegistrationPrompt?: () => void;
 }
 
 // Persona-specific agent configurations
@@ -54,7 +59,10 @@ const PERSONA_AGENT_CONFIGS = {
 };
 
 // Persona-specific client tools for dynamic UI updates
-const createPersonaTools = (onPersonaUpdate?: (persona: UserPersona) => void) => ({
+const createPersonaTools = (
+  onPersonaUpdate?: (persona: UserPersona) => void,
+  onInsightDiscovered?: (insight: CareerInsight) => void
+) => ({
   update_conversation_style: ({ style, confidence }: { style: string; confidence: number }) => {
     console.log(`Conversation style updated to: ${style} (confidence: ${confidence})`);
     return `Updated conversation style to ${style}`;
@@ -92,6 +100,51 @@ const createPersonaTools = (onPersonaUpdate?: (persona: UserPersona) => void) =>
   request_career_insight: ({ topic, urgency }: { topic: string; urgency: 'low' | 'medium' | 'high' }) => {
     console.log(`Career insight requested for: ${topic} (urgency: ${urgency})`);
     return `Providing career insight for ${topic}`;
+  },
+
+  create_insight: ({ insight_type, user_interest }: { insight_type: string; user_interest: string }) => {
+    console.log(`Creating insight: ${insight_type} for interest: ${user_interest}`);
+    
+    // Map insight_type to valid CareerInsight types
+    const validType = (): 'interest' | 'skill' | 'preference' | 'pathway' | 'industry' | 'summary' => {
+      switch (insight_type.toLowerCase()) {
+        case 'career_path':
+        case 'pathway':
+          return 'pathway';
+        case 'skill':
+          return 'skill';
+        case 'opportunity':
+        case 'industry':
+          return 'industry';
+        case 'interest':
+          return 'interest';
+        default:
+          return 'interest'; // Default fallback
+      }
+    };
+    
+    // Create a career insight object
+    const insight: CareerInsight = {
+      id: `insight_${Date.now()}`,
+      type: validType(),
+      title: `${insight_type.charAt(0).toUpperCase() + insight_type.slice(1)} for ${user_interest}`,
+      description: `Based on your interest in ${user_interest}, I've identified this ${insight_type} opportunity that could be a great fit for your career development.`,
+      confidence: 0.85,
+      extractedAt: new Date(),
+      relatedTerms: [user_interest, insight_type],
+      metadata: {
+        source: 'ai_conversation',
+        personaType: 'agent_generated',
+        conversationContext: user_interest
+      }
+    };
+    
+    // Notify the parent component about the discovered insight
+    if (onInsightDiscovered) {
+      onInsightDiscovered(insight);
+    }
+    
+    return `Created ${insight_type} insight for ${user_interest}. This insight has been added to your career profile.`;
   }
 });
 
@@ -102,7 +155,10 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
   initialGreeting,
   className = '',
   userPersona,
-  onPersonaUpdate
+  onPersonaUpdate,
+  onInsightDiscovered,
+  onProfileUpdate,
+  onRegistrationPrompt
 }) => {
   const { currentUser } = useAuth();
   const [conversationMessages, setConversationMessages] = useState<Array<{
@@ -121,39 +177,62 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
   // Create conversation using ElevenLabs React hook
   const conversation = useConversation({
     onConnect: () => {
-      console.log('ElevenLabs conversation connected');
+      console.log('🟢 ===== ELEVENLABS CONNECTED =====');
+      console.log('✅ ElevenLabs conversation connected - audio should be working');
       setConnectionStatus('connected');
+      console.log('🟢 ===== CONNECTION ESTABLISHED =====');
     },
     onDisconnect: () => {
-      console.log('ElevenLabs conversation disconnected');
+      console.log('🔴 ===== ELEVENLABS DISCONNECTED =====');
+      console.log('❌ ElevenLabs conversation disconnected');
       setConnectionStatus('disconnected');
       setAgentMode('listening');
+      console.log('🔴 ===== DISCONNECTION COMPLETE =====');
     },
-    onMessage: ({ message, source }: { message: string; source: any }) => {
-      console.log('Agent message:', message, 'from:', source);
-      const assistantMessage = {
-        id: `assistant-${Date.now()}`,
-        content: message,
-        role: 'assistant' as const,
-        timestamp: new Date()
-      };
-      setConversationMessages(prev => [...prev, assistantMessage]);
-      onMessageSent?.(message);
+    onMessage: (messageData: any) => {
+      console.log('📨 ElevenLabs message received:', messageData);
+      
+      // Extract message content from various possible formats
+      const message = messageData?.message || messageData?.text || messageData?.content || JSON.stringify(messageData);
+      
+      if (message && typeof message === 'string' && message.length > 0) {
+        const assistantMessage = {
+          id: `assistant-${Date.now()}`,
+          content: message,
+          role: 'assistant' as const,
+          timestamp: new Date()
+        };
+        
+        console.log('✅ Adding assistant message to chat:', message.substring(0, 50) + '...');
+        setConversationMessages(prev => [...prev, assistantMessage]);
+        onMessageSent?.(message);
+      } else {
+        console.warn('⚠️ Received invalid message format:', messageData);
+      }
     },
-    onError: (message: string, context?: any) => {
-      console.error('ElevenLabs conversation error:', message, context);
+    onError: (error: any) => {
+      console.error('❌ ElevenLabs conversation error:', error);
+      console.error('❌ Error details:', JSON.stringify(error, null, 2));
       setConnectionStatus('disconnected');
+      
+      // Check for audio-specific errors
+      if (error?.message?.includes('audio') || error?.message?.includes('microphone')) {
+        console.error('🎤 Audio/microphone error detected');
+      }
     },
     onUserTranscriptReceived: (transcript: string) => {
-      console.log('User transcript:', transcript);
-      const userMessage = {
-        id: `user-${Date.now()}`,
-        content: transcript,
-        role: 'user' as const,
-        timestamp: new Date()
-      };
-      setConversationMessages(prev => [...prev, userMessage]);
-      onVoiceInput?.(transcript);
+      console.log('🎤 User transcript received:', transcript);
+      if (transcript && transcript.trim().length > 0) {
+        const userMessage = {
+          id: `user-${Date.now()}`,
+          content: transcript,
+          role: 'user' as const,
+          timestamp: new Date()
+        };
+        console.log('✅ Adding user message to chat:', transcript);
+        setConversationMessages(prev => [...prev, userMessage]);
+        onVoiceInput?.(transcript);
+      }
     },
     onStatusChange: (status: any) => {
       console.log('Conversation status changed:', status);
@@ -192,8 +271,10 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
       // Request microphone permission
       await navigator.mediaDevices.getUserMedia({ audio: true });
 
+      console.log('🤖 Starting ElevenLabs session with agent:', import.meta.env.VITE_ELEVENLABS_AGENT_ID?.substring(0, 10) + '...');
+
       // Start the conversation with ElevenLabs agent
-      await conversation.startSession({
+      const conversationId = await conversation.startSession({
         agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID || 'YOUR_AGENT_ID',
         
         // Pass persona-specific configuration
@@ -206,13 +287,16 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
         },
         
         // Client-side tools for dynamic interaction
-        clientTools: createPersonaTools(onPersonaUpdate),
+        clientTools: createPersonaTools(onPersonaUpdate, onInsightDiscovered),
         
         // Override first message if provided
         ...(initialGreeting && { 
           firstMessage: initialGreeting 
         })
       });
+      
+      console.log('✅ ElevenLabs session started:', conversationId);
+      console.log('🟢 Connection status set to connected');
 
     } catch (error) {
       console.error('Failed to start ElevenLabs conversation:', error);

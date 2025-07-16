@@ -7,17 +7,13 @@ const MainLayout = lazy(() => import('./components/layouts/MainLayout'));
 const AuthLayout = lazy(() => import('./components/layouts/AuthLayout'));
 const AdminLayout = lazy(() => import('./components/admin/AdminLayout'));
 
-// Page components
-const Home = lazy(() => import('./pages/Home'));
+// Core pages for simplified architecture
+const EngagementPage = lazy(() => import('./pages/Engagement'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+
+// Auth pages
 const Login = lazy(() => import('./pages/Login'));
 const Register = lazy(() => import('./pages/Register'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
-const VideoExploration = lazy(() => import('./pages/VideoExploration'));
-const VideoDetail = lazy(() => import('./pages/VideoDetail'));
-const AIChat = lazy(() => import('./pages/AIChat'));
-const Profile = lazy(() => import('./pages/Profile'));
-const NotFound = lazy(() => import('./pages/NotFound'));
-const StyleGuide = lazy(() => import('./components/StyleGuide'));
 
 // Admin pages
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
@@ -25,6 +21,10 @@ const AdminVideos = lazy(() => import('./pages/admin/Videos'));
 const AdminUsers = lazy(() => import('./pages/admin/Users'));
 const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
+
+// Legacy pages (will be deprecated)
+const NotFound = lazy(() => import('./pages/NotFound'));
+const StyleGuide = lazy(() => import('./components/StyleGuide'));
 
 // Loading fallback
 const LoadingFallback = () => (
@@ -42,7 +42,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!currentUser) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/auth/login" replace />;
   }
 
   return <>{children}</>;
@@ -57,7 +57,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!currentUser || !userData || userData.role !== 'admin') {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/auth/login" replace />;
   }
 
   return <>{children}</>;
@@ -78,7 +78,7 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Create and export the router
+// Create and export the router with simplified 3-page architecture
 export const router = createBrowserRouter([
   {
     path: '/',
@@ -90,7 +90,7 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Home />
+        element: <EngagementPage /> // Main landing page with voice/chat + insights
       },
       {
         path: 'dashboard',
@@ -100,30 +100,24 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         )
       },
+      // Legacy route redirects
+      {
+        path: 'chat',
+        element: <Navigate to="/" replace />
+      },
       {
         path: 'explore',
-        element: <VideoExploration />
+        element: <Navigate to="/" replace />
       },
       {
         path: 'videos/:videoId',
-        element: <VideoDetail />
-      },
-      {
-        path: 'chat',
-        element: (
-          <ProtectedRoute>
-            <AIChat />
-          </ProtectedRoute>
-        )
+        element: <Navigate to="/" replace />
       },
       {
         path: 'profile',
-        element: (
-          <ProtectedRoute>
-            <Profile />
-          </ProtectedRoute>
-        )
+        element: <Navigate to="/dashboard" replace />
       },
+      // Development/debug pages
       {
         path: 'style-guide',
         element: <StyleGuide />
@@ -167,7 +161,7 @@ export const router = createBrowserRouter([
     ]
   },
   {
-    path: '/',
+    path: '/auth',
     element: (
       <Suspense fallback={<LoadingFallback />}>
         <AuthLayout />
@@ -191,5 +185,14 @@ export const router = createBrowserRouter([
         )
       }
     ]
+  },
+  // Legacy auth route redirects
+  {
+    path: '/login',
+    element: <Navigate to="/auth/login" replace />
+  },
+  {
+    path: '/register',
+    element: <Navigate to="/auth/register" replace />
   }
 ]);

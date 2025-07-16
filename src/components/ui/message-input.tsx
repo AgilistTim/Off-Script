@@ -151,9 +151,7 @@ export function MessageInput({
         }
       }
 
-      if (props.value.trim()) {
-        event.currentTarget.form?.requestSubmit()
-      }
+      event.currentTarget.form?.requestSubmit()
     }
 
     onKeyDownProp?.(event)
@@ -250,58 +248,61 @@ export function MessageInput({
           <Button
             type="button"
             size="icon"
-            variant="ghost"
-            className="h-6 w-6 shrink-0 rounded-md"
-            onClick={() => showFileUploadDialog()}
-            disabled={isGenerating}
-          >
-            <Paperclip className="h-4 w-4" />
-            <span className="sr-only">Attach files</span>
-          </Button>
-        )}
-
-        {transcribeAudio && isSpeechSupported && (
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="h-6 w-6 shrink-0 rounded-md"
-            onClick={toggleListening}
-            disabled={isGenerating}
-          >
-            <Mic className="h-4 w-4" />
-            <span className="sr-only">Record audio</span>
-          </Button>
-        )}
-
-        {isGenerating && stop && enableInterrupt && (
-          <Button
-            type="button"
-            size="icon"
-            variant="ghost"
-            className="h-6 w-6 animate-pulse shrink-0 rounded-md text-destructive"
-            onClick={() => {
-              stop()
-              setShowInterruptPrompt(false)
+            variant="outline"
+            className="h-8 w-8"
+            aria-label="Attach a file"
+            onClick={async () => {
+              const files = await showFileUploadDialog()
+              addFiles(files)
             }}
           >
-            <Square className="h-4 w-4" />
-            <span className="sr-only">Stop generating</span>
+            <Paperclip className="h-4 w-4" />
+          </Button>
+        )}
+        {isSpeechSupported && (
+          <Button
+            type="button"
+            variant="outline"
+            className={cn("h-8 w-8", isListening && "text-primary")}
+            aria-label="Voice input"
+            size="icon"
+            onClick={toggleListening}
+          >
+            <Mic className="h-4 w-4" />
+          </Button>
+        )}
+        {isGenerating && stop ? (
+          <Button
+            type="button"
+            size="icon"
+            className="h-8 w-8"
+            aria-label="Stop generating"
+            onClick={stop}
+          >
+            <Square className="h-3 w-3 animate-pulse" fill="currentColor" />
+          </Button>
+        ) : (
+          <Button
+            type="submit"
+            size="icon"
+            className="h-8 w-8 transition-opacity"
+            aria-label="Send message"
+            disabled={props.value === "" || isGenerating}
+          >
+            <ArrowUp className="h-5 w-5" />
           </Button>
         )}
       </div>
 
-      {isRecording && (
-        <RecordingControls
-          isRecording={isRecording}
-          isTranscribing={isTranscribing}
-          audioStream={audioStream}
-          textAreaHeight={textAreaHeight}
-          onStopRecording={stopRecording}
-        />
-      )}
+      {props.allowAttachments && <FileUploadOverlay isDragging={isDragging} />}
 
-      {isDragging && <FileUploadOverlay isDragging={isDragging} />}
+      <RecordingControls
+        isRecording={isRecording}
+        isTranscribing={isTranscribing}
+        audioStream={audioStream}
+        textAreaHeight={textAreaHeight}
+        onStopRecording={stopRecording}
+      />
     </div>
   )
 }
