@@ -941,6 +941,14 @@ class OffScriptMCPServer {
           });
         }
         
+        // If no messages available, create a placeholder to generate initial insights
+        if (messages.length === 0) {
+          messages.push({
+            role: 'user',
+            content: `I'm exploring career options and would like some guidance. ${triggerReason ? `Context: ${triggerReason}` : ''}`
+          });
+        }
+        
         const result = await this.handleAnalyzeConversation({ messages, userId });
         
         // Extract the actual data from the MCP response structure
