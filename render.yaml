@@ -34,3 +34,17 @@ services:
         sync: false
       - key: VITE_OPENAI_ASSISTANT_URL
         sync: false
+
+  - type: web
+    name: off-script-mcp
+    env: node
+    buildCommand: cd mcp-server && npm install
+    startCommand: cd mcp-server && node index.js
+    healthCheckPath: /mcp/health
+    healthCheckTimeout: 10s
+    autoDeploy: true
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: MCP_HTTP_PORT
+        value: $PORT

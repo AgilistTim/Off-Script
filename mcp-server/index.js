@@ -1,0 +1,1275 @@
+#!/usr/bin/env node
+
+import { Server } from '@modelcontextprotocol/sdk/server/index.js';
+import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
+import {
+  CallToolRequestSchema,
+  ErrorCode,
+  ListToolsRequestSchema,
+  McpError,
+} from '@modelcontextprotocol/sdk/types.js';
+import { z } from 'zod';
+import OpenAI from 'openai';
+import dotenv from 'dotenv';
+import express from 'express';
+import cors from 'cors';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
+
+// Get __dirname equivalent for ES modules
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Load environment variables from parent directory
+dotenv.config({ path: join(__dirname, '..', '.env') });
+
+// Enhanced logging utility
+class Logger {
+  static log(level, message, data = null) {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+      timestamp,
+      level: level.toUpperCase(),
+      message,
+      ...(data && { data })
+    };
+    
+    if (level === 'error') {
+      console.error(`[${timestamp}] [ERROR] ${message}`, data ? data : '');
+    } else if (level === 'warn') {
+      console.warn(`[${timestamp}] [WARN] ${message}`, data ? data : '');
+    } else {
+      console.log(`[${timestamp}] [${level.toUpperCase()}] ${message}`, data ? data : '');
+    }
+  }
+
+  static info(message, data = null) { this.log('info', message, data); }
+  static warn(message, data = null) { this.log('warn', message, data); }
+  static error(message, data = null) { this.log('error', message, data); }
+  static debug(message, data = null) { this.log('debug', message, data); }
+}
+
+// Validation schemas
+const MessageSchema = z.object({
+  role: z.enum(['user', 'assistant']),
+  content: z.string().min(1)
+});
+
+const MessagesArraySchema = z.array(MessageSchema).min(1);
+
+// Initialize OpenAI client with error handling
+let openai;
+try {
+  const apiKey = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error('OpenAI API key not found in environment variables');
+  }
+  
+  openai = new OpenAI({ apiKey });
+  Logger.info('OpenAI client initialized successfully');
+} catch (error) {
+  Logger.error('Failed to initialize OpenAI client', error);
+  process.exit(1);
+}
+
+// Enhanced conversation analysis service with OpenAI integration
+class ConversationAnalysisService {
+  static async analyzeConversation(messages, options = {}) {
+    const startTime = Date.now();
+    try {
+      const { userId } = options;
+      
+      // Validate input
+      const validationResult = MessagesArraySchema.safeParse(messages);
+      if (!validationResult.success) {
+        Logger.warn('Invalid messages format', validationResult.error);
+        throw new Error('Invalid messages format');
+      }
+
+      Logger.info(`Analyzing ${messages.length} messages for user: ${userId}`);
+      
+      // Extract user messages for analysis
+      const userMessages = messages
+        .filter(msg => msg.role === 'user')
+        .map(msg => msg.content);
+      
+      if (userMessages.length === 0) {
+        Logger.warn('No user messages found for analysis');
+        return {
+          detectedInterests: [],
+          confidence: 0,
+          careerCards: []
+        };
+      }
+
+      // Use OpenAI to analyze conversation for career interests
+      const conversationText = userMessages.join('\n');
+      const analysisResult = await this.analyzeWithOpenAI(conversationText);
+      
+      // Generate career cards for high-confidence interests
+      const careerCards = [];
+      for (const interest of analysisResult.interests) {
+        if (interest.confidence > 0.7) {
+          try {
+            const card = await this.generateCareerCard(interest);
+            if (card) careerCards.push(card);
+          } catch (cardError) {
+            Logger.warn(`Failed to generate career card for ${interest.interest}`, cardError);
+          }
+        }
+      }
+
+      const result = {
+        detectedInterests: analysisResult.interests.map(i => i.interest),
+        confidence: analysisResult.overallConfidence,
+        careerCards
+      };
+
+      Logger.info(`Analysis completed in ${Date.now() - startTime}ms`, {
+        interestsFound: result.detectedInterests.length,
+        cardsGenerated: careerCards.length,
+        confidence: result.confidence
+      });
+
+      return result;
+    } catch (error) {
+      Logger.error('Conversation analysis error', {
+        error: error.message,
+        userId: options.userId,
+        processingTime: Date.now() - startTime
+      });
+      
+      return {
+        detectedInterests: [],
+        confidence: 0,
+        careerCards: [],
+        error: 'Analysis failed'
+      };
+    }
+  }
+
+  static async analyzeWithOpenAI(conversationText) {
+    try {
+      if (!conversationText || conversationText.trim().length === 0) {
+        throw new Error('Empty conversation text provided');
+      }
+
+      Logger.debug('Sending conversation to OpenAI for analysis', {
+        textLength: conversationText.length
+      });
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-2024-08-06',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert career counselor. Analyze the conversation to identify career interests, skills, and preferences.
+
+Extract:
+- Career interests and fields they mention
+- Skills they want to develop or have
+- Work environment preferences
+- Industry mentions
+- Learning goals
+
+Return JSON format:
+{
+  "interests": [
+    {
+      "interest": "AI/Machine Learning",
+      "context": "User mentioned wanting to work with AI",
+      "confidence": 0.85,
+      "extractedTerms": ["AI", "machine learning", "technology"]
+    }
+  ],
+  "skills": ["skill1", "skill2"],
+  "preferences": {
+    "workStyle": "remote/hybrid/office",
+    "teamSize": "small/medium/large",
+    "industry": "preferred industry"
+  }
+}`
+          },
+          {
+            role: 'user',
+            content: `Analyze this conversation for career insights:\n\n${conversationText}`
+          }
+        ],
+        temperature: 0.3,
+        max_tokens: 1000
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No response content from OpenAI');
+      }
+
+      Logger.debug('Received OpenAI analysis response', {
+        responseLength: content.length
+      });
+
+      const analysis = JSON.parse(content);
+      const overallConfidence = analysis.interests.length > 0 
+        ? analysis.interests.reduce((sum, i) => sum + i.confidence, 0) / analysis.interests.length 
+        : 0;
+
+      return {
+        interests: analysis.interests || [],
+        skills: analysis.skills || [],
+        preferences: analysis.preferences || {},
+        overallConfidence
+      };
+    } catch (error) {
+      Logger.error('OpenAI analysis error', {
+        error: error.message,
+        textLength: conversationText?.length || 0
+      });
+      
+      if (error instanceof SyntaxError) {
+        Logger.warn('JSON parsing failed, OpenAI returned invalid JSON');
+      }
+      
+      return { interests: [], overallConfidence: 0 };
+    }
+  }
+
+  static async generateCareerCard(interest) {
+    try {
+      if (!interest || !interest.interest) {
+        throw new Error('Invalid interest object provided');
+      }
+
+      Logger.debug(`Generating career card for: ${interest.interest}`);
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-2024-08-06',
+        messages: [
+          {
+            role: 'system',
+            content: `Generate a comprehensive UK career card in JSON format. Focus on accurate UK market data.`
+          },
+          {
+            role: 'user',
+            content: `Create a UK career card for: "${interest.interest}" with context: "${interest.context}".
+
+Return JSON:
+{
+  "id": "unique_id",
+  "title": "Career Title",
+  "description": "Brief overview",
+  "industry": "Industry sector",
+  "averageSalary": {
+    "entry": "£XX,000",
+    "experienced": "£XX,000", 
+    "senior": "£XX,000"
+  },
+  "growthOutlook": "Market outlook",
+  "entryRequirements": ["req1", "req2"],
+  "trainingPathways": ["path1", "path2"],
+  "keySkills": ["skill1", "skill2"],
+  "workEnvironment": "Environment description",
+  "nextSteps": ["step1", "step2", "step3"]
+}`
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 800
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No career card content from OpenAI');
+      }
+
+      const cardData = JSON.parse(content);
+      const card = {
+        ...cardData,
+        id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        confidence: interest.confidence,
+        sourceData: interest.interest,
+        location: 'UK',
+        generatedAt: new Date().toISOString()
+      };
+
+      Logger.debug(`Career card generated successfully for: ${interest.interest}`);
+      return card;
+    } catch (error) {
+      Logger.error('Career card generation error', {
+        error: error.message,
+        interest: interest?.interest || 'unknown'
+      });
+      return null;
+    }
+  }
+}
+
+// Enhanced career insights service
+class CareerInsightsService {
+  static async generateInsights(interests, experience = 'intermediate', location = 'UK') {
+    try {
+      // Validate inputs
+      if (!Array.isArray(interests) || interests.length === 0) {
+        Logger.warn('No interests provided for insight generation');
+        return [];
+      }
+
+      Logger.info(`Generating insights for: ${interests.join(', ')}`, {
+        experience,
+        location,
+        interestCount: interests.length
+      });
+      
+      const insights = [];
+      const maxConcurrent = 3; // Limit concurrent API calls
+      
+      for (let i = 0; i < interests.length; i += maxConcurrent) {
+        const batch = interests.slice(i, i + maxConcurrent);
+        const batchPromises = batch.map(interest => 
+          this.generateInsightForField(interest, experience, location)
+        );
+        
+        const batchResults = await Promise.allSettled(batchPromises);
+        batchResults.forEach((result, index) => {
+          if (result.status === 'fulfilled' && result.value) {
+            insights.push(result.value);
+          } else {
+            Logger.warn(`Failed to generate insight for: ${batch[index]}`, result.reason);
+          }
+        });
+      }
+      
+      Logger.info(`Generated ${insights.length} insights successfully`);
+      return insights;
+    } catch (error) {
+      Logger.error('Career insights generation error', error);
+      return [];
+    }
+  }
+
+  static async generateInsightForField(interest, experience, location) {
+    try {
+      if (!interest || typeof interest !== 'string') {
+        throw new Error('Invalid interest provided');
+      }
+
+      Logger.debug(`Generating insight for field: ${interest}`);
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-2024-08-06',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a UK career specialist. Generate detailed career insights for specific fields.`
+          },
+          {
+            role: 'user',
+            content: `Generate detailed UK career insight for "${interest}" at ${experience} level.
+
+Return JSON:
+{
+  "field": "${interest}",
+  "roles": ["role1", "role2", "role3"],
+  "salaryData": {
+    "entry": "£XX,000",
+    "experienced": "£XX,000",
+    "senior": "£XX,000+"
+  },
+  "skills": ["skill1", "skill2", "skill3"],
+  "pathways": ["pathway1", "pathway2"],
+  "marketOutlook": {
+    "growth": "High/Medium/Low",
+    "demand": "Description",
+    "competition": "Description",
+    "futureProspects": "Description"
+  },
+  "nextSteps": ["step1", "step2", "step3"]
+}`
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 800
+      });
+
+      const content = completion.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No insight content from OpenAI');
+      }
+
+      const insight = JSON.parse(content);
+      Logger.debug(`Insight generated successfully for: ${interest}`);
+      return insight;
+    } catch (error) {
+      Logger.error('Field insight generation error', {
+        error: error.message,
+        interest,
+        experience,
+        location
+      });
+      return null;
+    }
+  }
+}
+
+// User profile service
+class UserProfileService {
+  static async updateProfile(userId, insights) {
+    try {
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+
+      Logger.info(`Updating profile for user: ${userId}`, {
+        interestCount: insights?.detectedInterests?.length || 0,
+        cardCount: insights?.careerCards?.length || 0
+      });
+
+      // For MCP server, we'll return structured data
+      // In production, this would integrate with your Firebase database
+      const profile = {
+        userId,
+        interests: insights.detectedInterests || [],
+        skillLevel: 'intermediate',
+        preferences: {
+          workStyle: 'hybrid',
+          industryPreference: insights.detectedInterests?.[0] || 'technology'
+        },
+        lastUpdated: new Date().toISOString(),
+        careerCards: insights.careerCards || [],
+        analysisMetadata: {
+          confidence: insights.confidence,
+          analysisDate: new Date().toISOString(),
+          source: 'mcp_server'
+        }
+      };
+
+      Logger.debug('Profile updated successfully', { userId });
+      return profile;
+    } catch (error) {
+      Logger.error('Profile update error', {
+        error: error.message,
+        userId
+      });
+      throw error;
+    }
+  }
+
+  static async getPreferences(userId) {
+    try {
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+
+      Logger.debug(`Retrieving preferences for user: ${userId}`);
+
+      // Return enhanced default preferences
+      // In production, this would query your database
+      const preferences = {
+        userId,
+        communicationStyle: 'detailed',
+        careerStage: 'exploring',
+        interests: [],
+        goals: [],
+        personalityType: 'explorer',
+        preferredIndustries: [],
+        workEnvironmentPreferences: {
+          teamSize: 'medium',
+          workStyle: 'hybrid',
+          environment: 'collaborative'
+        },
+        learningPreferences: {
+          style: 'hands-on',
+          pace: 'moderate',
+          format: 'mixed'
+        }
+      };
+
+      Logger.debug('Preferences retrieved successfully', { userId });
+      return preferences;
+    } catch (error) {
+      Logger.error('Preferences retrieval error', {
+        error: error.message,
+        userId
+      });
+      throw error;
+    }
+  }
+}
+
+// Define tool schemas
+const AnalyzeConversationTool = z.object({
+  name: z.literal('analyze_conversation'),
+  description: z.string(),
+  inputSchema: z.object({
+    type: z.literal('object'),
+    properties: z.object({
+      messages: z.object({
+        type: z.literal('array'),
+        description: z.string(),
+        items: z.object({
+          type: z.literal('object'),
+          properties: z.object({
+            role: z.object({ type: z.literal('string') }),
+            content: z.object({ type: z.literal('string') })
+          })
+        })
+      }),
+      userId: z.object({
+        type: z.literal('string'),
+        description: z.string()
+      })
+    }),
+    required: z.array(z.string())
+  })
+});
+
+const GenerateCareerInsightsTool = z.object({
+  name: z.literal('generate_career_insights'),
+  description: z.string(),
+  inputSchema: z.object({
+    type: z.literal('object'),
+    properties: z.object({
+      interests: z.object({
+        type: z.literal('array'),
+        description: z.string(),
+        items: z.object({ type: z.literal('string') })
+      }),
+      experience: z.object({
+        type: z.literal('string'),
+        description: z.string()
+      }),
+      location: z.object({
+        type: z.literal('string'),
+        description: z.string(),
+        default: z.literal('UK')
+      })
+    }),
+    required: z.array(z.string())
+  })
+});
+
+const UpdateUserProfileTool = z.object({
+  name: z.literal('update_user_profile'),
+  description: z.string(),
+  inputSchema: z.object({
+    type: z.literal('object'),
+    properties: z.object({
+      userId: z.object({
+        type: z.literal('string'),
+        description: z.string()
+      }),
+      insights: z.object({
+        type: z.literal('object'),
+        description: z.string()
+      })
+    }),
+    required: z.array(z.string())
+  })
+});
+
+const GetUserPreferencesTool = z.object({
+  name: z.literal('get_user_preferences'),
+  description: z.string(),
+  inputSchema: z.object({
+    type: z.literal('object'),
+    properties: z.object({
+      userId: z.object({
+        type: z.literal('string'),
+        description: z.string()
+      })
+    }),
+    required: z.array(z.string())
+  })
+});
+
+class OffScriptMCPServer {
+  constructor() {
+    this.openai = null;
+    this.server = null;
+    this.httpApp = null;
+    this.setupOpenAI();
+    this.setupMCPServer();
+  }
+
+  setupOpenAI() {
+    try {
+      const apiKey = process.env.VITE_OPENAI_API_KEY || process.env.OPENAI_API_KEY;
+      if (!apiKey) {
+        throw new Error('OpenAI API key not found in environment variables');
+      }
+      this.openai = new OpenAI({ apiKey });
+      Logger.info('OpenAI client initialized successfully');
+    } catch (error) {
+      Logger.error('Failed to initialize OpenAI client', error);
+      process.exit(1);
+    }
+  }
+
+  setupMCPServer() {
+    this.server = new Server(
+      {
+        name: 'OffScript Career Guidance Server',
+        version: '1.0.0',
+      },
+      {
+        capabilities: {
+          tools: {},
+        },
+      }
+    );
+
+    // Register existing tools
+    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
+      return {
+        tools: [
+          {
+            name: 'analyze_conversation',
+            description: 'Analyzes conversation history to detect career interests and skills',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                conversationHistory: {
+                  type: 'string',
+                  description: 'The conversation text to analyze'
+                },
+                userId: {
+                  type: 'string',
+                  description: 'User identifier for tracking'
+                }
+              },
+              required: ['conversationHistory', 'userId']
+            }
+          },
+          {
+            name: 'generate_career_insights',
+            description: 'Generate career recommendations based on interests and skills',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                interests: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'List of career interests'
+                },
+                skills: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'List of skills'
+                },
+                userId: {
+                  type: 'string',
+                  description: 'User identifier'
+                }
+              },
+              required: ['interests', 'userId']
+            }
+          }
+        ]
+      };
+    });
+
+    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
+      const { name, arguments: args } = request.params;
+      
+      switch (name) {
+        case 'analyze_conversation':
+          return await this.handleAnalyzeConversation(args);
+        case 'generate_career_insights':
+          return await this.handleGenerateCareerInsights(args);
+        default:
+          throw new Error(`Unknown tool: ${name}`);
+      }
+    });
+  }
+
+  // Add MCP HTTP/SSE endpoints
+  setupMCPHttpServer() {
+    this.httpApp = express();
+    
+    // Enable CORS
+    this.httpApp.use(cors({
+      origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+      credentials: true
+    }));
+
+    this.httpApp.use(express.json());
+
+    // MCP endpoint - supports both GET (SSE) and POST (JSON-RPC)
+    this.httpApp.all('/mcp', async (req, res) => {
+      try {
+        // Set security headers
+        res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Mcp-Session-Id, Last-Event-ID');
+        
+        if (req.method === 'OPTIONS') {
+          res.status(200).end();
+          return;
+        }
+
+        if (req.method === 'GET') {
+          // Handle SSE connection for MCP
+          const acceptHeader = req.headers.accept || '';
+          
+          if (acceptHeader.includes('text/event-stream')) {
+            Logger.info('Setting up MCP SSE stream');
+            
+            res.writeHead(200, {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive',
+              'Access-Control-Allow-Origin': req.headers.origin || '*',
+            });
+
+            // Send initial capabilities
+            const capabilities = {
+              protocolVersion: '2025-03-26',
+              capabilities: {
+                tools: {},
+              },
+              serverInfo: {
+                name: 'OffScript Career Guidance Server',
+                version: '1.0.0'
+              }
+            };
+
+            res.write(`data: ${JSON.stringify(capabilities)}\n\n`);
+
+            // Keep connection alive
+            const keepAlive = setInterval(() => {
+              res.write(':\n\n'); // Comment line to keep connection alive
+            }, 30000);
+
+            req.on('close', () => {
+              clearInterval(keepAlive);
+              Logger.info('MCP SSE connection closed');
+            });
+
+            return;
+          } else {
+            res.status(405).json({ error: 'Method not allowed for non-SSE requests' });
+            return;
+          }
+        }
+
+        if (req.method === 'POST') {
+          // Handle JSON-RPC requests
+          const contentType = req.headers['content-type'] || '';
+          const acceptHeader = req.headers.accept || '';
+
+          if (!contentType.includes('application/json')) {
+            res.status(400).json({ error: 'Content-Type must be application/json' });
+            return;
+          }
+
+          Logger.info('Received MCP JSON-RPC request:', req.body);
+
+          // Process the JSON-RPC request
+          const request = req.body;
+          let response;
+
+          if (request.method === 'initialize') {
+            response = {
+              jsonrpc: '2.0',
+              id: request.id,
+              result: {
+                protocolVersion: '2025-03-26',
+                capabilities: {
+                  tools: {},
+                },
+                serverInfo: {
+                  name: 'OffScript Career Guidance Server',
+                  version: '1.0.0'
+                }
+              }
+            };
+          } else if (request.method === 'tools/list') {
+            response = {
+              jsonrpc: '2.0',
+              id: request.id,
+              result: {
+                tools: [
+                  {
+                    name: 'analyze_conversation_for_careers',
+                    description: 'Analyzes conversation history to detect career interests and generate personalized career cards',
+                    inputSchema: {
+                      type: 'object',
+                      properties: {
+                        trigger_reason: {
+                          type: 'string',
+                          description: 'Reason for triggering analysis'
+                        }
+                      },
+                      required: ['trigger_reason']
+                    }
+                  },
+                  {
+                    name: 'generate_career_recommendations',
+                    description: 'Generates detailed career recommendations with UK salary data and pathways',
+                    inputSchema: {
+                      type: 'object',
+                      properties: {
+                        interests: {
+                          type: 'array',
+                          items: { type: 'string' },
+                          description: 'Career interests from conversation'
+                        },
+                        experience_level: {
+                          type: 'string',
+                          enum: ['beginner', 'intermediate', 'advanced'],
+                          description: 'User experience level'
+                        }
+                      },
+                      required: ['interests']
+                    }
+                  },
+                  {
+                    name: 'trigger_instant_insights',
+                    description: 'Provides instant career analysis for the current message',
+                    inputSchema: {
+                      type: 'object',
+                      properties: {
+                        user_message: {
+                          type: 'string',
+                          description: 'Current user message to analyze'
+                        }
+                      },
+                      required: ['user_message']
+                    }
+                  }
+                ]
+              }
+            };
+          } else if (request.method === 'tools/call') {
+            const { name, arguments: args } = request.params;
+            let result;
+
+            switch (name) {
+              case 'analyze_conversation_for_careers':
+                result = await this.handleMCPAnalyzeConversation(args);
+                break;
+              case 'generate_career_recommendations':
+                result = await this.handleMCPGenerateRecommendations(args);
+                break;
+              case 'trigger_instant_insights':
+                result = await this.handleMCPInstantInsights(args);
+                break;
+              default:
+                throw new Error(`Unknown tool: ${name}`);
+            }
+
+            response = {
+              jsonrpc: '2.0',
+              id: request.id,
+              result: {
+                content: [
+                  {
+                    type: 'text',
+                    text: JSON.stringify(result)
+                  }
+                ]
+              }
+            };
+          } else {
+            response = {
+              jsonrpc: '2.0',
+              id: request.id,
+              error: {
+                code: -32601,
+                message: 'Method not found'
+              }
+            };
+          }
+
+          // Return JSON response or start SSE stream based on Accept header
+          if (acceptHeader.includes('text/event-stream') && request.method === 'tools/call') {
+            // Return SSE stream for tool calls
+            res.writeHead(200, {
+              'Content-Type': 'text/event-stream',
+              'Cache-Control': 'no-cache',
+              'Connection': 'keep-alive',
+            });
+
+            res.write(`data: ${JSON.stringify(response)}\n\n`);
+            res.end();
+          } else {
+            // Return single JSON response
+            res.json(response);
+          }
+
+          return;
+        }
+
+        res.status(405).json({ error: 'Method not allowed' });
+
+      } catch (error) {
+        Logger.error('MCP HTTP error:', error);
+        res.status(500).json({ error: error.message });
+      }
+    });
+
+    // Health check endpoint
+    this.httpApp.get('/mcp/health', (req, res) => {
+      res.json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        server: 'OffScript MCP Server',
+        tools: ['analyze_conversation', 'generate_career_insights', 'update_user_profile', 'get_user_preferences']
+      });
+    });
+
+    // Analyze conversation endpoint
+    this.httpApp.post('/mcp/analyze', async (req, res) => {
+      try {
+        const { messages, userId = 'anonymous' } = req.body;
+        const result = await this.analyzeConversation(messages, userId);
+        res.json({ success: true, result });
+      } catch (error) {
+        Logger.error('HTTP analyze error', error);
+        res.status(500).json({ 
+          success: false, 
+          error: error.message 
+        });
+      }
+    });
+
+    // Generate career insights endpoint
+    this.httpApp.post('/mcp/insights', async (req, res) => {
+      try {
+        const { interests, userId = 'anonymous', context = {} } = req.body;
+        const result = await this.generateCareerInsights(interests, userId, context);
+        res.json({ success: true, result });
+      } catch (error) {
+        Logger.error('HTTP insights error', error);
+        res.status(500).json({ 
+          success: false, 
+          error: error.message 
+        });
+      }
+    });
+
+    // Update user profile endpoint
+    this.httpApp.post('/mcp/profile', async (req, res) => {
+      try {
+        const { userId, insights } = req.body;
+        const updatedProfile = await UserProfileService.updateProfile(userId, insights);
+        res.json({ success: true, profile: updatedProfile });
+      } catch (error) {
+        Logger.error('HTTP profile update error', error);
+        res.status(500).json({ 
+          success: false, 
+          error: error.message 
+        });
+      }
+    });
+
+    // Get user preferences endpoint
+    this.httpApp.get('/mcp/preferences/:userId', async (req, res) => {
+      try {
+        const { userId } = req.params;
+        const preferences = await UserProfileService.getPreferences(userId);
+        res.json({ success: true, preferences });
+      } catch (error) {
+        Logger.error('HTTP preferences retrieval error', error);
+        res.status(500).json({ 
+          success: false, 
+          error: error.message 
+        });
+      }
+    });
+
+    const port = process.env.MCP_HTTP_PORT || 3001;
+    this.httpApp.listen(port, '127.0.0.1', () => {
+      Logger.info(`MCP HTTP server running on http://127.0.0.1:${port}`);
+      Logger.info(`MCP endpoint available at: http://127.0.0.1:${port}/mcp`);
+    });
+  }
+
+  async handleAnalyzeConversation(args) {
+    try {
+      // Validate required arguments
+      if (!args || !args.messages) {
+        throw new Error('Messages are required for conversation analysis');
+      }
+
+      const { messages, userId } = args;
+      Logger.debug('Starting conversation analysis', { 
+        userId, 
+        messageCount: messages?.length || 0 
+      });
+      
+      const analysis = await ConversationAnalysisService.analyzeConversation(messages, { userId });
+      
+      const response = {
+        success: true,
+        analysis: {
+          detectedInterests: analysis.detectedInterests,
+          confidence: analysis.confidence,
+          careerCards: analysis.careerCards,
+          timestamp: new Date().toISOString(),
+          ...(analysis.error && { error: analysis.error })
+        }
+      };
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response, null, 2)
+          }
+        ]
+      };
+    } catch (error) {
+      Logger.error('Conversation analysis handler error', error);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              success: false,
+              error: error.message,
+              timestamp: new Date().toISOString()
+            }, null, 2)
+          }
+        ]
+      };
+    }
+  }
+
+  async handleGenerateCareerInsights(args) {
+    try {
+      // Validate required arguments
+      if (!args || !args.interests || !Array.isArray(args.interests)) {
+        throw new Error('Interests array is required for career insights generation');
+      }
+
+      const { interests, experience = 'intermediate', location = 'UK' } = args;
+      Logger.debug('Starting career insights generation', { 
+        interests, 
+        experience, 
+        location 
+      });
+      
+      // Generate detailed career insights
+      const insights = await CareerInsightsService.generateInsights(interests, experience, location);
+      
+      const response = {
+        success: true,
+        insights,
+        metadata: {
+          interestCount: interests.length,
+          insightsGenerated: insights.length,
+          experience,
+          location
+        },
+        generatedAt: new Date().toISOString()
+      };
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response, null, 2)
+          }
+        ]
+      };
+    } catch (error) {
+      Logger.error('Career insights generation handler error', error);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              success: false,
+              error: error.message,
+              timestamp: new Date().toISOString()
+            }, null, 2)
+          }
+        ]
+      };
+    }
+  }
+
+  async handleUpdateUserProfile(args) {
+    try {
+      // Validate required arguments
+      if (!args || !args.userId) {
+        throw new Error('User ID is required for profile update');
+      }
+
+      const { userId, insights } = args;
+      Logger.debug('Starting profile update', { userId });
+      
+      const updatedProfile = await UserProfileService.updateProfile(userId, insights);
+      
+      const response = {
+        success: true,
+        profile: updatedProfile,
+        timestamp: new Date().toISOString()
+      };
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response, null, 2)
+          }
+        ]
+      };
+    } catch (error) {
+      Logger.error('Profile update handler error', error);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              success: false,
+              error: error.message,
+              timestamp: new Date().toISOString()
+            }, null, 2)
+          }
+        ]
+      };
+    }
+  }
+
+  async handleGetUserPreferences(args) {
+    try {
+      // Validate required arguments
+      if (!args || !args.userId) {
+        throw new Error('User ID is required for preferences retrieval');
+      }
+
+      const { userId } = args;
+      Logger.debug('Starting preferences retrieval', { userId });
+      
+      const preferences = await UserProfileService.getPreferences(userId);
+      
+      const response = {
+        success: true,
+        preferences,
+        timestamp: new Date().toISOString()
+      };
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(response, null, 2)
+          }
+        ]
+      };
+    } catch (error) {
+      Logger.error('Preferences retrieval handler error', error);
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              success: false,
+              error: error.message,
+              timestamp: new Date().toISOString()
+            }, null, 2)
+          }
+        ]
+      };
+    }
+  }
+
+  // MCP-specific tool handlers
+  async handleMCPAnalyzeConversation(args) {
+    Logger.info('MCP: Analyzing conversation for careers:', args);
+    
+    try {
+      // Use our existing conversation analysis
+      const analysisResult = await ConversationAnalysisService.analyzeWithOpenAI(
+        args.trigger_reason || 'Manual trigger'
+      );
+
+      return {
+        success: true,
+        analysis: analysisResult,
+        careerCards: analysisResult.careerCards || []
+      };
+    } catch (error) {
+      Logger.error('MCP analysis error:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  async handleMCPGenerateRecommendations(args) {
+    Logger.info('MCP: Generating career recommendations:', args);
+    
+    try {
+      const careerCards = await this.generateCareerCards(args.interests, args.experience_level);
+      
+      return {
+        success: true,
+        careerCards: careerCards,
+        count: careerCards.length
+      };
+    } catch (error) {
+      Logger.error('MCP recommendations error:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  async handleMCPInstantInsights(args) {
+    Logger.info('MCP: Generating instant insights:', args);
+    
+    try {
+      const analysisResult = await ConversationAnalysisService.analyzeWithOpenAI(args.user_message);
+      
+      return {
+        success: true,
+        insights: analysisResult,
+        careerCards: analysisResult.careerCards || []
+      };
+    } catch (error) {
+      Logger.error('MCP instant insights error:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  // Server startup
+  async run() {
+    try {
+      Logger.info('Starting OffScript MCP Server...');
+      
+      // Start HTTP server for both bridge and MCP
+      this.setupMCPHttpServer();
+      const port = process.env.MCP_HTTP_PORT || 3001;
+      this.httpApp.listen(port, '127.0.0.1', () => {
+        Logger.info(`MCP HTTP server running on http://127.0.0.1:${port}`);
+        Logger.info(`MCP endpoint available at: http://127.0.0.1:${port}/mcp`);
+      });
+      
+      // Start MCP server for stdio
+      const transport = new StdioServerTransport();
+      await this.server.connect(transport);
+      Logger.info('OffScript MCP Server running on stdio', {
+        capabilities: Object.keys(this.server.capabilities || {}),
+        tools: ['analyze_conversation', 'generate_career_insights', 'update_user_profile', 'get_user_preferences']
+      });
+    } catch (error) {
+      Logger.error('Failed to start MCP Server', error);
+      process.exit(1);
+    }
+  }
+}
+
+// Start the server
+const server = new OffScriptMCPServer();
+server.run().catch((error) => {
+  Logger.error('Unhandled server error', error);
+  process.exit(1);
+}); 
