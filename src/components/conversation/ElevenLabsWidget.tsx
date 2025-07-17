@@ -175,18 +175,33 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       console.log('🔴 ElevenLabs disconnected');
       setConnectionStatus('disconnected');
     },
-    onMessage: (message) => {
+    onMessage: (message: any) => {
       console.log('📝 Message:', message);
       
       // Track conversation history for MCP context
-      if (message.message && message.source) {
-        const content = message.message;
-        const role = message.source === 'user' ? 'user' : 'assistant';
-        setConversationHistory(prev => [...prev, { role, content }]);
+      // Extract message content - prioritize the 'message' property as per ElevenLabs types
+      const content = message?.message || (message as any)?.text || (message as any)?.content;
+      
+      if (content && typeof content === 'string' && content.trim().length > 0) {
+        // Determine role based on message source
+        const role = message?.source === 'user' ? 'user' : 'assistant';
+        setConversationHistory(prev => [...prev, { role, content: content.trim() }]);
+        console.log('✅ Added to conversation history:', { role, content: content.substring(0, 50) + '...' });
+      } else {
+        console.warn('⚠️ Could not extract content from message:', message);
       }
     },
     onError: (error) => {
       console.error('❌ ElevenLabs error:', error);
+    },
+    onUserTranscriptReceived: (transcript: string) => {
+      console.log('🎤 User transcript received:', transcript);
+      
+      // Add user voice input to conversation history
+      if (transcript && transcript.trim().length > 0) {
+        setConversationHistory(prev => [...prev, { role: 'user', content: transcript.trim() }]);
+        console.log('✅ Added user voice input to conversation history:', transcript.substring(0, 50) + '...');
+      }
     }
   });
 
