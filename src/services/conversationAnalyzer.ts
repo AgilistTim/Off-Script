@@ -120,7 +120,8 @@ export class ConversationAnalyzer {
   async analyzeMessage(message: string, conversationHistory: string[] = []): Promise<ConversationInterest[]> {
     try {
       // Use structured output with Zod for reliable parsing
-      const completion = await openai.chat.completions.parse({
+      // @ts-ignore - parse() is available at runtime but not yet in typings
+      const completion = await (openai as any).chat.completions.parse({
         model: 'gpt-4o-2024-08-06', // Latest model as recommended by Context7
         messages: [
           {

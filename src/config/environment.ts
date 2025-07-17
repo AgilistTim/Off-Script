@@ -32,6 +32,12 @@ export interface EnvironmentConfig {
     // These are handled securely in Firebase Functions server-side
   };
   
+  // ElevenLabs configuration
+  elevenLabs: {
+    apiKey?: string;
+    agentId?: string;
+  };
+  
   // API endpoints
   apiEndpoints: {
     bumpupsProxy?: string;
@@ -47,6 +53,7 @@ export interface EnvironmentConfig {
     enableYouTubeIntegration: boolean;
     enableBumpupsIntegration: boolean;
     enableOpenAIAssistant: boolean;
+    enableElevenLabsVoice: boolean;
   };
 }
 
@@ -88,6 +95,10 @@ const getViteEnvironment = (): Partial<EnvironmentConfig> => {
       // SECURITY: bumpups API key excluded from client-side for security
       // bumpups, openai, and webshare keys are handled server-side in Firebase Functions
     },
+    elevenLabs: {
+      apiKey: import.meta.env.VITE_ELEVENLABS_API_KEY as string,
+      agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID as string,
+    },
     apiEndpoints: {
       bumpupsProxy: import.meta.env.VITE_BUMPUPS_PROXY_URL as string,
       openaiAssistant: import.meta.env.VITE_OPENAI_ASSISTANT_URL as string,
@@ -106,21 +117,26 @@ const getWindowEnvironment = (): Partial<EnvironmentConfig> => {
   
   return {
     firebase: {
-      apiKey: window.ENV.VITE_FIREBASE_API_KEY,
-      authDomain: window.ENV.VITE_FIREBASE_AUTH_DOMAIN,
-      projectId: window.ENV.VITE_FIREBASE_PROJECT_ID,
-      storageBucket: window.ENV.VITE_FIREBASE_STORAGE_BUCKET,
-      messagingSenderId: window.ENV.VITE_FIREBASE_MESSAGING_SENDER_ID,
-      appId: window.ENV.VITE_FIREBASE_APP_ID,
-      measurementId: window.ENV.VITE_FIREBASE_MEASUREMENT_ID,
+      apiKey: (window as any).ENV.VITE_FIREBASE_API_KEY,
+      authDomain: (window as any).ENV.VITE_FIREBASE_AUTH_DOMAIN,
+      projectId: (window as any).ENV.VITE_FIREBASE_PROJECT_ID,
+      storageBucket: (window as any).ENV.VITE_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId: (window as any).ENV.VITE_FIREBASE_MESSAGING_SENDER_ID,
+      appId: (window as any).ENV.VITE_FIREBASE_APP_ID,
+      measurementId: (window as any).ENV.VITE_FIREBASE_MEASUREMENT_ID,
     },
     apiKeys: {
-      youtube: window.ENV.VITE_YOUTUBE_API_KEY,
-      recaptcha: window.ENV.VITE_RECAPTCHA_SITE_KEY,
+      youtube: (window as any).ENV.VITE_YOUTUBE_API_KEY,
+      recaptcha: (window as any).ENV.VITE_RECAPTCHA_SITE_KEY,
       // SECURITY: bumpups API key excluded from client-side runtime config
     },
+    elevenLabs: {
+      apiKey: (window as any).ENV.VITE_ELEVENLABS_API_KEY || undefined,
+      agentId: (window as any).ENV.VITE_ELEVENLABS_AGENT_ID || undefined,
+    },
     apiEndpoints: {
-      bumpupsProxy: window.ENV.VITE_BUMPUPS_PROXY_URL,
+      bumpupsProxy: (window as any).ENV.VITE_BUMPUPS_PROXY_URL,
+      openaiAssistant: (window as any).ENV.VITE_OPENAI_ASSISTANT_URL || undefined,
       // openaiAssistant endpoint can stay as it's just a URL
     },
   };
@@ -166,7 +182,11 @@ const determineFeatureFlags = (config: Partial<EnvironmentConfig>): EnvironmentC
       
     // Enable OpenAI Assistant if endpoint is available
     enableOpenAIAssistant: config.features?.enableOpenAIAssistant ?? 
-      Boolean(config.apiEndpoints?.openaiAssistant)
+      Boolean(config.apiEndpoints?.openaiAssistant),
+
+    // Enable ElevenLabs voice if API key and agent ID are available
+    enableElevenLabsVoice: config.features?.enableElevenLabsVoice ?? 
+      Boolean(config.elevenLabs?.apiKey && config.elevenLabs?.agentId),
   };
 };
 
@@ -260,6 +280,10 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
       recaptcha: fallbackConfig.apiKeys?.recaptcha,
       // SECURITY: Sensitive API keys not included in fallback config
     },
+    elevenLabs: {
+      apiKey: fallbackConfig.elevenLabs?.apiKey,
+      agentId: fallbackConfig.elevenLabs?.agentId,
+    },
     apiEndpoints: generateApiEndpoints(fallbackConfig),
     environment: fallbackConfig.environment || 'development',
     features: determineFeatureFlags(fallbackConfig),
@@ -272,6 +296,7 @@ export const env = getEnvironmentConfig();
 // Export individual parts of the configuration for convenience
 export const firebaseConfig = env.firebase;
 export const apiKeys = env.apiKeys;
+export const elevenLabs = env.elevenLabs;
 export const apiEndpoints = env.apiEndpoints;
 export const features = env.features;
 export const environment = env.environment;
