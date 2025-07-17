@@ -50,6 +50,36 @@ class Logger {
   static debug(message, data = null) { this.log('debug', message, data); }
 }
 
+// Helper function to parse JSON from OpenAI responses (handles markdown wrapping)
+function parseOpenAIJSON(content) {
+  if (!content || typeof content !== 'string') {
+    throw new Error('Invalid content provided for JSON parsing');
+  }
+
+  // Remove markdown code block formatting if present
+  let cleanContent = content.trim();
+  
+  // Handle ```json ... ``` format
+  if (cleanContent.startsWith('```json') && cleanContent.endsWith('```')) {
+    cleanContent = cleanContent.slice(7, -3).trim();
+  }
+  // Handle ``` ... ``` format  
+  else if (cleanContent.startsWith('```') && cleanContent.endsWith('```')) {
+    cleanContent = cleanContent.slice(3, -3).trim();
+  }
+
+  try {
+    return JSON.parse(cleanContent);
+  } catch (error) {
+    Logger.error('JSON parsing failed', { 
+      originalContent: content.substring(0, 200) + '...',
+      cleanedContent: cleanContent.substring(0, 200) + '...',
+      error: error.message 
+    });
+    throw new Error(`Failed to parse JSON response: ${error.message}`);
+  }
+}
+
 // Validation schemas
 const MessageSchema = z.object({
   role: z.enum(['user', 'assistant']),
@@ -209,7 +239,7 @@ Return JSON format:
         responseLength: content.length
       });
 
-      const analysis = JSON.parse(content);
+      const analysis = parseOpenAIJSON(content);
       const overallConfidence = analysis.interests.length > 0 
         ? analysis.interests.reduce((sum, i) => sum + i.confidence, 0) / analysis.interests.length 
         : 0;
@@ -282,7 +312,7 @@ Return JSON:
         throw new Error('No career card content from OpenAI');
       }
 
-      const cardData = JSON.parse(content);
+      const cardData = parseOpenAIJSON(content);
       const card = {
         ...cardData,
         id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -396,7 +426,7 @@ Return JSON:
         throw new Error('No insight content from OpenAI');
       }
 
-      const insight = JSON.parse(content);
+      const insight = parseOpenAIJSON(content);
       Logger.debug(`Insight generated successfully for: ${interest}`);
       return insight;
     } catch (error) {
