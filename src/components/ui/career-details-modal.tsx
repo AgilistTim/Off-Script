@@ -6,20 +6,24 @@ interface CareerCardData {
   id: string;
   title: string;
   description: string;
-  industry: string;
-  averageSalary: {
+  industry?: string;
+  averageSalary?: {
     entry: string;
     experienced: string;
     senior: string;
   };
-  growthOutlook: string;
-  entryRequirements: string[];
-  trainingPathways: string[];
-  keySkills: string[];
-  workEnvironment: string;
-  nextSteps: string[];
-  location: string;
-  confidence: number;
+  salaryRange?: string; // MCP server format
+  growthOutlook?: string;
+  marketOutlook?: string; // MCP server format
+  entryRequirements?: string[];
+  trainingPathways?: string[];
+  trainingPathway?: string; // MCP server format (singular)
+  keySkills?: string[];
+  skillsRequired?: string[]; // MCP server format
+  workEnvironment?: string;
+  nextSteps?: string[];
+  location?: string;
+  confidence?: number;
 }
 
 interface CareerDetailsModalProps {
@@ -70,11 +74,11 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                   <div className="flex items-center gap-4 text-blue-100">
                     <div className="flex items-center gap-1">
                       <Briefcase className="h-4 w-4" />
-                      <span>{careerCard.industry}</span>
+                      <span>{careerCard.industry || 'Various Industries'}</span>
                     </div>
                     <div className="flex items-center gap-1">
                       <MapPin className="h-4 w-4" />
-                      <span>{careerCard.location}</span>
+                      <span>{careerCard.location || 'Various Locations'}</span>
                     </div>
                                          <div className="flex items-center gap-1">
                        <CheckCircle className="h-4 w-4" />
@@ -102,20 +106,28 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                         Salary Range
                       </h3>
                       <div className="bg-green-50 rounded-lg p-4">
-                        <div className="grid grid-cols-3 gap-4 text-center">
-                          <div>
-                            <div className="text-sm text-gray-600 mb-1">Entry Level</div>
-                            <div className="font-semibold text-green-700">{careerCard.averageSalary.entry}</div>
+                        {careerCard.averageSalary ? (
+                          <div className="grid grid-cols-3 gap-4 text-center">
+                            <div>
+                              <div className="text-sm text-gray-600 mb-1">Entry Level</div>
+                              <div className="font-semibold text-green-700">{careerCard.averageSalary.entry}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-gray-600 mb-1">Experienced</div>
+                              <div className="font-semibold text-green-700">{careerCard.averageSalary.experienced}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-gray-600 mb-1">Senior</div>
+                              <div className="font-semibold text-green-700">{careerCard.averageSalary.senior}</div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="text-sm text-gray-600 mb-1">Experienced</div>
-                            <div className="font-semibold text-green-700">{careerCard.averageSalary.experienced}</div>
+                        ) : careerCard.salaryRange ? (
+                          <div className="text-center">
+                            <div className="font-semibold text-green-700">{careerCard.salaryRange}</div>
                           </div>
-                          <div>
-                            <div className="text-sm text-gray-600 mb-1">Senior</div>
-                            <div className="font-semibold text-green-700">{careerCard.averageSalary.senior}</div>
-                          </div>
-                        </div>
+                        ) : (
+                          <div className="text-center text-gray-500">Salary information not available</div>
+                        )}
                       </div>
                     </section>
 
@@ -123,7 +135,7 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                     <section>
                       <h3 className="text-lg font-semibold mb-3 text-gray-900">Growth Outlook</h3>
                       <div className="bg-blue-50 rounded-lg p-4">
-                        <p className="text-blue-800">{careerCard.growthOutlook}</p>
+                        <p className="text-blue-800">{careerCard.growthOutlook || careerCard.marketOutlook || 'Growth outlook information not available'}</p>
                       </div>
                     </section>
 
@@ -133,7 +145,7 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                         <Users className="h-5 w-5 text-purple-600" />
                         Work Environment
                       </h3>
-                      <p className="text-gray-600">{careerCard.workEnvironment}</p>
+                      <p className="text-gray-600">{careerCard.workEnvironment || 'Work environment information not available'}</p>
                     </section>
                   </div>
 
@@ -143,7 +155,7 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                     <section>
                       <h3 className="text-lg font-semibold mb-3 text-gray-900">Key Skills</h3>
                       <div className="flex flex-wrap gap-2">
-                        {careerCard.keySkills.map((skill, index) => (
+                        {(careerCard.keySkills || careerCard.skillsRequired || []).map((skill, index) => (
                           <span
                             key={index}
                             className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
@@ -161,12 +173,19 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                         Entry Requirements
                       </h3>
                       <ul className="space-y-2">
-                        {careerCard.entryRequirements.map((requirement, index) => (
+                        {(careerCard.entryRequirements || []).map((requirement, index) => (
                           <li key={index} className="flex items-start gap-2">
                             <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
                             <span className="text-gray-600">{requirement}</span>
                           </li>
                         ))}
+                        {/* Fallback to training pathway if no entry requirements */}
+                        {(!careerCard.entryRequirements || careerCard.entryRequirements.length === 0) && careerCard.trainingPathway && (
+                          <li className="flex items-start gap-2">
+                            <CheckCircle className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                            <span className="text-gray-600">{careerCard.trainingPathway}</span>
+                          </li>
+                        )}
                       </ul>
                     </section>
 
@@ -174,7 +193,7 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                     <section>
                       <h3 className="text-lg font-semibold mb-3 text-gray-900">Training Pathways</h3>
                       <ul className="space-y-2">
-                        {careerCard.trainingPathways.map((pathway, index) => (
+                        {(careerCard.trainingPathways || []).map((pathway, index) => (
                           <li key={index} className="flex items-start gap-2">
                             <ArrowRight className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
                             <span className="text-gray-600">{pathway}</span>
@@ -191,7 +210,7 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                       </h3>
                       <div className="bg-indigo-50 rounded-lg p-4">
                         <ol className="space-y-2">
-                          {careerCard.nextSteps.map((step, index) => (
+                          {(careerCard.nextSteps || []).map((step, index) => (
                             <li key={index} className="flex items-start gap-3">
                               <span className="flex-shrink-0 w-6 h-6 bg-indigo-600 text-white text-sm rounded-full flex items-center justify-center font-medium">
                                 {index + 1}
