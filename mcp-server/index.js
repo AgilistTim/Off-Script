@@ -238,8 +238,8 @@ class ConversationAnalysisService {
         textLength: conversationText.length
       });
 
-      const completion = await openai.chat.completions.parse({
-        model: 'gpt-4o-2024-08-06',
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -263,15 +263,25 @@ Extract:
       });
 
       const message = completion.choices[0]?.message;
-      if (!message?.parsed) {
-        throw new Error('No parsed response from OpenAI');
+      if (!message?.content) {
+        throw new Error('No content response from OpenAI');
       }
 
       Logger.debug('Received OpenAI analysis response', {
-        analysisFound: message.parsed ? 'parsed' : 'none'
+        contentLength: message.content?.length || 0
       });
 
-      const analysis = message.parsed;
+      // Parse the JSON content manually since structured outputs return JSON as string
+      let analysis;
+      try {
+        analysis = JSON.parse(message.content);
+      } catch (parseError) {
+        Logger.error('Failed to parse OpenAI response as JSON', {
+          error: parseError.message,
+          content: message.content
+        });
+        throw new Error('Invalid JSON response from OpenAI');
+      }
       const overallConfidence = analysis.interests.length > 0 
         ? analysis.interests.reduce((sum, i) => sum + i.confidence, 0) / analysis.interests.length 
         : 0;
@@ -304,8 +314,8 @@ Extract:
 
       Logger.debug(`Generating career card for: ${interest.interest}`);
 
-      const completion = await openai.chat.completions.parse({
-        model: 'gpt-4o-2024-08-06',
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -322,11 +332,21 @@ Extract:
       });
 
       const message = completion.choices[0]?.message;
-      if (!message?.parsed) {
-        throw new Error('No parsed career card from OpenAI');
+      if (!message?.content) {
+        throw new Error('No content response from OpenAI');
       }
 
-      const cardData = message.parsed;
+      // Parse the JSON content manually since structured outputs return JSON as string
+      let cardData;
+      try {
+        cardData = JSON.parse(message.content);
+      } catch (parseError) {
+        Logger.error('Failed to parse career card response as JSON', {
+          error: parseError.message,
+          content: message.content
+        });
+        throw new Error('Invalid JSON response from OpenAI');
+      }
       const card = {
         ...cardData,
         id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -399,8 +419,8 @@ class CareerInsightsService {
 
       Logger.debug(`Generating insight for field: ${interest}`);
 
-      const completion = await openai.chat.completions.parse({
-        model: 'gpt-4o-2024-08-06',
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
         messages: [
           {
             role: 'system',
@@ -417,11 +437,21 @@ class CareerInsightsService {
       });
 
       const message = completion.choices[0]?.message;
-      if (!message?.parsed) {
-        throw new Error('No parsed insight from OpenAI');
+      if (!message?.content) {
+        throw new Error('No content response from OpenAI');
       }
 
-      const insight = message.parsed;
+      // Parse the JSON content manually since structured outputs return JSON as string
+      let insight;
+      try {
+        insight = JSON.parse(message.content);
+      } catch (parseError) {
+        Logger.error('Failed to parse insight response as JSON', {
+          error: parseError.message,
+          content: message.content
+        });
+        throw new Error('Invalid JSON response from OpenAI');
+      }
       Logger.debug(`Insight generated successfully for: ${interest}`);
       return insight;
     } catch (error) {
@@ -1211,12 +1241,6 @@ class OffScriptMCPServer {
       
       // Start HTTP server for both bridge and MCP
       this.setupMCPHttpServer();
-      const port = process.env.PORT || process.env.MCP_HTTP_PORT || 3001;
-      const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1';
-      this.httpApp.listen(port, host, () => {
-        Logger.info(`MCP HTTP server running on http://${host}:${port}`);
-        Logger.info(`MCP endpoint available at: http://${host}:${port}/mcp`);
-      });
       
       // Start MCP server for stdio
       const transport = new StdioServerTransport();
