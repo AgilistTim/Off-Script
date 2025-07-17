@@ -50,14 +50,32 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
       console.log('🔍 Analyzing conversation for careers:', parameters);
       
+      // Check if we have meaningful conversation content
+      if (conversationHistory.length < 2) {
+        console.log('⚠️ Not enough conversation history for analysis yet');
+        return 'I need to learn more about you first. Tell me about your interests and what kind of work excites you!';
+      }
+      
+      const conversationText = conversationHistory.map(msg => msg.content).join('\n');
+      if (conversationText.trim().length < 20) {
+        console.log('⚠️ Conversation content too short for meaningful analysis');
+        return 'Let\'s chat a bit more so I can better understand your career interests!';
+      }
+      
       try {
+        console.log('📤 Sending conversation for analysis:', {
+          messageCount: conversationHistory.length,
+          textLength: conversationText.length,
+          preview: conversationText.substring(0, 100) + '...'
+        });
+        
         const response = await fetch(`${mcpEndpoint}/analyze`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            conversationHistory: conversationHistory.map(msg => msg.content).join('\n'),
+            conversationHistory: conversationText,
             userId: currentUser?.uid || `guest_${Date.now()}`,
             triggerReason: parameters.trigger_reason
           }),
@@ -72,7 +90,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         console.log('✅ Analysis result:', result);
         
         // Handle nested result structure from MCP server
-        const analysisData = result.result || result;
+        const analysisData = result.analysis || result;
         const careerCards = analysisData.careerCards || [];
         
         console.log('🎯 Extracted career cards:', careerCards);
@@ -81,7 +99,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           onCareerCardsGenerated(careerCards);
         }
         
-        return `Analysis complete - generated ${careerCards.length} career recommendations`;
+        return `Analysis complete - generated ${careerCards.length} career recommendations based on our conversation`;
         
       } catch (error) {
         console.error('Error analyzing conversation:', error);
@@ -129,14 +147,30 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     trigger_instant_insights: async (parameters: { user_message: string }) => {
       console.log('⚡ Triggering instant insights:', parameters);
       
+      if (!parameters.user_message || parameters.user_message.trim().length < 10) {
+        console.log('⚠️ User message too short for instant insights');
+        return 'Tell me more about what interests you career-wise!';
+      }
+      
       try {
+        // Combine current message with existing conversation history for better context
+        const fullContext = conversationHistory.map(msg => msg.content).join('\n') + 
+                            (conversationHistory.length > 0 ? '\n' : '') + 
+                            parameters.user_message;
+        
+        console.log('📤 Sending instant insight request:', {
+          messageLength: parameters.user_message.length,
+          contextLength: fullContext.length,
+          preview: parameters.user_message.substring(0, 50) + '...'
+        });
+        
         const response = await fetch(`${mcpEndpoint}/analyze`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            conversationHistory: parameters.user_message,
+            conversationHistory: fullContext,
             userId: currentUser?.uid || `guest_${Date.now()}`,
             triggerReason: 'instant_insights'
           }),
@@ -150,11 +184,14 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         const result = await response.json();
         console.log('✅ Instant insights result:', result);
         
-        if (result.careerCards && onCareerCardsGenerated) {
-          onCareerCardsGenerated(result.careerCards);
+        const analysisData = result.analysis || result;
+        const careerCards = analysisData.careerCards || [];
+        
+        if (careerCards.length > 0 && onCareerCardsGenerated) {
+          onCareerCardsGenerated(careerCards);
         }
         
-        return `Generated instant career insights based on your latest message`;
+        return `Generated instant career insights based on your message: "${parameters.user_message.substring(0, 30)}..."`;
         
       } catch (error) {
         console.error('Error triggering insights:', error);
