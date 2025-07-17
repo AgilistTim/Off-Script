@@ -207,7 +207,6 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   // Initialize conversation with client tools
   const conversation = useConversation({
     clientTools,
-    apiKey,
     onConnect: () => {
       console.log('🟢 ElevenLabs connected');
       setConnectionStatus('connected');
@@ -218,40 +217,43 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     },
     onMessage: (message: any) => {
       console.log('📝 Message received:', message);
-      console.log('📝 Message keys:', Object.keys(message || {}));
-      console.log('📝 Message type:', message?.type);
+      console.log('📝 Message type:', typeof message);
+      console.log('📝 Message keys (if object):', message && typeof message === 'object' ? Object.keys(message) : 'N/A');
       
+      // According to React SDK docs, onMessage receives text messages directly
+      // These can be tentative/final transcriptions of user voice or LLM replies
       let content: string | null = null;
-      let role: 'user' | 'assistant' | null = null;
+      let role: 'user' | 'assistant' = 'assistant'; // Default to assistant since most messages are from the agent
       
-      // Handle ElevenLabs message events based on documentation
-      if (message?.type === 'user_transcript' && message?.user_transcription_event) {
-        content = message.user_transcription_event.user_transcript;
-        role = 'user';
-        console.log('📝 User transcript:', content);
-      } else if (message?.type === 'agent_response' && message?.agent_response_event) {
-        content = message.agent_response_event.agent_response;
-        role = 'assistant';
-        console.log('📝 Agent response:', content);
-      } else if (message?.type === 'conversation_initiation_metadata') {
-        console.log('📝 Conversation initialized:', message.conversation_initiation_metadata_event);
-        // Don't add to conversation history
-        return;
-      } else if (message?.type === 'ping') {
-        // Don't add ping events to conversation history
-        return;
-      } else {
-        // Fallback for other message formats (try legacy approach)
-        content = message?.message || (message as any)?.text || (message as any)?.content;
-        role = message?.source === 'user' ? 'user' : 'assistant';
-        console.log('📝 Fallback content extraction:', { content, role, source: message?.source });
+      if (typeof message === 'string') {
+        // Direct text message - this is the expected format for React SDK
+        content = message;
+        console.log('📝 Direct text message:', content);
+      } else if (message && typeof message === 'object') {
+        // Handle potential object formats as fallback
+        if (message.text) {
+          content = message.text;
+        } else if (message.content) {
+          content = message.content;
+        } else if (message.message) {
+          content = message.message;
+        }
+        
+        // Try to determine role from object properties
+        if (message.role) {
+          role = message.role;
+        } else if (message.source) {
+          role = message.source === 'user' ? 'user' : 'assistant';
+        }
+        
+        console.log('📝 Object message extracted:', { content, role, originalMessage: message });
       }
       
       console.log('📝 Final extracted:', { content, role, type: typeof content, length: content?.length });
       
-      if (content && typeof content === 'string' && content.trim().length > 0 && role) {
+      if (content && typeof content === 'string' && content.trim().length > 0) {
         setConversationHistory(prev => {
-          const updated = [...prev, { role: role as 'user' | 'assistant', content: content.trim() }];
+          const updated = [...prev, { role, content: content.trim() }];
           console.log('✅ Added to conversation history. New length:', updated.length);
           console.log('✅ Updated history:', updated.map(msg => ({ role: msg.role, preview: msg.content.substring(0, 30) + '...' })));
           return updated;
@@ -259,7 +261,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         console.log('✅ Added to conversation history:', { role, content: content.substring(0, 50) + '...' });
       } else {
         console.warn('⚠️ Could not extract valid content from message:', { 
-          messageType: message?.type, 
+          messageType: typeof message,
           content, 
           role,
           fullMessage: message 
