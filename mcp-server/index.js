@@ -16,6 +16,7 @@ import cors from 'cors';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import { zodResponseFormat } from 'openai/helpers/zod';
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -50,35 +51,83 @@ class Logger {
   static debug(message, data = null) { this.log('debug', message, data); }
 }
 
-// Helper function to parse JSON from OpenAI responses (handles markdown wrapping)
-function parseOpenAIJSON(content) {
-  if (!content || typeof content !== 'string') {
-    throw new Error('Invalid content provided for JSON parsing');
-  }
+// Add Zod schemas for structured outputs
+const CareerCard = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  industry: z.string(),
+  averageSalary: z.object({
+    entry: z.string(),
+    experienced: z.string(),
+    senior: z.string()
+  }),
+  growthOutlook: z.string(),
+  entryRequirements: z.array(z.string()),
+  trainingPathways: z.array(z.string()),
+  keySkills: z.array(z.string()),
+  workEnvironment: z.string(),
+  nextSteps: z.array(z.string())
+});
 
-  // Remove markdown code block formatting if present
-  let cleanContent = content.trim();
-  
-  // Handle ```json ... ``` format
-  if (cleanContent.startsWith('```json') && cleanContent.endsWith('```')) {
-    cleanContent = cleanContent.slice(7, -3).trim();
-  }
-  // Handle ``` ... ``` format  
-  else if (cleanContent.startsWith('```') && cleanContent.endsWith('```')) {
-    cleanContent = cleanContent.slice(3, -3).trim();
-  }
+const Interest = z.object({
+  interest: z.string(),
+  context: z.string(),
+  confidence: z.number().min(0).max(1),
+  extractedTerms: z.array(z.string())
+});
 
-  try {
-    return JSON.parse(cleanContent);
-  } catch (error) {
-    Logger.error('JSON parsing failed', { 
-      originalContent: content.substring(0, 200) + '...',
-      cleanedContent: cleanContent.substring(0, 200) + '...',
-      error: error.message 
-    });
-    throw new Error(`Failed to parse JSON response: ${error.message}`);
-  }
-}
+const Preferences = z.object({
+  workStyle: z.string(),
+  teamSize: z.string(),
+  industry: z.string()
+});
+
+const ConversationAnalysis = z.object({
+  interests: z.array(Interest),
+  skills: z.array(z.string()),
+  preferences: Preferences
+});
+
+const CareerInsights = z.object({
+  careerCards: z.array(CareerCard)
+});
+
+const CareerInsight = z.object({
+  id: z.string(),
+  title: z.string(),
+  description: z.string(),
+  category: z.string(),
+  priority: z.string(),
+  actionSteps: z.array(z.string()),
+  timeframe: z.string(),
+  resources: z.array(z.string())
+});
+
+const CareerInsightsResponse = z.object({
+  insights: z.array(CareerInsight)
+});
+
+const FieldInsight = z.object({
+  field: z.string(),
+  roles: z.array(z.string()),
+  salaryData: z.object({
+    entry: z.string(),
+    experienced: z.string(),
+    senior: z.string()
+  }),
+  skills: z.array(z.string()),
+  pathways: z.array(z.string()),
+  marketOutlook: z.object({
+    growth: z.string(),
+    demand: z.string(),
+    competition: z.string(),
+    futureProspects: z.string()
+  }),
+  nextSteps: z.array(z.string())
+});
+
+// Using OpenAI structured outputs with Zod schemas - no JSON parsing needed
 
 // Validation schemas
 const MessageSchema = z.object({
@@ -189,7 +238,7 @@ class ConversationAnalysisService {
         textLength: conversationText.length
       });
 
-      const completion = await openai.chat.completions.create({
+      const completion = await openai.chat.completions.parse({
         model: 'gpt-4o-2024-08-06',
         messages: [
           {
@@ -201,45 +250,28 @@ Extract:
 - Skills they want to develop or have
 - Work environment preferences
 - Industry mentions
-- Learning goals
-
-Return JSON format:
-{
-  "interests": [
-    {
-      "interest": "AI/Machine Learning",
-      "context": "User mentioned wanting to work with AI",
-      "confidence": 0.85,
-      "extractedTerms": ["AI", "machine learning", "technology"]
-    }
-  ],
-  "skills": ["skill1", "skill2"],
-  "preferences": {
-    "workStyle": "remote/hybrid/office",
-    "teamSize": "small/medium/large",
-    "industry": "preferred industry"
-  }
-}`
+- Learning goals`
           },
           {
             role: 'user',
             content: `Analyze this conversation for career insights:\n\n${conversationText}`
           }
         ],
+        response_format: zodResponseFormat(ConversationAnalysis, 'conversation_analysis'),
         temperature: 0.3,
         max_tokens: 1000
       });
 
-      const content = completion.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error('No response content from OpenAI');
+      const message = completion.choices[0]?.message;
+      if (!message?.parsed) {
+        throw new Error('No parsed response from OpenAI');
       }
 
       Logger.debug('Received OpenAI analysis response', {
-        responseLength: content.length
+        analysisFound: message.parsed ? 'parsed' : 'none'
       });
 
-      const analysis = parseOpenAIJSON(content);
+      const analysis = message.parsed;
       const overallConfidence = analysis.interests.length > 0 
         ? analysis.interests.reduce((sum, i) => sum + i.confidence, 0) / analysis.interests.length 
         : 0;
@@ -272,47 +304,29 @@ Return JSON format:
 
       Logger.debug(`Generating career card for: ${interest.interest}`);
 
-      const completion = await openai.chat.completions.create({
+      const completion = await openai.chat.completions.parse({
         model: 'gpt-4o-2024-08-06',
         messages: [
           {
             role: 'system',
-            content: `Generate a comprehensive UK career card in JSON format. Focus on accurate UK market data.`
+            content: `Generate a comprehensive UK career card. Focus on accurate UK market data.`
           },
           {
             role: 'user',
-            content: `Create a UK career card for: "${interest.interest}" with context: "${interest.context}".
-
-Return JSON:
-{
-  "id": "unique_id",
-  "title": "Career Title",
-  "description": "Brief overview",
-  "industry": "Industry sector",
-  "averageSalary": {
-    "entry": "£XX,000",
-    "experienced": "£XX,000", 
-    "senior": "£XX,000"
-  },
-  "growthOutlook": "Market outlook",
-  "entryRequirements": ["req1", "req2"],
-  "trainingPathways": ["path1", "path2"],
-  "keySkills": ["skill1", "skill2"],
-  "workEnvironment": "Environment description",
-  "nextSteps": ["step1", "step2", "step3"]
-}`
+            content: `Create a UK career card for: "${interest.interest}" with context: "${interest.context}".`
           }
         ],
+        response_format: zodResponseFormat(CareerCard, 'career_card'),
         temperature: 0.2,
         max_tokens: 800
       });
 
-      const content = completion.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error('No career card content from OpenAI');
+      const message = completion.choices[0]?.message;
+      if (!message?.parsed) {
+        throw new Error('No parsed career card from OpenAI');
       }
 
-      const cardData = parseOpenAIJSON(content);
+      const cardData = message.parsed;
       const card = {
         ...cardData,
         id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -385,7 +399,7 @@ class CareerInsightsService {
 
       Logger.debug(`Generating insight for field: ${interest}`);
 
-      const completion = await openai.chat.completions.create({
+      const completion = await openai.chat.completions.parse({
         model: 'gpt-4o-2024-08-06',
         messages: [
           {
@@ -394,39 +408,20 @@ class CareerInsightsService {
           },
           {
             role: 'user',
-            content: `Generate detailed UK career insight for "${interest}" at ${experience} level.
-
-Return JSON:
-{
-  "field": "${interest}",
-  "roles": ["role1", "role2", "role3"],
-  "salaryData": {
-    "entry": "£XX,000",
-    "experienced": "£XX,000",
-    "senior": "£XX,000+"
-  },
-  "skills": ["skill1", "skill2", "skill3"],
-  "pathways": ["pathway1", "pathway2"],
-  "marketOutlook": {
-    "growth": "High/Medium/Low",
-    "demand": "Description",
-    "competition": "Description",
-    "futureProspects": "Description"
-  },
-  "nextSteps": ["step1", "step2", "step3"]
-}`
+            content: `Generate detailed UK career insight for "${interest}" at ${experience} level.`
           }
         ],
+        response_format: zodResponseFormat(FieldInsight, 'field_insight'),
         temperature: 0.2,
         max_tokens: 800
       });
 
-      const content = completion.choices[0]?.message?.content;
-      if (!content) {
-        throw new Error('No insight content from OpenAI');
+      const message = completion.choices[0]?.message;
+      if (!message?.parsed) {
+        throw new Error('No parsed insight from OpenAI');
       }
 
-      const insight = parseOpenAIJSON(content);
+      const insight = message.parsed;
       Logger.debug(`Insight generated successfully for: ${interest}`);
       return insight;
     } catch (error) {
@@ -993,7 +988,7 @@ class OffScriptMCPServer {
       }
     });
 
-    // Generate career insights endpoint
+    // Generate career insights endpoint  
     this.httpApp.post('/mcp/insights', async (req, res) => {
       try {
         const { interests, userId = 'anonymous', context = {} } = req.body;
@@ -1030,36 +1025,6 @@ class OffScriptMCPServer {
       } catch (error) {
         Logger.error('HTTP insights error', error);
         res.status(500).json({ success: false, error: error.message });
-      }
-    });
-
-    // Update user profile endpoint
-    this.httpApp.post('/mcp/profile', async (req, res) => {
-      try {
-        const { userId, insights } = req.body;
-        const updatedProfile = await UserProfileService.updateProfile(userId, insights);
-        res.json({ success: true, profile: updatedProfile });
-      } catch (error) {
-        Logger.error('HTTP profile update error', error);
-        res.status(500).json({ 
-          success: false, 
-          error: error.message 
-        });
-      }
-    });
-
-    // Get user preferences endpoint
-    this.httpApp.get('/mcp/preferences/:userId', async (req, res) => {
-      try {
-        const { userId } = req.params;
-        const preferences = await UserProfileService.getPreferences(userId);
-        res.json({ success: true, preferences });
-      } catch (error) {
-        Logger.error('HTTP preferences retrieval error', error);
-        res.status(500).json({ 
-          success: false, 
-          error: error.message 
-        });
       }
     });
 
@@ -1175,92 +1140,6 @@ class OffScriptMCPServer {
     }
   }
 
-  async handleUpdateUserProfile(args) {
-    try {
-      // Validate required arguments
-      if (!args || !args.userId) {
-        throw new Error('User ID is required for profile update');
-      }
-
-      const { userId, insights } = args;
-      Logger.debug('Starting profile update', { userId });
-      
-      const updatedProfile = await UserProfileService.updateProfile(userId, insights);
-      
-      const response = {
-        success: true,
-        profile: updatedProfile,
-        timestamp: new Date().toISOString()
-      };
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(response, null, 2)
-          }
-        ]
-      };
-    } catch (error) {
-      Logger.error('Profile update handler error', error);
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              success: false,
-              error: error.message,
-              timestamp: new Date().toISOString()
-            }, null, 2)
-          }
-        ]
-      };
-    }
-  }
-
-  async handleGetUserPreferences(args) {
-    try {
-      // Validate required arguments
-      if (!args || !args.userId) {
-        throw new Error('User ID is required for preferences retrieval');
-      }
-
-      const { userId } = args;
-      Logger.debug('Starting preferences retrieval', { userId });
-      
-      const preferences = await UserProfileService.getPreferences(userId);
-      
-      const response = {
-        success: true,
-        preferences,
-        timestamp: new Date().toISOString()
-      };
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(response, null, 2)
-          }
-        ]
-      };
-    } catch (error) {
-      Logger.error('Preferences retrieval handler error', error);
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              success: false,
-              error: error.message,
-              timestamp: new Date().toISOString()
-            }, null, 2)
-          }
-        ]
-      };
-    }
-  }
-
   // MCP-specific tool handlers
   async handleMCPAnalyzeConversation(args) {
     Logger.info('MCP: Analyzing conversation for careers:', args);
@@ -1358,4 +1237,4 @@ const server = new OffScriptMCPServer();
 server.run().catch((error) => {
   Logger.error('Unhandled server error', error);
   process.exit(1);
-}); 
+});
