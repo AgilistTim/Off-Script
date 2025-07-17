@@ -49,6 +49,10 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   const clientTools = {
     analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
       console.log('🔍 Analyzing conversation for careers:', parameters);
+      console.log('📊 Current conversation history state:', {
+        length: conversationHistory.length,
+        messages: conversationHistory.map(msg => ({ role: msg.role, preview: msg.content.substring(0, 30) + '...' }))
+      });
       
       // Check if we have meaningful conversation content
       if (conversationHistory.length < 2) {
@@ -213,19 +217,30 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       setConnectionStatus('disconnected');
     },
     onMessage: (message: any) => {
-      console.log('📝 Message:', message);
+      console.log('📝 Message received:', message);
+      console.log('📝 Message keys:', Object.keys(message || {}));
+      console.log('📝 Message source:', message?.source);
       
       // Track conversation history for MCP context
       // Extract message content - prioritize the 'message' property as per ElevenLabs types
       const content = message?.message || (message as any)?.text || (message as any)?.content;
       
+      console.log('📝 Extracted content:', content);
+      console.log('📝 Content type:', typeof content);
+      console.log('📝 Content length:', content?.length);
+      
       if (content && typeof content === 'string' && content.trim().length > 0) {
         // Determine role based on message source
-        const role = message?.source === 'user' ? 'user' : 'assistant';
-        setConversationHistory(prev => [...prev, { role, content: content.trim() }]);
+        const role: 'user' | 'assistant' = message?.source === 'user' ? 'user' : 'assistant';
+        setConversationHistory(prev => {
+          const updated = [...prev, { role, content: content.trim() }];
+          console.log('✅ Added to conversation history. New length:', updated.length);
+          return updated;
+        });
         console.log('✅ Added to conversation history:', { role, content: content.substring(0, 50) + '...' });
       } else {
         console.warn('⚠️ Could not extract content from message:', message);
+        console.warn('⚠️ Content value:', content);
       }
     },
     onError: (error) => {
