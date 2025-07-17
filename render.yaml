@@ -2,10 +2,7 @@ services:
   - type: web
     name: off-script-elevenlabs-preview
     env: docker
-    buildCommand: docker build -t off-script .
-    startCommand: docker run -p $PORT:80 off-script
-    healthCheckPath: /api/openai/healthCheck
-    healthCheckTimeout: 10s
+    healthCheckPath: /
     autoDeploy: true
     envVars:
       - key: VITE_FIREBASE_API_KEY
@@ -41,7 +38,6 @@ services:
     buildCommand: cd mcp-server && npm install
     startCommand: cd mcp-server && node index.js
     healthCheckPath: /mcp/health
-    healthCheckTimeout: 10s
     autoDeploy: true
     envVars:
       - key: OPENAI_API_KEY
