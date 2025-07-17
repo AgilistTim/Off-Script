@@ -927,16 +927,31 @@ class OffScriptMCPServer {
     this.httpApp.post('/mcp/analyze', async (req, res) => {
       try {
         const { conversationHistory, userId = 'anonymous', triggerReason } = req.body;
-        // Convert conversationHistory string to messages array
-        const messages = conversationHistory ? [conversationHistory] : [];
-        const result = await ConversationAnalysisService.analyzeConversation(messages, { userId });
-        res.json({ success: true, result });
+        
+        // Convert conversationHistory string to messages array format expected by service
+        const messages = [];
+        if (conversationHistory && typeof conversationHistory === 'string') {
+          // Split conversation and create alternating user/assistant messages
+          const lines = conversationHistory.split('\n').filter(line => line.trim());
+          lines.forEach((line, index) => {
+            messages.push({
+              role: index % 2 === 0 ? 'user' : 'assistant',
+              content: line.trim()
+            });
+          });
+        }
+        
+        const result = await this.handleAnalyzeConversation({ messages, userId });
+        
+        // Extract the actual data from the MCP response structure
+        const responseData = result.content?.[0]?.text ? 
+          JSON.parse(result.content[0].text) : 
+          { success: false, error: 'Invalid response format' };
+        
+        res.json(responseData);
       } catch (error) {
         Logger.error('HTTP analyze error', error);
-        res.status(500).json({ 
-          success: false, 
-          error: error.message 
-        });
+        res.status(500).json({ success: false, error: error.message });
       }
     });
 
@@ -949,13 +964,34 @@ class OffScriptMCPServer {
           experience: context.experience || 'intermediate', 
           location: context.location || 'UK' 
         });
-        res.json({ success: true, result });
+        
+        // Extract the actual data from the MCP response structure
+        const responseData = result.content?.[0]?.text ? 
+          JSON.parse(result.content[0].text) : 
+          { success: false, error: 'Invalid response format' };
+        
+        // Transform the response to match what the frontend expects
+        if (responseData.success && responseData.insights) {
+          res.json({
+            success: true,
+            careerCards: responseData.insights.map(insight => ({
+              id: `card_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              title: insight.roles?.[0] || insight.field,
+              description: `${insight.field} professional focusing on ${insight.skills?.slice(0, 2).join(' and ') || 'key skills'}`,
+              salaryRange: `${insight.salaryData?.entry || '£25,000'} - ${insight.salaryData?.senior || '£65,000+'}`,
+              skillsRequired: insight.skills || [],
+              trainingPathway: insight.pathways?.[0] || 'Professional development pathway',
+              nextSteps: insight.nextSteps || [],
+              marketOutlook: insight.marketOutlook?.growth || 'Positive',
+              source: 'mcp_analysis'
+            }))
+          });
+        } else {
+          res.json(responseData);
+        }
       } catch (error) {
         Logger.error('HTTP insights error', error);
-        res.status(500).json({ 
-          success: false, 
-          error: error.message 
-        });
+        res.status(500).json({ success: false, error: error.message });
       }
     });
 
