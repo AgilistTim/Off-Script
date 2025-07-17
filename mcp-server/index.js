@@ -688,7 +688,12 @@ class OffScriptMCPServer {
     
     // Enable CORS
     this.httpApp.use(cors({
-      origin: ['http://localhost:5173', 'http://localhost:5174', 'http://localhost:3000'],
+      origin: [
+        'http://localhost:5173', 
+        'http://localhost:5174', 
+        'http://localhost:3000',
+        'https://off-script-elevenlabs-preview.onrender.com'
+      ],
       credentials: true
     }));
 
