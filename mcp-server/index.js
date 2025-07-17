@@ -944,7 +944,11 @@ class OffScriptMCPServer {
     this.httpApp.post('/mcp/insights', async (req, res) => {
       try {
         const { interests, userId = 'anonymous', context = {} } = req.body;
-        const result = await this.generateCareerInsights(interests, userId, context);
+        const result = await this.handleGenerateCareerInsights({ 
+          interests, 
+          experience: context.experience || 'intermediate', 
+          location: context.location || 'UK' 
+        });
         res.json({ success: true, result });
       } catch (error) {
         Logger.error('HTTP insights error', error);
