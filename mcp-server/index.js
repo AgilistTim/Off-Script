@@ -921,8 +921,10 @@ class OffScriptMCPServer {
     // Analyze conversation endpoint
     this.httpApp.post('/mcp/analyze', async (req, res) => {
       try {
-        const { messages, userId = 'anonymous' } = req.body;
-        const result = await this.analyzeConversation(messages, userId);
+        const { conversationHistory, userId = 'anonymous', triggerReason } = req.body;
+        // Convert conversationHistory string to messages array
+        const messages = conversationHistory ? [conversationHistory] : [];
+        const result = await ConversationAnalysisService.analyzeConversation(messages, { userId });
         res.json({ success: true, result });
       } catch (error) {
         Logger.error('HTTP analyze error', error);
