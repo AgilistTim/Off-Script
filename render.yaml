@@ -31,6 +31,10 @@ services:
         sync: false
       - key: VITE_OPENAI_ASSISTANT_URL
         sync: false
+      - key: VITE_ELEVENLABS_API_KEY
+        sync: false
+      - key: VITE_ELEVENLABS_AGENT_ID
+        sync: false
 
   - type: web
     name: off-script-mcp-elevenlabs
