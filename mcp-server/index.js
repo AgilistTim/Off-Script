@@ -238,7 +238,7 @@ class ConversationAnalysisService {
         textLength: conversationText.length
       });
 
-      const completion = await openai.beta.chat.completions.parse({
+      const completion = await openai.chat.completions.parse({
         model: 'gpt-4o-2024-08-06',
         messages: [
           {
@@ -304,7 +304,7 @@ Extract:
 
       Logger.debug(`Generating career card for: ${interest.interest}`);
 
-      const completion = await openai.beta.chat.completions.parse({
+      const completion = await openai.chat.completions.parse({
         model: 'gpt-4o-2024-08-06',
         messages: [
           {
@@ -399,7 +399,7 @@ class CareerInsightsService {
 
       Logger.debug(`Generating insight for field: ${interest}`);
 
-      const completion = await openai.beta.chat.completions.parse({
+      const completion = await openai.chat.completions.parse({
         model: 'gpt-4o-2024-08-06',
         messages: [
           {
