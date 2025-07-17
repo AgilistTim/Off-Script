@@ -1,7 +1,9 @@
 services:
   - type: web
-    name: off-script
+    name: off-script-elevenlabs-preview
     env: docker
+    repo: https://github.com/AgilistTim/Off-Script.git
+    branch: elevenlabs-voice-ai-integration
     buildCommand: docker build -t off-script .
     startCommand: docker run -p $PORT:80 off-script
     healthCheckPath: /api/openai/healthCheck
@@ -36,8 +38,10 @@ services:
         sync: false
 
   - type: web
-    name: off-script-mcp
+    name: off-script-mcp-elevenlabs
     env: node
+    repo: https://github.com/AgilistTim/Off-Script.git
+    branch: elevenlabs-voice-ai-integration
     buildCommand: cd mcp-server && npm install
     startCommand: cd mcp-server && node index.js
     healthCheckPath: /mcp/health
