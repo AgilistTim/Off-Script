@@ -1058,10 +1058,13 @@ class OffScriptMCPServer {
       }
     });
 
-    const port = process.env.MCP_HTTP_PORT || 3001;
-    this.httpApp.listen(port, '127.0.0.1', () => {
-      Logger.info(`MCP HTTP server running on http://127.0.0.1:${port}`);
-      Logger.info(`MCP endpoint available at: http://127.0.0.1:${port}/mcp`);
+    const port = process.env.PORT || process.env.MCP_HTTP_PORT || 3001;
+    const host = process.env.NODE_ENV === 'production' ? '0.0.0.0' : '127.0.0.1';
+    
+    this.httpApp.listen(port, host, () => {
+      Logger.info(`MCP HTTP server running on http://${host}:${port}`);
+      Logger.info(`MCP endpoint available at: http://${host}:${port}/mcp`);
+      Logger.info(`Environment: ${process.env.NODE_ENV || 'development'}`);
     });
   }
 
