@@ -219,39 +219,74 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     onMessage: (message: any) => {
       console.log('📝 Message received:', message);
       console.log('📝 Message keys:', Object.keys(message || {}));
-      console.log('📝 Message source:', message?.source);
+      console.log('📝 Message type:', message?.type);
       
-      // Track conversation history for MCP context
-      // Extract message content - prioritize the 'message' property as per ElevenLabs types
-      const content = message?.message || (message as any)?.text || (message as any)?.content;
+      let content: string | null = null;
+      let role: 'user' | 'assistant' | null = null;
       
-      console.log('📝 Extracted content:', content);
-      console.log('📝 Content type:', typeof content);
-      console.log('📝 Content length:', content?.length);
+      // Handle ElevenLabs message events based on documentation
+      if (message?.type === 'user_transcript' && message?.user_transcription_event) {
+        content = message.user_transcription_event.user_transcript;
+        role = 'user';
+        console.log('📝 User transcript:', content);
+      } else if (message?.type === 'agent_response' && message?.agent_response_event) {
+        content = message.agent_response_event.agent_response;
+        role = 'assistant';
+        console.log('📝 Agent response:', content);
+      } else if (message?.type === 'conversation_initiation_metadata') {
+        console.log('📝 Conversation initialized:', message.conversation_initiation_metadata_event);
+        // Don't add to conversation history
+        return;
+      } else if (message?.type === 'ping') {
+        // Don't add ping events to conversation history
+        return;
+      } else {
+        // Fallback for other message formats (try legacy approach)
+        content = message?.message || (message as any)?.text || (message as any)?.content;
+        role = message?.source === 'user' ? 'user' : 'assistant';
+        console.log('📝 Fallback content extraction:', { content, role, source: message?.source });
+      }
       
-      if (content && typeof content === 'string' && content.trim().length > 0) {
-        // Determine role based on message source
-        const role: 'user' | 'assistant' = message?.source === 'user' ? 'user' : 'assistant';
+      console.log('📝 Final extracted:', { content, role, type: typeof content, length: content?.length });
+      
+      if (content && typeof content === 'string' && content.trim().length > 0 && role) {
         setConversationHistory(prev => {
-          const updated = [...prev, { role, content: content.trim() }];
+          const updated = [...prev, { role: role as 'user' | 'assistant', content: content.trim() }];
           console.log('✅ Added to conversation history. New length:', updated.length);
+          console.log('✅ Updated history:', updated.map(msg => ({ role: msg.role, preview: msg.content.substring(0, 30) + '...' })));
           return updated;
         });
         console.log('✅ Added to conversation history:', { role, content: content.substring(0, 50) + '...' });
       } else {
-        console.warn('⚠️ Could not extract content from message:', message);
-        console.warn('⚠️ Content value:', content);
+        console.warn('⚠️ Could not extract valid content from message:', { 
+          messageType: message?.type, 
+          content, 
+          role,
+          fullMessage: message 
+        });
       }
     },
     onError: (error) => {
       console.error('❌ ElevenLabs error:', error);
     },
     onUserTranscriptReceived: (transcript: string) => {
-      console.log('🎤 User transcript received:', transcript);
+      console.log('🎤 User transcript received via onUserTranscriptReceived:', transcript);
       
       // Add user voice input to conversation history
       if (transcript && transcript.trim().length > 0) {
-        setConversationHistory(prev => [...prev, { role: 'user', content: transcript.trim() }]);
+        setConversationHistory(prev => {
+          // Check if this transcript is already in history (to avoid duplicates)
+          const lastMessage = prev[prev.length - 1];
+          if (lastMessage?.role === 'user' && lastMessage?.content === transcript.trim()) {
+            console.log('🎤 Transcript already in history, skipping duplicate');
+            return prev;
+          }
+          
+          const updated = [...prev, { role: 'user' as const, content: transcript.trim() }];
+          console.log('✅ Added user voice input to conversation history. New length:', updated.length);
+          console.log('✅ Updated history via onUserTranscriptReceived:', updated.map(msg => ({ role: msg.role, preview: msg.content.substring(0, 30) + '...' })));
+          return updated;
+        });
         console.log('✅ Added user voice input to conversation history:', transcript.substring(0, 50) + '...');
       }
     }
