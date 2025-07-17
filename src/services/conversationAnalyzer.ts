@@ -121,7 +121,7 @@ export class ConversationAnalyzer {
     try {
       // Use structured output with Zod for reliable parsing
       // @ts-ignore - parse() is available at runtime but not yet in typings
-      const completion = await (openai as any).chat.completions.parse({
+      const completion = await (openai as any).beta.chat.completions.parse({
         model: 'gpt-4o-2024-08-06', // Latest model as recommended by Context7
         messages: [
           {
