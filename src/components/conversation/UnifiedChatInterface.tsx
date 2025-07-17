@@ -14,6 +14,10 @@ import TypingIndicator from './TypingIndicator';
 import PersonaDetector, { UserPersona } from './PersonaDetector';
 import { InsightsCarousel } from './InsightsCarousel';
 import { CareerDetailsModal } from '../ui/career-details-modal';
+import { ElevenLabsConversation } from './ElevenLabsConversation';
+
+// MCP Enhancement: Import MCP bridge service for enhanced analysis
+// import { mcpBridgeService } from '../../services/mcpBridgeService';
 
 export interface UnifiedMessage {
   id: string;
@@ -111,7 +115,32 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
   // State management
   const [messages, setMessages] = useState<UnifiedMessage[]>([]);
   const [inputValue, setInputValue] = useState('');
-  const [inputMode, setInputMode] = useState<InputMode>('text');
+  // Default to ElevenLabs mode if configured, otherwise text
+  const getInitialInputMode = (): InputMode => {
+    const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
+    const agentId = import.meta.env.VITE_ELEVENLABS_AGENT_ID;
+    
+    // Check ElevenLabs configuration
+    
+          if (apiKey && agentId && 
+          apiKey !== 'your_elevenlabs_api_key_here' && 
+          agentId !== 'your_elevenlabs_agent_id_here') {
+        return 'elevenlabs';
+      }
+      return 'text';
+  };
+  
+  const [inputMode, setInputMode] = useState<InputMode>(getInitialInputMode());
+  
+  // Debug input mode
+  console.log('🎮 UnifiedChatInterface inputMode:', inputMode);
+  
+  // Track when ElevenLabs mode is activated
+  useEffect(() => {
+    if (inputMode === 'elevenlabs') {
+      console.log('🟦 ElevenLabs mode activated - component should render');
+    }
+  }, [inputMode]);
   const [isTyping, setIsTyping] = useState(false);
   const [showModeSelector, setShowModeSelector] = useState(false);
   
@@ -256,7 +285,7 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
   // Set initial greeting based on persona and trigger quick value (within 8 seconds)
   useEffect(() => {
     // Initialize conversation analyzer on component mount
-    console.log('UnifiedChatInterface initialized with conversation analyzer');
+    // Initialize conversation analyzer for enhanced insights
   }, [userPersona.type, messages.length]);
 
   // Auto-start ElevenLabs conversation when in ElevenLabs mode
@@ -311,6 +340,32 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
   // Analyze user message for career insights and generate cards
   const analyzeUserMessage = useCallback(async (userMessage: string) => {
     try {
+      // MCP Enhancement: Option to use enhanced analysis
+      // To enable MCP-enhanced analysis, set VITE_ENABLE_MCP_ENHANCEMENT=true in .env
+      /*
+      if (import.meta.env.VITE_ENABLE_MCP_ENHANCEMENT === 'true') {
+        const allMessages = [...messages, { role: 'user' as const, content: userMessage }];
+        const mcpInterests = await conversationAnalyzer.analyzeConversationWithMCP(
+          allMessages, 
+          currentUser?.uid
+        );
+        
+        if (mcpInterests.length > 0) {
+          const mcpCareerCards = await conversationAnalyzer.generateCareerCardsWithMCP(
+            mcpInterests, 
+            currentUser?.uid
+          );
+          
+          if (mcpCareerCards.length > 0) {
+            console.log(`🚀 Generated ${mcpCareerCards.length} MCP-enhanced career cards`);
+            setCareerCards(prev => [...prev, ...mcpCareerCards]);
+            return; // Use MCP results
+          }
+        }
+      }
+      */
+      
+      // Standard conversation analysis (default behavior)
       const result = await conversationAnalyzer.processConversationForInsights(
         userMessage,
         conversationHistory
@@ -620,29 +675,112 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
         </div>
       </div>
 
-      {/* Insights Carousel - appears at top when available */}
+      {/* Career Cards Display - Real-time Insights */}
       {careerCards.length > 0 && (
-        <div className="px-4 py-2">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-          >
-            <InsightsCarousel
-              insights={careerCards.map(card => convertCardToCareerInsight(card))}
-              onInsightClick={(insight) => {
-                const card = careerCards.find(c => c.id === insight.id);
-                if (card) handleQuickInsightAction(card);
-              }}
-              onActionClick={(insight) => {
-                const card = careerCards.find(c => c.id === insight.id);
-                if (card) handleQuickInsightAction(card);
-              }}
-              autoPlay={true}
-              autoPlayInterval={15000}
-            />
-          </motion.div>
-        </div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-4 mb-4"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-semibold text-gray-800 flex items-center">
+              🎯 Your Career Insights
+              <span className="ml-2 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                {careerCards.length} insights
+              </span>
+            </h3>
+            {careerCards.length > 3 && (
+              <button 
+                className="text-sm text-blue-600 hover:text-blue-800"
+                onClick={() => {/* TODO: Show all cards modal */}}
+              >
+                View All
+              </button>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-96 overflow-y-auto">
+            {careerCards.slice(-6).map((card, index) => (
+              <motion.div
+                key={card.id}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ delay: index * 0.1 }}
+                className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+                onClick={() => {
+                  setSelectedCareerCard(card);
+                  setIsModalOpen(true);
+                }}
+              >
+                <div className="flex items-start justify-between mb-2">
+                  <h4 className="font-medium text-gray-900 text-sm leading-tight">
+                    {card.title}
+                  </h4>
+                  <div className="flex items-center ml-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-xs text-gray-500 ml-1">New</span>
+                  </div>
+                </div>
+                
+                <p className="text-gray-600 text-xs mb-3 line-clamp-2">
+                  {card.description}
+                </p>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-500">Salary Range</span>
+                    <span className="text-xs font-medium text-green-600">
+                      {typeof card.averageSalary === 'object' 
+                        ? `${card.averageSalary.entry} - ${card.averageSalary.senior}`
+                        : card.averageSalary}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-xs text-gray-500">Match Score</span>
+                    <div className="flex items-center">
+                      <div className="w-12 h-1.5 bg-gray-200 rounded-full mr-1">
+                        <div 
+                          className="h-full bg-blue-500 rounded-full"
+                          style={{ width: `${(card.confidence || 0.8) * 100}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-xs text-gray-600">
+                        {Math.round((card.confidence || 0.8) * 100)}%
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="mt-3 pt-2 border-t border-gray-100">
+                  <div className="flex flex-wrap gap-1">
+                    {card.keySkills?.slice(0, 2).map((skill, skillIndex) => (
+                      <span 
+                        key={skillIndex}
+                        className="text-xs bg-blue-50 text-blue-700 px-2 py-0.5 rounded"
+                      >
+                        {skill}
+                      </span>
+                    ))}
+                    {card.keySkills && card.keySkills.length > 2 && (
+                      <span className="text-xs text-gray-500">
+                        +{card.keySkills.length - 2} more
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+          
+          {careerCards.length > 0 && (
+            <div className="mt-3 text-center">
+              <p className="text-xs text-gray-500">
+                💡 Cards update automatically as we learn more about your interests
+              </p>
+            </div>
+          )}
+        </motion.div>
       )}
 
       {/* Messages container */}
@@ -717,83 +855,105 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
         )}
         
         {inputMode === 'elevenlabs' && (
-          <div className="flex items-center justify-center">
-            <div className="text-center">
-              <div className="text-sm text-gray-600 mb-2">
-                {elevenLabsConnected 
-                  ? 'Speak naturally - no need to press any buttons' 
-                  : 'Connecting to voice AI...'}
-              </div>
-              {elevenLabsConnected && (
-                <motion.div
-                  className="w-16 h-16 mx-auto bg-blue-100 rounded-full flex items-center justify-center"
-                  animate={{ scale: agentMode === 'listening' ? [1, 1.1, 1] : 1 }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <Mic className={`w-8 h-8 ${agentMode === 'listening' ? 'text-blue-600' : 'text-gray-400'}`} />
-                </motion.div>
-              )}
-            </div>
-          </div>
+          <ElevenLabsConversation
+            userPersona={userPersona}
+            onPersonaUpdate={onPersonaUpdate}
+            onMessageSent={(message) => {
+              onMessageSent?.(message);
+              // Add message to unified interface
+              const unifiedMessage: UnifiedMessage = {
+                id: `elevenlabs-assistant-${Date.now()}`,
+                content: message,
+                role: 'assistant',
+                timestamp: new Date(),
+                metadata: {
+                  source: 'elevenlabs',
+                  voiceGenerated: true,
+                  personaType: userPersona.type
+                }
+              };
+              addMessage(unifiedMessage);
+            }}
+            onVoiceInput={(transcript) => {
+              onVoiceInput?.(transcript);
+              // Add user voice input to unified interface
+              const userMessage: UnifiedMessage = {
+                id: `elevenlabs-user-${Date.now()}`,
+                content: transcript,
+                role: 'user',
+                timestamp: new Date(),
+                metadata: {
+                  source: 'elevenlabs',
+                  voiceGenerated: true
+                }
+              };
+              addMessage(userMessage);
+            }}
+            onCareerCardsGenerated={(cards) => {
+              console.log('🎯 Received career cards from ElevenLabs:', cards.length);
+              setCareerCards(prev => [...prev, ...cards]);
+            }}
+            className="flex-1"
+          />
         )}
       </div>
 
-             {/* Persona detector (hidden but active) */}
-       <PersonaDetector
-         userMessages={messages.filter(m => m.role === 'user').map(m => ({
-           content: m.content,
-           timestamp: m.timestamp.getTime(),
-           timeToRespond: 5000,
-           wordCount: m.content.split(' ').length
-         }))}
-         engagementMetrics={{
-           timeOnPage: Date.now() - messages[0]?.timestamp.getTime() || 0,
-           clicksPerMinute: 0,
-           scrollBehavior: 'moderate',
-           abandonmentRisk: 0
-         }}
-         onPersonaDetected={(persona: UserPersona) => {
-           if (onPersonaUpdate) {
-             onPersonaUpdate(persona);
-           }
-                  }}
-       />
+      {/* Persona detector (hidden but active) */}
+      <PersonaDetector
+        userMessages={messages.filter(m => m.role === 'user').map(m => ({
+          content: m.content,
+          timestamp: m.timestamp.getTime(),
+          timeToRespond: 5000,
+          wordCount: m.content.split(' ').length
+        }))}
+        engagementMetrics={{
+          timeOnPage: Date.now() - messages[0]?.timestamp.getTime() || 0,
+          clicksPerMinute: 0,
+          scrollBehavior: 'moderate',
+          abandonmentRisk: 0
+        }}
+        onPersonaDetected={(persona: UserPersona) => {
+          if (onPersonaUpdate) {
+            onPersonaUpdate(persona);
+          }
+        }}
+      />
 
-       {/* Registration Prompt */}
-       {showRegistrationPrompt && !currentUser && (
-         <motion.div
-           initial={{ opacity: 0, y: -50 }}
-           animate={{ opacity: 1, y: 0 }}
-           exit={{ opacity: 0, y: -50 }}
-           className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-r from-blue-500 to-purple-600 text-white p-3 mx-4 mt-4 rounded-lg shadow-lg"
-         >
-           <div className="flex items-center justify-between">
-             <div className="flex-1">
-               <p className="text-sm font-medium">
-                 🎉 Great conversation! Create a free account to save your progress and get personalized guidance.
-               </p>
-             </div>
-             <div className="flex items-center space-x-2 ml-4">
-               <button
-                 onClick={() => {
-                   // TODO: Navigate to registration page
-                   console.log('Navigate to registration');
-                 }}
-                 className="px-3 py-1 bg-white text-blue-600 text-xs font-medium rounded hover:bg-gray-100 transition-colors"
-               >
-                 Sign Up Free
-               </button>
-               <button
-                 onClick={() => setShowRegistrationPrompt(false)}
-                 className="p-1 text-white/80 hover:text-white rounded transition-colors"
-                 aria-label="Close"
-               >
-                 ×
-               </button>
-             </div>
-           </div>
-         </motion.div>
-       )}
+      {/* Registration Prompt */}
+      {showRegistrationPrompt && !currentUser && (
+        <motion.div
+          initial={{ opacity: 0, y: -50 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -50 }}
+          className="absolute top-0 left-0 right-0 z-10 bg-gradient-to-r from-blue-500 to-purple-600 text-white p-3 mx-4 mt-4 rounded-lg shadow-lg"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <p className="text-sm font-medium">
+                🎉 Great conversation! Create a free account to save your progress and get personalized guidance.
+              </p>
+            </div>
+            <div className="flex items-center space-x-2 ml-4">
+              <button
+                onClick={() => {
+                  // TODO: Navigate to registration page
+                  console.log('Navigate to registration');
+                }}
+                className="px-3 py-1 bg-white text-blue-600 text-xs font-medium rounded hover:bg-gray-100 transition-colors"
+              >
+                Sign Up Free
+              </button>
+              <button
+                onClick={() => setShowRegistrationPrompt(false)}
+                className="p-1 text-white/80 hover:text-white rounded transition-colors"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </motion.div>
+      )}
 
       {/* Loading Overlay for Card Details */}
       <AnimatePresence>

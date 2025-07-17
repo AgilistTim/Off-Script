@@ -2,6 +2,7 @@
 import OpenAI from 'openai';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
+import { mcpBridgeService, MCPMessage, MCPAnalysisResult } from './mcpBridgeService';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -94,9 +95,12 @@ export interface CareerCardData {
 
 export class ConversationAnalyzer {
   private profile: CareerProfile;
+  private useMCPEnhancement: boolean;
 
   constructor() {
     this.profile = this.createProfile();
+    // Enable MCP enhancement if available and configured
+    this.useMCPEnhancement = import.meta.env.VITE_ENABLE_MCP_ENHANCEMENT === 'true';
   }
 
   createProfile(): CareerProfile {
@@ -297,12 +301,134 @@ export class ConversationAnalyzer {
     return "Career exploration summary based on conversation analysis.";
   }
 
-  getRegistrationReadiness(): number {
-    return this.profile.totalInsights >= 3 ? 0.8 : 0.3;
+  getRegistrationReadiness(): { score: number; reasons: string[] } {
+    const score = this.profile.totalInsights >= 3 ? 0.8 : 0.3;
+    const reasons = this.profile.totalInsights >= 3 
+      ? ['Sufficient career insights discovered', 'Good engagement level', 'Ready for personalized recommendations']
+      : ['Building career profile', 'Discovering interests', 'Continue exploring'];
+    return { score, reasons };
   }
 
   shouldTriggerRegistration(): boolean {
     return this.profile.totalInsights >= 3;
+  }
+
+  /**
+   * Enhanced conversation analysis that optionally uses MCP server
+   */
+  async analyzeConversationWithMCP(
+    messages: { role: 'user' | 'assistant'; content: string }[],
+    userId?: string
+  ): Promise<ConversationInterest[]> {
+    if (this.useMCPEnhancement && mcpBridgeService.isServerConnected()) {
+      try {
+        console.log('🔬 Using MCP-enhanced conversation analysis');
+        
+        // Convert messages to MCP format
+        const mcpMessages: MCPMessage[] = messages.map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }));
+
+        // Analyze with MCP server
+        const mcpResult: MCPAnalysisResult = await mcpBridgeService.analyzeConversation(mcpMessages, userId);
+        
+        if (mcpResult.success && mcpResult.analysis) {
+          // Convert MCP results to ConversationInterest format
+          const interests: ConversationInterest[] = mcpResult.analysis.detectedInterests.map((interest, index) => ({
+            interest,
+            context: `Detected from MCP conversation analysis`,
+            confidence: mcpResult.analysis!.confidence,
+            extractedTerms: [interest.toLowerCase().replace(/[^a-z0-9]/g, '')]
+          }));
+
+          console.log('✅ MCP analysis completed', {
+            interestsFound: interests.length,
+            confidence: mcpResult.analysis.confidence,
+            careerCards: mcpResult.analysis.careerCards?.length || 0
+          });
+
+          return interests;
+        } else {
+          console.warn('⚠️ MCP analysis failed, falling back to standard analysis:', mcpResult.error);
+        }
+      } catch (error) {
+        console.warn('⚠️ MCP analysis error, falling back to standard analysis:', error);
+      }
+    }
+
+    // Fallback to standard analysis
+    console.log('🔬 Using standard conversation analysis');
+    return await this.analyzeStandardConversation(messages, userId);
+  }
+
+  /**
+   * Standard analysis method (existing functionality)
+   */
+  private async analyzeStandardConversation(
+    messages: { role: 'user' | 'assistant'; content: string }[],
+    userId?: string
+  ): Promise<ConversationInterest[]> {
+    const userMessages = messages
+      .filter(msg => msg.role === 'user')
+      .map(msg => msg.content);
+    
+    if (userMessages.length === 0) return [];
+    
+    const latestMessage = userMessages[userMessages.length - 1];
+    return await this.analyzeMessage(latestMessage, userMessages.slice(0, -1));
+  }
+
+  /**
+   * Enhanced career card generation using MCP if available
+   */
+  async generateCareerCardsWithMCP(interests: ConversationInterest[], userId?: string): Promise<CareerCardData[]> {
+    if (this.useMCPEnhancement && mcpBridgeService.isServerConnected() && interests.length > 0) {
+      try {
+        console.log('🎯 Using MCP-enhanced career insights generation');
+        
+        const interestNames = interests.map(i => i.interest);
+        const mcpResult = await mcpBridgeService.generateCareerInsights(interestNames);
+        
+        if (mcpResult.success && mcpResult.insights) {
+          // Convert MCP insights to CareerCardData format
+          const careerCards: CareerCardData[] = mcpResult.insights.map((insight, index) => ({
+            id: `mcp-card-${Date.now()}-${index}`,
+            title: `${insight.field} Career Path`,
+            description: `Explore opportunities in ${insight.field}`,
+            industry: insight.field,
+            averageSalary: insight.salaryData,
+            growthOutlook: insight.marketOutlook.growth,
+            entryRequirements: insight.pathways.slice(0, 3),
+            trainingPathways: insight.pathways,
+            keySkills: insight.skills,
+            workEnvironment: `${insight.marketOutlook.demand} with ${insight.marketOutlook.competition}`,
+            nextSteps: insight.nextSteps,
+            location: 'UK',
+            confidence: 0.9, // High confidence from MCP server
+            sourceData: insight.field
+          }));
+
+          console.log('✅ MCP career cards generated', { cardsCreated: careerCards.length });
+          return careerCards;
+        }
+      } catch (error) {
+        console.warn('⚠️ MCP career cards generation failed, using fallback:', error);
+      }
+    }
+
+    // Fallback to standard generation
+    console.log('🎯 Using standard career card generation');
+    const careerCards: CareerCardData[] = [];
+    
+    for (const interest of interests) {
+      if (interest.confidence > 0.7) {
+        const card = await this.generateCareerCard(interest.interest, interest.context);
+        if (card) careerCards.push(card);
+      }
+    }
+    
+    return careerCards;
   }
 
   reset(): void {

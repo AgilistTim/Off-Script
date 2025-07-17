@@ -3,8 +3,9 @@ import { useConversation } from '@elevenlabs/react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { UserPersona } from './PersonaDetector';
 import { useAuth } from '../../context/AuthContext';
-import { CareerInsight } from '../../services/conversationAnalyzer';
+import { CareerInsight, conversationAnalyzer, CareerCardData } from '../../services/conversationAnalyzer';
 import { EnhancedCareerProfile } from '../../services/careerProfileBuilder';
+import { mcpBridgeService } from '../../services/mcpBridgeService';
 
 export interface ElevenLabsConversationProps {
   onMessageSent?: (message: string) => void;
@@ -17,6 +18,7 @@ export interface ElevenLabsConversationProps {
   onInsightDiscovered?: (insight: CareerInsight) => void;
   onProfileUpdate?: (profile: EnhancedCareerProfile) => void;
   onRegistrationPrompt?: () => void;
+  onCareerCardsGenerated?: (cards: CareerCardData[]) => void; // New prop for career cards
 }
 
 // Persona-specific agent configurations
@@ -58,10 +60,13 @@ const PERSONA_AGENT_CONFIGS = {
   }
 };
 
-// Persona-specific client tools for dynamic UI updates
+// Enhanced persona-specific client tools with MCP integration
 const createPersonaTools = (
   onPersonaUpdate?: (persona: UserPersona) => void,
-  onInsightDiscovered?: (insight: CareerInsight) => void
+  onInsightDiscovered?: (insight: CareerInsight) => void,
+  onCareerCardsGenerated?: (cards: CareerCardData[]) => void,
+  conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [],
+  userId?: string
 ) => ({
   update_conversation_style: ({ style, confidence }: { style: string; confidence: number }) => {
     console.log(`Conversation style updated to: ${style} (confidence: ${confidence})`);
@@ -100,6 +105,122 @@ const createPersonaTools = (
   request_career_insight: ({ topic, urgency }: { topic: string; urgency: 'low' | 'medium' | 'high' }) => {
     console.log(`Career insight requested for: ${topic} (urgency: ${urgency})`);
     return `Providing career insight for ${topic}`;
+  },
+
+  // MCP-Enhanced Tools
+  analyze_conversation_for_careers: async ({ trigger_reason }: { trigger_reason?: string }) => {
+    console.log('🔬 Triggering MCP conversation analysis...', { trigger_reason });
+    
+    try {
+      if (conversationHistory.length < 2) {
+        return 'Need more conversation history for meaningful analysis';
+      }
+
+      // Use MCP-enhanced conversation analysis
+      const mcpInterests = await conversationAnalyzer.analyzeConversationWithMCP(
+        conversationHistory, 
+        userId
+      );
+      
+      if (mcpInterests.length > 0) {
+        console.log('✅ MCP detected interests:', mcpInterests.map(i => i.interest));
+        
+        // Generate career cards using MCP
+        const careerCards = await conversationAnalyzer.generateCareerCardsWithMCP(
+          mcpInterests, 
+          userId
+        );
+        
+        if (careerCards.length > 0 && onCareerCardsGenerated) {
+          onCareerCardsGenerated(careerCards);
+          console.log('🎯 Generated MCP career cards:', careerCards.length);
+          
+          return `Generated ${careerCards.length} personalized career insights: ${careerCards.map(c => c.title).join(', ')}`;
+        }
+      }
+      
+      return 'Analyzed conversation - building your personalized career profile';
+    } catch (error) {
+      console.error('❌ MCP analysis failed:', error);
+      return 'Analysis in progress - more insights coming soon';
+    }
+  },
+
+  generate_career_recommendations: async ({ interests, experience_level }: { 
+    interests: string[], 
+    experience_level?: string 
+  }) => {
+    console.log('🎯 Generating MCP career recommendations...', { interests, experience_level });
+    
+    try {
+      const mcpResult = await mcpBridgeService.generateCareerInsights(
+        interests,
+        experience_level || 'intermediate',
+        'UK'
+      );
+      
+      if (mcpResult.success && mcpResult.insights) {
+        const careerCards = mcpResult.insights.map((insight, index) => ({
+          id: `mcp-rec-${Date.now()}-${index}`,
+          title: `${insight.field} Career Path`,
+          description: `Professional opportunities in ${insight.field}`,
+          industry: insight.field,
+          averageSalary: insight.salaryData,
+          growthOutlook: insight.marketOutlook.growth,
+          entryRequirements: insight.pathways.slice(0, 3),
+          trainingPathways: insight.pathways,
+          keySkills: insight.skills,
+          workEnvironment: `${insight.marketOutlook.demand} market with ${insight.marketOutlook.competition} competition`,
+          nextSteps: insight.nextSteps,
+          location: 'UK',
+          confidence: 0.95,
+          sourceData: insight.field
+        }));
+        
+        if (careerCards.length > 0 && onCareerCardsGenerated) {
+          onCareerCardsGenerated(careerCards);
+          return `Created ${careerCards.length} detailed career recommendations with salary data and next steps`;
+        }
+      }
+      
+      return 'Career recommendations generated - check your personalized insights';
+    } catch (error) {
+      console.error('❌ MCP recommendations failed:', error);
+      return 'Working on your recommendations - insights coming soon';
+    }
+  },
+
+  trigger_instant_insights: async ({ user_message }: { user_message: string }) => {
+    console.log('⚡ Triggering instant insights for message:', user_message);
+    
+    try {
+      // Create a quick analysis with the latest message
+      const quickAnalysis = [...conversationHistory, { role: 'user' as const, content: user_message }];
+      
+      if (import.meta.env.VITE_ENABLE_MCP_ENHANCEMENT === 'true') {
+        const mcpInterests = await conversationAnalyzer.analyzeConversationWithMCP(
+          quickAnalysis, 
+          userId
+        );
+        
+        if (mcpInterests.length > 0) {
+          const careerCards = await conversationAnalyzer.generateCareerCardsWithMCP(
+            mcpInterests, 
+            userId
+          );
+          
+          if (careerCards.length > 0 && onCareerCardsGenerated) {
+            onCareerCardsGenerated(careerCards);
+            return `Instant insight: Found ${mcpInterests.length} career interests - ${careerCards.length} opportunities created`;
+          }
+        }
+      }
+      
+      return 'Processing your interests - career insights loading';
+    } catch (error) {
+      console.error('❌ Instant insights failed:', error);
+      return 'Analyzing your message for career opportunities';
+    }
   },
 
   create_insight: ({ insight_type, user_interest }: { insight_type: string; user_interest: string }) => {
@@ -158,7 +279,8 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
   onPersonaUpdate,
   onInsightDiscovered,
   onProfileUpdate,
-  onRegistrationPrompt
+  onRegistrationPrompt,
+  onCareerCardsGenerated
 }) => {
   const { currentUser } = useAuth();
   const [conversationMessages, setConversationMessages] = useState<Array<{
@@ -170,12 +292,17 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
   
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [agentMode, setAgentMode] = useState<'listening' | 'speaking' | 'thinking'>('listening');
+  
+  // Track conversation history for MCP analysis
+  const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
 
   // Get persona-specific configuration
   const agentConfig = PERSONA_AGENT_CONFIGS[userPersona.type] || PERSONA_AGENT_CONFIGS.unknown;
 
-  // Create conversation using ElevenLabs React hook
+  // Create conversation using ElevenLabs React hook  
+  console.log('🎬 ElevenLabsConversation component mounting...');
   const conversation = useConversation({
+    apiKey: import.meta.env.VITE_ELEVENLABS_API_KEY,
     onConnect: () => {
       console.log('🟢 ===== ELEVENLABS CONNECTED =====');
       console.log('✅ ElevenLabs conversation connected - audio should be working');
@@ -205,6 +332,10 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
         
         console.log('✅ Adding assistant message to chat:', message.substring(0, 50) + '...');
         setConversationMessages(prev => [...prev, assistantMessage]);
+        
+        // Update conversation history for MCP analysis
+        setConversationHistory(prev => [...prev, { role: 'assistant', content: message }]);
+        
         onMessageSent?.(message);
       } else {
         console.warn('⚠️ Received invalid message format:', messageData);
@@ -231,6 +362,10 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
         };
         console.log('✅ Adding user message to chat:', transcript);
         setConversationMessages(prev => [...prev, userMessage]);
+        
+        // Update conversation history for MCP analysis
+        setConversationHistory(prev => [...prev, { role: 'user', content: transcript }]);
+        
         onVoiceInput?.(transcript);
       }
     },
@@ -277,17 +412,23 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
       const conversationId = await conversation.startSession({
         agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID || 'YOUR_AGENT_ID',
         
-        // Pass persona-specific configuration
+        // Pass persona-specific configuration (works for both auth and guest users)
         dynamicVariables: {
           ...agentConfig.dynamicVariables,
-          user_id: currentUser.uid,
-          user_name: currentUser.displayName || 'there',
+          user_id: currentUser?.uid || `guest_${Date.now()}`,
+          user_name: currentUser?.displayName || 'there',
           conversation_id: `conv_${Date.now()}`,
           platform: 'web'
         },
         
-        // Client-side tools for dynamic interaction
-        clientTools: createPersonaTools(onPersonaUpdate, onInsightDiscovered),
+        // Enhanced client-side tools with MCP integration
+        clientTools: createPersonaTools(
+          onPersonaUpdate, 
+          onInsightDiscovered, 
+          onCareerCardsGenerated,
+          conversationHistory,
+          currentUser?.uid || `guest_${Date.now()}`
+        ),
         
         // Override first message if provided
         ...(initialGreeting && { 
@@ -316,12 +457,50 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
     }
   }, [conversation, connectionStatus]);
 
-  // Auto-start conversation when component mounts and user is available
+  // Auto-start conversation when component mounts (no auth required)
   useEffect(() => {
-    if (currentUser && connectionStatus === 'disconnected') {
+    console.log('🔄 ElevenLabs useEffect running:', { connectionStatus });
+    if (connectionStatus === 'disconnected') {
+      console.log('✅ Starting conversation now...');
       startConversation();
+    } else {
+      console.log('⏳ Not starting - already connected or connecting');
     }
-  }, [currentUser, startConversation, connectionStatus]);
+  }, [startConversation, connectionStatus]);
+
+  // Auto-trigger MCP analysis when conversation reaches meaningful length
+  useEffect(() => {
+    const triggerAutoAnalysis = async () => {
+      if (conversationHistory.length >= 4 && conversationHistory.length % 4 === 0) {
+        console.log('🔄 Auto-triggering MCP analysis after', conversationHistory.length, 'messages');
+        
+        try {
+          if (import.meta.env.VITE_ENABLE_MCP_ENHANCEMENT === 'true') {
+            const mcpInterests = await conversationAnalyzer.analyzeConversationWithMCP(
+              conversationHistory, 
+              currentUser?.uid
+            );
+            
+            if (mcpInterests.length > 0) {
+              const careerCards = await conversationAnalyzer.generateCareerCardsWithMCP(
+                mcpInterests, 
+                currentUser?.uid
+              );
+              
+              if (careerCards.length > 0 && onCareerCardsGenerated) {
+                onCareerCardsGenerated(careerCards);
+                console.log('🎯 Auto-generated', careerCards.length, 'career cards');
+              }
+            }
+          }
+        } catch (error) {
+          console.warn('⚠️ Auto-analysis failed:', error);
+        }
+      }
+    };
+    
+    triggerAutoAnalysis();
+  }, [conversationHistory.length, currentUser?.uid, onCareerCardsGenerated]);
 
   // Handle quick actions
   const handleQuickAction = useCallback(async (action: string) => {

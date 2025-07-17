@@ -124,6 +124,9 @@ export interface InsightCardProps {
   confidence: number;
   onClick: () => void;
   className?: string;
+  type?: string;
+  onAction?: () => void;
+  isInteractive?: boolean;
 }
 
 export const InsightCard: React.FC<InsightCardProps> = ({
@@ -131,7 +134,9 @@ export const InsightCard: React.FC<InsightCardProps> = ({
   description,
   confidence,
   onClick,
-  className = ''
+  className = '',
+  onAction,
+  isInteractive = false
 }) => {
   return (
     <motion.div
@@ -141,7 +146,7 @@ export const InsightCard: React.FC<InsightCardProps> = ({
     >
       <Card
         className="p-4 cursor-pointer border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200"
-        onClick={onClick}
+        onClick={onAction || onClick}
       >
         <div className="flex items-start justify-between mb-2">
           <h4 className="text-sm font-semibold text-gray-900">{title}</h4>

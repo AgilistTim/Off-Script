@@ -1,175 +1,272 @@
-# Off-Script
+# Off Script - AI Career Coaching Platform
 
 A React application for discovering alternative UK career pathways without university debt.
 
-## Project Overview
+## Key Features
 
-Off-Script helps UK job seekers find alternative career pathways that don't require expensive university education. The application provides information on high-growth sectors, salary data, and practical guidance for entering various industries.
+- **🎙️ Voice AI Conversations**: Natural voice interactions with ElevenLabs Conversational AI
+- **🧠 Real-time Career Analysis**: MCP-enhanced conversation analysis for instant insights
+- **🎯 Smart Career Cards**: Automated generation of personalized UK career recommendations
+- **📊 Comprehensive Data**: Salary ranges, pathways, and market insights
+- **🔄 Intelligent Fallbacks**: Robust system that works even when advanced features are unavailable
 
-## Features
+## Architecture Overview
 
-- **Career Sector Exploration**: Technology & AI, Green Energy, Healthcare, FinTech, Skilled Trades, and Creative Industries
-- **AI Career Advisor**: Interactive chat interface for personalized career guidance
-- **Video Content**: Professional testimonials and career insights
-- **Course Recommendations**: Relevant training programs for different career paths
-- **User Authentication**: Email/password and Google Sign-In
-- **Admin Panel**: Content management and analytics
+### Voice + AI Integration
 
-## Technology Stack
+- **ElevenLabs Conversational AI**: Natural voice conversations with persona-aware responses
+- **MCP (Model Context Protocol)**: Advanced career analysis and insight generation
+- **Real-time UI Updates**: Career cards appear automatically during conversations
+- **Fallback Systems**: Multiple layers of reliability for consistent user experience
 
-- **Frontend**: React, TypeScript, Tailwind CSS, Vite
-- **Backend**: Firebase (Authentication, Firestore, Cloud Functions)
-- **Deployment**: Docker, Render
-- **APIs**: OpenAI, YouTube, Custom video analysis
+### Core Components
+
+1. **Conversation Interface**: Unified chat supporting text, voice, and ElevenLabs AI
+2. **MCP Server**: Standalone server providing enhanced career analysis tools
+3. **Bridge Service**: Browser-compatible service connecting UI to MCP server
+4. **Career Card System**: Real-time generation and display of career insights
 
 ## Quick Start
 
-### Prerequisites
+### 1. Basic Setup
+```bash
+git clone <repository-url>
+cd off-script
+npm install
+cp env.example .env
+```
 
-- Node.js 18+ and npm
-- Firebase account
-- Git
+### 2. Configure APIs
+Edit `.env` with your API keys:
+```bash
+# Firebase (required)
+VITE_FIREBASE_API_KEY=your-firebase-key
+VITE_FIREBASE_PROJECT_ID=your-project-id
 
-### Installation
+# OpenAI (required for MCP)
+VITE_OPENAI_API_KEY=your-openai-key
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/off-script.git
-   cd off-script
-   ```
+# ElevenLabs (for voice AI)
+VITE_ELEVENLABS_API_KEY=your-elevenlabs-key
+VITE_ELEVENLABS_AGENT_ID=your-agent-id
+```
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   cd functions && npm install && cd ..
-   ```
+### 3. Start Development
+```bash
+# Start main application
+npm run dev
 
-3. **Environment Setup**
-   
-   Copy the example environment file:
-   ```bash
-   cp env.example .env.local
-   ```
-   
-   Configure your `.env.local` with the following variables:
-   ```bash
-   # Firebase Configuration (Required)
-   VITE_FIREBASE_API_KEY=your_firebase_api_key
-   VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
-   VITE_FIREBASE_PROJECT_ID=your_project_id
-   VITE_FIREBASE_STORAGE_BUCKET=your_project.appspot.com
-   VITE_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
-   VITE_FIREBASE_APP_ID=your_app_id
-   
-   # Admin Account (Required for scripts)
-   ADMIN_EMAIL=admin@yourcompany.com
-   ADMIN_PASSWORD=your_secure_password
-   
-   # API Keys (Optional - for enhanced features)
-   VITE_YOUTUBE_API_KEY=your_youtube_api_key
-   VITE_BUMPUPS_API_KEY=your_bumpups_api_key
-   ```
+# Start MCP server (optional but recommended)
+npm run start:mcp
+```
 
-4. **Firebase Setup**
-   
-   Create a Firebase project at [console.firebase.google.com](https://console.firebase.google.com)
-   
-   Enable these services:
-   - Authentication (Email/Password and Google Sign-In)
-   - Firestore Database
-   - Cloud Functions
-   - Storage
+### 4. Test Voice + AI Integration
+1. Navigate to `http://localhost:5173`
+2. Click "Start Conversation"
+3. Talk about your career interests
+4. Watch career cards appear automatically!
 
-5. **Start Development**
-   ```bash
-   npm run dev
-   ```
-   
-   The app will be available at `http://localhost:5173`
+## ElevenLabs + MCP Integration
+
+### Features
+
+- **🚀 Enhanced Analysis**: AI-powered conversation analysis using OpenAI and MCP
+- **🎯 Smart Career Matching**: Real-time career recommendations based on voice input
+- **📊 UK-Specific Data**: Accurate salary ranges and pathways for UK careers
+- **🔄 Automatic Triggers**: Career analysis happens naturally during conversation
+- **🛡️ Fallback Support**: Works even without MCP server or with API failures
+
+### How It Works
+
+1. **User speaks** → ElevenLabs captures and transcribes
+2. **AI responds** → ElevenLabs agent generates contextual responses
+3. **Analysis triggers** → MCP server analyzes conversation for career interests
+4. **Cards generate** → UK-specific career recommendations appear in UI
+5. **Conversation continues** → AI references generated insights naturally
+
+### Setup Guides
+
+- **[ElevenLabs Setup Guide](ELEVENLABS_SETUP.md)**: Complete configuration with MCP tools
+- **[MCP Testing Guide](TEST_MCP_INTEGRATION.md)**: Comprehensive testing instructions
+
+## MCP (Model Context Protocol) Integration
+
+This project includes an optional MCP server integration for enhanced conversation analysis and career insights generation.
+
+### Features
+
+- **Enhanced Conversation Analysis**: Advanced AI-powered analysis of user conversations to detect career interests with higher accuracy
+- **Intelligent Career Card Generation**: Generates detailed, UK-specific career guidance cards with salary data, pathways, and next steps
+- **Fallback Support**: Automatically falls back to standard analysis if MCP server is unavailable
+- **Browser Compatible**: Works in browser environment with fallback modes for reliability
+
+### MCP Server
+
+The MCP server (`mcp-server/`) provides four main tools:
+
+1. **analyze_conversation** - Analyzes conversation messages for career interests
+2. **generate_career_insights** - Generates detailed career recommendations  
+3. **update_user_profile** - Updates user profile with career insights
+4. **get_user_preferences** - Retrieves user preferences for personalized responses
+
+### Configuration
+
+Add these environment variables to enable MCP features:
+
+```env
+# Enable MCP-enhanced conversation analysis (development feature)
+VITE_ENABLE_MCP_ENHANCEMENT=true
+
+# MCP Server URL for HTTP API mode
+VITE_MCP_SERVER_URL=http://localhost:3001/mcp
+
+# Force fallback mode for MCP bridge service
+VITE_MCP_FALLBACK_MODE=false
+
+# Enable MCP server auto-connection in development
+VITE_ENABLE_MCP_SERVER=true
+```
+
+### Running the MCP Server
+
+```bash
+# Install MCP server dependencies
+cd mcp-server && npm install
+
+# Start the MCP server
+npm start
+
+# Or run in development mode with auto-restart
+npm run dev
+```
+
+### Integration
+
+The main application can optionally use MCP-enhanced analysis:
+
+```typescript
+// Example usage in conversation analysis
+if (import.meta.env.VITE_ENABLE_MCP_ENHANCEMENT === 'true') {
+  const mcpInterests = await conversationAnalyzer.analyzeConversationWithMCP(
+    messages, 
+    userId
+  );
+  
+  const mcpCareerCards = await conversationAnalyzer.generateCareerCardsWithMCP(
+    mcpInterests, 
+    userId
+  );
+}
+```
+
+The system automatically falls back to standard analysis if MCP is not available.
+
+## User Experience Flow
+
+### Standard Voice Conversation
+```
+1. User clicks "Start Conversation"
+2. ElevenLabs AI speaks first with personalized greeting
+3. User responds naturally via voice
+4. AI provides career guidance and asks follow-up questions
+5. Career cards appear automatically based on detected interests
+6. Conversation continues with AI referencing generated insights
+```
+
+### Example Conversation
+```
+AI: "Hey there! I'm your AI career guide with real-time insights..."
+User: "I love working with computers and solving problems"
+AI: "That's exciting! Programming and tech can be really rewarding..."
+[Career cards appear: Software Developer, Data Analyst, Web Developer]
+AI: "I've just created some personalized career cards for you!"
+```
 
 ## Development
 
-### Available Scripts
-
-- `npm run dev` - Start development server
-- `npm run build` - Build for production
-- `npm run preview` - Preview production build
-- `npm test` - Run tests
-- `npm run lint` - Run ESLint
-
-### Firebase Functions
-
-Deploy functions:
-```bash
-cd functions
-npm run deploy
+### Project Structure
+```
+off-script/
+├── src/                          # Main React application
+│   ├── components/conversation/   # Voice and chat components
+│   ├── services/                 # MCP bridge and analysis services
+│   └── ...
+├── mcp-server/                   # Standalone MCP server
+│   ├── index.js                 # MCP server implementation
+│   └── package.json            # Server dependencies
+└── ELEVENLABS_SETUP.md         # Setup instructions
 ```
 
-### Database Setup
+### Key Services
+- **mcpBridgeService**: Browser-compatible interface to MCP server
+- **conversationAnalyzer**: Enhanced with MCP integration
+- **ElevenLabsConversation**: Voice AI component with MCP tools
 
-Populate initial data:
+### Testing
+Run the comprehensive test suite:
 ```bash
-node scripts/populateFirestore.js
-```
+# Follow the testing guide
+cat TEST_MCP_INTEGRATION.md
 
-Create admin user:
-```bash
-node scripts/ensureAdminUser.js
+# Test different scenarios
+npm run test
 ```
 
 ## Production Deployment
 
-### Docker Deployment
+### Standard Deployment
+Follow the existing deployment process for the main application.
 
-1. **Build and run locally:**
-   ```bash
-   docker-compose up --build
-   ```
+### MCP Server Deployment
+For full MCP functionality in production:
 
-2. **Deploy to Render:**
-   - Connect your GitHub repository
-   - Set environment variables in Render dashboard
-   - Deploy automatically on git push
+1. Deploy MCP server to your hosting platform
+2. Update `VITE_MCP_SERVER_URL` to point to deployed server
+3. Ensure OpenAI API key is configured
+4. Set `VITE_MCP_FALLBACK_MODE=false` for production
 
-### Environment Variables for Production
+### Environment Variables Checklist
+- [ ] Firebase configuration complete
+- [ ] OpenAI API key configured
+- [ ] ElevenLabs API key and Agent ID set
+- [ ] MCP enhancement enabled (`VITE_ENABLE_MCP_ENHANCEMENT=true`)
+- [ ] MCP server URL configured for production
+- [ ] All fallback modes tested and verified
 
-Set these in your deployment platform:
-- All `VITE_FIREBASE_*` variables
-- `ADMIN_EMAIL` and `ADMIN_PASSWORD`
-- Optional API keys for enhanced features
+## Troubleshooting
 
-## Project Structure
+### Common Issues
 
-```
-off-script/
-├── src/
-│   ├── components/        # React components
-│   ├── pages/            # Page components
-│   ├── services/         # API services
-│   ├── config/           # Configuration
-│   └── utils/            # Utilities
-├── functions/            # Firebase Cloud Functions
-├── scripts/              # Database and admin scripts
-├── public/               # Static assets
-└── docker/               # Docker configuration
+**No career cards appearing**:
+- Verify `VITE_ENABLE_MCP_ENHANCEMENT=true`
+- Check browser console for errors
+- Ensure conversation has 2+ meaningful exchanges
+
+**ElevenLabs not connecting**:
+- Verify API key and Agent ID in `.env`
+- Check microphone permissions
+- Review ElevenLabs dashboard for agent status
+
+**MCP server issues**:
+- Ensure OpenAI API key is valid
+- Check MCP server logs: `npm run start:mcp`
+- Verify port 3001 is available
+
+### Debug Mode
+Enable detailed logging:
+```bash
+VITE_DEBUG=true npm run dev
 ```
 
 ## Contributing
 
 1. Fork the repository
 2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+3. Test both standard and MCP-enhanced flows
+4. Submit a pull request with testing notes
 
-## Security Best Practices
+---
 
-- Never commit `.env` or `.env.local` files
-- Use environment variables for all sensitive data
-- Rotate API keys regularly
-- Use strong passwords for admin accounts
-- Review Firebase security rules regularly
+**Built with**: React, TypeScript, ElevenLabs, OpenAI, Firebase, Model Context Protocol
 
-## License
-
-MIT License - see LICENSE file for details 
+**For support**: Check the troubleshooting guides or review the comprehensive setup documentation. 

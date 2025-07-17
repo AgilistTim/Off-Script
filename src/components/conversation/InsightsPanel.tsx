@@ -238,8 +238,7 @@ export const InsightsPanel: React.FC<InsightsPanelProps> = ({
   const allInsights = [
     ...careerProfile.interests,
     ...careerProfile.skills,
-    ...careerProfile.suggestedPaths,
-    ...careerProfile.industries
+    ...careerProfile.suggestedPaths
   ].sort((a, b) => b.extractedAt.getTime() - a.extractedAt.getTime());
 
   if (!isVisible) return null;

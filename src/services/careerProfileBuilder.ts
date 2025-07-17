@@ -104,7 +104,22 @@ class CareerProfileBuilder {
     this.updateEngagementLevel();
 
     // Analyze the message for career insights
-    const newInsights = await conversationAnalyzer.analyzeMessage(message, role);
+    const conversationInterests = await conversationAnalyzer.analyzeMessage(message, []);
+    
+    // Convert ConversationInterest to CareerInsight
+    const newInsights: CareerInsight[] = conversationInterests.map(interest => ({
+      id: `insight_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'interest' as const,
+      title: interest.interest,
+      description: interest.context,
+      confidence: interest.confidence,
+      extractedAt: new Date(),
+      relatedTerms: interest.extractedTerms,
+      metadata: {
+        source: 'conversation_analysis',
+        conversationContext: message
+      }
+    }));
     
     // Update profile with latest data from analyzer
     this.updateProfileFromAnalyzer();
