@@ -2,6 +2,31 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import { useAuth } from '../../context/AuthContext';
 
+// Helper function to get environment variables from both sources (dev + production)
+const getEnvVar = (key: string): string | undefined => {
+  // Try import.meta.env first (development)
+  const devValue = import.meta.env[key];
+  if (devValue) return devValue;
+  
+  // Fallback to window.ENV (production runtime injection)
+  if (typeof window !== 'undefined' && window.ENV) {
+    return window.ENV[key];
+  }
+  
+  return undefined;
+};
+
+interface CareerCard {
+  id: string;
+  title: string;
+  description: string;
+  salaryRange: string;
+  skillsRequired: string[];
+  trainingPathway: string;
+  nextSteps: string;
+  confidence: number;
+}
+
 interface ElevenLabsWidgetProps {
   onCareerCardsGenerated?: (cards: any[]) => void;
   className?: string;
@@ -15,9 +40,10 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
 
-  const agentId = import.meta.env.VITE_ELEVENLABS_AGENT_ID;
-  const apiKey = import.meta.env.VITE_ELEVENLABS_API_KEY;
-  const mcpEndpoint = 'http://localhost:3001/mcp';
+  // Use the helper function to get environment variables
+  const agentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
+  const apiKey = getEnvVar('VITE_ELEVENLABS_API_KEY');
+  const mcpEndpoint = 'https://off-script-mcp-elevenlabs.onrender.com/mcp';
 
   // Client tools that call our MCP server
   const clientTools = {
@@ -45,11 +71,17 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         const result = await response.json();
         console.log('✅ Analysis result:', result);
         
-        if (result.careerCards && onCareerCardsGenerated) {
-          onCareerCardsGenerated(result.careerCards);
+        // Handle nested result structure from MCP server
+        const analysisData = result.result || result;
+        const careerCards = analysisData.careerCards || [];
+        
+        console.log('🎯 Extracted career cards:', careerCards);
+        
+        if (careerCards.length > 0 && onCareerCardsGenerated) {
+          onCareerCardsGenerated(careerCards);
         }
         
-        return `Analysis complete - generated ${result.careerCards?.length || 0} career recommendations`;
+        return `Analysis complete - generated ${careerCards.length} career recommendations`;
         
       } catch (error) {
         console.error('Error analyzing conversation:', error);

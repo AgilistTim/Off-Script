@@ -14,9 +14,15 @@ interface ImportMetaEnv {
   readonly VITE_YOUTUBE_API_KEY: string;
   readonly VITE_RECAPTCHA_SITE_KEY: string;
   
+  // ElevenLabs configuration (safe for client-side)
+  readonly VITE_ELEVENLABS_API_KEY: string;
+  readonly VITE_ELEVENLABS_AGENT_ID: string;
+  
   // API endpoints (safe for client-side)
   readonly VITE_BUMPUPS_PROXY_URL: string;
   readonly VITE_OPENAI_ASSISTANT_URL: string;
+  readonly VITE_OPENAI_API_KEY: string;
+  readonly VITE_BUMPUPS_API_KEY: string;
   
   // Development flags
   readonly VITE_DISABLE_EMULATORS: string;
@@ -33,10 +39,10 @@ interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
-// Extended window.ENV interface for runtime configuration
+// Define window.ENV for production runtime injection
 declare global {
   interface Window {
-    ENV?: {
+    ENV: {
       // Firebase configuration
       VITE_FIREBASE_API_KEY: string;
       VITE_FIREBASE_AUTH_DOMAIN: string;
@@ -46,14 +52,19 @@ declare global {
       VITE_FIREBASE_APP_ID: string;
       VITE_FIREBASE_MEASUREMENT_ID: string;
       
-      // Public API keys (safe for client-side)
-      VITE_YOUTUBE_API_KEY?: string;
-      VITE_RECAPTCHA_SITE_KEY?: string;
+      // Public API keys
+      VITE_YOUTUBE_API_KEY: string;
+      VITE_RECAPTCHA_SITE_KEY: string;
+      
+      // ElevenLabs configuration
+      VITE_ELEVENLABS_API_KEY: string;
+      VITE_ELEVENLABS_AGENT_ID: string;
       
       // API endpoints
-      VITE_BUMPUPS_PROXY_URL?: string;
-      
-      // SECURITY: Sensitive API keys excluded from runtime config
+      VITE_BUMPUPS_PROXY_URL: string;
+      VITE_OPENAI_ASSISTANT_URL: string;
+      VITE_OPENAI_API_KEY: string;
+      VITE_BUMPUPS_API_KEY: string;
     };
   }
 }
