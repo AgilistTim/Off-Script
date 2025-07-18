@@ -100,6 +100,61 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     });
   }, [currentUser?.uid]);
 
+  // Helper function to extract profile data locally from conversation when MCP analysis is insufficient
+  const extractProfileFromConversation = (conversationText: string): PersonProfile => {
+    const lowerText = conversationText.toLowerCase();
+    
+    // Extract interests from conversation
+    const interests: string[] = [];
+    if (lowerText.includes('physics')) interests.push('Physics');
+    if (lowerText.includes('maths') || lowerText.includes('math')) interests.push('Mathematics');
+    if (lowerText.includes('ai') || lowerText.includes('artificial intelligence')) interests.push('Artificial Intelligence');
+    if (lowerText.includes('problem solving') || lowerText.includes('problem-solving')) interests.push('Problem Solving');
+    if (lowerText.includes('environmental') || lowerText.includes('conservation')) interests.push('Environmental Conservation');
+    if (lowerText.includes('care home') || lowerText.includes('caring for') || lowerText.includes('helping others')) interests.push('Healthcare & Care');
+    
+    // Extract goals from conversation
+    const goals: string[] = [];
+    if (lowerText.includes('fulfilling') || lowerText.includes('meaningful')) goals.push('Find meaningful work');
+    if (lowerText.includes('money') && lowerText.includes('important')) goals.push('Financial stability');
+    if (lowerText.includes("don't know what") || lowerText.includes('unsure about career')) goals.push('Explore career options');
+    if (lowerText.includes('balance') || (lowerText.includes('money') && lowerText.includes('fulfilling'))) goals.push('Work-life balance');
+    if (lowerText.includes('help people') || lowerText.includes('make a difference')) goals.push('Help others');
+    
+    // Extract skills from conversation
+    const skills: string[] = [];
+    if (lowerText.includes('physics')) skills.push('Physics knowledge');
+    if (lowerText.includes('maths') || lowerText.includes('math')) skills.push('Mathematical analysis');
+    if (lowerText.includes('problem solving') || lowerText.includes('problem-solving')) skills.push('Problem solving');
+    if (lowerText.includes('team') && lowerText.includes('like working')) skills.push('Teamwork');
+    if (lowerText.includes('ai') || lowerText.includes('looking at ai')) skills.push('AI literacy');
+    if (lowerText.includes('care') || lowerText.includes('looking after')) skills.push('Caregiving');
+    
+    // Extract values from conversation
+    const values: string[] = [];
+    if (lowerText.includes('problem solving') && lowerText.includes('important value')) values.push('Problem solving');
+    if (lowerText.includes('conservation') && lowerText.includes('important')) values.push('Conservation');
+    if (lowerText.includes('team') && lowerText.includes('like')) values.push('Collaboration');
+    if (lowerText.includes('helping') || lowerText.includes('care')) values.push('Helping others');
+    if (lowerText.includes("don't want") && lowerText.includes('military')) values.push('Non-military environment');
+    if (lowerText.includes('fulfilling') || lowerText.includes('meaningful')) values.push('Meaningful work');
+    
+    // Extract work style
+    const workStyle: string[] = [];
+    if (lowerText.includes('team') && lowerText.includes('like working')) workStyle.push('Collaborative');
+    if (lowerText.includes('problem solving')) workStyle.push('Analytical');
+    
+    return {
+      interests: [...new Set(interests)], // Remove duplicates
+      goals: [...new Set(goals)],
+      skills: [...new Set(skills)],
+      values: [...new Set(values)],
+      careerStage: "exploring",
+      workStyle: [...new Set(workStyle)],
+      lastUpdated: new Date().toLocaleDateString()
+    };
+  };
+
   // Enhanced conversation analysis with care sector detection
   const analyzeConversationForCareerInsights = useCallback(async (triggerReason: string) => {
     // Use ref to get current conversation history (fixes closure issue)
@@ -143,14 +198,32 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         triggerReason
       });
       
+      // Create enhanced context for better MCP analysis
+      const enhancedContext = {
+        conversationHistory: conversationText,
+        analysisRequest: {
+          extractGoals: "Extract career goals, aspirations, and what the user wants to achieve professionally. Look for phrases about wanting fulfilling work, work-life balance, financial goals, impact goals.",
+          extractSkills: "Extract both mentioned skills (like physics, maths, problem-solving) and implied skills from activities and interests. Include academic subjects, hobbies, and demonstrated abilities.",
+          extractValues: "Extract what matters to the user in work and life. Look for mentions of helping others, conservation, teamwork, avoiding certain environments (like military), work preferences.",
+          extractInterests: "Extract specific interests, subjects, activities, and areas of curiosity mentioned by the user.",
+          careerPreferences: "Note preferences about work environment, team vs individual work, specific sectors of interest or avoidance."
+        },
+        conversationSummary: {
+          totalMessages: currentHistory.length,
+          userMessages: currentHistory.filter(m => m.role === 'user').length,
+          keyTopics: triggerReason,
+          careInterestDetected: hasCareInterest
+        }
+      };
+      
       const response = await fetch(`${mcpEndpoint}/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          conversationHistory: conversationText,
+          ...enhancedContext,
           userId: currentUser?.uid || `guest_${Date.now()}`,
           triggerReason: triggerReason,
-          careInterestDetected: hasCareInterest // Flag for MCP server
+          careInterestDetected: hasCareInterest
         }),
       });
 
@@ -189,7 +262,14 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
             console.log('👤 Auto-generated user profile from conversation analysis:', autoProfile);
             onPersonProfileGenerated(autoProfile);
           } else {
-            console.log('👤 Skipping profile generation - no meaningful data detected yet');
+            console.log('⚠️ MCP analysis did not return sufficient profile data, enhancing locally...');
+            
+            // Enhanced local extraction when MCP analysis is insufficient
+            const localProfile = extractProfileFromConversation(conversationText);
+            if (localProfile.interests.length > 0 || localProfile.skills.length > 0 || localProfile.goals.length > 0) {
+              console.log('👤 Generated enhanced local profile:', localProfile);
+              onPersonProfileGenerated(localProfile);
+            }
           }
         } catch (error) {
           console.error('❌ Error auto-generating profile:', error);
