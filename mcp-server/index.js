@@ -883,6 +883,17 @@ class OffScriptMCPServer {
     this.isRunning = false;
     this.cachedConversationHistory = []; // Cache for conversation history
     this.lastCacheUpdate = null; // Track when cache was last updated
+    
+    // Initialize MCP Server (needed for stdio transport)
+    this.server = new Server({
+      name: 'off-script-mcp-server',
+      version: '1.0.0'
+    }, {
+      capabilities: {
+        tools: {}
+      }
+    });
+    
     this.setupMiddleware();
     this.setupMCPHttpServer();
   }
