@@ -108,6 +108,20 @@ const CareerInsightsResponse = z.object({
   insights: z.array(CareerInsight)
 });
 
+// Enhanced schemas for separated analysis
+const PersonProfileAnalysis = z.object({
+  interests: z.array(z.string()).describe("Pure interests, hobbies, subjects - NO job titles or career names"),
+  skills: z.array(z.string()).describe("Demonstrated abilities from stories, examples, and experiences"),
+  goals: z.array(z.string()).describe("Career aspirations, what they want to achieve professionally"),
+  values: z.array(z.string()).describe("What matters to them: helping others, innovation, family, etc."),
+  workStyle: z.array(z.string()).describe("Preferred work environment, team vs solo, etc."),
+  careerStage: z.string().describe("Current career stage: exploring, transitioning, advancing, etc.")
+});
+
+const CareerRecommendationAnalysis = z.object({
+  careerCards: z.array(CareerCard).describe("3-6 diverse career recommendations across different industries and levels")
+});
+
 const FieldInsight = z.object({
   field: z.string(),
   roles: z.array(z.string()),
@@ -168,46 +182,53 @@ class ConversationAnalysisService {
 
       Logger.info(`Analyzing ${messages.length} messages for user: ${userId}`);
       
-      // Extract user messages for analysis
-      const userMessages = messages
-        .filter(msg => msg.role === 'user')
-        .map(msg => msg.content);
+      // Extract full conversation text for analysis
+      const conversationText = messages
+        .map(msg => `${msg.role}: ${msg.content}`)
+        .join('\n');
       
-      if (userMessages.length === 0) {
-        Logger.warn('No user messages found for analysis');
+      if (conversationText.trim().length === 0) {
+        Logger.warn('No conversation content found for analysis');
         return {
           detectedInterests: [],
+          detectedSkills: [],
+          detectedGoals: [],
+          detectedValues: [],
           confidence: 0,
           careerCards: []
         };
       }
 
-      // Use OpenAI to analyze conversation for career interests
-      const conversationText = userMessages.join('\n');
-      const analysisResult = await this.analyzeWithOpenAI(conversationText);
+      Logger.info('Starting dual OpenAI analysis', {
+        textLength: conversationText.length
+      });
+
+      // ANALYSIS 1: Extract person profile (interests, skills, goals, values)
+      const personProfile = await this.analyzePersonProfile(conversationText);
       
-      // Generate career cards for high-confidence interests
-      const careerCards = [];
-      for (const interest of analysisResult.interests) {
-        if (interest.confidence > 0.7) {
-          try {
-            const card = await this.generateCareerCard(interest);
-            if (card) careerCards.push(card);
-          } catch (cardError) {
-            Logger.warn(`Failed to generate career card for ${interest.interest}`, cardError);
-          }
-        }
-      }
+      // ANALYSIS 2: Generate career recommendations using conversation + profile context
+      const careerRecommendations = await this.generateCareerRecommendations(conversationText, personProfile);
 
       const result = {
-        detectedInterests: analysisResult.interests.map(i => i.interest),
-        confidence: analysisResult.overallConfidence,
-        careerCards
+        detectedInterests: personProfile.interests || [],
+        detectedSkills: personProfile.skills || [],
+        detectedGoals: personProfile.goals || [],
+        detectedValues: personProfile.values || [],
+        userProfile: {
+          interests: personProfile.interests || [],
+          skills: personProfile.skills || [],
+          goals: personProfile.goals || [],
+          values: personProfile.values || [],
+          workStyle: personProfile.workStyle || [],
+          careerStage: personProfile.careerStage || "exploring"
+        },
+        confidence: personProfile.interests?.length > 0 ? 0.8 : 0.3,
+        careerCards: careerRecommendations.careerCards || []
       };
 
       Logger.info(`Analysis completed in ${Date.now() - startTime}ms`, {
         interestsFound: result.detectedInterests.length,
-        cardsGenerated: careerCards.length,
+        cardsGenerated: careerRecommendations.careerCards?.length || 0,
         confidence: result.confidence
       });
 
@@ -313,6 +334,215 @@ Be comprehensive - extract 3-8 interests, 2-6 skills, and 1-4 goals minimum from
       }
       
       return { interests: [], overallConfidence: 0 };
+    }
+  }
+
+  // NEW: Specialized person profile analysis
+  static async analyzePersonProfile(conversationText) {
+    try {
+      if (!conversationText || conversationText.trim().length === 0) {
+        throw new Error('Empty conversation text provided');
+      }
+
+      Logger.debug('Analyzing person profile with OpenAI', {
+        textLength: conversationText.length
+      });
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert psychologist and career counselor specializing in extracting person profiles from conversations.
+
+CRITICAL EXTRACTION RULES:
+1. INTERESTS: Only genuine interests, hobbies, subjects, technologies - NEVER job titles or career names
+   ✅ Good: "AI technology", "Healthcare", "Voice technology", "Problem solving"
+   ❌ Bad: "AI Developer", "Healthcare Specialist", "Voice Engineer"
+
+2. SKILLS: Extract demonstrated abilities from stories and examples
+   - "built a tool" → Programming, Problem-solving
+   - "helps granddad" → Empathy, Care, Communication
+   - "generates reports" → Analysis, Technical writing
+
+3. GOALS: Career aspirations and professional motivations
+   - "want to help people" → Make positive impact
+   - "solve real problems" → Apply technology meaningfully
+   - "build solutions" → Create innovative products
+
+4. VALUES: What matters to them personally
+   - Helping family → Family care, Responsibility
+   - Solving problems → Innovation, Impact
+   - Real-world applications → Practical solutions
+
+5. WORK STYLE: Environmental and collaboration preferences
+   - Independent projects → Solo work
+   - Team collaboration → Team-oriented
+   - Remote/flexible → Location flexibility
+
+STORY ANALYSIS EXAMPLES:
+"I built an AI tool that phones my granddad to check on his pills"
+→ Skills: Programming, Problem-solving, Empathy, Healthcare technology
+→ Interests: AI technology, Healthcare solutions, Elder care
+→ Values: Family care, Helping others, Technology for good
+→ Goals: Use technology to help people
+
+Extract 3-8 interests, 2-6 skills, 1-4 goals, 2-5 values minimum from meaningful conversations.`
+          },
+          {
+            role: 'user',
+            content: `Extract a comprehensive person profile from this conversation:\n\n${conversationText}`
+          }
+        ],
+        response_format: zodResponseFormat(PersonProfileAnalysis, 'person_profile_analysis'),
+        temperature: 0.2,
+        max_tokens: 1000
+      });
+
+      const message = completion.choices[0]?.message;
+      if (!message?.content) {
+        throw new Error('No content response from OpenAI');
+      }
+
+      let analysis;
+      try {
+        analysis = JSON.parse(message.content);
+      } catch (parseError) {
+        Logger.error('Failed to parse person profile response', {
+          error: parseError.message,
+          content: message.content
+        });
+        throw new Error('Invalid JSON response from OpenAI');
+      }
+
+      Logger.debug('Person profile analysis complete', {
+        interests: analysis.interests?.length || 0,
+        skills: analysis.skills?.length || 0,
+        goals: analysis.goals?.length || 0,
+        values: analysis.values?.length || 0
+      });
+
+      return analysis;
+    } catch (error) {
+      Logger.error('Person profile analysis error', {
+        error: error.message,
+        textLength: conversationText?.length || 0
+      });
+      return {
+        interests: [],
+        skills: [],
+        goals: [],
+        values: [],
+        workStyle: [],
+        careerStage: "exploring"
+      };
+    }
+  }
+
+  // NEW: Specialized career recommendations generation
+  static async generateCareerRecommendations(conversationText, personProfile = null) {
+    try {
+      if (!conversationText || conversationText.trim().length === 0) {
+        throw new Error('Empty conversation text provided');
+      }
+
+      Logger.debug('Generating career recommendations with OpenAI', {
+        textLength: conversationText.length,
+        hasPersonProfile: !!personProfile
+      });
+
+      const profileContext = personProfile ? `
+PERSON PROFILE CONTEXT:
+- Interests: ${personProfile.interests?.join(', ') || 'None specified'}
+- Skills: ${personProfile.skills?.join(', ') || 'None specified'}
+- Goals: ${personProfile.goals?.join(', ') || 'None specified'}
+- Values: ${personProfile.values?.join(', ') || 'None specified'}
+- Work Style: ${personProfile.workStyle?.join(', ') || 'None specified'}
+- Career Stage: ${personProfile.careerStage || 'Exploring'}
+` : '';
+
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert career counselor specializing in generating diverse, actionable career recommendations.
+
+CAREER GENERATION REQUIREMENTS:
+- Generate 3-6 diverse career recommendations
+- Include different industries, experience levels, and pathways
+- Base recommendations on conversation context and demonstrated interests
+- Include entry-level, mid-level, and senior opportunities
+- Consider both traditional and emerging career paths
+
+CAREER CARD REQUIREMENTS:
+- Clear, engaging job titles
+- Detailed role descriptions (50-100 words)
+- UK-specific salary ranges (entry/experienced/senior)
+- Realistic entry requirements
+- Specific training pathways available in UK
+- Key skills needed for role
+- Growth outlook and market demand
+- Next steps to enter the field
+- Work environment details
+
+DIVERSITY GUIDELINES:
+- Mix of technical and non-technical roles
+- Different industries (tech, healthcare, business, etc.)
+- Various experience levels (graduate, mid-career, senior)
+- Different work styles (office, remote, field-based)
+- Include emerging and traditional careers
+
+CONVERSATION ANALYSIS:
+Extract demonstrated interests, skills, and values from conversation context.
+Consider stories, examples, and expressed preferences to match relevant careers.`
+          },
+          {
+            role: 'user',
+            content: `Generate diverse career recommendations based on this conversation:
+
+${profileContext}
+
+CONVERSATION:
+${conversationText}
+
+Focus on creating varied, actionable career paths that match their demonstrated interests and skills.`
+          }
+        ],
+        response_format: zodResponseFormat(CareerRecommendationAnalysis, 'career_recommendations'),
+        temperature: 0.4,
+        max_tokens: 2000
+      });
+
+      const message = completion.choices[0]?.message;
+      if (!message?.content) {
+        throw new Error('No content response from OpenAI');
+      }
+
+      let analysis;
+      try {
+        analysis = JSON.parse(message.content);
+      } catch (parseError) {
+        Logger.error('Failed to parse career recommendations response', {
+          error: parseError.message,
+          content: message.content
+        });
+        throw new Error('Invalid JSON response from OpenAI');
+      }
+
+      Logger.debug('Career recommendations analysis complete', {
+        careerCards: analysis.careerCards?.length || 0
+      });
+
+      return analysis;
+    } catch (error) {
+      Logger.error('Career recommendations analysis error', {
+        error: error.message,
+        textLength: conversationText?.length || 0
+      });
+      return {
+        careerCards: []
+      };
     }
   }
 
