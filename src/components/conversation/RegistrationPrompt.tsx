@@ -1,389 +1,149 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useForm, SubmitHandler } from 'react-hook-form';
-import { X, Mail, User, ArrowRight, Sparkles } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+import React from 'react';
+import { motion } from 'framer-motion';
+import { UserPlus, Star, TrendingUp, BookOpen, Target, ArrowRight } from 'lucide-react';
 
-export interface RegistrationData {
-  name: string;
-  email: string;
-  careerStage: 'exploring' | 'early_career' | 'mid_career' | 'senior_career' | 'transitioning';
-  primaryGoal: 'find_direction' | 'skill_development' | 'career_change' | 'advancement' | 'entrepreneurship';
-}
-
-export interface RegistrationPromptProps {
-  isVisible: boolean;
-  onClose: () => void;
-  onRegistrationComplete: (data: RegistrationData) => void;
-  className?: string;
-  trigger: 'insights' | 'messages' | 'engagement';
-  triggerCount: number;
+interface RegistrationPromptProps {
+  onRegister: () => void;
+  onDismiss: () => void;
 }
 
 export const RegistrationPrompt: React.FC<RegistrationPromptProps> = ({
-  isVisible,
-  onClose,
-  onRegistrationComplete,
-  className = '',
-  trigger,
-  triggerCount
+  onRegister,
+  onDismiss
 }) => {
-  const { currentUser } = useAuth();
-  const [step, setStep] = useState<'prompt' | 'form' | 'success'>('prompt');
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isValid },
-    watch,
-    reset
-  } = useForm<RegistrationData>({
-    mode: 'onChange',
-    defaultValues: {
-      name: currentUser?.displayName || '',
-      email: currentUser?.email || '',
-      careerStage: 'exploring',
-      primaryGoal: 'find_direction'
-    }
-  });
-
-  // Don't show if user is already logged in
-  if (currentUser) {
-    return null;
-  }
-
-  const getTriggerMessage = () => {
-    switch (trigger) {
-      case 'insights':
-        return `You've explored ${triggerCount} career insights`;
-      case 'messages':
-        return `We've had a great ${triggerCount}-message conversation`;
-      case 'engagement':
-        return `You seem really engaged with career exploration`;
-      default:
-        return 'You seem interested in career guidance';
-    }
-  };
-
-  const onSubmit: SubmitHandler<RegistrationData> = async (data) => {
-    setIsSubmitting(true);
-    
-    try {
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      onRegistrationComplete(data);
-      setStep('success');
-      
-      // Auto-close after success
-      setTimeout(() => {
-        onClose();
-        reset();
-        setStep('prompt');
-      }, 3000);
-      
-    } catch (error) {
-      console.error('Registration failed:', error);
-      // Handle error gracefully
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleStartRegistration = () => {
-    setStep('form');
-  };
-
-  const handleClose = () => {
-    onClose();
-    setStep('prompt');
-    reset();
-  };
-
-  // Animation variants
-  const promptVariants = {
-    hidden: { opacity: 0, y: 50, scale: 0.9 },
-    visible: { 
-      opacity: 1, 
-      y: 0, 
-      scale: 1,
-      transition: {
-        type: "spring",
-        stiffness: 300,
-        damping: 30
-      }
-    },
-    exit: { 
-      opacity: 0, 
-      y: -20,
-      transition: { duration: 0.2 }
-    }
-  };
-
-  const formVariants = {
-    hidden: { opacity: 0, x: 300 },
-    visible: { 
-      opacity: 1, 
-      x: 0,
-      transition: {
-        type: "spring",
-        stiffness: 300,
-        damping: 30
-      }
-    },
-    exit: { 
-      opacity: 0, 
-      x: -300,
-      transition: { duration: 0.3 }
-    }
-  };
-
   return (
-    <AnimatePresence>
-      {isVisible && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
-          onClick={handleClose}
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="bg-gradient-to-br from-blue-50 via-purple-50 to-blue-50 border border-blue-200 rounded-xl p-6 shadow-lg"
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center space-x-3">
+          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+            <Star className="w-5 h-5 text-blue-600" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">
+              Unlock Your Full Career Potential
+            </h3>
+            <p className="text-sm text-gray-600">
+              Get detailed insights, save your progress, and build your career roadmap
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={onDismiss}
+          className="text-gray-400 hover:text-gray-600 transition-colors"
         >
-          <motion.div
-            variants={step === 'form' ? formVariants : promptVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className={`bg-white rounded-lg shadow-xl max-w-md w-full ${className}`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Close button */}
-            <div className="flex justify-end p-2">
-              <button
-                onClick={handleClose}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100 transition-colors"
-                aria-label="Close"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+          ×
+        </button>
+      </div>
 
-            {step === 'prompt' && (
-              <div className="px-6 pb-6">
-                {/* Header */}
-                <div className="text-center mb-6">
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Sparkles className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                    Ready to unlock your full career potential?
-                  </h3>
-                  <p className="text-gray-600 text-sm">
-                    {getTriggerMessage()}! Create a free account to save your progress and get personalized career guidance.
-                  </p>
-                </div>
+      {/* Benefits Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div className="flex items-start space-x-3">
+          <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <TrendingUp className="w-4 h-4 text-blue-600" />
+          </div>
+          <div>
+            <h4 className="font-medium text-gray-800 text-sm">Advanced Career Analysis</h4>
+            <p className="text-xs text-gray-600 mt-1">
+              Get detailed conversation analysis with personality insights and market-aligned recommendations
+            </p>
+          </div>
+        </div>
 
-                {/* Benefits */}
-                <div className="space-y-3 mb-6">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span className="text-sm text-gray-700">Save your conversation history</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span className="text-sm text-gray-700">Get personalized career recommendations</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span className="text-sm text-gray-700">Track your career development journey</span>
-                  </div>
-                  <div className="flex items-center space-x-3">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                    <span className="text-sm text-gray-700">Access exclusive career insights</span>
-                  </div>
-                </div>
+        <div className="flex items-start space-x-3">
+          <div className="w-8 h-8 bg-purple-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <Target className="w-4 h-4 text-purple-600" />
+          </div>
+          <div>
+            <h4 className="font-medium text-gray-800 text-sm">Personalized Career Dashboard</h4>
+            <p className="text-xs text-gray-600 mt-1">
+              Track your interests, save favorite careers, and monitor your exploration journey
+            </p>
+          </div>
+        </div>
 
-                {/* Actions */}
-                <div className="space-y-3">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleStartRegistration}
-                    className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 transition-colors flex items-center justify-center space-x-2"
-                  >
-                    <span>Get Started - It's Free</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </motion.button>
-                  
-                  <button
-                    onClick={handleClose}
-                    className="w-full text-gray-500 py-2 text-sm hover:text-gray-700 transition-colors"
-                  >
-                    Continue without account
-                  </button>
-                </div>
-              </div>
-            )}
+        <div className="flex items-start space-x-3">
+          <div className="w-8 h-8 bg-green-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <BookOpen className="w-4 h-4 text-green-600" />
+          </div>
+          <div>
+            <h4 className="font-medium text-gray-800 text-sm">Learning Pathways</h4>
+            <p className="text-xs text-gray-600 mt-1">
+              Access curated courses, certifications, and step-by-step career transition guides
+            </p>
+          </div>
+        </div>
 
-            {step === 'form' && (
-              <div className="px-6 pb-6">
-                {/* Header */}
-                <div className="text-center mb-6">
-                  <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                    Create Your Free Account
-                  </h3>
-                  <p className="text-gray-600 text-sm">
-                    Tell us a bit about yourself to get personalized career guidance
-                  </p>
-                </div>
+        <div className="flex items-start space-x-3">
+          <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <UserPlus className="w-4 h-4 text-orange-600" />
+          </div>
+          <div>
+            <h4 className="font-medium text-gray-800 text-sm">Progress Tracking</h4>
+            <p className="text-xs text-gray-600 mt-1">
+              Monitor your career exploration, set goals, and celebrate milestones
+            </p>
+          </div>
+        </div>
+      </div>
 
-                {/* Progressive Registration Form */}
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                  {/* Name field */}
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">
-                      Your Name
-                    </label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        {...register('name', { 
-                          required: 'Name is required',
-                          minLength: { value: 2, message: 'Name must be at least 2 characters' }
-                        })}
-                        type="text"
-                        id="name"
-                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Enter your name"
-                      />
-                    </div>
-                    {errors.name && (
-                      <p className="text-red-500 text-xs mt-1">{errors.name.message}</p>
-                    )}
-                  </div>
+      {/* Value Proposition */}
+      <div className="bg-white/70 rounded-lg p-4 mb-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-medium text-gray-800">
+              🎯 <span className="text-blue-600">Basic:</span> 3 career suggestions
+            </p>
+            <p className="text-sm font-medium text-gray-800">
+              ⭐ <span className="text-purple-600">With Account:</span> Unlimited personalized career exploration
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-xs text-gray-500">Free account</p>
+            <p className="text-lg font-bold text-green-600">£0</p>
+          </div>
+        </div>
+      </div>
 
-                  {/* Email field */}
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
-                      Email Address
-                    </label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                      <input
-                        {...register('email', { 
-                          required: 'Email is required',
-                          pattern: {
-                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                            message: 'Invalid email address'
-                          }
-                        })}
-                        type="email"
-                        id="email"
-                        className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Enter your email"
-                      />
-                    </div>
-                    {errors.email && (
-                      <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
-                    )}
-                  </div>
+      {/* CTA Buttons */}
+      <div className="flex flex-col sm:flex-row gap-3">
+        <button
+          onClick={onRegister}
+          className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-all duration-200 flex items-center justify-center space-x-2 shadow-md"
+        >
+          <UserPlus className="w-4 h-4" />
+          <span>Create Free Account</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
+        <button
+          onClick={onDismiss}
+          className="px-4 py-3 text-gray-600 hover:text-gray-800 transition-colors text-sm font-medium"
+        >
+          Continue as Guest
+        </button>
+      </div>
 
-                  {/* Career Stage */}
-                  <div>
-                    <label htmlFor="careerStage" className="block text-sm font-medium text-gray-700 mb-1">
-                      Where are you in your career?
-                    </label>
-                    <select
-                      {...register('careerStage', { required: 'Please select your career stage' })}
-                      id="careerStage"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="exploring">Exploring options</option>
-                      <option value="early_career">Early career (0-3 years)</option>
-                      <option value="mid_career">Mid career (4-10 years)</option>
-                      <option value="senior_career">Senior career (10+ years)</option>
-                      <option value="transitioning">Career transition</option>
-                    </select>
-                  </div>
-
-                  {/* Primary Goal */}
-                  <div>
-                    <label htmlFor="primaryGoal" className="block text-sm font-medium text-gray-700 mb-1">
-                      What's your main career goal?
-                    </label>
-                    <select
-                      {...register('primaryGoal', { required: 'Please select your primary goal' })}
-                      id="primaryGoal"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="find_direction">Find career direction</option>
-                      <option value="skill_development">Develop new skills</option>
-                      <option value="career_change">Change careers</option>
-                      <option value="advancement">Career advancement</option>
-                      <option value="entrepreneurship">Start my own business</option>
-                    </select>
-                  </div>
-
-                  {/* Submit button */}
-                  <div className="pt-4">
-                    <motion.button
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      type="submit"
-                      disabled={!isValid || isSubmitting}
-                      className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-medium hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
-                    >
-                      {isSubmitting ? (
-                        <>
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          <span>Creating Account...</span>
-                        </>
-                      ) : (
-                        <>
-                          <span>Create Account</span>
-                          <ArrowRight className="w-4 h-4" />
-                        </>
-                      )}
-                    </motion.button>
-                  </div>
-
-                  {/* Back button */}
-                  <button
-                    type="button"
-                    onClick={() => setStep('prompt')}
-                    className="w-full text-gray-500 py-2 text-sm hover:text-gray-700 transition-colors"
-                  >
-                    ← Back
-                  </button>
-                </form>
-              </div>
-            )}
-
-            {step === 'success' && (
-              <div className="px-6 pb-6 text-center">
-                <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                  >
-                    <ArrowRight className="w-8 h-8 text-green-600 transform rotate-45" />
-                  </motion.div>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">
-                  Welcome aboard! 🎉
-                </h3>
-                <p className="text-gray-600 text-sm mb-4">
-                  Your account has been created successfully. We'll now save your conversation history and provide personalized career guidance.
-                </p>
-                <div className="text-xs text-gray-500">
-                  Redirecting to your dashboard...
-                </div>
-              </div>
-            )}
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+      {/* Trust Indicators */}
+      <div className="mt-4 pt-4 border-t border-gray-200">
+        <div className="flex items-center justify-center space-x-6 text-xs text-gray-500">
+          <span className="flex items-center space-x-1">
+            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+            <span>No spam, ever</span>
+          </span>
+          <span className="flex items-center space-x-1">
+            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+            <span>1-click unsubscribe</span>
+          </span>
+          <span className="flex items-center space-x-1">
+            <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+            <span>Your data stays private</span>
+          </span>
+        </div>
+      </div>
+    </motion.div>
   );
 }; 

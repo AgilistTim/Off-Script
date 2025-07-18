@@ -45,29 +45,16 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   const apiKey = getEnvVar('VITE_ELEVENLABS_API_KEY');
   const mcpEndpoint = 'https://off-script-mcp-elevenlabs.onrender.com/mcp';
 
-  // 🔍 DEBUGGING: Log configuration on component mount
+  // Validate configuration on mount
   useEffect(() => {
-    console.log('🔧 ElevenLabsWidget Configuration Check:');
-    console.log('🔧 Agent ID:', agentId ? `${agentId.substring(0, 8)}...` : 'MISSING');
-    console.log('🔧 API Key:', apiKey ? `${apiKey.substring(0, 8)}...` : 'MISSING');
-    console.log('🔧 MCP Endpoint:', mcpEndpoint);
-    console.log('🔧 Current User:', currentUser ? currentUser.uid : 'No user');
-    console.log('🔧 Environment vars available:', {
-      VITE_ELEVENLABS_AGENT_ID: !!getEnvVar('VITE_ELEVENLABS_AGENT_ID'),
-      VITE_ELEVENLABS_API_KEY: !!getEnvVar('VITE_ELEVENLABS_API_KEY')
-    });
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 ElevenLabs config:', {
+        hasAgentId: !!agentId,
+        hasApiKey: !!apiKey,
+        user: currentUser ? 'logged in' : 'guest'
+      });
+    }
   }, [agentId, apiKey, currentUser]);
-
-  // 🔍 DEBUGGING: Monitor conversation history changes
-  useEffect(() => {
-    console.log('📝 Conversation history changed:', {
-      length: conversationHistory.length,
-      messages: conversationHistory.map(msg => ({
-        role: msg.role,
-        preview: msg.content.substring(0, 50) + '...'
-      }))
-    });
-  }, [conversationHistory]);
 
   // Initialize conversation with forward-declared client tools
   const conversation = useConversation({
@@ -133,12 +120,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         },
 
         generate_career_recommendations: async (parameters: any) => {
-          console.log('🎯 ===== GENERATE CAREER RECOMMENDATIONS CALLED =====');
-          console.log('🎯 Parameters received:', parameters);
-          console.log('📊 Current conversation history state:', {
-            length: conversationHistory.length,
-            messages: conversationHistory
-          });
+          console.log('🎯 Generating career recommendations...');
 
           // If we don't have conversation history yet, try to use context from parameters
           if (conversationHistory.length < 2) {
@@ -230,12 +212,10 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     })(),
     onConnect: () => {
       console.log('🟢 ElevenLabs connected');
-      console.log('🔧 Connection established with config:', { agentId: agentId?.substring(0, 8) + '...', hasApiKey: !!apiKey });
       setConnectionStatus('connected');
     },
     onDisconnect: () => {
       console.log('🔴 ElevenLabs disconnected');
-      console.log('📊 Final conversation history:', conversationHistory);
       setConnectionStatus('disconnected');
     },
     onMessage: (message: any) => {
@@ -360,15 +340,13 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   console.log('🔧 Conversation object:', conversation);
   console.log('🔧 Conversation methods:', Object.keys(conversation || {}));
 
-  // 🔍 DEBUGGING: Monitor conversation state properties
+  // Monitor conversation state for UI updates
   useEffect(() => {
-    console.log('📊 Conversation state changed:', {
-      status: conversation?.status,
-      isSpeaking: conversation?.isSpeaking,
-      canSendFeedback: conversation?.canSendFeedback,
-      micMuted: conversation?.micMuted
-    });
-  }, [conversation?.status, conversation?.isSpeaking, conversation?.canSendFeedback, conversation?.micMuted]);
+    // Only log important state changes in development
+    if (process.env.NODE_ENV === 'development') {
+      console.log('📊 Conversation state:', conversation?.status);
+    }
+  }, [conversation?.status]);
 
   // 🚀 SOLUTION: Fetch conversation transcript directly from ElevenLabs API
   useEffect(() => {

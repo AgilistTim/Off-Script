@@ -17,6 +17,7 @@ import { CareerInsight } from '../../services/conversationAnalyzer';
 // Import UI components
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
+import { RegistrationPrompt } from '../conversation/RegistrationPrompt';
 
 interface CareerCard {
   id: string;
@@ -64,11 +65,14 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   const [careerCards, setCareerCards] = useState<CareerCard[]>([]);
   const [hasStartedConversation, setHasStartedConversation] = useState(false);
   
+  // Registration prompt state
+  const [showRegistrationPrompt, setShowRegistrationPrompt] = useState(false);
+  const [userEngagementCount, setUserEngagementCount] = useState(0);
+  
   // Progressive engagement state (legacy - keeping for compatibility)
   const [careerProfile, setCareerProfile] = useState<EnhancedCareerProfile | null>(null);
   const [showInsightsPanel, setShowInsightsPanel] = useState(false);
   const [newInsights, setNewInsights] = useState<CareerInsight[]>([]);
-  const [showRegistrationPrompt, setShowRegistrationPrompt] = useState(false);
 
   // Check if conversation has started based on messages or career cards
   useEffect(() => {
@@ -88,6 +92,9 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     console.log('🎯 ConversationView: Received career cards:', newCards.length);
     setCareerCards(prev => [...prev, ...newCards]);
     setHasStartedConversation(true);
+    
+    // Track engagement - show registration prompt after user gets career cards
+    setUserEngagementCount(prev => prev + 1);
   }, []);
 
   // Handle persona updates
@@ -95,10 +102,35 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     setUserPersona(persona);
   }, []);
 
-  // Handle registration prompt (legacy)
-  const handleRegistrationPrompt = useCallback(() => {
-    setShowRegistrationPrompt(true);
-    console.log('Registration prompt triggered');
+  // Trigger registration prompt based on engagement
+  useEffect(() => {
+    // Show registration prompt if:
+    // 1. User is not logged in
+    // 2. They've received career cards (engaged with the system)
+    // 3. We haven't shown the prompt yet
+    // 4. User hasn't dismissed it in this session
+    const dismissed = sessionStorage.getItem('registration-prompt-dismissed');
+    
+    if (!currentUser && careerCards.length > 0 && !showRegistrationPrompt && userEngagementCount >= 1 && !dismissed) {
+      // Small delay to let user review the career cards first
+      const timer = setTimeout(() => {
+        setShowRegistrationPrompt(true);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [currentUser, careerCards.length, showRegistrationPrompt, userEngagementCount]);
+
+  // Handle registration
+  const handleRegister = useCallback(() => {
+    // Redirect to registration page or open auth modal
+    window.location.href = '/register';
+  }, []);
+
+  // Handle dismissing registration prompt
+  const handleDismissRegistration = useCallback(() => {
+    setShowRegistrationPrompt(false);
+    // Don't show again for this session
+    sessionStorage.setItem('registration-prompt-dismissed', 'true');
   }, []);
 
   return (
@@ -149,6 +181,23 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
             cards={careerCards}
             className="flex-1"
           />
+          
+          {/* Registration Prompt */}
+          <AnimatePresence>
+            {showRegistrationPrompt && !currentUser && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                className="mt-4"
+              >
+                <RegistrationPrompt
+                  onRegister={handleRegister}
+                  onDismiss={handleDismissRegistration}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
