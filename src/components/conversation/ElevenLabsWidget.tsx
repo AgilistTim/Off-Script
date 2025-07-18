@@ -61,6 +61,39 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   const apiKey = getEnvVar('VITE_ELEVENLABS_API_KEY');
   const mcpEndpoint = 'https://off-script-mcp-elevenlabs.onrender.com/mcp';
 
+  // Helper function to update conversation history and persist to Firebase
+  const updateConversationHistory = useCallback((role: 'user' | 'assistant', content: string) => {
+    if (!content || content.trim().length === 0) {
+      console.log('⚠️ Empty content, skipping history update');
+      return;
+    }
+
+    setConversationHistory(prev => {
+      const lastMessage = prev[prev.length - 1];
+      if (lastMessage?.role === role && lastMessage?.content === content.trim()) {
+        console.log('⚠️ Skipping duplicate message:', role, content.substring(0, 30) + '...');
+        return prev; // Skip duplicate
+      }
+      
+      const updated = [...prev, { role, content: content.trim() }];
+      console.log(`✅ Added ${role} message. New history length:`, updated.length);
+      
+      // TODO: Persist to Firebase for user's conversation history
+      if (currentUser?.uid) {
+        console.log('📝 TODO: Save conversation to Firebase for user:', currentUser.uid);
+        // Future implementation:
+        // await saveConversationToFirebase(currentUser.uid, { 
+        //   role, 
+        //   content: content.trim(), 
+        //   timestamp: new Date(),
+        //   conversationId: conversation?.getConversationId?.() || 'unknown'
+        // });
+      }
+      
+      return updated;
+    });
+  }, [currentUser?.uid]);
+
   // Enhanced conversation analysis with care sector detection
   const analyzeConversationForCareerInsights = useCallback(async (triggerReason: string) => {
     const now = Date.now();
@@ -263,27 +296,134 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
           console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - AGENT IS CALLING TOOLS!');
           console.log('🔍 Tool parameters:', parameters);
+          console.log('🔍 Getting fresh conversation state for analysis...');
+          
           return await analyzeConversationForCareerInsights(parameters.trigger_reason || 'agent_request');
         },
 
         trigger_instant_insights: async (parameters: { user_message: string }) => {
           console.log('🚨 TOOL CALLED: trigger_instant_insights - AGENT IS CALLING TOOLS!');
           console.log('⚡ Tool parameters:', parameters);
+          console.log('⚡ User message content:', parameters.user_message);
+          
+          // Use the user message directly for immediate analysis
+          if (parameters.user_message && onCareerCardsGenerated) {
+            try {
+              // Trigger immediate analysis based on the user's message
+              const analysisContent = `user: ${parameters.user_message}`;
+              console.log('🎯 IMMEDIATE ANALYSIS with user message:', analysisContent);
+              
+              const response = await fetch(`${mcpEndpoint}/analyze`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  conversationHistory: analysisContent,
+                  userId: currentUser?.uid || `guest_${Date.now()}`,
+                  triggerReason: 'instant_user_message',
+                  immediateMessage: parameters.user_message
+                })
+              });
+              
+              if (response.ok) {
+                const result = await response.json();
+                if (result.careerCards?.length > 0) {
+                  console.log('🎯 Generated immediate career cards:', result.careerCards.length);
+                  onCareerCardsGenerated(result.careerCards);
+                  return `Generated ${result.careerCards.length} career insights from your message!`;
+                }
+              }
+            } catch (error) {
+              console.error('❌ Error in immediate analysis:', error);
+            }
+          }
+          
           return await analyzeConversationForCareerInsights('instant_insights');
         },
 
         generate_career_recommendations: async (parameters: any) => {
           console.log('🚨 TOOL CALLED: generate_career_recommendations - AGENT IS CALLING TOOLS!');
           console.log('🎯 Tool parameters:', parameters);
+          
+          // Use interests from parameters if available
+          if (parameters.interests && parameters.interests.length > 0 && onCareerCardsGenerated) {
+            try {
+              console.log('🎯 GENERATING CARDS FROM INTERESTS:', parameters.interests);
+              
+              const interestsText = `User interests: ${parameters.interests.join(', ')}`;
+              const response = await fetch(`${mcpEndpoint}/analyze`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  conversationHistory: interestsText,
+                  userId: currentUser?.uid || `guest_${Date.now()}`,
+                  triggerReason: 'interest_based_recommendations',
+                  interests: parameters.interests
+                })
+              });
+              
+              if (response.ok) {
+                const result = await response.json();
+                if (result.careerCards?.length > 0) {
+                  console.log('🎯 Generated interest-based career cards:', result.careerCards.length);
+                  onCareerCardsGenerated(result.careerCards);
+                  return `Generated ${result.careerCards.length} recommendations based on your interests!`;
+                }
+              }
+            } catch (error) {
+              console.error('❌ Error in interest-based analysis:', error);
+            }
+          }
+          
           return await analyzeConversationForCareerInsights('generate_recommendations');
         },
 
         update_person_profile: async (parameters: { interests?: string[]; goals?: string[]; skills?: string[] }) => {
           console.log('🚨 TOOL CALLED: update_person_profile - AGENT IS CALLING TOOLS!');
           console.log('👤 Updating person profile based on conversation...');
+          console.log('👤 Profile parameters:', parameters);
           
           if (onPersonProfileGenerated) {
-            // Extract insights from conversation to update profile
+            try {
+              // Use conversation history and parameters to generate detailed profile
+              const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+              
+              if (conversationText.length > 20) { // If we have real conversation content
+                const response = await fetch(`${mcpEndpoint}/analyze`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    conversationHistory: conversationText,
+                    userId: currentUser?.uid || `guest_${Date.now()}`,
+                    triggerReason: 'persona_update',
+                    generatePersona: true,
+                    profileParams: parameters
+                  })
+                });
+                
+                if (response.ok) {
+                  const result = await response.json();
+                  
+                  // Generate enhanced profile from analysis
+                  const updatedProfile: PersonProfile = {
+                    interests: parameters.interests || result.detectedInterests || ["Technology", "Problem Solving", "Innovation"],
+                    goals: parameters.goals || result.detectedGoals || ["Career development", "Skill building"],
+                    skills: parameters.skills || result.detectedSkills || ["Communication", "Analytical thinking"],
+                    values: result.detectedValues || ["Making a difference", "Innovation", "Growth"],
+                    careerStage: result.careerStage || "exploring",
+                    workStyle: result.workStyle || ["Collaborative", "Flexible"],
+                    lastUpdated: new Date().toLocaleDateString()
+                  };
+                  
+                  console.log('🎯 Generated enhanced persona profile:', updatedProfile);
+                  onPersonProfileGenerated(updatedProfile);
+                  return `I've analyzed our conversation and updated your profile with insights about your interests in ${updatedProfile.interests.join(', ')}!`;
+                }
+              }
+            } catch (error) {
+              console.error('❌ Error generating persona from conversation:', error);
+            }
+            
+            // Fallback to basic profile
             const updatedProfile: PersonProfile = {
               interests: parameters.interests || ["Technology", "Problem Solving", "Innovation"],
               goals: parameters.goals || ["Career development", "Skill building"],
@@ -315,7 +455,19 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       setConnectionStatus('disconnected');
     },
     onMessage: (message: any) => {
-      // Handle agent_response events from WebSocket
+      console.log('📦 Raw message received:', message);
+      
+      // Handle agent_response events with proper structure
+      if (message && typeof message === 'object' && message.type === 'agent_response') {
+        if (message.agent_response_event && message.agent_response_event.agent_response) {
+          const { agent_response } = message.agent_response_event;
+          console.log('🎯 Agent response from structured event:', agent_response);
+          updateConversationHistory('assistant', agent_response);
+          return;
+        }
+      }
+      
+      // Fallback to existing parsing for compatibility
       let content: string | null = null;
       let role: 'user' | 'assistant' = 'assistant';
       
@@ -338,46 +490,37 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       }
       
       if (content && typeof content === 'string' && content.trim().length > 0) {
-        console.log('🎯 Real-time ElevenLabs agent response received:', content.substring(0, 50) + '...');
-        console.log('📝 Current conversation history before adding agent response:', conversationHistory.length, 'messages');
-        
-        setConversationHistory(prev => {
-          const lastMessage = prev[prev.length - 1];
-          if (lastMessage?.role === role && lastMessage?.content === content.trim()) {
-            console.log('⚠️ Skipping duplicate agent response');
-            return prev; // Skip duplicate
-          }
-          
-          const updated = [...prev, { role, content: content.trim() }];
-          console.log('✅ Added agent response. New history length:', updated.length);
-          return updated;
-        });
+        console.log('🎯 Fallback agent response parsing:', content.substring(0, 50) + '...');
+        updateConversationHistory(role, content);
       } else {
-        console.log('⚠️ Empty or invalid agent message received:', message);
+        console.log('⚠️ Could not parse message content:', message);
       }
     },
     onError: (error) => {
       console.error('❌ ElevenLabs error:', error);
     },
-    onUserTranscriptReceived: (transcript: string) => {
-      if (transcript && transcript.trim().length > 0) {
-        console.log('🎯 Real-time ElevenLabs user transcript received:', transcript);
-        console.log('📝 Current conversation history before adding:', conversationHistory.length, 'messages');
-        
-        setConversationHistory(prev => {
-          const lastMessage = prev[prev.length - 1];
-          if (lastMessage?.role === 'user' && lastMessage?.content === transcript.trim()) {
-            console.log('⚠️ Skipping duplicate user transcript');
-            return prev; // Skip duplicate
-          }
-          
-          const updated = [...prev, { role: 'user' as const, content: transcript.trim() }];
-          console.log('✅ Added user transcript. New history length:', updated.length);
-          
-          return updated;
-        });
+    onUserTranscriptReceived: (transcript: string | any) => {
+      console.log('📝 Raw transcript received:', transcript);
+      
+      let userTranscript: string | null = null;
+      
+      // Handle structured user_transcript events
+      if (transcript && typeof transcript === 'object' && transcript.type === 'user_transcript') {
+        if (transcript.user_transcription_event && transcript.user_transcription_event.user_transcript) {
+          userTranscript = transcript.user_transcription_event.user_transcript;
+          console.log('🎯 User transcript from structured event:', userTranscript);
+        }
+      } 
+      // Handle direct string transcripts (fallback)
+      else if (typeof transcript === 'string') {
+        userTranscript = transcript;
+        console.log('🎯 User transcript from string:', userTranscript);
+      }
+      
+      if (userTranscript && userTranscript.trim().length > 0) {
+        updateConversationHistory('user', userTranscript);
       } else {
-        console.log('⚠️ Empty or invalid transcript received');
+        console.log('⚠️ Could not extract transcript content:', transcript);
       }
     },
     onStatusChange: (status: string) => {
