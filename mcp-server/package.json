@@ -6,9 +6,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js",
-    "build": "tsc --project tsconfig.json",
-    "start:ts": "node --loader ts-node/esm index.ts"
+    "dev": "node --watch index.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.2",

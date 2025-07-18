@@ -259,32 +259,39 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   const extractProfileFromConversation = (conversationText: string): PersonProfile => {
     const lowerText = conversationText.toLowerCase();
     
-    // Minimal local extraction - only for complete MCP failures
-    // Trust OpenAI/MCP for intelligent analysis, only extract basics as emergency fallback
+    // Basic local extraction for when MCP completely fails
     const interests: string[] = [];
     const skills: string[] = [];
     const goals: string[] = [];
     const values: string[] = [];
     
-    // Only extract if explicitly mentioned with high confidence patterns
-    if (lowerText.includes('i enjoy') || lowerText.includes('i love')) {
-      // Let OpenAI handle this - avoid hardcoded extraction
+    // Extract basic interests with clear indicators
+    if (lowerText.includes('care sector') || lowerText.includes('working in care')) {
+      interests.push('Healthcare & Care');
+    }
+    if (lowerText.includes('technology') || lowerText.includes('ai') || lowerText.includes('software')) {
+      interests.push('Technology');
+    }
+    if (lowerText.includes('helping people') || lowerText.includes('help others')) {
+      interests.push('Helping Others');
+      values.push('Making a difference');
     }
     
+    // Extract basic skills with clear indicators
     if (lowerText.includes('good at') || lowerText.includes('skilled at')) {
-      // Let OpenAI handle this - avoid hardcoded extraction  
+      skills.push('Communication'); // Generic skill
     }
     
-    if (lowerText.includes('want to') || lowerText.includes('goal is')) {
-      // Let OpenAI handle this - avoid hardcoded extraction
+    // Extract basic goals with clear indicators  
+    if (lowerText.includes('want to work') || lowerText.includes('looking for')) {
+      goals.push('Find fulfilling career');
     }
     
-    // Return minimal profile - rely on MCP/OpenAI for real analysis
     return {
-      interests: [],
-      goals: [],
-      skills: [],
-      values: [],
+      interests,
+      goals,
+      skills,
+      values,
       careerStage: "exploring",
       workStyle: [],
       lastUpdated: new Date().toLocaleDateString()
@@ -434,7 +441,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
             });
             
             // Minimal local fallback - only create profile if conversation is very rich
-            if (currentHistory.length >= 10) {
+            if (currentHistory.length >= 6) {
               const minimalProfile: PersonProfile = {
                 interests: ['Career exploration'], // Generic fallback
                 goals: ['Explore career options'],
@@ -598,142 +605,91 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     }
   }, [agentId, apiKey, currentUser]);
 
-  // Initialize conversation with forward-declared client tools
+  // Initialize conversation with client tools that ElevenLabs calls
   const conversation = useConversation({
-    clientTools: (() => {
-      // Forward declaration - actual tools defined below
-      const tools = {
-        analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
-          console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - AGENT IS CALLING TOOLS!');
-          console.log('🔍 Tool parameters:', parameters);
-          
-          const result = await analyzeConversationForCareerInsights(parameters.trigger_reason || 'agent_request');
-          
-          // Auto-trigger profile update after career analysis if we have enough conversation
-          const currentHistory = conversationHistoryRef.current;
-          if (currentHistory.length >= 4 && onPersonProfileGenerated) {
-            console.log('👤 Auto-triggering profile update after career analysis');
-            setTimeout(async () => {
-              try {
-                const conversationText = currentHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-                const response = await fetch(`${mcpEndpoint}/analyze`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    conversationHistory: conversationText,
-                    userId: currentUser?.uid || `guest_${Date.now()}`,
-                    triggerReason: 'auto_profile_update',
-                    generatePersona: true
-                  })
-                });
-                
-                if (response.ok) {
-                  const profileResult = await response.json();
-                  const analysisData = profileResult.analysis || profileResult;
-                  
-                  if (analysisData.detectedInterests?.length > 0 || analysisData.detectedSkills?.length > 0) {
-                    const profileUpdate: PersonProfile = {
-                      interests: analysisData.detectedInterests || [],
-                      goals: analysisData.detectedGoals || [],
-                      skills: analysisData.detectedSkills || [],
-                      values: analysisData.detectedValues || [],
-                      careerStage: analysisData.careerStage || "exploring",
-                      workStyle: analysisData.workStyle || [],
-                      lastUpdated: new Date().toLocaleDateString()
-                    };
-                    
-                    console.log('👤 Auto-generated profile update:', profileUpdate);
-                    onPersonProfileGenerated(profileUpdate);
-                  }
-                }
-              } catch (error) {
-                console.error('❌ Error in auto profile update:', error);
-              }
-            }, 1000); // Small delay to avoid overwhelming
-          }
-          
-          return result;
-        },
+    clientTools: {
+      analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
+        console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - AGENT IS CALLING TOOLS!');
+        console.log('🔍 Tool parameters:', parameters);
+        
+        const result = await analyzeConversationForCareerInsights(parameters.trigger_reason || 'agent_request');
+        return result;
+      },
 
-        update_person_profile: async (parameters: { interests?: string[]; goals?: string[]; skills?: string[] }) => {
-          console.log('🚨 TOOL CALLED: update_person_profile - AGENT IS CALLING TOOLS!');
-          console.log('👤 Updating person profile based on conversation...');
-          console.log('👤 Profile parameters:', parameters);
-          
-          if (onPersonProfileGenerated) {
-            try {
-              // Use conversation history and parameters to generate detailed profile
-              const conversationText = conversationHistoryRef.current.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+      update_person_profile: async (parameters: { interests?: string[]; goals?: string[]; skills?: string[] }) => {
+        console.log('🚨 TOOL CALLED: update_person_profile - AGENT IS CALLING TOOLS!');
+        console.log('👤 Updating person profile based on conversation...');
+        console.log('👤 Profile parameters:', parameters);
+        
+        if (onPersonProfileGenerated) {
+          try {
+            // Use conversation history and parameters to generate detailed profile
+            const conversationText = conversationHistoryRef.current.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+            
+            if (conversationText.length > 20) { // If we have real conversation content
+              const response = await fetch(`${mcpEndpoint}/analyze`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  conversationHistory: conversationText,
+                  userId: currentUser?.uid || `guest_${Date.now()}`,
+                  triggerReason: 'persona_update',
+                  generatePersona: true,
+                  profileParams: parameters
+                })
+              });
               
-              if (conversationText.length > 20) { // If we have real conversation content
-                const response = await fetch(`${mcpEndpoint}/analyze`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    conversationHistory: conversationText,
-                    userId: currentUser?.uid || `guest_${Date.now()}`,
-                    triggerReason: 'persona_update',
-                    generatePersona: true,
-                    profileParams: parameters
-                  })
-                });
+              if (response.ok) {
+                const result = await response.json();
                 
-                if (response.ok) {
-                  const result = await response.json();
-                  
-                  // Helper function to normalize data to arrays
-                  const normalizeToArray = (data: any): string[] => {
-                    if (Array.isArray(data)) return data;
-                    if (typeof data === 'string') {
-                      // Split by comma, semicolon, or newline and clean up
-                      return data.split(/[,;\n]/).map(item => item.trim()).filter(item => item.length > 0);
-                    }
-                    return [];
-                  };
-                  
-                  // Generate enhanced profile from analysis with proper data types
-                  const updatedProfile: PersonProfile = {
-                    interests: normalizeToArray(parameters.interests || result.detectedInterests) || ["Technology", "Problem Solving", "Innovation"],
-                    goals: normalizeToArray(parameters.goals || result.detectedGoals) || ["Career development", "Skill building"],
-                    skills: normalizeToArray(parameters.skills || result.detectedSkills) || ["Communication", "Analytical thinking"],
-                    values: normalizeToArray(result.detectedValues) || ["Making a difference", "Innovation", "Growth"],
-                    careerStage: result.careerStage || "exploring",
-                    workStyle: normalizeToArray(result.workStyle) || ["Collaborative", "Flexible"],
-                    lastUpdated: new Date().toLocaleDateString()
-                  };
-                  
-                  console.log('🎯 Generated enhanced persona profile:', updatedProfile);
-                  onPersonProfileGenerated(updatedProfile);
-                  return `I've analyzed our conversation and updated your profile with insights about your interests in ${updatedProfile.interests.join(', ')}!`;
-                }
+                // Helper function to normalize data to arrays
+                const normalizeToArray = (data: any): string[] => {
+                  if (Array.isArray(data)) return data;
+                  if (typeof data === 'string') {
+                    // Split by comma, semicolon, or newline and clean up
+                    return data.split(/[,;\n]/).map(item => item.trim()).filter(item => item.length > 0);
+                  }
+                  return [];
+                };
+                
+                // Generate enhanced profile from analysis with proper data types
+                const updatedProfile: PersonProfile = {
+                  interests: normalizeToArray(parameters.interests || result.detectedInterests) || ["Technology", "Problem Solving", "Innovation"],
+                  goals: normalizeToArray(parameters.goals || result.detectedGoals) || ["Career development", "Skill building"],
+                  skills: normalizeToArray(parameters.skills || result.detectedSkills) || ["Communication", "Analytical thinking"],
+                  values: normalizeToArray(result.detectedValues) || ["Making a difference", "Innovation", "Growth"],
+                  careerStage: result.careerStage || "exploring",
+                  workStyle: normalizeToArray(result.workStyle) || ["Collaborative", "Flexible"],
+                  lastUpdated: new Date().toLocaleDateString()
+                };
+                
+                console.log('🎯 Generated enhanced persona profile:', updatedProfile);
+                onPersonProfileGenerated(updatedProfile);
+                return `I've analyzed our conversation and updated your profile with insights about your interests in ${updatedProfile.interests.join(', ')}!`;
               }
-            } catch (error) {
-              console.error('❌ Error generating persona from conversation:', error);
             }
-            
-            // Fallback to basic profile
-            const updatedProfile: PersonProfile = {
-              interests: Array.isArray(parameters.interests) ? parameters.interests : ["Technology", "Problem Solving", "Innovation"],
-              goals: Array.isArray(parameters.goals) ? parameters.goals : ["Career development", "Skill building"],
-              skills: Array.isArray(parameters.skills) ? parameters.skills : ["Communication", "Analytical thinking"],
-              values: ["Making a difference", "Innovation", "Growth"],
-              careerStage: "exploring",
-              workStyle: ["Collaborative", "Flexible"],
-              lastUpdated: new Date().toLocaleDateString()
-            };
-            
-            onPersonProfileGenerated(updatedProfile);
-            return "I've updated your profile based on our conversation!";
+          } catch (error) {
+            console.error('❌ Error generating persona from conversation:', error);
           }
           
-          return "Profile updated successfully!";
+          // Fallback to basic profile
+          const updatedProfile: PersonProfile = {
+            interests: Array.isArray(parameters.interests) ? parameters.interests : ["Technology", "Problem Solving", "Innovation"],
+            goals: Array.isArray(parameters.goals) ? parameters.goals : ["Career development", "Skill building"],
+            skills: Array.isArray(parameters.skills) ? parameters.skills : ["Communication", "Analytical thinking"],
+            values: ["Making a difference", "Innovation", "Growth"],
+            careerStage: "exploring",
+            workStyle: ["Collaborative", "Flexible"],
+            lastUpdated: new Date().toLocaleDateString()
+          };
+          
+          onPersonProfileGenerated(updatedProfile);
+          return "I've updated your profile based on our conversation!";
         }
-      };
-      
-
-        console.log('🔧 Client tools configured:', Object.keys(tools));
-        return tools;
-    })(),
+        
+        return "Profile updated successfully!";
+      }
+    },
     onConnect: () => {
       console.log('🟢 ElevenLabs connected');
       setConnectionStatus('connected');
@@ -747,12 +703,6 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       // Note: We deliberately preserve conversation history, career cards, and profile data
       // when disconnecting to maintain user's progress and insights
       console.log('💾 Preserving conversation data and generated insights after disconnect');
-      
-      // Optional: Auto-reconnect after brief delay (uncomment if desired)
-      // setTimeout(() => {
-      //   console.log('🔄 Attempting auto-reconnect...');
-      //   startConversation();
-      // }, 3000);
     },
     onMessage: (message: any) => {
       console.log('📦 Raw message received:', message);
@@ -790,7 +740,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       }
       
       if (content && typeof content === 'string' && content.trim().length > 0) {
-        console.log('🎯 Fallback agent response parsing:', content.substring(0, 50) + '...');
+        console.log('🎯 Agent response:', content.substring(0, 50) + '...');
         updateConversationHistory(role, content);
       } else {
         console.log('⚠️ Could not parse message content:', message);
@@ -798,12 +748,6 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     },
     onError: (error) => {
       console.error('❌ ElevenLabs error:', error);
-      console.error('❌ Error context:', {
-        timestamp: new Date().toISOString(),
-        connectionStatus: connectionStatus,
-        conversationHistory: conversationHistory.length,
-        userAgent: navigator.userAgent
-      });
     },
     onUserTranscriptReceived: (transcript: string | any) => {
       console.log('📝 Raw transcript received:', transcript);

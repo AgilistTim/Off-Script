@@ -677,84 +677,6 @@ class OffScriptMCPServer {
   }
 
   setupMCPHttpServer() {
-    this.server = new Server(
-      {
-        name: 'OffScript Career Guidance Server',
-        version: '1.0.0',
-      },
-      {
-        capabilities: {
-          tools: {},
-        },
-      }
-    );
-
-    // Register existing tools
-    this.server.setRequestHandler(ListToolsRequestSchema, async () => {
-      return {
-        tools: [
-          {
-            name: 'analyze_conversation',
-            description: 'Analyzes conversation history to detect career interests and skills',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                conversationHistory: {
-                  type: 'string',
-                  description: 'The conversation text to analyze'
-                },
-                userId: {
-                  type: 'string',
-                  description: 'User identifier for tracking'
-                }
-              },
-              required: ['conversationHistory', 'userId']
-            }
-          },
-          {
-            name: 'generate_career_insights',
-            description: 'Generate career recommendations based on interests and skills',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                interests: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  description: 'List of career interests'
-                },
-                skills: {
-                  type: 'array',
-                  items: { type: 'string' },
-                  description: 'List of skills'
-                },
-                userId: {
-                  type: 'string',
-                  description: 'User identifier'
-                }
-              },
-              required: ['interests', 'userId']
-            }
-          }
-        ]
-      };
-    });
-
-    this.server.setRequestHandler(CallToolRequestSchema, async (request) => {
-      const { name, arguments: args } = request.params;
-      
-      switch (name) {
-        case 'analyze_conversation':
-          return await this.handleAnalyzeConversation(args);
-        case 'generate_career_insights':
-          return await this.handleGenerateCareerInsights(args);
-        default:
-          throw new Error(`Unknown tool: ${name}`);
-      }
-    });
-  }
-
-  // Add MCP HTTP/SSE endpoints
-  setupMCPHttpServer() {
     this.httpApp = express();
     
     // Enable CORS
@@ -797,11 +719,14 @@ class OffScriptMCPServer {
               'Access-Control-Allow-Origin': req.headers.origin || '*',
             });
 
-            // Send initial capabilities
+            // Send initial capabilities with tools list
             const capabilities = {
               protocolVersion: '2025-03-26',
               capabilities: {
-                tools: {},
+                tools: {
+                  listChanged: false,
+                  supportsProgress: false
+                }
               },
               serverInfo: {
                 name: 'OffScript Career Guidance Server',
