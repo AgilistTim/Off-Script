@@ -114,60 +114,11 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         contentLength: conversationHistory.map(m => m.content).join(' ').length 
       });
 
-      // If we have very limited conversation, provide immediate sample cards
-      if (conversationHistory.length < 2 || conversationHistory.map(m => m.content).join(' ').length < 20) {
-        console.log('🚀 Providing immediate sample career cards for early conversation');
-        
-        if (onCareerCardsGenerated) {
-          const sampleCareerCards = [
-            {
-              id: "sample-ai-ml",
-              title: "AI/Machine Learning Engineer", 
-              description: "Build intelligent systems and AI solutions to solve complex real-world problems",
-              industry: "Technology",
-              averageSalary: {
-                entry: "£50,000",
-                experienced: "£85,000",
-                senior: "£120,000"
-              },
-              growthOutlook: "Excellent growth prospects - 35% job growth expected",
-              entryRequirements: ["Strong programming skills", "Mathematics/statistics background", "Problem-solving mindset"],
-              trainingPathways: ["Computer Science Degree", "Machine Learning bootcamps", "Online courses (Coursera, edX)"],
-              keySkills: ["Python", "Machine Learning", "Deep Learning", "TensorFlow", "Problem Solving"],
-              workEnvironment: "Hybrid/Remote friendly, collaborative tech teams",
-              nextSteps: ["Learn Python basics", "Complete ML online course", "Build portfolio projects"],
-              location: "UK",
-              confidence: 0.92,
-              sourceData: "technology interest"
-            },
-            {
-              id: "sample-software-dev",
-              title: "Software Developer",
-              description: "Create applications and systems that power businesses and solve user problems",
-              industry: "Technology", 
-              averageSalary: {
-                entry: "£35,000",
-                experienced: "£55,000",
-                senior: "£80,000"
-              },
-              growthOutlook: "Strong growth - 22% job growth expected",
-              entryRequirements: ["Programming skills", "Problem-solving abilities", "Attention to detail"],
-              trainingPathways: ["Coding bootcamps", "Computer Science degree", "Self-taught with portfolio"],
-              keySkills: ["JavaScript", "React", "Node.js", "Git", "Problem Solving"],
-              workEnvironment: "Flexible, often remote-friendly",
-              nextSteps: ["Choose a programming language", "Build first project", "Create GitHub portfolio"],
-              location: "UK",
-              confidence: 0.88,
-              sourceData: "technology interest"
-            }
-          ];
-          
-          onCareerCardsGenerated(sampleCareerCards);
-          return `I've provided ${sampleCareerCards.length} initial career recommendations to get started!`;
-        }
-        
-        return 'Initial career recommendations provided!';
-      }
+      // Skip sample cards - real conversation analysis is working
+      console.log('🔍 Conversation analysis in progress...', {
+        historyLength: conversationHistory.length,
+        contentLength: conversationHistory.map(m => m.content).join(' ').length
+      });
       
       const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
       
