@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -53,6 +53,14 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
   
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  
+  // Use ref to access current conversation history in tool closures
+  const conversationHistoryRef = useRef<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  
+  // Update ref whenever state changes
+  useEffect(() => {
+    conversationHistoryRef.current = conversationHistory;
+  }, [conversationHistory]);
 
   // Use the helper function to get environment variables
   const agentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
@@ -94,8 +102,11 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
 
   // Enhanced conversation analysis with care sector detection
   const analyzeConversationForCareerInsights = useCallback(async (triggerReason: string) => {
+    // Use ref to get current conversation history (fixes closure issue)
+    const currentHistory = conversationHistoryRef.current;
+    
     // Allow analysis with cached conversation data even when disconnected
-    if (!isConnected && conversationHistory.length === 0) {
+    if (!isConnected && currentHistory.length === 0) {
       console.log('🚫 Analysis blocked - No conversation history available');
       return 'Please start a conversation first to generate career insights';
     }
@@ -107,17 +118,17 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     try {
       console.log('🎯 ANALYSIS TRIGGERED:', { 
         triggerReason, 
-        historyLength: conversationHistory.length,
-        contentLength: conversationHistory.map(m => m.content).join(' ').length 
+        historyLength: currentHistory.length,
+        contentLength: currentHistory.map(m => m.content).join(' ').length 
       });
 
       // Skip sample cards - real conversation analysis is working
       console.log('🔍 Conversation analysis in progress...', {
-        historyLength: conversationHistory.length,
-        contentLength: conversationHistory.map(m => m.content).join(' ').length
+        historyLength: currentHistory.length,
+        contentLength: currentHistory.map(m => m.content).join(' ').length
       });
       
-      const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+      const conversationText = currentHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
       
       // Enhanced analysis with care sector keywords
       const careKeywords = ['nursing home', 'care home', 'elderly care', 'grandma', 'grandpa', 'helping others', 'care work', 'healthcare', 'caring for'];
@@ -126,7 +137,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       );
       
       console.log('🔍 Enhanced analysis:', {
-        historyLength: conversationHistory.length,
+        historyLength: currentHistory.length,
         contentLength: conversationText.length,
         hasCareInterest,
         triggerReason
@@ -155,7 +166,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       let careerCards = analysisData.careerCards || [];
       
       // Generate user profile automatically when analyzing conversation (only if we have meaningful data)
-      if (conversationHistory.length >= 2 && onPersonProfileGenerated) {
+      if (currentHistory.length >= 2 && onPersonProfileGenerated) {
         try {
           const profileData = analysisData.userProfile || {};
           
@@ -285,7 +296,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       console.error('❌ Error in enhanced career analysis:', error);
       return 'Career analysis temporarily unavailable';
     }
-  }, [isConnected, conversationHistory, currentUser?.uid, onCareerCardsGenerated]);
+  }, [isConnected, currentUser?.uid, onCareerCardsGenerated]); // Removed conversationHistory dependency since using ref
 
   // Validate configuration on mount
   useEffect(() => {
@@ -310,11 +321,12 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           const result = await analyzeConversationForCareerInsights(parameters.trigger_reason || 'agent_request');
           
           // Auto-trigger profile update after career analysis if we have enough conversation
-          if (conversationHistory.length >= 4 && onPersonProfileGenerated) {
+          const currentHistory = conversationHistoryRef.current;
+          if (currentHistory.length >= 4 && onPersonProfileGenerated) {
             console.log('👤 Auto-triggering profile update after career analysis');
             setTimeout(async () => {
               try {
-                const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+                const conversationText = currentHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
                 const response = await fetch(`${mcpEndpoint}/analyze`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -486,7 +498,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           if (onPersonProfileGenerated) {
             try {
               // Use conversation history and parameters to generate detailed profile
-              const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+              const conversationText = conversationHistoryRef.current.map(msg => `${msg.role}: ${msg.content}`).join('\n');
               
               if (conversationText.length > 20) { // If we have real conversation content
                 const response = await fetch(`${mcpEndpoint}/analyze`, {
