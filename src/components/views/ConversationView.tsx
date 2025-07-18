@@ -111,10 +111,41 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     setUserEngagementCount(prev => prev + 1);
   }, []);
 
-  // Handle person profile generated/updated
-  const handlePersonProfileGenerated = useCallback((profile: PersonProfile) => {
-    console.log('👤 ConversationView: Received person profile:', profile);
-    setPersonProfile(profile);
+  // Handle person profile generated/updated with upsert logic
+  const handlePersonProfileGenerated = useCallback((newProfile: PersonProfile) => {
+    console.log('👤 ConversationView: Received person profile:', newProfile);
+    
+    setPersonProfile(prev => {
+      if (!prev) {
+        // No existing profile, use new one
+        console.log('👤 No existing profile, creating new one');
+        return newProfile;
+      }
+      
+      // Merge profiles with upsert logic
+      const mergedProfile: PersonProfile = {
+        // Merge arrays, removing duplicates and keeping unique items
+        interests: [...new Set([...prev.interests, ...newProfile.interests])],
+        goals: [...new Set([...prev.goals, ...newProfile.goals])],
+        skills: [...new Set([...prev.skills, ...newProfile.skills])],
+        values: [...new Set([...prev.values, ...newProfile.values])],
+        workStyle: [...new Set([...prev.workStyle, ...newProfile.workStyle])],
+        
+        // Update career stage if new one is more specific (not "exploring")
+        careerStage: newProfile.careerStage !== "exploring" ? newProfile.careerStage : prev.careerStage,
+        
+        // Use most recent timestamp
+        lastUpdated: newProfile.lastUpdated
+      };
+      
+      console.log('👤 Merged profile:', {
+        before: prev,
+        new: newProfile,
+        merged: mergedProfile
+      });
+      
+      return mergedProfile;
+    });
   }, []);
 
   // Handle person profile updates from the PersonCard component
@@ -179,16 +210,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
             className="flex-1"
           />
           
-          {/* Quick Start Tips */}
-          <div className="mt-4 bg-blue-50 rounded-lg p-4">
-            <h3 className="font-medium text-blue-800 mb-2">💡 Quick Start Tips</h3>
-            <ul className="text-sm text-blue-700 space-y-1">
-              <li>• "I enjoy solving problems and working with technology"</li>
-              <li>• "I want to help people and make a difference"</li>
-              <li>• "I'm creative and love visual design"</li>
-              <li>• "I'm good with numbers and analyzing data"</li>
-            </ul>
-          </div>
+
         </div>
 
         {/* Right Panel - Profile & Career Cards */}

@@ -52,9 +52,6 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
   
-  // Add throttling to prevent duplicate tool calls
-  const [lastAnalysisTime, setLastAnalysisTime] = useState<number>(0);
-  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [isConnected, setIsConnected] = useState<boolean>(false);
 
   // Use the helper function to get environment variables
@@ -102,17 +99,6 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       console.log('🚫 Analysis blocked - ElevenLabs disconnected');
       return 'Analysis stopped - conversation ended';
     }
-    
-    const now = Date.now();
-    
-    // Reduce throttling time to 2 seconds (was too aggressive at 5 seconds)
-    if (now - lastAnalysisTime < 2000 || isAnalyzing) {
-      console.log('🚫 Analysis throttled - too recent or already analyzing');
-      return 'Analysis in progress...';
-    }
-    
-    setLastAnalysisTime(now);
-    setIsAnalyzing(true);
     
     try {
       console.log('🎯 ANALYSIS TRIGGERED:', { 
@@ -163,6 +149,37 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       
       const analysisData = result.analysis || result;
       let careerCards = analysisData.careerCards || [];
+      
+      // Generate user profile automatically when analyzing conversation (only if we have meaningful data)
+      if (conversationHistory.length >= 2 && onPersonProfileGenerated) {
+        try {
+          const profileData = analysisData.userProfile || {};
+          
+          // Only generate profile if we have real detected data (not just defaults)
+          const hasRealData = analysisData.detectedInterests?.length > 0 || 
+                             analysisData.detectedSkills?.length > 0 || 
+                             analysisData.detectedGoals?.length > 0;
+          
+          if (hasRealData) {
+            const autoProfile: PersonProfile = {
+              interests: profileData.detectedInterests || analysisData.detectedInterests || [],
+              goals: profileData.detectedGoals || analysisData.detectedGoals || [],
+              skills: profileData.detectedSkills || analysisData.detectedSkills || [],
+              values: profileData.detectedValues || analysisData.detectedValues || [],
+              careerStage: profileData.careerStage || analysisData.careerStage || "exploring",
+              workStyle: profileData.workStyle || analysisData.workStyle || [],
+              lastUpdated: new Date().toLocaleDateString()
+            };
+            
+            console.log('👤 Auto-generated user profile from conversation analysis:', autoProfile);
+            onPersonProfileGenerated(autoProfile);
+          } else {
+            console.log('👤 Skipping profile generation - no meaningful data detected yet');
+          }
+        } catch (error) {
+          console.error('❌ Error auto-generating profile:', error);
+        }
+      }
       
       // If care interest detected but no care cards generated, add care sector cards
       if (hasCareInterest && !careerCards.some(card => 
@@ -263,10 +280,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     } catch (error) {
       console.error('❌ Error in enhanced career analysis:', error);
       return 'Career analysis temporarily unavailable';
-    } finally {
-      setIsAnalyzing(false);
     }
-  }, [isConnected, conversationHistory, currentUser?.uid, onCareerCardsGenerated, lastAnalysisTime, isAnalyzing]);
+  }, [isConnected, conversationHistory, currentUser?.uid, onCareerCardsGenerated]);
 
   // Validate configuration on mount
   useEffect(() => {
@@ -287,9 +302,52 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
           console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - AGENT IS CALLING TOOLS!');
           console.log('🔍 Tool parameters:', parameters);
-          console.log('🔍 Getting fresh conversation state for analysis...');
           
-          return await analyzeConversationForCareerInsights(parameters.trigger_reason || 'agent_request');
+          const result = await analyzeConversationForCareerInsights(parameters.trigger_reason || 'agent_request');
+          
+          // Auto-trigger profile update after career analysis if we have enough conversation
+          if (conversationHistory.length >= 4 && onPersonProfileGenerated) {
+            console.log('👤 Auto-triggering profile update after career analysis');
+            setTimeout(async () => {
+              try {
+                const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+                const response = await fetch(`${mcpEndpoint}/analyze`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    conversationHistory: conversationText,
+                    userId: currentUser?.uid || `guest_${Date.now()}`,
+                    triggerReason: 'auto_profile_update',
+                    generatePersona: true
+                  })
+                });
+                
+                if (response.ok) {
+                  const profileResult = await response.json();
+                  const analysisData = profileResult.analysis || profileResult;
+                  
+                  if (analysisData.detectedInterests?.length > 0 || analysisData.detectedSkills?.length > 0) {
+                    const profileUpdate: PersonProfile = {
+                      interests: analysisData.detectedInterests || [],
+                      goals: analysisData.detectedGoals || [],
+                      skills: analysisData.detectedSkills || [],
+                      values: analysisData.detectedValues || [],
+                      careerStage: analysisData.careerStage || "exploring",
+                      workStyle: analysisData.workStyle || [],
+                      lastUpdated: new Date().toLocaleDateString()
+                    };
+                    
+                    console.log('👤 Auto-generated profile update:', profileUpdate);
+                    onPersonProfileGenerated(profileUpdate);
+                  }
+                }
+              } catch (error) {
+                console.error('❌ Error in auto profile update:', error);
+              }
+            }, 1000); // Small delay to avoid overwhelming
+          }
+          
+          return result;
         },
 
         trigger_instant_insights: async (parameters: { user_message: string }) => {
@@ -320,6 +378,27 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
                 if (result.careerCards?.length > 0) {
                   console.log('🎯 Generated immediate career cards:', result.careerCards.length);
                   onCareerCardsGenerated(result.careerCards);
+                  
+                  // Auto-generate profile from instant insights
+                  if (onPersonProfileGenerated) {
+                    try {
+                      const analysisData = result.analysis || result;
+                      const instantProfile: PersonProfile = {
+                        interests: analysisData.detectedInterests || [parameters.user_message.includes('tech') ? 'Technology' : 'Problem Solving'],
+                        goals: analysisData.detectedGoals || ["Explore career options"],
+                        skills: analysisData.detectedSkills || ["Communication"],
+                        values: analysisData.detectedValues || ["Growth", "Learning"],
+                        careerStage: "exploring",
+                        workStyle: ["Flexible"],
+                        lastUpdated: new Date().toLocaleDateString()
+                      };
+                      
+                      console.log('👤 Auto-generated profile from instant insights:', instantProfile);
+                      onPersonProfileGenerated(instantProfile);
+                    } catch (error) {
+                      console.error('❌ Error generating instant profile:', error);
+                    }
+                  }
                   
                   // Provide specific career titles to the agent
                   const cardTitles = result.careerCards.map(card => card.title).join(', ');
@@ -360,6 +439,27 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
                 if (result.careerCards?.length > 0) {
                   console.log('🎯 Generated interest-based career cards:', result.careerCards.length);
                   onCareerCardsGenerated(result.careerCards);
+                  
+                  // Auto-generate profile from interest-based recommendations
+                  if (onPersonProfileGenerated && parameters.interests) {
+                    try {
+                      const analysisData = result.analysis || result;
+                      const interestProfile: PersonProfile = {
+                        interests: parameters.interests || analysisData.detectedInterests || ["Technology"],
+                        goals: analysisData.detectedGoals || ["Find suitable career path"],
+                        skills: analysisData.detectedSkills || ["Problem solving"],
+                        values: analysisData.detectedValues || ["Career satisfaction", "Growth"],
+                        careerStage: "exploring",
+                        workStyle: analysisData.workStyle || ["Results-oriented"],
+                        lastUpdated: new Date().toLocaleDateString()
+                      };
+                      
+                      console.log('👤 Auto-generated profile from interest recommendations:', interestProfile);
+                      onPersonProfileGenerated(interestProfile);
+                    } catch (error) {
+                      console.error('❌ Error generating interest-based profile:', error);
+                    }
+                  }
                   
                   // Provide specific career titles to the agent
                   const cardTitles = result.careerCards.map(card => card.title).join(', ');
@@ -453,10 +553,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       setConnectionStatus('disconnected');
       setIsConnected(false);
       
-      // Stop any ongoing analysis and prevent further analysis
-      console.log('🛑 Cleaning up: Stopping ongoing analysis and resetting state');
-      setIsAnalyzing(false);
-      setLastAnalysisTime(0);
+      // Clean up conversation state
+      console.log('🛑 Cleaning up: Clearing conversation state');
       
       // Clear conversation history to prevent stale analysis
       console.log('🧹 Clearing conversation history to prevent stale analysis');
@@ -550,35 +648,13 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   // Remove the polling mechanism - we're now using real-time WebSocket events!
   // The onUserTranscriptReceived and onMessage handlers above handle the real-time data
 
-  // Monitor conversation history changes - REDUCED backup triggering to avoid duplicates
+  // Backup analysis removed - ElevenLabs agent tools now handle career analysis automatically
   useEffect(() => {
     console.log('🔄 Conversation history updated:', {
       length: conversationHistory.length,
       messages: conversationHistory.map(m => `${m.role}: ${m.content.substring(0, 30)}...`)
     });
-    
-    // Only trigger backup analysis if CONNECTED and we have substantial conversation AND no recent analysis
-    if (isConnected && conversationHistory.length >= 4) { // Higher threshold to reduce spam
-      const totalContent = conversationHistory.map(m => m.content).join(' ');
-      const now = Date.now();
-      const timeSinceLastAnalysis = now - lastAnalysisTime;
-      
-      console.log('🔍 Content analysis:', {
-        totalLength: totalContent.length,
-        threshold: 200, // Much higher threshold
-        timeSinceLastAnalysis,
-        shouldTrigger: totalContent.length >= 200 && timeSinceLastAnalysis > 10000 // 10 second gap
-      });
-      
-      // Only trigger if significant conversation AND enough time has passed
-      if (totalContent.length >= 200 && timeSinceLastAnalysis > 10000) {
-        console.log('🎯 TRIGGERING BACKUP AUTO-ANALYSIS - substantial content and time gap');
-        analyzeConversationForCareerInsights('backup_auto_trigger');
-      }
-    } else {
-      console.log('⚠️ Not enough conversation history yet:', conversationHistory.length, 'messages');
-    }
-  }, [isConnected, conversationHistory.length, conversationHistory, analyzeConversationForCareerInsights]);
+  }, [conversationHistory.length, conversationHistory]);
 
   // Client tools that call our MCP server
   // Note: These are now handled by the conversation clientTools above to prevent duplicates
