@@ -261,21 +261,25 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       // Forward declaration - actual tools defined below
       const tools = {
         analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
-          console.log('🔍 Tool called: analyze_conversation_for_careers');
+          console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - AGENT IS CALLING TOOLS!');
+          console.log('🔍 Tool parameters:', parameters);
           return await analyzeConversationForCareerInsights(parameters.trigger_reason || 'agent_request');
         },
 
         trigger_instant_insights: async (parameters: { user_message: string }) => {
-          console.log('⚡ Tool called: trigger_instant_insights');
+          console.log('🚨 TOOL CALLED: trigger_instant_insights - AGENT IS CALLING TOOLS!');
+          console.log('⚡ Tool parameters:', parameters);
           return await analyzeConversationForCareerInsights('instant_insights');
         },
 
         generate_career_recommendations: async (parameters: any) => {
-          console.log('🎯 Tool called: generate_career_recommendations');
+          console.log('🚨 TOOL CALLED: generate_career_recommendations - AGENT IS CALLING TOOLS!');
+          console.log('🎯 Tool parameters:', parameters);
           return await analyzeConversationForCareerInsights('generate_recommendations');
         },
 
         update_person_profile: async (parameters: { interests?: string[]; goals?: string[]; skills?: string[] }) => {
+          console.log('🚨 TOOL CALLED: update_person_profile - AGENT IS CALLING TOOLS!');
           console.log('👤 Updating person profile based on conversation...');
           
           if (onPersonProfileGenerated) {
@@ -334,26 +338,32 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       }
       
       if (content && typeof content === 'string' && content.trim().length > 0) {
-        console.log('🎯 Real-time agent message received:', content.substring(0, 50) + '...');
+        console.log('🎯 Real-time ElevenLabs agent response received:', content.substring(0, 50) + '...');
+        console.log('📝 Current conversation history before adding agent response:', conversationHistory.length, 'messages');
+        
         setConversationHistory(prev => {
           const lastMessage = prev[prev.length - 1];
           if (lastMessage?.role === role && lastMessage?.content === content.trim()) {
+            console.log('⚠️ Skipping duplicate agent response');
             return prev; // Skip duplicate
           }
           
           const updated = [...prev, { role, content: content.trim() }];
-          console.log('📊 Updated conversation history:', updated.length, 'messages');
+          console.log('✅ Added agent response. New history length:', updated.length);
           return updated;
         });
+      } else {
+        console.log('⚠️ Empty or invalid agent message received:', message);
       }
     },
     onError: (error) => {
       console.error('❌ ElevenLabs error:', error);
     },
     onUserTranscriptReceived: (transcript: string) => {
-      // Handle user_transcript events from WebSocket - this is the key!
       if (transcript && transcript.trim().length > 0) {
-        console.log('🎯 Real-time user transcript received:', transcript);
+        console.log('🎯 Real-time ElevenLabs user transcript received:', transcript);
+        console.log('📝 Current conversation history before adding:', conversationHistory.length, 'messages');
+        
         setConversationHistory(prev => {
           const lastMessage = prev[prev.length - 1];
           if (lastMessage?.role === 'user' && lastMessage?.content === transcript.trim()) {
@@ -362,21 +372,12 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           }
           
           const updated = [...prev, { role: 'user' as const, content: transcript.trim() }];
-          console.log('📊 Updated conversation history with user transcript:', updated.length, 'messages');
-          
-          // Trigger career analysis immediately when we receive user transcript
-          if (updated.length >= 2) {
-            console.log('🎯 Triggering immediate career analysis from user transcript');
-            setTimeout(() => {
-              // Use the analyze_conversation_for_careers tool
-              if (updated.map(m => m.content).join(' ').length >= 50) {
-                console.log('✅ Sufficient content for career analysis');
-              }
-            }, 1000);
-          }
+          console.log('✅ Added user transcript. New history length:', updated.length);
           
           return updated;
         });
+      } else {
+        console.log('⚠️ Empty or invalid transcript received');
       }
     },
     onStatusChange: (status: string) => {
@@ -400,19 +401,28 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
 
   // Monitor conversation history changes and trigger analysis
   useEffect(() => {
+    console.log('🔄 Conversation history updated:', {
+      length: conversationHistory.length,
+      messages: conversationHistory.map(m => `${m.role}: ${m.content.substring(0, 30)}...`)
+    });
+    
     if (conversationHistory.length >= 2) {
       const totalContent = conversationHistory.map(m => m.content).join(' ');
-      if (totalContent.length >= 100) {
-        console.log('🎯 Conversation has sufficient content - triggering backup auto-analysis');
+      console.log('🔍 Content analysis:', {
+        totalLength: totalContent.length,
+        threshold: 50, // Reduced threshold
+        shouldTrigger: totalContent.length >= 50
+      });
+      
+      if (totalContent.length >= 50) { // MUCH lower threshold
+        console.log('🎯 TRIGGERING BACKUP AUTO-ANALYSIS - sufficient content detected');
         
-        // Add backup auto-trigger with a 3-second delay in case agent doesn't call tools
-        const autoTriggerTimer = setTimeout(async () => {
-          console.log('🚀 BACKUP AUTO-TRIGGER: Agent may not have called tools, triggering analysis');
-          await analyzeConversationForCareerInsights('backup_auto_trigger');
-        }, 3000);
-
-        return () => clearTimeout(autoTriggerTimer);
+        // Immediate trigger (no delay) since agent isn't calling tools
+        console.log('🚀 IMMEDIATE AUTO-TRIGGER: Agent not calling tools, forcing analysis now');
+        analyzeConversationForCareerInsights('immediate_auto_trigger');
       }
+    } else {
+      console.log('⚠️ Not enough conversation history yet:', conversationHistory.length, 'messages');
     }
   }, [conversationHistory.length, conversationHistory, analyzeConversationForCareerInsights]);
 
