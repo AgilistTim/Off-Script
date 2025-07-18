@@ -94,10 +94,14 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
 
   // Enhanced conversation analysis with care sector detection
   const analyzeConversationForCareerInsights = useCallback(async (triggerReason: string) => {
-    // Don't analyze if disconnected
+    // Allow analysis with cached conversation data even when disconnected
+    if (!isConnected && conversationHistory.length === 0) {
+      console.log('🚫 Analysis blocked - No conversation history available');
+      return 'Please start a conversation first to generate career insights';
+    }
+    
     if (!isConnected) {
-      console.log('🚫 Analysis blocked - ElevenLabs disconnected');
-      return 'Analysis stopped - conversation ended';
+      console.log('🔄 Analysis proceeding with cached conversation data (ElevenLabs disconnected)');
     }
     
     try {
