@@ -318,9 +318,9 @@ const Dashboard: React.FC = () => {
                                 Chat with our AI assistant to get personalized video recommendations based on your interests and career goals.
                               </CardDescription>
                               <Button asChild>
-                                <Link to="/chat" className="inline-flex items-center">
-                                  <MessageSquare className="w-4 w-4 mr-2" />
-                                  Start Chatting
+                                <Link to="/chat">
+                                  <MessageSquare className="w-4 h-4 mr-2" />
+                                  Get AI Insights
                                 </Link>
                               </Button>
                             </div>
