@@ -119,6 +119,11 @@ export class ConversationAnalyzer {
   // Enhanced message analysis using Context7 best practices
   async analyzeMessage(message: string, conversationHistory: string[] = []): Promise<ConversationInterest[]> {
     try {
+      // Build conversation context for better analysis
+      const conversationContext = conversationHistory.length > 0 
+        ? `Previous conversation context:\n${conversationHistory.join('\n')}\n\nLatest message: ${message}`
+        : message;
+
       // Use structured output with Zod for reliable parsing
       // @ts-ignore - parse() is available at runtime but not yet in typings
       const completion = await (openai as any).chat.completions.parse({
@@ -126,24 +131,29 @@ export class ConversationAnalyzer {
         messages: [
           {
             role: 'system',
-            content: `You are an expert career counselor. Extract career-related interests from user messages.
+            content: `You are an expert career counselor. Extract career-related interests from user messages using the full conversation context.
             
             Look for:
             - Activities they enjoy
-            - Skills they mention
+            - Skills they mention or want to develop
             - Problems they want to solve
-            - Work preferences
+            - Work environment preferences
+            - Values and motivations
+            - Career stage and experience level
+            - Industry interests
             
-            Only return interests with confidence > 0.6.`
+            Consider the ENTIRE conversation context to build a comprehensive understanding.
+            Only return interests with confidence > 0.6.
+            If the conversation reveals evolving interests, prioritize the most recent and specific mentions.`
           },
           {
             role: 'user',
-            content: `Analyze this message for career interests: "${message}"`
+            content: `Analyze this conversation for career interests:\n\n${conversationContext}`
           }
         ],
         response_format: zodResponseFormat(InterestsResponseSchema, 'career_interests'),
         temperature: 0.3,
-        max_tokens: 500
+        max_tokens: 800
       });
 
       const parsed = completion.choices[0]?.message?.parsed;
@@ -160,6 +170,70 @@ export class ConversationAnalyzer {
       
     } catch (error) {
       console.error('Error analyzing message:', error);
+      return [];
+    }
+  }
+
+  // NEW: Analyze complete conversation for comprehensive career insights
+  async analyzeFullConversation(messages: { role: 'user' | 'assistant'; content: string }[]): Promise<ConversationInterest[]> {
+    try {
+      if (messages.length === 0) return [];
+
+      // Extract just user messages for career interest analysis
+      const userMessages = messages
+        .filter(msg => msg.role === 'user')
+        .map(msg => msg.content);
+
+      if (userMessages.length === 0) return [];
+
+      const conversationText = userMessages.join('\n');
+
+      // Use structured output with Zod for reliable parsing
+      // @ts-ignore - parse() is available at runtime but not yet in typings
+      const completion = await (openai as any).chat.completions.parse({
+        model: 'gpt-4o-2024-08-06',
+        messages: [
+          {
+            role: 'system',
+            content: `You are an expert career counselor analyzing a complete conversation to extract comprehensive career insights.
+            
+            Extract ALL career-related information including:
+            - Activities and hobbies they enjoy
+            - Skills they have or want to develop
+            - Work environment preferences (office, outdoor, flexible, etc.)
+            - Values and motivations (helping people, problem-solving, etc.)
+            - Industry interests mentioned
+            - Career stage preferences
+            - Educational background or interests
+            
+            Build a comprehensive profile from the ENTIRE conversation.
+            Look for evolution in their thinking - if interests change or expand during the conversation, capture both earlier and later insights.
+            Only return interests with confidence > 0.6.`
+          },
+          {
+            role: 'user',
+            content: `Analyze this complete conversation for comprehensive career insights:\n\n${conversationText}`
+          }
+        ],
+        response_format: zodResponseFormat(InterestsResponseSchema, 'career_interests'),
+        temperature: 0.2, // Lower temperature for more consistent analysis
+        max_tokens: 1200
+      });
+
+      const parsed = completion.choices[0]?.message?.parsed;
+      if (!parsed) return [];
+
+      // Filter and validate interests with type safety
+      return parsed.interests
+        .filter((interest): interest is ConversationInterest => 
+          interest.confidence > 0.6 &&
+          typeof interest.interest === 'string' &&
+          typeof interest.context === 'string' &&
+          Array.isArray(interest.extractedTerms)
+        );
+      
+    } catch (error) {
+      console.error('Error analyzing full conversation:', error);
       return [];
     }
   }
@@ -250,20 +324,38 @@ export class ConversationAnalyzer {
     conversationHistory: string[] = []
   ): Promise<{ interests: ConversationInterest[]; careerCards: CareerCardData[] }> {
     try {
-      const interests = await this.analyzeMessage(userMessage, conversationHistory);
+      // Build full conversation context including the new message
+      const fullConversation = [
+        ...conversationHistory.map(msg => ({ role: 'user' as const, content: msg })),
+        { role: 'user' as const, content: userMessage }
+      ];
+
+      // Use full conversation analysis for comprehensive insights
+      const interests = await this.analyzeFullConversation(fullConversation);
       const careerCards: CareerCardData[] = [];
+      
+      // Generate unique career cards for high-confidence interests
+      const processedInterests = new Set<string>();
       
       for (const interest of interests) {
         if (interest.confidence > 0.7) {
-          const card = await this.generateCareerCard(interest.interest, interest.context);
-          if (card) {
-            careerCards.push(card);
+          // Create a unique key for this interest to avoid duplicates
+          const interestKey = interest.interest.toLowerCase().trim();
+          
+          if (!processedInterests.has(interestKey)) {
+            const card = await this.generateCareerCard(interest.interest, interest.context);
+            if (card) {
+              careerCards.push(card);
+              processedInterests.add(interestKey);
+            }
+            // Rate limiting to avoid API throttling
+            await new Promise(resolve => setTimeout(resolve, 150));
           }
-          // Rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
         }
       }
 
+      console.log(`✅ Processed conversation: ${interests.length} interests found, ${careerCards.length} unique career cards generated`);
+      
       return { interests, careerCards };
     } catch (error) {
       console.error('Error processing conversation:', error);
@@ -364,20 +456,29 @@ export class ConversationAnalyzer {
   }
 
   /**
-   * Standard analysis method (existing functionality)
+   * Standard conversation analysis (fallback method)
    */
   private async analyzeStandardConversation(
     messages: { role: 'user' | 'assistant'; content: string }[],
     userId?: string
   ): Promise<ConversationInterest[]> {
-    const userMessages = messages
-      .filter(msg => msg.role === 'user')
-      .map(msg => msg.content);
-    
-    if (userMessages.length === 0) return [];
-    
-    const latestMessage = userMessages[userMessages.length - 1];
-    return await this.analyzeMessage(latestMessage, userMessages.slice(0, -1));
+    try {
+      // Use the new full conversation analysis method
+      return await this.analyzeFullConversation(messages);
+    } catch (error) {
+      console.error('❌ Standard conversation analysis failed:', error);
+      
+      // Final fallback: analyze just the last user message if available
+      const lastUserMessage = messages
+        .filter(msg => msg.role === 'user')
+        .pop();
+      
+      if (lastUserMessage) {
+        return await this.analyzeMessage(lastUserMessage.content, []);
+      }
+      
+      return [];
+    }
   }
 
   /**

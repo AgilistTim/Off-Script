@@ -155,13 +155,10 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
   
   // Conversation analysis state
   const [careerCards, setCareerCards] = useState<CareerCardData[]>([]);
-  // Use the singleton conversationAnalyzer instance
-  const [conversationHistory, setConversationHistory] = useState<string[]>([]);
-  
-  // Modal state
+  const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const [isLoadingCardDetails, setIsLoadingCardDetails] = useState(false);
   const [selectedCareerCard, setSelectedCareerCard] = useState<CareerCardData | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLoadingCardDetails, setIsLoadingCardDetails] = useState(false);
   
   // Registration prompt state
   const [showRegistrationPrompt, setShowRegistrationPrompt] = useState(false);
@@ -318,7 +315,7 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
     setMessages(prev => [...prev, message]);
     
     // Update conversation history for analysis
-    setConversationHistory(prev => [...prev, `${message.role}: ${message.content}`]);
+    setConversationHistory(prev => [...prev, { role: message.role, content: message.content }]);
     
     // Persist to Firestore if thread is available
     if (firestoreThreadId && threadId) {
@@ -337,6 +334,24 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
     }
   }, [firestoreThreadId, threadId]);
 
+  // Helper function to deduplicate career cards by title/industry
+  const deduplicateCareerCards = useCallback((cards: CareerCardData[]): CareerCardData[] => {
+    const seen = new Map<string, CareerCardData>();
+    
+    // Process cards in reverse order so newer cards take precedence
+    for (let i = cards.length - 1; i >= 0; i--) {
+      const card = cards[i];
+      const key = `${card.title.toLowerCase().trim()}-${card.industry?.toLowerCase().trim() || ''}`;
+      
+      if (!seen.has(key)) {
+        seen.set(key, card);
+      }
+    }
+    
+    // Return cards in original order (newest first since we processed in reverse)
+    return Array.from(seen.values()).reverse();
+  }, []);
+
   // Analyze user message for career insights and generate cards
   const analyzeUserMessage = useCallback(async (userMessage: string) => {
     try {
@@ -344,7 +359,7 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
       // To enable MCP-enhanced analysis, set VITE_ENABLE_MCP_ENHANCEMENT=true in .env
       /*
       if (import.meta.env.VITE_ENABLE_MCP_ENHANCEMENT === 'true') {
-        const allMessages = [...messages, { role: 'user' as const, content: userMessage }];
+        const allMessages = [...conversationHistory, { role: 'user' as const, content: userMessage }];
         const mcpInterests = await conversationAnalyzer.analyzeConversationWithMCP(
           allMessages, 
           currentUser?.uid
@@ -358,22 +373,33 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
           
           if (mcpCareerCards.length > 0) {
             console.log(`🚀 Generated ${mcpCareerCards.length} MCP-enhanced career cards`);
-            setCareerCards(prev => [...prev, ...mcpCareerCards]);
+            // Replace rather than append for better analysis
+            setCareerCards(mcpCareerCards);
             return; // Use MCP results
           }
         }
       }
       */
       
-      // Standard conversation analysis (default behavior)
+      // Standard conversation analysis using the updated method
+      // Convert conversation history to string array format for compatibility
+      const conversationStrings = conversationHistory.map(msg => msg.content);
+      
       const result = await conversationAnalyzer.processConversationForInsights(
         userMessage,
-        conversationHistory
+        conversationStrings
       );
       
       if (result.careerCards.length > 0) {
-        console.log(`✅ Generated ${result.careerCards.length} career cards`);
-        setCareerCards(prev => [...prev, ...result.careerCards]);
+        console.log(`✅ Generated ${result.careerCards.length} career cards from conversation analysis`);
+        
+        // Merge new cards with existing ones, removing duplicates
+        setCareerCards(prev => {
+          const combined = [...prev, ...result.careerCards];
+          const uniqueCards = deduplicateCareerCards(combined);
+          console.log(`🔄 Career cards: ${prev.length} existing + ${result.careerCards.length} new = ${uniqueCards.length} unique`);
+          return uniqueCards;
+        });
       }
       
       if (result.interests.length > 0) {
@@ -382,7 +408,31 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
     } catch (error) {
       console.error('Error analyzing user message:', error);
     }
-  }, [conversationHistory]);
+  }, [conversationHistory, deduplicateCareerCards]);
+
+  // Enhanced career card generation handler for ElevenLabs
+  const handleCareerCardsGenerated = useCallback((newCards: CareerCardData[]) => {
+    console.log('🎯 Received career cards:', newCards.length);
+    
+    if (newCards.length > 0) {
+      // For ElevenLabs-generated cards, we often want to replace rather than merge
+      // since they tend to be more comprehensive analysis results
+      const isElevenLabsGenerated = newCards.some(card => 
+        card.id.includes('mcp-') || card.id.includes('enhanced-')
+      );
+      
+      if (isElevenLabsGenerated) {
+        console.log('🔄 Replacing career cards with ElevenLabs analysis');
+        setCareerCards(newCards);
+      } else {
+        // Merge and deduplicate for other sources
+        setCareerCards(prev => {
+          const combined = [...prev, ...newCards];
+          return deduplicateCareerCards(combined);
+        });
+      }
+    }
+  }, [deduplicateCareerCards]);
 
   // Handle user message from any input source
   const handleUserMessage = useCallback(async (content: string, source: 'text' | 'voice' | 'elevenlabs') => {
@@ -891,7 +941,7 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
             }}
             onCareerCardsGenerated={(cards) => {
               console.log('🎯 Received career cards from ElevenLabs:', cards.length);
-              setCareerCards(prev => [...prev, ...cards]);
+              handleCareerCardsGenerated(cards);
             }}
             className="flex-1"
           />
