@@ -113,7 +113,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         industry: 'Technology',
         description: 'Develop AI-powered applications and tools, implementing machine learning models into real-world products.',
         matchPercentage: 95,
-        salaryRange: { min: 45000, max: 80000, currency: 'GBP' },
+        salaryRange: '£45,000 - £80,000', // Fixed: String instead of object
         location: 'UK Wide',
         keySkills: ['Python/JavaScript', 'Machine Learning', 'Problem Solving', 'Software Development'],
         educationLevel: 'Degree/Self-taught',
@@ -134,7 +134,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         industry: 'Technology',
         description: 'Lead development of AI products from concept to market, bridging technical teams and business needs.',
         matchPercentage: 90,
-        salaryRange: { min: 50000, max: 90000, currency: 'GBP' },
+        salaryRange: '£50,000 - £90,000', // Fixed: String instead of object
         location: 'UK Wide',
         keySkills: ['Product Strategy', 'AI Understanding', 'Communication', 'Market Analysis'],
         educationLevel: 'Degree preferred',
@@ -155,7 +155,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         industry: 'Technology',
         description: 'Design comprehensive AI solutions for businesses, seeing the bigger picture of how AI fits into organizations.',
         matchPercentage: 88,
-        salaryRange: { min: 60000, max: 100000, currency: 'GBP' },
+        salaryRange: '£60,000 - £100,000', // Fixed: String instead of object
         location: 'UK Wide',
         keySkills: ['System Design', 'AI Technologies', 'Business Analysis', 'Technical Leadership'],
         educationLevel: 'Degree + Experience',
@@ -176,7 +176,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         industry: 'Entrepreneurship',
         description: 'Start and scale technology businesses, bringing innovative AI solutions to market.',
         matchPercentage: 85,
-        salaryRange: { min: 0, max: 200000, currency: 'GBP' },
+        salaryRange: 'Variable - £0 - £200,000+', // Fixed: String instead of object
         location: 'Flexible',
         keySkills: ['Innovation', 'Business Development', 'Risk Management', 'Leadership'],
         educationLevel: 'Varies',
@@ -189,24 +189,83 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       });
     }
     
-    // Machine Learning Engineer - directly mentioned in conversation
-    if (lowerText.includes('machine learning') || lowerText.includes('data scientist') || lowerText.includes('ml engineer')) {
+    if (lowerText.includes('machine learning') || lowerText.includes('ai engineer') || lowerText.includes('data science')) {
       cards.push({
         id: `local-ml-engineer-${Date.now()}`,
         title: 'Machine Learning Engineer',
         industry: 'Technology',
-        description: 'Build and deploy machine learning models, focusing on the technical implementation of AI systems.',
-        matchPercentage: 87,
-        salaryRange: { min: 50000, max: 85000, currency: 'GBP' },
+        description: 'Design and implement machine learning systems and algorithms for real-world applications.',
+        matchPercentage: 90,
+        salaryRange: '£50,000 - £90,000', // Fixed: String instead of object
         location: 'UK Wide',
-        keySkills: ['Machine Learning', 'Python/R', 'Data Engineering', 'MLOps'],
-        educationLevel: 'Degree in STEM',
+        keySkills: ['Python', 'Machine Learning', 'Data Analysis', 'Statistics'],
+        educationLevel: 'Degree in Computer Science/Maths',
         workArrangement: 'Remote/Hybrid',
-        careerProgression: 'Junior ML Engineer → Senior ML Engineer → ML Architect',
-        nextSteps: ['Master ML frameworks', 'Build ML projects', 'Learn cloud platforms'],
+        careerProgression: 'ML Engineer → Senior ML Engineer → Principal ML Engineer',
+        nextSteps: ['Build ML portfolio', 'Learn TensorFlow/PyTorch', 'Practice with real datasets'],
+        salaryProgression: '£50k → £90k → £130k+',
+        source: 'local_analysis',
+        requirements: ['Programming skills', 'Mathematical background', 'ML frameworks knowledge']
+      });
+    }
+    
+    if (lowerText.includes('software engineer') || lowerText.includes('programming') || lowerText.includes('coding')) {
+      cards.push({
+        id: `local-software-engineer-${Date.now()}`,
+        title: 'Software Engineer',
+        industry: 'Technology',
+        description: 'Build and maintain software applications, websites, and systems using various programming languages.',
+        matchPercentage: 88,
+        salaryRange: '£60,000 - £100,000', // Fixed: String instead of object
+        location: 'UK Wide',
+        keySkills: ['Programming', 'Problem Solving', 'System Design', 'Testing'],
+        educationLevel: 'Degree/Bootcamp/Self-taught',
+        workArrangement: 'Remote/Hybrid/Office',
+        careerProgression: 'Junior Developer → Senior Developer → Tech Lead',
+        nextSteps: ['Build coding portfolio', 'Learn popular frameworks', 'Contribute to open source'],
+        salaryProgression: '£60k → £100k → £150k+',
+        source: 'local_analysis',
+        requirements: ['Programming languages', 'Problem-solving skills', 'Version control knowledge']
+      });
+    }
+    
+    if (lowerText.includes('startup') || lowerText.includes('entrepreneur') || lowerText.includes('business')) {
+      cards.push({
+        id: `local-startup-founder-${Date.now()}`,
+        title: 'Startup Founder/Entrepreneur',
+        industry: 'Business & Entrepreneurship',
+        description: 'Create and lead innovative startups, building products that solve real-world problems.',
+        matchPercentage: 85,
+        salaryRange: 'Variable - £0 - £200,000+', // Fixed: String instead of object
+        location: 'UK Wide',
+        keySkills: ['Leadership', 'Innovation', 'Business Strategy', 'Risk Management'],
+        educationLevel: 'Any - Experience matters most',
+        workArrangement: 'Flexible/Self-determined',
+        careerProgression: 'Founder → CEO → Serial Entrepreneur',
+        nextSteps: ['Develop business idea', 'Learn about funding', 'Build MVP'],
+        salaryProgression: 'Variable → £200k+ potential',
+        source: 'local_analysis',
+        requirements: ['Innovation mindset', 'Risk tolerance', 'Leadership skills']
+      });
+    }
+    
+    if (lowerText.includes('product manager') || lowerText.includes('project management') || lowerText.includes('coordination')) {
+      cards.push({
+        id: `local-product-manager-${Date.now()}`,
+        title: 'Product Manager',
+        industry: 'Technology',
+        description: 'Guide product development from conception to launch, working with cross-functional teams.',
+        matchPercentage: 82,
+        salaryRange: '£50,000 - £85,000', // Fixed: String instead of object
+        location: 'UK Wide',
+        keySkills: ['Product Strategy', 'User Research', 'Project Management', 'Communication'],
+        educationLevel: 'Degree preferred',
+        workArrangement: 'Hybrid/Office',
+        careerProgression: 'Associate PM → Product Manager → Senior PM → VP Product',
+        nextSteps: ['Learn product management basics', 'Understand user research', 'Practice project coordination'],
         salaryProgression: '£50k → £85k → £120k+',
         source: 'local_analysis',
-        requirements: ['Strong math/stats', 'Programming skills', 'ML frameworks knowledge']
+        requirements: ['Strategic thinking', 'Communication skills', 'Technical understanding']
       });
     }
     
@@ -218,7 +277,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         industry: 'Healthcare & Social Care',
         description: 'Support individuals in care homes and community settings, helping with daily activities and providing emotional support.',
         matchPercentage: 95,
-        salaryRange: { min: 18000, max: 24000, currency: 'GBP' },
+        salaryRange: '£18,000 - £24,000', // Fixed: String instead of object
         location: 'UK Wide',
         keySkills: ['Empathy', 'Communication', 'Problem Solving', 'Patience'],
         educationLevel: 'Secondary/Apprenticeship',
@@ -231,6 +290,26 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       });
     }
     
+    if (hasCareInterest || lowerText.includes('nursing') || lowerText.includes('healthcare')) {
+      cards.push({
+        id: `local-healthcare-assistant-${Date.now()}`,
+        title: 'Healthcare Assistant',
+        industry: 'Healthcare',
+        description: 'Provide basic medical care and support to patients in hospitals and healthcare facilities.',
+        matchPercentage: 90,
+        salaryRange: '£20,000 - £28,000', // Fixed: String instead of object
+        location: 'UK Wide',
+        keySkills: ['Patient Care', 'Medical Knowledge', 'Empathy', 'Attention to Detail'],
+        educationLevel: 'Healthcare apprenticeship/NVQ',
+        workArrangement: 'On-site shifts',
+        careerProgression: 'Healthcare Assistant → Senior HCA → Nursing Associate',
+        nextSteps: ['Complete healthcare apprenticeship', 'Gain first aid certification', 'Apply to NHS roles'],
+        salaryProgression: '£20k → £28k → £35k+',
+        source: 'local_analysis',
+        requirements: ['Healthcare training', 'DBS check', 'Physical fitness']
+      });
+    }
+    
     // Problem-solving roles for general problem-solving mentions
     if (lowerText.includes('problem solving') || lowerText.includes('problem-solving')) {
       cards.push({
@@ -239,7 +318,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         industry: 'Technology',
         description: 'Help solve technical problems for users, troubleshoot systems, and provide technical support.',
         matchPercentage: 75,
-        salaryRange: { min: 20000, max: 28000, currency: 'GBP' },
+        salaryRange: '£20,000 - £28,000', // Fixed: String instead of object
         location: 'UK Wide',
         keySkills: ['Problem Solving', 'Technical Skills', 'Communication', 'Patience'],
         educationLevel: 'Apprenticeship/Certification',
