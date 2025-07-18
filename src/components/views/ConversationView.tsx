@@ -18,6 +18,17 @@ import { CareerInsight } from '../../services/conversationAnalyzer';
 import { Card } from '../ui/card';
 import { Button } from '../ui/button';
 import { RegistrationPrompt } from '../conversation/RegistrationPrompt';
+import { PersonCard } from '../conversation/PersonCard';
+
+interface PersonProfile {
+  interests: string[];
+  goals: string[];
+  skills: string[];
+  values: string[];
+  careerStage: string;
+  workStyle: string[];
+  lastUpdated: string;
+}
 
 interface CareerCard {
   id: string;
@@ -65,6 +76,9 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   const [careerCards, setCareerCards] = useState<CareerCard[]>([]);
   const [hasStartedConversation, setHasStartedConversation] = useState(false);
   
+  // Person profile state
+  const [personProfile, setPersonProfile] = useState<PersonProfile | null>(null);
+  
   // Registration prompt state
   const [showRegistrationPrompt, setShowRegistrationPrompt] = useState(false);
   const [userEngagementCount, setUserEngagementCount] = useState(0);
@@ -97,12 +111,25 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     setUserEngagementCount(prev => prev + 1);
   }, []);
 
+  // Handle person profile generated/updated
+  const handlePersonProfileGenerated = useCallback((profile: PersonProfile) => {
+    console.log('👤 ConversationView: Received person profile:', profile);
+    setPersonProfile(profile);
+  }, []);
+
+  // Handle person profile updates from the PersonCard component
+  const handlePersonProfileUpdate = useCallback((profile: PersonProfile) => {
+    console.log('👤 ConversationView: Person profile updated by user:', profile);
+    setPersonProfile(profile);
+    // Could save to localStorage or send to backend here
+  }, []);
+
   // Handle persona updates
   const handlePersonaUpdate = useCallback((persona: UserPersona) => {
     setUserPersona(persona);
   }, []);
 
-  // Trigger registration prompt based on engagement
+  // Trigger registration prompt immediately when cards are generated
   useEffect(() => {
     // Show registration prompt if:
     // 1. User is not logged in
@@ -112,11 +139,8 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     const dismissed = sessionStorage.getItem('registration-prompt-dismissed');
     
     if (!currentUser && careerCards.length > 0 && !showRegistrationPrompt && userEngagementCount >= 1 && !dismissed) {
-      // Small delay to let user review the career cards first
-      const timer = setTimeout(() => {
-        setShowRegistrationPrompt(true);
-      }, 3000);
-      return () => clearTimeout(timer);
+      // Show immediately when cards are generated - they've seen the value
+      setShowRegistrationPrompt(true);
     }
   }, [currentUser, careerCards.length, showRegistrationPrompt, userEngagementCount]);
 
@@ -151,6 +175,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
           
           <ElevenLabsWidget
             onCareerCardsGenerated={handleCareerCardsGenerated}
+            onPersonProfileGenerated={handlePersonProfileGenerated}
             className="flex-1"
           />
           
@@ -166,21 +191,34 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
           </div>
         </div>
 
-        {/* Right Panel - Career Cards */}
-        <div className="lg:w-1/2 flex flex-col">
-          <div className="mb-4">
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">
-              ✨ Your Personalized Matches
-            </h2>
-            <p className="text-gray-600">
-              Real-time career recommendations based on our conversation.
-            </p>
-          </div>
+        {/* Right Panel - Profile & Career Cards */}
+        <div className="lg:w-1/2 flex flex-col space-y-6">
+          {/* Person Profile Card */}
+          {personProfile && (
+            <div>
+              <PersonCard
+                profile={personProfile}
+                onUpdateProfile={handlePersonProfileUpdate}
+              />
+            </div>
+          )}
           
-          <CareerCardsPanel
-            cards={careerCards}
-            className="flex-1"
-          />
+          {/* Career Cards Section */}
+          <div className="flex-1">
+            <div className="mb-4">
+              <h2 className="text-xl font-semibold text-gray-800 mb-2">
+                ✨ Your Career Matches
+              </h2>
+              <p className="text-gray-600">
+                Real-time career recommendations based on our conversation.
+              </p>
+            </div>
+            
+            <CareerCardsPanel
+              cards={careerCards}
+              className="flex-1"
+            />
+          </div>
           
           {/* Registration Prompt */}
           <AnimatePresence>

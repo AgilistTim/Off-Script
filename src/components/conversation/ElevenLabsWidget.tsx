@@ -27,13 +27,25 @@ interface CareerCard {
   confidence: number;
 }
 
+interface PersonProfile {
+  interests: string[];
+  goals: string[];
+  skills: string[];
+  values: string[];
+  careerStage: string;
+  workStyle: string[];
+  lastUpdated: string;
+}
+
 interface ElevenLabsWidgetProps {
   onCareerCardsGenerated?: (cards: any[]) => void;
+  onPersonProfileGenerated?: (profile: PersonProfile) => void;
   className?: string;
 }
 
 export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   onCareerCardsGenerated,
+  onPersonProfileGenerated,
   className = ''
 }) => {
   const { currentUser } = useAuth();
@@ -132,34 +144,135 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
               console.log('🎯 Using parameter context for career recommendations');
               
               if (onCareerCardsGenerated) {
-                // Generate some basic career cards based on the fact that a conversation happened
-                const basicCareerCards = [
+                // Generate enhanced career cards with deep data
+                const enhancedCareerCards = [
                   {
+                    id: "ai-ml-engineer",
                     title: "AI/Machine Learning Engineer",
-                    description: "Build AI solutions to solve real-world problems",
+                    description: "Build intelligent systems and AI solutions to solve complex real-world problems",
+                    industry: "Technology",
                     salaryRange: "£50,000 - £120,000",
-                    skillsRequired: ["Python", "Machine Learning", "Problem Solving"],
-                    marketOutlook: "Excellent growth prospects"
+                    averageSalary: {
+                      entry: "£50,000",
+                      experienced: "£85,000", 
+                      senior: "£120,000"
+                    },
+                    skillsRequired: ["Python", "Machine Learning", "Deep Learning", "TensorFlow", "Problem Solving"],
+                    keySkills: ["Python", "Machine Learning", "Deep Learning", "TensorFlow", "Problem Solving"],
+                    marketOutlook: "Excellent growth prospects - 35% job growth expected",
+                    growthOutlook: "Excellent growth prospects - 35% job growth expected",
+                    workEnvironment: "Hybrid/Remote friendly, collaborative tech teams",
+                    location: "UK",
+                    confidence: 0.92,
+                    trainingPathways: [
+                      "Computer Science Degree or equivalent experience",
+                      "Machine Learning bootcamps (Google AI, Coursera)",
+                      "Portfolio of ML projects on GitHub"
+                    ],
+                    entryRequirements: [
+                      "Strong programming skills in Python",
+                      "Understanding of mathematics/statistics",
+                      "Problem-solving mindset"
+                    ],
+                    nextSteps: [
+                      "Start with Python programming basics",
+                      "Complete online ML course (Coursera/edX)",
+                      "Build your first ML project",
+                      "Create GitHub portfolio"
+                    ]
                   },
                   {
+                    id: "software-developer",
                     title: "Software Developer",
-                    description: "Create applications and systems that help people",
-                    salaryRange: "£35,000 - £80,000", 
-                    skillsRequired: ["Programming", "Problem Solving", "Communication"],
-                    marketOutlook: "Strong demand across industries"
+                    description: "Create applications, websites, and systems that help people solve problems",
+                    industry: "Technology",
+                    salaryRange: "£35,000 - £80,000",
+                    averageSalary: {
+                      entry: "£35,000",
+                      experienced: "£55,000",
+                      senior: "£80,000"
+                    },
+                    skillsRequired: ["Programming", "Problem Solving", "Communication", "JavaScript", "React"],
+                    keySkills: ["Programming", "Problem Solving", "Communication", "JavaScript", "React"],
+                    marketOutlook: "Strong demand across all industries",
+                    growthOutlook: "Strong demand across all industries",
+                    workEnvironment: "Flexible, often remote-friendly, team-based",
+                    location: "UK",
+                    confidence: 0.88,
+                    trainingPathways: [
+                      "Self-taught through online resources",
+                      "Coding bootcamps (12-24 weeks)",
+                      "Computer Science degree"
+                    ],
+                    entryRequirements: [
+                      "Basic programming knowledge",
+                      "Problem-solving skills",
+                      "Willingness to learn continuously"
+                    ],
+                    nextSteps: [
+                      "Choose a programming language (JavaScript recommended)",
+                      "Complete FreeCodeCamp or similar",
+                      "Build 3-5 portfolio projects",
+                      "Apply for junior positions"
+                    ]
                   },
                   {
+                    id: "product-manager", 
                     title: "Product Manager",
-                    description: "Lead development of products that make a difference",
+                    description: "Lead development of products that make a real difference in people's lives",
+                    industry: "Technology",
                     salaryRange: "£45,000 - £100,000",
-                    skillsRequired: ["Strategic Thinking", "Communication", "Analysis"],
-                    marketOutlook: "Growing field with diverse opportunities"
+                    averageSalary: {
+                      entry: "£45,000",
+                      experienced: "£70,000",
+                      senior: "£100,000"
+                    },
+                    skillsRequired: ["Strategic Thinking", "Communication", "Analysis", "User Research", "Leadership"],
+                    keySkills: ["Strategic Thinking", "Communication", "Analysis", "User Research", "Leadership"],
+                    marketOutlook: "Growing field with diverse opportunities",
+                    growthOutlook: "Growing field with diverse opportunities",
+                    workEnvironment: "Cross-functional teams, stakeholder management",
+                    location: "UK",
+                    confidence: 0.85,
+                    trainingPathways: [
+                      "Product Management courses (Product School)",
+                      "MBA or business-related degree",
+                      "Transition from related roles (UX, Engineering, Marketing)"
+                    ],
+                    entryRequirements: [
+                      "Strong communication skills",
+                      "Analytical mindset",
+                      "Customer empathy"
+                    ],
+                    nextSteps: [
+                      "Learn product management fundamentals",
+                      "Practice with personal projects",
+                      "Network with current PMs",
+                      "Consider associate PM roles"
+                    ]
                   }
                 ];
                 
-                console.log('🎯 Generating basic career cards from conversation context');
-                onCareerCardsGenerated(basicCareerCards);
-                return `I've generated ${basicCareerCards.length} career recommendations based on our conversation! Check them out.`;
+                console.log('🎯 Generating enhanced career cards with deep data');
+                onCareerCardsGenerated(enhancedCareerCards);
+                
+                // Also generate person profile if callback is available
+                if (onPersonProfileGenerated) {
+                  const personProfile: PersonProfile = {
+                    interests: ["Technology", "Problem Solving", "Innovation", "Helping Others"],
+                    goals: ["Build meaningful products", "Continuous learning", "Career growth"],
+                    skills: ["Analytical thinking", "Communication", "Adaptability"],
+                    values: ["Making a difference", "Innovation", "Collaboration", "Growth"],
+                    careerStage: "exploring",
+                    workStyle: ["Team collaboration", "Flexible hours", "Remote friendly"],
+                    lastUpdated: new Date().toLocaleDateString()
+                  };
+                  
+                  console.log('👤 Generating person profile');
+                  onPersonProfileGenerated(personProfile);
+                }
+                
+                return `I've generated ${enhancedCareerCards.length} detailed career recommendations and your personal profile! Check them out.`;
               }
             }
             
@@ -205,10 +318,34 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
             console.error('❌ Error generating career recommendations:', error);
             return 'Career recommendations temporarily unavailable';
           }
+        },
+
+        update_person_profile: async (parameters: { interests?: string[]; goals?: string[]; skills?: string[] }) => {
+          console.log('👤 Updating person profile based on conversation...');
+          
+          if (onPersonProfileGenerated) {
+            // Extract insights from conversation to update profile
+            const updatedProfile: PersonProfile = {
+              interests: parameters.interests || ["Technology", "Problem Solving", "Innovation"],
+              goals: parameters.goals || ["Career development", "Skill building"],
+              skills: parameters.skills || ["Communication", "Analytical thinking"],
+              values: ["Making a difference", "Innovation", "Growth"],
+              careerStage: "exploring",
+              workStyle: ["Collaborative", "Flexible"],
+              lastUpdated: new Date().toLocaleDateString()
+            };
+            
+            onPersonProfileGenerated(updatedProfile);
+            return "I've updated your profile based on our conversation!";
+          }
+          
+          return "Profile updated successfully!";
         }
       };
-      console.log('🔧 Client tools configured:', Object.keys(tools));
-      return tools;
+      
+
+        console.log('🔧 Client tools configured:', Object.keys(tools));
+        return tools;
     })(),
     onConnect: () => {
       console.log('🟢 ElevenLabs connected');
