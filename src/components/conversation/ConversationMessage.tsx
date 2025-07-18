@@ -1,10 +1,24 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Message } from './ConversationalChat';
+import { Message } from '../ui/chat-message';
 import { voiceService } from '../../services/voiceService';
 
+// Extended message interface for conversation messages
+interface ConversationMessage extends Message {
+  audioUrl?: string;
+  timestamp?: Date;
+  metadata?: {
+    careerInsight?: string;
+    confidence?: number;
+    voiceGenerated?: boolean;
+    personaType?: string;
+    source?: 'voice' | 'text' | 'elevenlabs';
+    actionRequired?: string;
+  };
+}
+
 export interface ConversationMessageProps {
-  message: Message;
+  message: ConversationMessage;
   isVoiceEnabled?: boolean;
   className?: string;
 }
