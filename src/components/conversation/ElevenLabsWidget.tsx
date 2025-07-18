@@ -553,12 +553,15 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       setConnectionStatus('disconnected');
       setIsConnected(false);
       
-      // Clean up conversation state
-      console.log('🛑 Cleaning up: Clearing conversation state');
+      // Note: We deliberately preserve conversation history, career cards, and profile data
+      // when disconnecting to maintain user's progress and insights
+      console.log('💾 Preserving conversation data and generated insights after disconnect');
       
-      // Clear conversation history to prevent stale analysis
-      console.log('🧹 Clearing conversation history to prevent stale analysis');
-      setConversationHistory([]);
+      // Optional: Auto-reconnect after brief delay (uncomment if desired)
+      // setTimeout(() => {
+      //   console.log('🔄 Attempting auto-reconnect...');
+      //   startConversation();
+      // }, 3000);
     },
     onMessage: (message: any) => {
       console.log('📦 Raw message received:', message);
@@ -604,6 +607,12 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     },
     onError: (error) => {
       console.error('❌ ElevenLabs error:', error);
+      console.error('❌ Error context:', {
+        timestamp: new Date().toISOString(),
+        connectionStatus: connectionStatus,
+        conversationHistory: conversationHistory.length,
+        userAgent: navigator.userAgent
+      });
     },
     onUserTranscriptReceived: (transcript: string | any) => {
       console.log('📝 Raw transcript received:', transcript);
