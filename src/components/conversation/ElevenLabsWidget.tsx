@@ -69,9 +69,9 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     });
   }, [conversationHistory]);
 
-  // Initialize conversation with empty client tools first
+  // Initialize conversation without client tools temporarily to fix ordering issue
   const conversation = useConversation({
-    clientTools: {},
+    // clientTools,  // TODO: Re-enable after testing message callbacks
     onConnect: () => {
       console.log('🟢 ElevenLabs connected');
       console.log('🔧 Connection established with config:', { agentId: agentId?.substring(0, 8) + '...', hasApiKey: !!apiKey });
@@ -214,56 +214,97 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     });
   }, [conversation?.status, conversation?.isSpeaking, conversation?.canSendFeedback, conversation?.micMuted]);
 
-  // 🔍 DEBUGGING: Try to poll conversation object for data
+  // 🚀 SOLUTION: Fetch conversation transcript directly from ElevenLabs API
   useEffect(() => {
-    if (conversation?.status === 'connected') {
-      console.log('🔍 Starting conversation data polling...');
+    if (conversation?.status === 'connected' && apiKey) {
+      console.log('🔍 Starting conversation transcript polling...');
       
-             const pollConversationData = async () => {
-         try {
-           // Try to get conversation ID and any other data
-           const conversationId = conversation.getId ? conversation.getId() : 'unknown';
-           console.log('🔍 Polling conversation data:', {
-             id: conversationId,
-             status: conversation.status,
-             isSpeaking: conversation.isSpeaking,
-             canSendFeedback: conversation.canSendFeedback,
-             allMethods: Object.keys(conversation)
-           });
-           
-           // Try to call any methods that might give us conversation data
-           if (conversation.getInputVolume) {
-             try {
-               const inputVolume = await conversation.getInputVolume();
-               console.log('🔍 Input volume:', inputVolume);
-             } catch (e) {
-               console.log('🔍 Could not get input volume:', e);
-             }
-           }
-           
-           if (conversation.getOutputVolume) {
-             try {
-               const outputVolume = await conversation.getOutputVolume();
-               console.log('🔍 Output volume:', outputVolume);
-             } catch (e) {
-               console.log('🔍 Could not get output volume:', e);
-             }
-           }
-           
-         } catch (error) {
-           console.log('🔍 Error polling conversation data:', error);
-         }
-       };
+      const fetchConversationTranscript = async () => {
+        try {
+          const conversationId = conversation.getId ? conversation.getId() : null;
+          
+          if (!conversationId) {
+            console.log('🔍 No conversation ID available yet');
+            return;
+          }
+          
+          console.log('📡 Fetching transcript for conversation:', conversationId);
+          
+          const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`, {
+            headers: {
+              'xi-api-key': apiKey,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (!response.ok) {
+            console.log('📡 Transcript fetch failed:', response.status, response.statusText);
+            return;
+          }
+          
+          const conversationData = await response.json();
+          console.log('📡 Conversation data received:', conversationData);
+          
+          const transcript = conversationData.transcript || [];
+          console.log('📜 Raw transcript:', transcript);
+          
+          if (transcript.length > 0) {
+            // Convert ElevenLabs transcript format to our format
+            const newHistory = transcript
+              .filter(entry => entry.message && entry.message.trim().length > 0)
+              .map(entry => ({
+                role: entry.role === 'agent' ? 'assistant' : entry.role,
+                content: entry.message
+              }));
+            
+            console.log('📜 Processed conversation history:', newHistory);
+            
+            // Update conversation history if we have new content
+            if (newHistory.length !== conversationHistory.length) {
+              console.log('📜 Updating conversation history:', {
+                oldLength: conversationHistory.length,
+                newLength: newHistory.length
+              });
+              
+              setConversationHistory(newHistory);
+              
+              // Trigger career analysis if we have enough content
+              if (newHistory.length >= 2) {
+                const totalContent = newHistory.map(m => m.content).join(' ');
+                if (totalContent.length >= 50) {
+                  console.log('🎯 Triggering career analysis from transcript!');
+                  // TODO: Re-enable clientTools and this will automatically trigger analysis
+                }
+              }
+            }
+          }
+          
+          // Also log audio volumes for debugging
+          if (conversation.getInputVolume && conversation.getOutputVolume) {
+            const [inputVolume, outputVolume] = await Promise.all([
+              conversation.getInputVolume(),
+              conversation.getOutputVolume()
+            ]);
+            console.log('🔍 Audio levels:', { input: inputVolume, output: outputVolume });
+          }
+          
+        } catch (error) {
+          console.log('📡 Error fetching conversation transcript:', error);
+        }
+      };
       
-      // Poll every 2 seconds during active conversation
-      const pollInterval = setInterval(pollConversationData, 2000);
+      // Poll every 3 seconds for transcript updates
+      const pollInterval = setInterval(fetchConversationTranscript, 3000);
+      
+      // Also fetch immediately
+      fetchConversationTranscript();
       
       return () => {
-        console.log('🔍 Stopping conversation data polling...');
+        console.log('🔍 Stopping conversation transcript polling...');
         clearInterval(pollInterval);
       };
     }
-  }, [conversation?.status]);
+  }, [conversation?.status, apiKey, conversationHistory.length]);
 
   // Client tools that call our MCP server
   const clientTools = {
