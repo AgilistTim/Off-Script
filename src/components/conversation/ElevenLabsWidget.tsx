@@ -516,14 +516,24 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
                 if (response.ok) {
                   const result = await response.json();
                   
-                  // Generate enhanced profile from analysis
+                  // Helper function to normalize data to arrays
+                  const normalizeToArray = (data: any): string[] => {
+                    if (Array.isArray(data)) return data;
+                    if (typeof data === 'string') {
+                      // Split by comma, semicolon, or newline and clean up
+                      return data.split(/[,;\n]/).map(item => item.trim()).filter(item => item.length > 0);
+                    }
+                    return [];
+                  };
+                  
+                  // Generate enhanced profile from analysis with proper data types
                   const updatedProfile: PersonProfile = {
-                    interests: parameters.interests || result.detectedInterests || ["Technology", "Problem Solving", "Innovation"],
-                    goals: parameters.goals || result.detectedGoals || ["Career development", "Skill building"],
-                    skills: parameters.skills || result.detectedSkills || ["Communication", "Analytical thinking"],
-                    values: result.detectedValues || ["Making a difference", "Innovation", "Growth"],
+                    interests: normalizeToArray(parameters.interests || result.detectedInterests) || ["Technology", "Problem Solving", "Innovation"],
+                    goals: normalizeToArray(parameters.goals || result.detectedGoals) || ["Career development", "Skill building"],
+                    skills: normalizeToArray(parameters.skills || result.detectedSkills) || ["Communication", "Analytical thinking"],
+                    values: normalizeToArray(result.detectedValues) || ["Making a difference", "Innovation", "Growth"],
                     careerStage: result.careerStage || "exploring",
-                    workStyle: result.workStyle || ["Collaborative", "Flexible"],
+                    workStyle: normalizeToArray(result.workStyle) || ["Collaborative", "Flexible"],
                     lastUpdated: new Date().toLocaleDateString()
                   };
                   
@@ -538,9 +548,9 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
             
             // Fallback to basic profile
             const updatedProfile: PersonProfile = {
-              interests: parameters.interests || ["Technology", "Problem Solving", "Innovation"],
-              goals: parameters.goals || ["Career development", "Skill building"],
-              skills: parameters.skills || ["Communication", "Analytical thinking"],
+              interests: Array.isArray(parameters.interests) ? parameters.interests : ["Technology", "Problem Solving", "Innovation"],
+              goals: Array.isArray(parameters.goals) ? parameters.goals : ["Career development", "Skill building"],
+              skills: Array.isArray(parameters.skills) ? parameters.skills : ["Communication", "Analytical thinking"],
               values: ["Making a difference", "Innovation", "Growth"],
               careerStage: "exploring",
               workStyle: ["Collaborative", "Flexible"],

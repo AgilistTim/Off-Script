@@ -115,32 +115,62 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   const handlePersonProfileGenerated = useCallback((newProfile: PersonProfile) => {
     console.log('👤 ConversationView: Received person profile:', newProfile);
     
+    // Helper function to normalize data to arrays
+    const normalizeToArray = (data: any): string[] => {
+      if (Array.isArray(data)) return data;
+      if (typeof data === 'string') {
+        // Split by comma, semicolon, or newline and clean up
+        return data.split(/[,;\n]/).map(item => item.trim()).filter(item => item.length > 0);
+      }
+      return [];
+    };
+    
+    // Normalize incoming profile data
+    const normalizedNewProfile: PersonProfile = {
+      ...newProfile,
+      interests: normalizeToArray(newProfile.interests),
+      goals: normalizeToArray(newProfile.goals),
+      skills: normalizeToArray(newProfile.skills),
+      values: normalizeToArray(newProfile.values),
+      workStyle: normalizeToArray(newProfile.workStyle)
+    };
+    
     setPersonProfile(prev => {
       if (!prev) {
-        // No existing profile, use new one
+        // No existing profile, use normalized new one
         console.log('👤 No existing profile, creating new one');
-        return newProfile;
+        return normalizedNewProfile;
       }
       
-      // Merge profiles with upsert logic
+      // Normalize existing profile data as well
+      const normalizedPrevProfile: PersonProfile = {
+        ...prev,
+        interests: normalizeToArray(prev.interests),
+        goals: normalizeToArray(prev.goals),
+        skills: normalizeToArray(prev.skills),
+        values: normalizeToArray(prev.values),
+        workStyle: normalizeToArray(prev.workStyle)
+      };
+      
+      // Merge profiles with upsert logic using normalized arrays
       const mergedProfile: PersonProfile = {
         // Merge arrays, removing duplicates and keeping unique items
-        interests: [...new Set([...prev.interests, ...newProfile.interests])],
-        goals: [...new Set([...prev.goals, ...newProfile.goals])],
-        skills: [...new Set([...prev.skills, ...newProfile.skills])],
-        values: [...new Set([...prev.values, ...newProfile.values])],
-        workStyle: [...new Set([...prev.workStyle, ...newProfile.workStyle])],
+        interests: [...new Set([...normalizedPrevProfile.interests, ...normalizedNewProfile.interests])],
+        goals: [...new Set([...normalizedPrevProfile.goals, ...normalizedNewProfile.goals])],
+        skills: [...new Set([...normalizedPrevProfile.skills, ...normalizedNewProfile.skills])],
+        values: [...new Set([...normalizedPrevProfile.values, ...normalizedNewProfile.values])],
+        workStyle: [...new Set([...normalizedPrevProfile.workStyle, ...normalizedNewProfile.workStyle])],
         
         // Update career stage if new one is more specific (not "exploring")
-        careerStage: newProfile.careerStage !== "exploring" ? newProfile.careerStage : prev.careerStage,
+        careerStage: normalizedNewProfile.careerStage !== "exploring" ? normalizedNewProfile.careerStage : normalizedPrevProfile.careerStage,
         
         // Use most recent timestamp
-        lastUpdated: newProfile.lastUpdated
+        lastUpdated: normalizedNewProfile.lastUpdated
       };
       
       console.log('👤 Merged profile:', {
-        before: prev,
-        new: newProfile,
+        before: normalizedPrevProfile,
+        new: normalizedNewProfile,
         merged: mergedProfile
       });
       
