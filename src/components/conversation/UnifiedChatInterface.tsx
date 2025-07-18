@@ -310,30 +310,6 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
     }
   }, [messages, currentUser, showRegistrationPrompt, registrationTrigger.type]);
 
-  // Add message to state and optionally persist to Firestore
-  const addMessage = useCallback(async (message: UnifiedMessage) => {
-    setMessages(prev => [...prev, message]);
-    
-    // Update conversation history for analysis
-    setConversationHistory(prev => [...prev, { role: message.role, content: message.content }]);
-    
-    // Persist to Firestore if thread is available
-    if (firestoreThreadId && threadId) {
-      try {
-        await storeMessage(
-          firestoreThreadId,
-          message.content,
-          message.role,
-          threadId,
-          undefined // runId not needed for unified interface
-        );
-      } catch (error) {
-        console.error('Failed to store message:', error);
-        // Continue without persisting - not critical for UX
-      }
-    }
-  }, [firestoreThreadId, threadId]);
-
   // Helper function to deduplicate career cards by title/industry
   const deduplicateCareerCards = useCallback((cards: CareerCardData[]): CareerCardData[] => {
     const seen = new Map<string, CareerCardData>();
@@ -354,6 +330,9 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
 
   // Analyze user message for career insights and generate cards
   const analyzeUserMessage = useCallback(async (userMessage: string) => {
+    console.log('🔬 analyzeUserMessage called with:', userMessage.substring(0, 50) + '...');
+    console.log('🔬 Current conversation history length:', conversationHistory.length);
+    
     try {
       // MCP Enhancement: Option to use enhanced analysis
       // To enable MCP-enhanced analysis, set VITE_ENABLE_MCP_ENHANCEMENT=true in .env
@@ -384,11 +363,17 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
       // Standard conversation analysis using the updated method
       // Convert conversation history to string array format for compatibility
       const conversationStrings = conversationHistory.map(msg => msg.content);
+      console.log('🔬 Conversation strings for analysis:', conversationStrings.length, 'messages');
       
       const result = await conversationAnalyzer.processConversationForInsights(
         userMessage,
         conversationStrings
       );
+      
+      console.log('🔬 Analysis result:', {
+        interests: result.interests.length,
+        careerCards: result.careerCards.length
+      });
       
       if (result.careerCards.length > 0) {
         console.log(`✅ Generated ${result.careerCards.length} career cards from conversation analysis`);
@@ -400,15 +385,52 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
           console.log(`🔄 Career cards: ${prev.length} existing + ${result.careerCards.length} new = ${uniqueCards.length} unique`);
           return uniqueCards;
         });
+      } else {
+        console.log('⚠️ No career cards generated from analysis');
       }
       
       if (result.interests.length > 0) {
         console.log(`💡 Detected ${result.interests.length} career interests`);
+      } else {
+        console.log('⚠️ No career interests detected');
       }
     } catch (error) {
       console.error('Error analyzing user message:', error);
     }
   }, [conversationHistory, deduplicateCareerCards]);
+
+  // Add message to state and optionally persist to Firestore
+  const addMessage = useCallback(async (message: UnifiedMessage) => {
+    setMessages(prev => [...prev, message]);
+    
+    // Update conversation history for analysis
+    setConversationHistory(prev => [...prev, { role: message.role, content: message.content }]);
+    
+    // Analyze user messages for career insights
+    if (message.role === 'user' && message.content.trim().length > 0) {
+      console.log('🔬 Triggering career analysis for user message');
+      // Use setTimeout to ensure state update completes first
+      setTimeout(() => {
+        analyzeUserMessage(message.content);
+      }, 100);
+    }
+    
+    // Persist to Firestore if thread is available
+    if (firestoreThreadId && threadId) {
+      try {
+        await storeMessage(
+          firestoreThreadId,
+          message.content,
+          message.role,
+          threadId,
+          undefined // runId not needed for unified interface
+        );
+      } catch (error) {
+        console.error('Failed to store message:', error);
+        // Continue without persisting - not critical for UX
+      }
+    }
+  }, [firestoreThreadId, threadId, analyzeUserMessage]);
 
   // Enhanced career card generation handler for ElevenLabs
   const handleCareerCardsGenerated = useCallback((newCards: CareerCardData[]) => {

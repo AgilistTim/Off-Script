@@ -300,26 +300,18 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
   const agentConfig = PERSONA_AGENT_CONFIGS[userPersona.type] || PERSONA_AGENT_CONFIGS.unknown;
 
   // Create conversation using ElevenLabs React hook  
-  console.log('🎬 ElevenLabsConversation component mounting...');
   const conversation = useConversation({
     apiKey: import.meta.env.VITE_ELEVENLABS_API_KEY,
     onConnect: () => {
-      console.log('🟢 ===== ELEVENLABS CONNECTED =====');
-      console.log('✅ ElevenLabs conversation connected - audio should be working');
+      console.log('🟢 ElevenLabs connected');
       setConnectionStatus('connected');
-      console.log('🟢 ===== CONNECTION ESTABLISHED =====');
     },
     onDisconnect: () => {
-      console.log('🔴 ===== ELEVENLABS DISCONNECTED =====');
-      console.log('❌ ElevenLabs conversation disconnected');
+      console.log('🔴 ElevenLabs disconnected');
       setConnectionStatus('disconnected');
       setAgentMode('listening');
-      console.log('🔴 ===== DISCONNECTION COMPLETE =====');
     },
     onMessage: (messageData: any) => {
-      console.log('📨 ElevenLabs message received:', messageData);
-      
-      // Extract message content from various possible formats
       const message = messageData?.message || messageData?.text || messageData?.content || JSON.stringify(messageData);
       
       if (message && typeof message === 'string' && message.length > 0) {
@@ -330,29 +322,17 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
           timestamp: new Date()
         };
         
-        console.log('✅ Adding assistant message to chat:', message.substring(0, 50) + '...');
+        console.log('📨 Assistant message added');
         setConversationMessages(prev => [...prev, assistantMessage]);
-        
-        // Update conversation history for MCP analysis
         setConversationHistory(prev => [...prev, { role: 'assistant', content: message }]);
-        
         onMessageSent?.(message);
-      } else {
-        console.warn('⚠️ Received invalid message format:', messageData);
       }
     },
     onError: (error: any) => {
-      console.error('❌ ElevenLabs conversation error:', error);
-      console.error('❌ Error details:', JSON.stringify(error, null, 2));
+      console.error('❌ ElevenLabs error:', error);
       setConnectionStatus('disconnected');
-      
-      // Check for audio-specific errors
-      if (error?.message?.includes('audio') || error?.message?.includes('microphone')) {
-        console.error('🎤 Audio/microphone error detected');
-      }
     },
     onUserTranscriptReceived: (transcript: string) => {
-      console.log('🎤 User transcript received:', transcript);
       if (transcript && transcript.trim().length > 0) {
         const userMessage = {
           id: `user-${Date.now()}`,
@@ -360,17 +340,13 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
           role: 'user' as const,
           timestamp: new Date()
         };
-        console.log('✅ Adding user message to chat:', transcript);
+        console.log('🎤 User transcript added');
         setConversationMessages(prev => [...prev, userMessage]);
-        
-        // Update conversation history for MCP analysis
         setConversationHistory(prev => [...prev, { role: 'user', content: transcript }]);
-        
         onVoiceInput?.(transcript);
       }
     },
     onStatusChange: (status: any) => {
-      console.log('Conversation status changed:', status);
       if (status === 'connected') {
         setConnectionStatus('connected');
       } else if (status === 'disconnected') {
@@ -378,7 +354,6 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
       }
     },
     onModeChange: (mode: any) => {
-      console.log('Agent mode changed:', mode);
       setAgentMode(mode?.mode || 'listening');
     }
   });

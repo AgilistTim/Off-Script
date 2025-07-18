@@ -60,7 +60,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   // Validate configuration on mount
   useEffect(() => {
     if (process.env.NODE_ENV === 'development') {
-      console.log('🔧 ElevenLabs config:', {
+      console.log('🔧 ElevenLabs config check:', {
         hasAgentId: !!agentId,
         hasApiKey: !!apiKey,
         user: currentUser ? 'logged in' : 'guest'
@@ -74,20 +74,13 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       // Forward declaration - actual tools defined below
       const tools = {
         analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
-          console.log('🔍 ===== ANALYZE TOOL CALLED FROM ELEVENLABS =====');
-          console.log('🔍 Analyzing conversation for careers:', parameters);
-          console.log('📊 Current conversation history state:', {
-            length: conversationHistory.length,
-            messages: conversationHistory
-          });
+          console.log('🔍 Analyzing conversation for careers');
 
           if (conversationHistory.length < 2 || conversationHistory.map(m => m.content).join(' ').length < 20) {
-            console.log('⚠️ Not enough conversation history for analysis yet');
             return 'Keep chatting! I need a bit more conversation to understand your interests and generate personalized career recommendations.';
           }
 
           try {
-            console.log('📤 Sending conversation to MCP server from ElevenLabs tool call');
             const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
             
             const response = await fetch(`${mcpEndpoint}/analyze`, {
@@ -106,17 +99,14 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
             }
 
             const result = await response.json();
-            console.log('✅ MCP Analysis result:', result);
-            
             const analysisData = result.analysis || result;
             const careerCards = analysisData.careerCards || [];
             
             if (careerCards.length > 0 && onCareerCardsGenerated) {
-              console.log('🎯 Generating career cards from ElevenLabs tool call:', careerCards.length);
+              console.log('🎯 Generated', careerCards.length, 'career recommendations');
               onCareerCardsGenerated(careerCards);
               return `I've generated ${careerCards.length} career recommendations based on our conversation!`;
             } else {
-              console.log('⚠️ No career cards generated');
               return 'Career recommendations will appear as we chat more about your interests!';
             }
             
@@ -356,132 +346,66 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       setConnectionStatus('disconnected');
     },
     onMessage: (message: any) => {
-      console.log('📝 ===== onMessage TRIGGERED =====');
-      console.log('📝 Raw message received:', message);
-      console.log('📝 Message type:', typeof message);
-      console.log('📝 Message constructor:', message?.constructor?.name);
-      console.log('📝 Message keys (if object):', message && typeof message === 'object' ? Object.keys(message) : 'N/A');
-      console.log('📝 Message string representation:', String(message));
-      console.log('📝 Message JSON representation:', JSON.stringify(message, null, 2));
-      
-      // According to React SDK docs, onMessage receives text messages directly
-      // These can be tentative/final transcriptions of user voice or LLM replies
+      // Extract content from message
       let content: string | null = null;
-      let role: 'user' | 'assistant' = 'assistant'; // Default to assistant since most messages are from the agent
+      let role: 'user' | 'assistant' = 'assistant';
       
       if (typeof message === 'string') {
-        // Direct text message - this is the expected format for React SDK
         content = message;
-        console.log('📝 ✅ Direct text message detected:', content);
       } else if (message && typeof message === 'object') {
-        // Handle potential object formats as fallback
-        console.log('📝 🔍 Checking object message properties...');
-        
         if (message.text) {
           content = message.text;
-          console.log('📝 Found content in .text property');
         } else if (message.content) {
           content = message.content;
-          console.log('📝 Found content in .content property');
         } else if (message.message) {
           content = message.message;
-          console.log('📝 Found content in .message property');
-        } else {
-          console.log('📝 ❌ No recognizable content property found');
         }
         
-        // Try to determine role from object properties
         if (message.role) {
           role = message.role;
-          console.log('📝 Role from .role property:', role);
         } else if (message.source) {
           role = message.source === 'user' ? 'user' : 'assistant';
-          console.log('📝 Role from .source property:', role);
         }
-        
-        console.log('📝 Object message extracted:', { content, role, originalMessage: message });
-      } else {
-        console.log('📝 ❌ Unexpected message format:', typeof message);
       }
-      
-      console.log('📝 Final extracted:', { content, role, type: typeof content, length: content?.length });
       
       if (content && typeof content === 'string' && content.trim().length > 0) {
-        console.log('📝 ✅ Adding valid message to conversation history');
+        console.log('📝 Message added:', { role, preview: content.substring(0, 50) + '...' });
         setConversationHistory(prev => {
           const updated = [...prev, { role, content: content.trim() }];
-          console.log('✅ Added to conversation history. New length:', updated.length);
-          console.log('✅ Updated history:', updated.map(msg => ({ role: msg.role, preview: msg.content.substring(0, 30) + '...' })));
           return updated;
         });
-        console.log('✅ Successfully added to conversation history:', { role, content: content.substring(0, 50) + '...' });
-      } else {
-        console.warn('⚠️ Could not extract valid content from message:', { 
-          messageType: typeof message,
-          content, 
-          role,
-          fullMessage: message 
-        });
       }
-      
-      console.log('📝 ===== onMessage COMPLETE =====');
     },
     onError: (error) => {
       console.error('❌ ElevenLabs error:', error);
-      console.error('❌ Error type:', typeof error);
-      console.error('❌ Error string representation:', String(error));
     },
     onUserTranscriptReceived: (transcript: string) => {
-      console.log('🎤 ===== onUserTranscriptReceived TRIGGERED =====');
-      console.log('🎤 User transcript received:', transcript);
-      console.log('🎤 Transcript type:', typeof transcript);
-      console.log('🎤 Transcript length:', transcript?.length);
-      
-      // Add user voice input to conversation history
       if (transcript && transcript.trim().length > 0) {
-        console.log('🎤 Processing valid transcript...');
+        console.log('🎤 User transcript:', transcript.substring(0, 50) + '...');
         setConversationHistory(prev => {
-          // Check if this transcript is already in history (to avoid duplicates)
           const lastMessage = prev[prev.length - 1];
           if (lastMessage?.role === 'user' && lastMessage?.content === transcript.trim()) {
-            console.log('🎤 Transcript already in history, skipping duplicate');
-            return prev;
+            return prev; // Skip duplicate
           }
           
           const updated = [...prev, { role: 'user' as const, content: transcript.trim() }];
-          console.log('✅ Added user voice input to conversation history. New length:', updated.length);
-          console.log('✅ Updated history via onUserTranscriptReceived:', updated.map(msg => ({ role: msg.role, preview: msg.content.substring(0, 30) + '...' })));
           return updated;
         });
-        console.log('✅ Successfully added user voice input to conversation history:', transcript.substring(0, 50) + '...');
-      } else {
-        console.warn('🎤 ⚠️ Invalid or empty transcript received');
       }
-      
-      console.log('🎤 ===== onUserTranscriptReceived COMPLETE =====');
     },
-    // Try additional callbacks that might exist in React SDK
     onStatusChange: (status: string) => {
-      console.log('🔄 ===== onStatusChange TRIGGERED =====');
-      console.log('🔄 Status changed to:', status);
-      console.log('🔄 ===== onStatusChange COMPLETE =====');
+      console.log('🔄 Status:', status);
     },
     onModeChange: (mode: string) => {
-      console.log('🎯 ===== onModeChange TRIGGERED =====');
-      console.log('🎯 Mode changed to:', mode);
-      console.log('🎯 ===== onModeChange COMPLETE =====');
+      console.log('🎯 Mode:', mode);
     }
   });
-
-  // 🔍 DEBUGGING: Log conversation object
-  console.log('🔧 Conversation object:', conversation);
-  console.log('🔧 Conversation methods:', Object.keys(conversation || {}));
 
   // Monitor conversation state for UI updates
   useEffect(() => {
     // Only log important state changes in development
-    if (process.env.NODE_ENV === 'development') {
-      console.log('📊 Conversation state:', conversation?.status);
+    if (process.env.NODE_ENV === 'development' && conversation?.status) {
+      console.log('📊 Conversation status:', conversation.status);
     }
   }, [conversation?.status]);
 
@@ -495,11 +419,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           const conversationId = conversation.getId ? conversation.getId() : null;
           
           if (!conversationId) {
-            console.log('🔍 No conversation ID available yet');
             return;
           }
-          
-          console.log('📡 Fetching transcript for conversation:', conversationId);
           
           const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`, {
             headers: {
@@ -509,23 +430,16 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           });
           
           if (!response.ok) {
-            console.log('📡 Transcript fetch failed:', response.status, response.statusText);
             return;
           }
           
           const conversationData = await response.json();
-          console.log('📡 Conversation data received:', conversationData);
-          console.log('📡 Conversation status:', conversationData.status);
-          
           const transcript = conversationData.transcript || [];
-          console.log('📜 Raw transcript:', transcript);
           
-          // Check if conversation is completed and has transcript
-          if (conversationData.status === 'done' && transcript.length > 0) {
-            console.log('🎉 Conversation completed with transcript!', transcript);
-          }
-          
+          // Only log when we actually have transcript data
           if (transcript.length > 0) {
+            console.log('📜 Transcript received:', transcript.length, 'messages');
+            
             // Convert ElevenLabs transcript format to our format
             const newHistory = transcript
               .filter(entry => entry.message && entry.message.trim().length > 0)
@@ -533,8 +447,6 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
                 role: entry.role === 'agent' ? 'assistant' : entry.role,
                 content: entry.message
               }));
-            
-            console.log('📜 Processed conversation history:', newHistory);
             
             // Update conversation history if we have new content
             if (newHistory.length !== conversationHistory.length) {
@@ -549,31 +461,19 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
               if (newHistory.length >= 2) {
                 const totalContent = newHistory.map(m => m.content).join(' ');
                 if (totalContent.length >= 50) {
-                  console.log('🎯 Triggering career analysis from transcript!');
-                  // TODO: Re-enable clientTools and this will automatically trigger analysis
+                  console.log('🎯 Sufficient conversation for career analysis');
                 }
               }
             }
           }
           
-          // Also log audio volumes for debugging
-          if (conversation.getInputVolume && conversation.getOutputVolume) {
-            const [inputVolume, outputVolume] = await Promise.all([
-              conversation.getInputVolume(),
-              conversation.getOutputVolume()
-            ]);
-            console.log('🔍 Audio levels:', { input: inputVolume, output: outputVolume });
-          }
-          
         } catch (error) {
-          console.log('📡 Error fetching conversation transcript:', error);
+          // Silently handle errors to reduce noise
         }
       };
       
-      // Poll every 1 second for transcript updates (faster to catch data)
-      const pollInterval = setInterval(fetchConversationTranscript, 1000);
-      
-      // Also fetch immediately
+      // Poll every 2 seconds (reduced frequency)
+      const pollInterval = setInterval(fetchConversationTranscript, 2000);
       fetchConversationTranscript();
       
       return () => {
@@ -593,33 +493,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         messages: conversationHistory
       });
 
-      // 🔍 DEBUGGING: Try to extract conversation data from the context this tool was called in
-      try {
-        console.log('🔍 Trying to extract conversation context from ElevenLabs...');
-        
-        // Since this tool is being called by ElevenLabs, maybe there's conversation context available
-        // Let's log everything about the current state
-        console.log('🔍 Current conversation object state:', {
-          status: conversation?.status,
-          isSpeaking: conversation?.isSpeaking,
-          canSendFeedback: conversation?.canSendFeedback,
-          id: conversation?.getId ? conversation.getId() : 'unknown'
-        });
-        
-        // Check if there's any conversation data we can access
-        console.log('🔍 Conversation object properties:', Object.getOwnPropertyNames(conversation || {}));
-        console.log('🔍 Parameters received by tool:', parameters);
-        
-      } catch (error) {
-        console.log('🔍 Error extracting conversation context:', error);
-      }
-
       if (conversationHistory.length < 2 || conversationHistory.map(m => m.content).join(' ').length < 20) {
         console.log('⚠️ Not enough conversation history for analysis yet');
-        
-        // 🔍 DEBUGGING: Since the tool is being called, there MUST be conversation data somewhere
-        console.log('🔍 BUT: Tool was called by ElevenLabs, so conversation must exist somewhere!');
-        console.log('🔍 This suggests our callback approach is wrong and we need to find another way');
         
         return 'Keep chatting! I need a bit more conversation to understand your interests and generate personalized career recommendations.';
       }
@@ -729,48 +604,33 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     }
   };
 
-  // 🔍 DEBUGGING: Log client tools
-  console.log('🔧 Client tools configured:', Object.keys(clientTools));
+    const startConversation = useCallback(async () => {
+      console.log('🚀 Starting ElevenLabs conversation...');
 
-  const startConversation = useCallback(async () => {
-    console.log('🚀 ===== STARTING CONVERSATION =====');
-    console.log('🔧 Configuration check:', {
-      agentId: agentId ? `${agentId.substring(0, 8)}...` : 'MISSING',
-      apiKey: apiKey ? `${apiKey.substring(0, 8)}...` : 'MISSING',
-      conversationObject: !!conversation,
-      conversationMethods: conversation ? Object.keys(conversation) : 'No conversation object'
-    });
+      if (!agentId || !apiKey) {
+        console.error('❌ Missing ElevenLabs configuration:', { agentId: !!agentId, apiKey: !!apiKey });
+        return;
+      }
 
-    if (!agentId || !apiKey) {
-      console.error('❌ Missing ElevenLabs configuration:', { agentId: !!agentId, apiKey: !!apiKey });
-      return;
-    }
+      if (!conversation || !conversation.startSession) {
+        console.error('❌ Conversation object not available or missing startSession method');
+        return;
+      }
 
-    if (!conversation || !conversation.startSession) {
-      console.error('❌ Conversation object not available or missing startSession method');
-      return;
-    }
-
-    try {
-      setConnectionStatus('connecting');
-      console.log('🚀 Starting ElevenLabs conversation with agentId:', agentId);
-      console.log('🔧 Calling conversation.startSession...');
-      
-      const result = await conversation.startSession({
-        agentId
-      });
-      
-      console.log('✅ Conversation started successfully, result:', result);
-      console.log('🚀 ===== CONVERSATION START COMPLETE =====');
-      
-    } catch (error) {
-      console.error('❌ Failed to start conversation:', error);
-      console.error('❌ Error type:', typeof error);
-      console.error('❌ Error details:', String(error));
-      setConnectionStatus('disconnected');
-      console.log('🚀 ===== CONVERSATION START FAILED =====');
-    }
-  }, [conversation, agentId, apiKey]);
+      try {
+        setConnectionStatus('connecting');
+        
+        const result = await conversation.startSession({
+          agentId
+        });
+        
+        console.log('✅ Conversation started successfully:', result);
+        
+      } catch (error) {
+        console.error('❌ Failed to start conversation:', error);
+        setConnectionStatus('disconnected');
+      }
+    }, [conversation, agentId, apiKey]);
 
   const endConversation = useCallback(async () => {
     try {
