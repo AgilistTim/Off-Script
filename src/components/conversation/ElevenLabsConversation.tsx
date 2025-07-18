@@ -312,6 +312,7 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
       setAgentMode('listening');
     },
     onMessage: (messageData: any) => {
+      // Handle agent_response events from WebSocket
       const message = messageData?.message || messageData?.text || messageData?.content || JSON.stringify(messageData);
       
       if (message && typeof message === 'string' && message.length > 0) {
@@ -322,9 +323,17 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
           timestamp: new Date()
         };
         
-        console.log('📨 Assistant message added');
+        console.log('🎯 Real-time agent response received:', message.substring(0, 50) + '...');
         setConversationMessages(prev => [...prev, assistantMessage]);
-        setConversationHistory(prev => [...prev, { role: 'assistant', content: message }]);
+        setConversationHistory(prev => {
+          const lastMessage = prev[prev.length - 1];
+          if (lastMessage?.role === 'assistant' && lastMessage?.content === message) {
+            return prev; // Skip duplicate
+          }
+          const updated = [...prev, { role: 'assistant' as const, content: message }];
+          console.log('📊 Updated conversation history with agent response:', updated.length, 'messages');
+          return updated;
+        });
         onMessageSent?.(message);
       }
     },
@@ -333,6 +342,7 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
       setConnectionStatus('disconnected');
     },
     onUserTranscriptReceived: (transcript: string) => {
+      // Handle user_transcript events from WebSocket - CRITICAL for real-time transcript data!
       if (transcript && transcript.trim().length > 0) {
         const userMessage = {
           id: `user-${Date.now()}`,
@@ -340,9 +350,52 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
           role: 'user' as const,
           timestamp: new Date()
         };
-        console.log('🎤 User transcript added');
+        console.log('🎯 Real-time user transcript received:', transcript);
         setConversationMessages(prev => [...prev, userMessage]);
-        setConversationHistory(prev => [...prev, { role: 'user', content: transcript }]);
+        setConversationHistory(prev => {
+          const lastMessage = prev[prev.length - 1];
+          if (lastMessage?.role === 'user' && lastMessage?.content === transcript.trim()) {
+            console.log('⚠️ Skipping duplicate user transcript');
+            return prev; // Skip duplicate
+          }
+          const updated = [...prev, { role: 'user' as const, content: transcript }];
+          console.log('📊 Updated conversation history with user transcript:', updated.length, 'messages');
+          
+          // Trigger immediate career analysis when we have sufficient conversation
+          if (updated.length >= 2) {
+            const totalContent = updated.map(m => m.content).join(' ');
+            if (totalContent.length >= 80) {
+              console.log('🎯 Triggering immediate career analysis from user transcript');
+              // Trigger analysis with a small delay to ensure state updates complete
+              setTimeout(async () => {
+                try {
+                  if (import.meta.env.VITE_ENABLE_MCP_ENHANCEMENT === 'true') {
+                    const mcpInterests = await conversationAnalyzer.analyzeConversationWithMCP(
+                      updated as Array<{ role: 'user' | 'assistant'; content: string }>, 
+                      currentUser?.uid
+                    );
+                    
+                    if (mcpInterests.length > 0) {
+                      const careerCards = await conversationAnalyzer.generateCareerCardsWithMCP(
+                        mcpInterests, 
+                        currentUser?.uid
+                      );
+                      
+                      if (careerCards.length > 0 && onCareerCardsGenerated) {
+                        console.log('🎯 Real-time generated career cards:', careerCards.length);
+                        onCareerCardsGenerated(careerCards);
+                      }
+                    }
+                  }
+                } catch (error) {
+                  console.warn('⚠️ Real-time analysis failed:', error);
+                }
+              }, 1500);
+            }
+          }
+          
+          return updated;
+        });
         onVoiceInput?.(transcript);
       }
     },

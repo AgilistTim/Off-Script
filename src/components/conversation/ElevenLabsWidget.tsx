@@ -105,51 +105,29 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
                 {
                   id: "sample-software-dev",
                   title: "Software Developer",
-                  description: "Create applications, websites, and systems that help people solve problems",
-                  industry: "Technology", 
-                  averageSalary: {
-                    entry: "£35,000",
-                    experienced: "£65,000", 
-                    senior: "£80,000"
-                  },
-                  growthOutlook: "Strong demand across all industries",
-                  entryRequirements: ["Programming fundamentals", "Problem-solving skills", "Portfolio of projects"],
-                  trainingPathways: ["Coding bootcamp", "Computer Science degree", "Self-taught with portfolio"],
-                  keySkills: ["Programming", "Problem Solving", "Communication", "Teamwork"],
-                  workEnvironment: "Flexible work arrangements, collaborative environment",
-                  nextSteps: ["Choose a programming language", "Build first project", "Join coding community"],
-                  location: "UK",
-                  confidence: 0.88,
-                  sourceData: "general interest"
-                },
-                {
-                  id: "sample-product-manager",
-                  title: "Product Manager", 
-                  description: "Lead development of products that make a real difference in people's lives",
+                  description: "Create applications and systems that power businesses and solve user problems",
                   industry: "Technology",
                   averageSalary: {
-                    entry: "£45,000",
-                    experienced: "£75,000",
-                    senior: "£100,000"
+                    entry: "£35,000",
+                    experienced: "£55,000", 
+                    senior: "£80,000"
                   },
-                  growthOutlook: "Growing field with diverse opportunities",
-                  entryRequirements: ["Business acumen", "Communication skills", "User-focused mindset"],
-                  trainingPathways: ["Business degree", "Product management courses", "Associate PM programs"],
-                  keySkills: ["Strategic Thinking", "Communication", "Analysis", "Leadership"],
-                  workEnvironment: "Cross-functional collaboration, strategic role",
-                  nextSteps: ["Learn product fundamentals", "Practice with personal projects", "Network with current PMs"],
-                  location: "UK", 
-                  confidence: 0.85,
-                  sourceData: "leadership interest"
+                  growthOutlook: "Strong growth - 22% job growth expected",
+                  entryRequirements: ["Programming skills", "Problem-solving abilities", "Attention to detail"],
+                  trainingPathways: ["Coding bootcamps", "Computer Science degree", "Self-taught with portfolio"],
+                  keySkills: ["JavaScript", "React", "Node.js", "Git", "Problem Solving"],
+                  workEnvironment: "Flexible, often remote-friendly",
+                  nextSteps: ["Choose a programming language", "Build first project", "Create GitHub portfolio"],
+                  location: "UK",
+                  confidence: 0.88,
+                  sourceData: "technology interest"
                 }
               ];
-              
-              console.log('🎯 Generated', sampleCareerCards.length, 'sample career recommendations');
               onCareerCardsGenerated(sampleCareerCards);
-              return `I've generated ${sampleCareerCards.length} career recommendations to get you started! As we chat more, I'll personalize these based on your specific interests.`;
+              return `I've provided ${sampleCareerCards.length} sample career recommendations to get you started!`;
             }
             
-            return 'Career recommendations will appear as we chat more about your interests!';
+            return 'Sample career recommendations provided!';
           }
 
           try {
@@ -418,7 +396,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       setConnectionStatus('disconnected');
     },
     onMessage: (message: any) => {
-      // Extract content from message
+      // Handle agent_response events from WebSocket
       let content: string | null = null;
       let role: 'user' | 'assistant' = 'assistant';
       
@@ -441,9 +419,15 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       }
       
       if (content && typeof content === 'string' && content.trim().length > 0) {
-        console.log('📝 Message added:', { role, preview: content.substring(0, 50) + '...' });
+        console.log('🎯 Real-time agent message received:', content.substring(0, 50) + '...');
         setConversationHistory(prev => {
+          const lastMessage = prev[prev.length - 1];
+          if (lastMessage?.role === role && lastMessage?.content === content.trim()) {
+            return prev; // Skip duplicate
+          }
+          
           const updated = [...prev, { role, content: content.trim() }];
+          console.log('📊 Updated conversation history:', updated.length, 'messages');
           return updated;
         });
       }
@@ -452,15 +436,30 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       console.error('❌ ElevenLabs error:', error);
     },
     onUserTranscriptReceived: (transcript: string) => {
+      // Handle user_transcript events from WebSocket - this is the key!
       if (transcript && transcript.trim().length > 0) {
-        console.log('🎤 User transcript:', transcript.substring(0, 50) + '...');
+        console.log('🎯 Real-time user transcript received:', transcript);
         setConversationHistory(prev => {
           const lastMessage = prev[prev.length - 1];
           if (lastMessage?.role === 'user' && lastMessage?.content === transcript.trim()) {
+            console.log('⚠️ Skipping duplicate user transcript');
             return prev; // Skip duplicate
           }
           
           const updated = [...prev, { role: 'user' as const, content: transcript.trim() }];
+          console.log('📊 Updated conversation history with user transcript:', updated.length, 'messages');
+          
+          // Trigger career analysis immediately when we receive user transcript
+          if (updated.length >= 2) {
+            console.log('🎯 Triggering immediate career analysis from user transcript');
+            setTimeout(() => {
+              // Use the analyze_conversation_for_careers tool
+              if (updated.map(m => m.content).join(' ').length >= 50) {
+                console.log('✅ Sufficient content for career analysis');
+              }
+            }, 1000);
+          }
+          
           return updated;
         });
       }
@@ -481,79 +480,50 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     }
   }, [conversation?.status]);
 
-  // 🚀 SOLUTION: Fetch conversation transcript directly from ElevenLabs API
+  // Remove the polling mechanism - we're now using real-time WebSocket events!
+  // The onUserTranscriptReceived and onMessage handlers above handle the real-time data
+
+  // Monitor conversation history changes and trigger analysis
   useEffect(() => {
-    if (conversation?.status === 'connected' && apiKey) {
-      console.log('🔍 Starting conversation transcript polling...');
-      
-      const fetchConversationTranscript = async () => {
-        try {
-          const conversationId = conversation.getId ? conversation.getId() : null;
-          
-          if (!conversationId) {
-            return;
-          }
-          
-          const response = await fetch(`https://api.elevenlabs.io/v1/convai/conversations/${conversationId}`, {
-            headers: {
-              'xi-api-key': apiKey,
-              'Content-Type': 'application/json'
-            }
-          });
-          
-          if (!response.ok) {
-            return;
-          }
-          
-          const conversationData = await response.json();
-          const transcript = conversationData.transcript || [];
-          
-          // Only log when we actually have transcript data
-          if (transcript.length > 0) {
-            console.log('📜 Transcript received:', transcript.length, 'messages');
+    if (conversationHistory.length >= 2) {
+      const totalContent = conversationHistory.map(m => m.content).join(' ');
+      if (totalContent.length >= 100) {
+        console.log('🎯 Conversation has sufficient content for career analysis');
+        
+        // Trigger analysis after a brief delay to allow for more content
+        const analysisTimer = setTimeout(async () => {
+          try {
+            const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
             
-            // Convert ElevenLabs transcript format to our format
-            const newHistory = transcript
-              .filter(entry => entry.message && entry.message.trim().length > 0)
-              .map(entry => ({
-                role: entry.role === 'agent' ? 'assistant' : entry.role,
-                content: entry.message
-              }));
-            
-            // Update conversation history if we have new content
-            if (newHistory.length !== conversationHistory.length) {
-              console.log('📜 Updating conversation history:', {
-                oldLength: conversationHistory.length,
-                newLength: newHistory.length
-              });
+            const response = await fetch(`${mcpEndpoint}/analyze`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                conversationHistory: conversationText,
+                userId: currentUser?.uid || `guest_${Date.now()}`,
+                triggerReason: 'real_time_transcript_analysis'
+              }),
+            });
+
+            if (response.ok) {
+              const result = await response.json();
+              const analysisData = result.analysis || result;
+              const careerCards = analysisData.careerCards || [];
               
-              setConversationHistory(newHistory);
-              
-              // Trigger career analysis if we have enough content
-              if (newHistory.length >= 2) {
-                const totalContent = newHistory.map(m => m.content).join(' ');
-                if (totalContent.length >= 50) {
-                  console.log('🎯 Sufficient conversation for career analysis');
-                }
+              if (careerCards.length > 0 && onCareerCardsGenerated) {
+                console.log('🎯 Auto-generated career cards from real-time transcript:', careerCards.length);
+                onCareerCardsGenerated(careerCards);
               }
             }
+          } catch (error) {
+            console.warn('Auto-analysis from transcript failed:', error);
           }
-          
-        } catch (error) {
-          // Silently handle errors to reduce noise
-        }
-      };
-      
-      // Poll every 2 seconds (reduced frequency)
-      const pollInterval = setInterval(fetchConversationTranscript, 2000);
-      fetchConversationTranscript();
-      
-      return () => {
-        console.log('🔍 Stopping conversation transcript polling...');
-        clearInterval(pollInterval);
-      };
+        }, 3000);
+
+        return () => clearTimeout(analysisTimer);
+      }
     }
-  }, [conversation?.status, apiKey, conversationHistory.length]);
+  }, [conversationHistory.length, conversationHistory, mcpEndpoint, currentUser?.uid, onCareerCardsGenerated]);
 
   // Client tools that call our MCP server
   const clientTools = {

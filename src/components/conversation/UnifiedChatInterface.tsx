@@ -213,6 +213,7 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
       setAgentMode('listening');
     },
     onMessage: (messageData: any) => {
+      // Handle agent_response events from WebSocket
       const content = messageData?.message || messageData?.text || messageData?.content;
       if (content && typeof content === 'string' && content.length > 0) {
         const assistantMessage: UnifiedMessage = {
@@ -228,12 +229,15 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
           }
         };
         
+        console.log('🎯 Real-time ElevenLabs agent response:', content.substring(0, 50) + '...');
         addMessage(assistantMessage);
         onMessageSent?.(content);
       }
     },
     onUserTranscriptReceived: (transcript: string) => {
+      // Handle user_transcript events from WebSocket - CRITICAL for real-time data!
       if (transcript && transcript.trim().length > 0) {
+        console.log('🎯 Real-time ElevenLabs user transcript:', transcript);
         handleUserMessage(transcript, 'elevenlabs');
         onVoiceInput?.(transcript);
       }
