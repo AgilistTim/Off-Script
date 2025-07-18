@@ -1471,10 +1471,7 @@ class OffScriptMCPServer {
     try {
       Logger.info('Starting OffScript MCP Server...');
       
-      // Start HTTP server for both bridge and MCP
-      this.setupMCPHttpServer();
-      
-      // Start MCP server for stdio
+      // Start MCP server for stdio (HTTP server already set up in constructor)
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
       Logger.info('OffScript MCP Server running on stdio', {
