@@ -100,277 +100,17 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     });
   }, [currentUser?.uid]);
 
-  // Helper function to generate career cards locally when MCP analysis is insufficient
-  const generateLocalCareerCards = (conversationText: string, hasCareInterest: boolean) => {
-    const lowerText = conversationText.toLowerCase();
-    const cards = [];
-    
-    // AI/Tech roles - strong indicators in conversation
-    if (lowerText.includes('ai software development') || lowerText.includes('working with ai') || lowerText.includes('building') && lowerText.includes('ai')) {
-      cards.push({
-        id: `local-ai-developer-${Date.now()}`,
-        title: 'AI Software Developer',
-        industry: 'Technology',
-        description: 'Develop AI-powered applications and tools, implementing machine learning models into real-world products.',
-        matchPercentage: 95,
-        salaryRange: '£45,000 - £80,000', // Fixed: String instead of object
-        location: 'UK Wide',
-        keySkills: ['Python/JavaScript', 'Machine Learning', 'Problem Solving', 'Software Development'],
-        educationLevel: 'Degree/Self-taught',
-        workArrangement: 'Remote/Hybrid',
-        careerProgression: 'Junior Developer → Senior Developer → Technical Lead',
-        nextSteps: ['Build AI projects portfolio', 'Learn Python/ML frameworks', 'Contribute to open source'],
-        salaryProgression: '£45k → £80k → £120k+',
-        source: 'local_analysis',
-        requirements: ['Programming skills', 'AI/ML knowledge', 'Problem-solving ability']
-      });
-    }
-    
-    // Product management roles - mentioned productization and take to market
-    if (lowerText.includes('productization') || lowerText.includes('take it to market') || lowerText.includes('ai product manager')) {
-      cards.push({
-        id: `local-ai-product-manager-${Date.now()}`,
-        title: 'AI Product Manager',
-        industry: 'Technology',
-        description: 'Lead development of AI products from concept to market, bridging technical teams and business needs.',
-        matchPercentage: 90,
-        salaryRange: '£50,000 - £90,000', // Fixed: String instead of object
-        location: 'UK Wide',
-        keySkills: ['Product Strategy', 'AI Understanding', 'Communication', 'Market Analysis'],
-        educationLevel: 'Degree preferred',
-        workArrangement: 'Hybrid',
-        careerProgression: 'Associate PM → Senior PM → VP Product',
-        nextSteps: ['Learn product management', 'Understand AI landscape', 'Build portfolio of projects'],
-        salaryProgression: '£50k → £90k → £150k+',
-        source: 'local_analysis',
-        requirements: ['Strategic thinking', 'Technical understanding', 'Communication skills']
-      });
-    }
-    
-    // Solutions architect - mentioned in conversation
-    if (lowerText.includes('ai solutions architect') || lowerText.includes('bigger picture') || lowerText.includes('architect')) {
-      cards.push({
-        id: `local-ai-solutions-architect-${Date.now()}`,
-        title: 'AI Solutions Architect',
-        industry: 'Technology',
-        description: 'Design comprehensive AI solutions for businesses, seeing the bigger picture of how AI fits into organizations.',
-        matchPercentage: 88,
-        salaryRange: '£60,000 - £100,000', // Fixed: String instead of object
-        location: 'UK Wide',
-        keySkills: ['System Design', 'AI Technologies', 'Business Analysis', 'Technical Leadership'],
-        educationLevel: 'Degree + Experience',
-        workArrangement: 'Hybrid/Remote',
-        careerProgression: 'Solutions Engineer → Senior Architect → Enterprise Architect',
-        nextSteps: ['Gain technical experience', 'Learn enterprise systems', 'Develop consulting skills'],
-        salaryProgression: '£60k → £100k → £140k+',
-        source: 'local_analysis',
-        requirements: ['Technical expertise', 'Systems thinking', 'Client communication']
-      });
-    }
-    
-    // Entrepreneurship - mentioned wanting to start own business
-    if (lowerText.includes('entrepreneur') || (lowerText.includes('build something') && lowerText.includes('market')) || lowerText.includes('own business')) {
-      cards.push({
-        id: `local-tech-entrepreneur-${Date.now()}`,
-        title: 'Tech Entrepreneur',
-        industry: 'Entrepreneurship',
-        description: 'Start and scale technology businesses, bringing innovative AI solutions to market.',
-        matchPercentage: 85,
-        salaryRange: 'Variable - £0 - £200,000+', // Fixed: String instead of object
-        location: 'Flexible',
-        keySkills: ['Innovation', 'Business Development', 'Risk Management', 'Leadership'],
-        educationLevel: 'Varies',
-        workArrangement: 'Self-employed',
-        careerProgression: 'Founder → CEO → Serial Entrepreneur',
-        nextSteps: ['Validate business ideas', 'Build MVP', 'Network with investors', 'Learn business skills'],
-        salaryProgression: 'Variable → £200k+ potential',
-        source: 'local_analysis',
-        requirements: ['Risk tolerance', 'Business acumen', 'Technical skills']
-      });
-    }
-    
-    if (lowerText.includes('machine learning') || lowerText.includes('ai engineer') || lowerText.includes('data science')) {
-      cards.push({
-        id: `local-ml-engineer-${Date.now()}`,
-        title: 'Machine Learning Engineer',
-        industry: 'Technology',
-        description: 'Design and implement machine learning systems and algorithms for real-world applications.',
-        matchPercentage: 90,
-        salaryRange: '£50,000 - £90,000', // Fixed: String instead of object
-        location: 'UK Wide',
-        keySkills: ['Python', 'Machine Learning', 'Data Analysis', 'Statistics'],
-        educationLevel: 'Degree in Computer Science/Maths',
-        workArrangement: 'Remote/Hybrid',
-        careerProgression: 'ML Engineer → Senior ML Engineer → Principal ML Engineer',
-        nextSteps: ['Build ML portfolio', 'Learn TensorFlow/PyTorch', 'Practice with real datasets'],
-        salaryProgression: '£50k → £90k → £130k+',
-        source: 'local_analysis',
-        requirements: ['Programming skills', 'Mathematical background', 'ML frameworks knowledge']
-      });
-    }
-    
-    if (lowerText.includes('software engineer') || lowerText.includes('programming') || lowerText.includes('coding')) {
-      cards.push({
-        id: `local-software-engineer-${Date.now()}`,
-        title: 'Software Engineer',
-        industry: 'Technology',
-        description: 'Build and maintain software applications, websites, and systems using various programming languages.',
-        matchPercentage: 88,
-        salaryRange: '£60,000 - £100,000', // Fixed: String instead of object
-        location: 'UK Wide',
-        keySkills: ['Programming', 'Problem Solving', 'System Design', 'Testing'],
-        educationLevel: 'Degree/Bootcamp/Self-taught',
-        workArrangement: 'Remote/Hybrid/Office',
-        careerProgression: 'Junior Developer → Senior Developer → Tech Lead',
-        nextSteps: ['Build coding portfolio', 'Learn popular frameworks', 'Contribute to open source'],
-        salaryProgression: '£60k → £100k → £150k+',
-        source: 'local_analysis',
-        requirements: ['Programming languages', 'Problem-solving skills', 'Version control knowledge']
-      });
-    }
-    
-    if (lowerText.includes('startup') || lowerText.includes('entrepreneur') || lowerText.includes('business')) {
-      cards.push({
-        id: `local-startup-founder-${Date.now()}`,
-        title: 'Startup Founder/Entrepreneur',
-        industry: 'Business & Entrepreneurship',
-        description: 'Create and lead innovative startups, building products that solve real-world problems.',
-        matchPercentage: 85,
-        salaryRange: 'Variable - £0 - £200,000+', // Fixed: String instead of object
-        location: 'UK Wide',
-        keySkills: ['Leadership', 'Innovation', 'Business Strategy', 'Risk Management'],
-        educationLevel: 'Any - Experience matters most',
-        workArrangement: 'Flexible/Self-determined',
-        careerProgression: 'Founder → CEO → Serial Entrepreneur',
-        nextSteps: ['Develop business idea', 'Learn about funding', 'Build MVP'],
-        salaryProgression: 'Variable → £200k+ potential',
-        source: 'local_analysis',
-        requirements: ['Innovation mindset', 'Risk tolerance', 'Leadership skills']
-      });
-    }
-    
-    if (lowerText.includes('product manager') || lowerText.includes('project management') || lowerText.includes('coordination')) {
-      cards.push({
-        id: `local-product-manager-${Date.now()}`,
-        title: 'Product Manager',
-        industry: 'Technology',
-        description: 'Guide product development from conception to launch, working with cross-functional teams.',
-        matchPercentage: 82,
-        salaryRange: '£50,000 - £85,000', // Fixed: String instead of object
-        location: 'UK Wide',
-        keySkills: ['Product Strategy', 'User Research', 'Project Management', 'Communication'],
-        educationLevel: 'Degree preferred',
-        workArrangement: 'Hybrid/Office',
-        careerProgression: 'Associate PM → Product Manager → Senior PM → VP Product',
-        nextSteps: ['Learn product management basics', 'Understand user research', 'Practice project coordination'],
-        salaryProgression: '£50k → £85k → £120k+',
-        source: 'local_analysis',
-        requirements: ['Strategic thinking', 'Communication skills', 'Technical understanding']
-      });
-    }
-    
-    // Care/Healthcare roles - for conversations mentioning care
-    if (hasCareInterest || lowerText.includes('care home') || lowerText.includes('helping') || lowerText.includes('empathy')) {
-      cards.push({
-        id: `local-care-worker-${Date.now()}`,
-        title: 'Care Support Worker',
-        industry: 'Healthcare & Social Care',
-        description: 'Support individuals in care homes and community settings, helping with daily activities and providing emotional support.',
-        matchPercentage: 95,
-        salaryRange: '£18,000 - £24,000', // Fixed: String instead of object
-        location: 'UK Wide',
-        keySkills: ['Empathy', 'Communication', 'Problem Solving', 'Patience'],
-        educationLevel: 'Secondary/Apprenticeship',
-        workArrangement: 'On-site',
-        careerProgression: 'Senior Care Worker → Team Leader → Care Manager',
-        nextSteps: ['Apply for care apprenticeships', 'Gain care certificate', 'Develop communication skills'],
-        salaryProgression: '£18k → £24k → £30k+',
-        source: 'local_analysis',
-        requirements: ['DBS check', 'Care training', 'Good communication skills']
-      });
-    }
-    
-    if (hasCareInterest || lowerText.includes('nursing') || lowerText.includes('healthcare')) {
-      cards.push({
-        id: `local-healthcare-assistant-${Date.now()}`,
-        title: 'Healthcare Assistant',
-        industry: 'Healthcare',
-        description: 'Provide basic medical care and support to patients in hospitals and healthcare facilities.',
-        matchPercentage: 90,
-        salaryRange: '£20,000 - £28,000', // Fixed: String instead of object
-        location: 'UK Wide',
-        keySkills: ['Patient Care', 'Medical Knowledge', 'Empathy', 'Attention to Detail'],
-        educationLevel: 'Healthcare apprenticeship/NVQ',
-        workArrangement: 'On-site shifts',
-        careerProgression: 'Healthcare Assistant → Senior HCA → Nursing Associate',
-        nextSteps: ['Complete healthcare apprenticeship', 'Gain first aid certification', 'Apply to NHS roles'],
-        salaryProgression: '£20k → £28k → £35k+',
-        source: 'local_analysis',
-        requirements: ['Healthcare training', 'DBS check', 'Physical fitness']
-      });
-    }
-    
-    // Problem-solving roles for general problem-solving mentions
-    if (lowerText.includes('problem solving') || lowerText.includes('problem-solving')) {
-      cards.push({
-        id: `local-tech-support-${Date.now()}`,
-        title: 'IT Support Technician',
-        industry: 'Technology',
-        description: 'Help solve technical problems for users, troubleshoot systems, and provide technical support.',
-        matchPercentage: 75,
-        salaryRange: '£20,000 - £28,000', // Fixed: String instead of object
-        location: 'UK Wide',
-        keySkills: ['Problem Solving', 'Technical Skills', 'Communication', 'Patience'],
-        educationLevel: 'Apprenticeship/Certification',
-        workArrangement: 'Hybrid',
-        careerProgression: 'IT Support → Systems Administrator → IT Manager',
-        nextSteps: ['Learn basic IT skills', 'Consider IT apprenticeship', 'Gain relevant certifications'],
-        salaryProgression: '£20k → £28k → £40k+',
-        source: 'local_analysis',
-        requirements: ['Basic computer skills', 'Problem-solving ability', 'Good communication']
-      });
-    }
-    
-    return cards.slice(0, 6); // Increased limit for more comprehensive recommendations
-  };
+  // Removed generateLocalCareerCards - using OpenAI analysis only
+  // If OpenAI fails, we show error rather than confusing with hardcoded data
 
-  // Helper function to extract profile data locally from conversation when MCP analysis is insufficient
+  // Profile extraction from OpenAI analysis only - no hardcoded fallbacks
   const extractProfileFromConversation = (conversationText: string): PersonProfile => {
-    const lowerText = conversationText.toLowerCase();
-    
-    // Basic local extraction for when MCP completely fails
-    const interests: string[] = [];
-    const skills: string[] = [];
-    const goals: string[] = [];
-    const values: string[] = [];
-    
-    // Extract basic interests with clear indicators
-    if (lowerText.includes('care sector') || lowerText.includes('working in care')) {
-      interests.push('Healthcare & Care');
-    }
-    if (lowerText.includes('technology') || lowerText.includes('ai') || lowerText.includes('software')) {
-      interests.push('Technology');
-    }
-    if (lowerText.includes('helping people') || lowerText.includes('help others')) {
-      interests.push('Helping Others');
-      values.push('Making a difference');
-    }
-    
-    // Extract basic skills with clear indicators
-    if (lowerText.includes('good at') || lowerText.includes('skilled at')) {
-      skills.push('Communication'); // Generic skill
-    }
-    
-    // Extract basic goals with clear indicators  
-    if (lowerText.includes('want to work') || lowerText.includes('looking for')) {
-      goals.push('Find fulfilling career');
-    }
-    
+    // Return empty profile - rely on OpenAI/MCP for real analysis
     return {
-      interests,
-      goals,
-      skills,
-      values,
+      interests: [],
+      goals: [],
+      skills: [],
+      values: [],
       careerStage: "exploring",
       workStyle: [],
       lastUpdated: new Date().toLocaleDateString()
@@ -473,11 +213,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           
           const hasRealData = mcpInterests.length > 0 || mcpSkills.length > 0 || mcpGoals.length > 0;
           
-          // Always try local extraction for comparison and enhancement
-          const localProfile = extractProfileFromConversation(conversationText);
-          const localHasContent = localProfile.interests.length > 0 || localProfile.skills.length > 0 || localProfile.goals.length > 0;
-          
-          // Filter career titles from MCP interests
+          // Filter career titles from MCP interests (OpenAI sometimes categorizes careers as interests)
           const careerTitleKeywords = ['engineer', 'developer', 'manager', 'analyst', 'specialist', 'consultant', 'architect', 'scientist', 'technician', 'director', 'coordinator'];
           const filteredMcpInterests = mcpInterests.filter(interest => 
             !careerTitleKeywords.some(keyword => interest.toLowerCase().includes(keyword))
@@ -497,7 +233,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           }
           
           if (hasRealData && (filteredMcpInterests.length + mcpSkills.length + mcpGoals.length + mcpValues.length) >= 2) {
-            // MCP has substantial data, use it (with filtered interests)
+            // OpenAI has provided substantial data, use it
             const autoProfile: PersonProfile = {
               interests: filteredMcpInterests,
               goals: mcpGoals,
@@ -508,164 +244,32 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
               lastUpdated: new Date().toLocaleDateString()
             };
             
-            console.log('👤 Auto-generated user profile from MCP analysis (filtered):', autoProfile);
+            console.log('👤 Generated user profile from OpenAI analysis:', autoProfile);
             onPersonProfileGenerated(autoProfile);
           } else {
-            // Only use local fallback if MCP completely fails
-            console.log('⚠️ MCP analysis insufficient, checking local fallback need');
-            console.log('📊 MCP Data Quality:', {
+            // OpenAI analysis was insufficient - log but don't generate fake profile
+            console.log('⚠️ OpenAI analysis insufficient for profile generation:', {
               hasRealData,
               totalDataPoints: filteredMcpInterests.length + mcpSkills.length + mcpGoals.length + mcpValues.length,
-              threshold: 2
+              threshold: 2,
+              message: 'User profile not generated - need more conversation data'
             });
-            
-            // Minimal local fallback - only create profile if conversation is very rich
-            if (currentHistory.length >= 6) {
-              const minimalProfile: PersonProfile = {
-                interests: ['Career exploration'], // Generic fallback
-                goals: ['Explore career options'],
-                skills: [],
-                values: [],
-                careerStage: "exploring",
-                workStyle: [],
-                lastUpdated: new Date().toLocaleDateString()
-              };
-              console.log('👤 Generated minimal fallback profile:', minimalProfile);
-              onPersonProfileGenerated(minimalProfile);
-            } else {
-              console.log('⚠️ Insufficient conversation depth for profile generation');
-            }
           }
         } catch (error) {
           console.error('❌ Error auto-generating profile:', error);
         }
       }
       
-      // If care interest detected but no care cards generated, add care sector cards
-      if (hasCareInterest && !careerCards.some(card => 
-        card.title.toLowerCase().includes('care') || 
-        card.title.toLowerCase().includes('health') ||
-        card.industry?.toLowerCase().includes('care') ||
-        card.industry?.toLowerCase().includes('health')
-      )) {
-        console.log('🏥 Adding care sector career cards based on detected interest');
-        
-        const careSectorCards = [
-          {
-            id: "care-assistant",
-            title: "Care Assistant",
-            description: "Provide essential support and care to elderly residents in care homes and nursing facilities",
-            industry: "Healthcare & Care",
-            averageSalary: {
-              entry: "£18,000",
-              experienced: "£22,000",
-              senior: "£26,000"
-            },
-            growthOutlook: "High demand - aging population driving 15% growth",
-            entryRequirements: ["Compassion and empathy", "Good communication skills", "Physical fitness"],
-            trainingPathways: ["Care Certificate Level 2", "Health & Social Care diploma", "On-the-job training"],
-            keySkills: ["Patient Care", "Communication", "Empathy", "First Aid", "Record Keeping"],
-            workEnvironment: "Care homes, nursing homes, community care",
-            nextSteps: ["Complete Care Certificate", "Apply for care assistant roles", "Gain first aid certification"],
-            location: "UK",
-            confidence: 0.89,
-            sourceData: "care sector interest detected"
-          },
-          {
-            id: "activities-coordinator",
-            title: "Activities Coordinator",
-            description: "Plan and organize engaging activities and entertainment for care home residents",
-            industry: "Healthcare & Care",
-            averageSalary: {
-              entry: "£19,000",
-              experienced: "£24,000",
-              senior: "£28,000"
-            },
-            growthOutlook: "Growing field focused on quality of life improvements",
-            entryRequirements: ["Creativity and organization", "People skills", "Activity planning experience"],
-            trainingPathways: ["Activities coordination courses", "Recreation therapy qualification", "Volunteer experience"],
-            keySkills: ["Activity Planning", "Creative Arts", "Social Skills", "Event Management", "Wellbeing"],
-            workEnvironment: "Care homes, day centers, community programs",
-            nextSteps: ["Volunteer at local care homes", "Learn about dementia care", "Develop activity planning skills"],
-            location: "UK",
-            confidence: 0.87,
-            sourceData: "care sector interest detected"
-          }
-        ];
-        
-        careerCards = [...careerCards, ...careSectorCards];
-      }
-      
-      // Enhanced career card generation
+      // Career cards generation - OpenAI analysis only
       if (careerCards.length > 0) {
         console.log('🎯 Generated career recommendations:', {
           total: careerCards.length,
-          unique: careerCards.length,
-          duplicatesRemoved: 0
+          source: 'openai_analysis'
         });
         onCareerCardsGenerated(careerCards);
       } else {
-        // Only use local fallback for very short conversations where OpenAI might not have enough context
-        if (currentHistory.length < 8) {
-          console.log('⚠️ Short conversation - using local recommendations as OpenAI fallback...');
-          const localCards = generateLocalCareerCards(conversationText, hasCareInterest);
-          if (localCards.length > 0) {
-            console.log('🎯 Generated local career recommendations (fallback):', {
-              total: localCards.length,
-              source: 'local_fallback_short_conversation'
-            });
-            onCareerCardsGenerated(localCards);
-          }
-        } else {
-          console.log('⚠️ MCP analysis failed for substantial conversation - OpenAI should handle this');
-        }
-      }
-      
-      // If MCP generated few cards but conversation is rich, supplement with local cards
-      if (careerCards.length > 0 && careerCards.length < 3 && currentHistory.length >= 8) {
-        console.log('🔍 Supplementing MCP cards with local analysis for richer recommendations...');
-        const supplementalCards = generateLocalCareerCards(conversationText, hasCareInterest);
-        const combinedCards = [...careerCards, ...supplementalCards];
-        
-        // Remove duplicates by title
-        const uniqueCards = combinedCards.filter((card, index, arr) => 
-          arr.findIndex(c => c.title.toLowerCase() === card.title.toLowerCase()) === index
-        );
-        
-        if (uniqueCards.length > careerCards.length) {
-          console.log('🎯 Enhanced career recommendations with local supplement:', {
-            original: careerCards.length,
-            supplemented: uniqueCards.length,
-            added: uniqueCards.length - careerCards.length
-          });
-          onCareerCardsGenerated(uniqueCards);
-        }
-      }
-      
-      // For AI/tech conversations, supplement even with 3+ cards if conversation is very rich
-      const isAiTechConversation = conversationText.toLowerCase().includes('ai') || 
-                                  conversationText.toLowerCase().includes('software development') ||
-                                  conversationText.toLowerCase().includes('machine learning') ||
-                                  conversationText.toLowerCase().includes('entrepreneur');
-      
-      if (careerCards.length >= 3 && careerCards.length < 6 && currentHistory.length >= 12 && isAiTechConversation) {
-        console.log('🔍 Rich AI/tech conversation detected, supplementing with specialized local cards...');
-        const supplementalCards = generateLocalCareerCards(conversationText, hasCareInterest);
-        const combinedCards = [...careerCards, ...supplementalCards];
-        
-        // Remove duplicates by title (case-insensitive)
-        const uniqueCards = combinedCards.filter((card, index, arr) => 
-          arr.findIndex(c => c.title.toLowerCase() === card.title.toLowerCase()) === index
-        );
-        
-        if (uniqueCards.length > careerCards.length) {
-          console.log('🎯 Enhanced AI/tech career recommendations:', {
-            original: careerCards.length,
-            supplemented: uniqueCards.length,
-            added: uniqueCards.length - careerCards.length
-          });
-          onCareerCardsGenerated(uniqueCards);
-        }
+        console.log('⚠️ OpenAI analysis did not generate career cards');
+        return 'Career analysis could not generate recommendations from our conversation. Please share more about your interests and experiences.';
       }
       
       // Return specific career titles so the agent can reference them accurately
