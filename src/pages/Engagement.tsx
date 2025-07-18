@@ -56,7 +56,7 @@ export const EngagementPage: React.FC<EngagementPageProps> = () => {
                 Discover Your Career Path
               </h1>
               <p className="text-lg text-gray-600">
-                Start a conversation and watch your career insights grow in real-time
+                AI-powered conversation that creates your personalized career profile in real-time
               </p>
             </div>
             
@@ -69,13 +69,13 @@ export const EngagementPage: React.FC<EngagementPageProps> = () => {
                 </div>
                 <div className="bg-white p-4 rounded-lg border">
                   <Sparkles className="h-8 w-8 text-purple-600 mx-auto mb-2" />
-                  <p className="font-medium">Live Insights</p>
-                  <p className="text-gray-500">Real-time analysis</p>
+                  <p className="font-medium">AI Analysis</p>
+                  <p className="text-gray-500">Authentic insights</p>
                 </div>
                 <div className="bg-white p-4 rounded-lg border">
                   <Brain className="h-8 w-8 text-green-600 mx-auto mb-2" />
-                  <p className="font-medium">Career Paths</p>
-                  <p className="text-gray-500">Personalized suggestions</p>
+                  <p className="font-medium">Career Matches</p>
+                  <p className="text-gray-500">Personalized recommendations</p>
                 </div>
               </div>
               
@@ -83,11 +83,11 @@ export const EngagementPage: React.FC<EngagementPageProps> = () => {
                 onClick={handleStartConversation}
                 className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 text-lg"
               >
-                Start Exploring →
+                Get Real Insights Now
               </Button>
               
               <p className="text-sm text-gray-500">
-                No signup required • Get insights instantly
+                No signup required • Get AI insights instantly
               </p>
             </div>
           </div>
