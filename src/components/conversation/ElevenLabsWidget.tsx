@@ -213,9 +213,19 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       }
       
       if (careerCards.length > 0 && onCareerCardsGenerated) {
-        console.log('🎯 Generated comprehensive career recommendations:', careerCards.length);
-        onCareerCardsGenerated(careerCards);
-        return `I've generated ${careerCards.length} career recommendations including care sector opportunities!`;
+        // Deduplicate cards by title to prevent duplicates
+        const uniqueCards = careerCards.filter((card, index, array) => 
+          array.findIndex(c => c.title.toLowerCase() === card.title.toLowerCase()) === index
+        );
+        
+        console.log('🎯 Generated career recommendations:', {
+          total: careerCards.length,
+          unique: uniqueCards.length,
+          duplicatesRemoved: careerCards.length - uniqueCards.length
+        });
+        
+        onCareerCardsGenerated(uniqueCards);
+        return `I've generated ${uniqueCards.length} unique career recommendations based on our conversation!`;
       } else {
         return 'Career recommendations will appear as we chat more about your interests!';
       }
@@ -493,27 +503,30 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   // Remove the polling mechanism - we're now using real-time WebSocket events!
   // The onUserTranscriptReceived and onMessage handlers above handle the real-time data
 
-  // Monitor conversation history changes and trigger analysis
+  // Monitor conversation history changes - REDUCED backup triggering to avoid duplicates
   useEffect(() => {
     console.log('🔄 Conversation history updated:', {
       length: conversationHistory.length,
       messages: conversationHistory.map(m => `${m.role}: ${m.content.substring(0, 30)}...`)
     });
     
-    if (conversationHistory.length >= 2) {
+    // Only trigger backup analysis if we have substantial conversation AND no recent analysis
+    if (conversationHistory.length >= 4) { // Higher threshold to reduce spam
       const totalContent = conversationHistory.map(m => m.content).join(' ');
+      const now = Date.now();
+      const timeSinceLastAnalysis = now - lastAnalysisTime;
+      
       console.log('🔍 Content analysis:', {
         totalLength: totalContent.length,
-        threshold: 50, // Reduced threshold
-        shouldTrigger: totalContent.length >= 50
+        threshold: 200, // Much higher threshold
+        timeSinceLastAnalysis,
+        shouldTrigger: totalContent.length >= 200 && timeSinceLastAnalysis > 10000 // 10 second gap
       });
       
-      if (totalContent.length >= 50) { // MUCH lower threshold
-        console.log('🎯 TRIGGERING BACKUP AUTO-ANALYSIS - sufficient content detected');
-        
-        // Immediate trigger (no delay) since agent isn't calling tools
-        console.log('🚀 IMMEDIATE AUTO-TRIGGER: Agent not calling tools, forcing analysis now');
-        analyzeConversationForCareerInsights('immediate_auto_trigger');
+      // Only trigger if significant conversation AND enough time has passed
+      if (totalContent.length >= 200 && timeSinceLastAnalysis > 10000) {
+        console.log('🎯 TRIGGERING BACKUP AUTO-ANALYSIS - substantial content and time gap');
+        analyzeConversationForCareerInsights('backup_auto_trigger');
       }
     } else {
       console.log('⚠️ Not enough conversation history yet:', conversationHistory.length, 'messages');
