@@ -105,7 +105,112 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     const lowerText = conversationText.toLowerCase();
     const cards = [];
     
-    // Care/Healthcare roles - strong indicators in conversation
+    // AI/Tech roles - strong indicators in conversation
+    if (lowerText.includes('ai software development') || lowerText.includes('working with ai') || lowerText.includes('building') && lowerText.includes('ai')) {
+      cards.push({
+        id: `local-ai-developer-${Date.now()}`,
+        title: 'AI Software Developer',
+        industry: 'Technology',
+        description: 'Develop AI-powered applications and tools, implementing machine learning models into real-world products.',
+        matchPercentage: 95,
+        salaryRange: { min: 45000, max: 80000, currency: 'GBP' },
+        location: 'UK Wide',
+        keySkills: ['Python/JavaScript', 'Machine Learning', 'Problem Solving', 'Software Development'],
+        educationLevel: 'Degree/Self-taught',
+        workArrangement: 'Remote/Hybrid',
+        careerProgression: 'Junior Developer → Senior Developer → Technical Lead',
+        nextSteps: ['Build AI projects portfolio', 'Learn Python/ML frameworks', 'Contribute to open source'],
+        salaryProgression: '£45k → £80k → £120k+',
+        source: 'local_analysis',
+        requirements: ['Programming skills', 'AI/ML knowledge', 'Problem-solving ability']
+      });
+    }
+    
+    // Product management roles - mentioned productization and take to market
+    if (lowerText.includes('productization') || lowerText.includes('take it to market') || lowerText.includes('ai product manager')) {
+      cards.push({
+        id: `local-ai-product-manager-${Date.now()}`,
+        title: 'AI Product Manager',
+        industry: 'Technology',
+        description: 'Lead development of AI products from concept to market, bridging technical teams and business needs.',
+        matchPercentage: 90,
+        salaryRange: { min: 50000, max: 90000, currency: 'GBP' },
+        location: 'UK Wide',
+        keySkills: ['Product Strategy', 'AI Understanding', 'Communication', 'Market Analysis'],
+        educationLevel: 'Degree preferred',
+        workArrangement: 'Hybrid',
+        careerProgression: 'Associate PM → Senior PM → VP Product',
+        nextSteps: ['Learn product management', 'Understand AI landscape', 'Build portfolio of projects'],
+        salaryProgression: '£50k → £90k → £150k+',
+        source: 'local_analysis',
+        requirements: ['Strategic thinking', 'Technical understanding', 'Communication skills']
+      });
+    }
+    
+    // Solutions architect - mentioned in conversation
+    if (lowerText.includes('ai solutions architect') || lowerText.includes('bigger picture') || lowerText.includes('architect')) {
+      cards.push({
+        id: `local-ai-solutions-architect-${Date.now()}`,
+        title: 'AI Solutions Architect',
+        industry: 'Technology',
+        description: 'Design comprehensive AI solutions for businesses, seeing the bigger picture of how AI fits into organizations.',
+        matchPercentage: 88,
+        salaryRange: { min: 60000, max: 100000, currency: 'GBP' },
+        location: 'UK Wide',
+        keySkills: ['System Design', 'AI Technologies', 'Business Analysis', 'Technical Leadership'],
+        educationLevel: 'Degree + Experience',
+        workArrangement: 'Hybrid/Remote',
+        careerProgression: 'Solutions Engineer → Senior Architect → Enterprise Architect',
+        nextSteps: ['Gain technical experience', 'Learn enterprise systems', 'Develop consulting skills'],
+        salaryProgression: '£60k → £100k → £140k+',
+        source: 'local_analysis',
+        requirements: ['Technical expertise', 'Systems thinking', 'Client communication']
+      });
+    }
+    
+    // Entrepreneurship - mentioned wanting to start own business
+    if (lowerText.includes('entrepreneur') || (lowerText.includes('build something') && lowerText.includes('market')) || lowerText.includes('own business')) {
+      cards.push({
+        id: `local-tech-entrepreneur-${Date.now()}`,
+        title: 'Tech Entrepreneur',
+        industry: 'Entrepreneurship',
+        description: 'Start and scale technology businesses, bringing innovative AI solutions to market.',
+        matchPercentage: 85,
+        salaryRange: { min: 0, max: 200000, currency: 'GBP' },
+        location: 'Flexible',
+        keySkills: ['Innovation', 'Business Development', 'Risk Management', 'Leadership'],
+        educationLevel: 'Varies',
+        workArrangement: 'Self-employed',
+        careerProgression: 'Founder → CEO → Serial Entrepreneur',
+        nextSteps: ['Validate business ideas', 'Build MVP', 'Network with investors', 'Learn business skills'],
+        salaryProgression: 'Variable → £200k+ potential',
+        source: 'local_analysis',
+        requirements: ['Risk tolerance', 'Business acumen', 'Technical skills']
+      });
+    }
+    
+    // Machine Learning Engineer - directly mentioned in conversation
+    if (lowerText.includes('machine learning') || lowerText.includes('data scientist') || lowerText.includes('ml engineer')) {
+      cards.push({
+        id: `local-ml-engineer-${Date.now()}`,
+        title: 'Machine Learning Engineer',
+        industry: 'Technology',
+        description: 'Build and deploy machine learning models, focusing on the technical implementation of AI systems.',
+        matchPercentage: 87,
+        salaryRange: { min: 50000, max: 85000, currency: 'GBP' },
+        location: 'UK Wide',
+        keySkills: ['Machine Learning', 'Python/R', 'Data Engineering', 'MLOps'],
+        educationLevel: 'Degree in STEM',
+        workArrangement: 'Remote/Hybrid',
+        careerProgression: 'Junior ML Engineer → Senior ML Engineer → ML Architect',
+        nextSteps: ['Master ML frameworks', 'Build ML projects', 'Learn cloud platforms'],
+        salaryProgression: '£50k → £85k → £120k+',
+        source: 'local_analysis',
+        requirements: ['Strong math/stats', 'Programming skills', 'ML frameworks knowledge']
+      });
+    }
+    
+    // Care/Healthcare roles - for conversations mentioning care
     if (hasCareInterest || lowerText.includes('care home') || lowerText.includes('helping') || lowerText.includes('empathy')) {
       cards.push({
         id: `local-care-worker-${Date.now()}`,
@@ -126,14 +231,14 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       });
     }
     
-    // Problem-solving roles
+    // Problem-solving roles for general problem-solving mentions
     if (lowerText.includes('problem solving') || lowerText.includes('problem-solving')) {
       cards.push({
         id: `local-tech-support-${Date.now()}`,
         title: 'IT Support Technician',
         industry: 'Technology',
         description: 'Help solve technical problems for users, troubleshoot systems, and provide technical support.',
-        matchPercentage: 85,
+        matchPercentage: 75,
         salaryRange: { min: 20000, max: 28000, currency: 'GBP' },
         location: 'UK Wide',
         keySkills: ['Problem Solving', 'Technical Skills', 'Communication', 'Patience'],
@@ -147,136 +252,41 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       });
     }
     
-    // Communication/interpersonal roles
-    if (lowerText.includes('communication') || lowerText.includes('empathy') || lowerText.includes('helping')) {
-      cards.push({
-        id: `local-customer-service-${Date.now()}`,
-        title: 'Customer Service Representative',
-        industry: 'Business Services',
-        description: 'Help customers resolve issues, provide information, and ensure positive customer experiences.',
-        matchPercentage: 80,
-        salaryRange: { min: 18000, max: 25000, currency: 'GBP' },
-        location: 'UK Wide',
-        keySkills: ['Communication', 'Problem Solving', 'Empathy', 'Patience'],
-        educationLevel: 'Secondary/On-the-job training',
-        workArrangement: 'Office/Remote',
-        careerProgression: 'Customer Service → Team Leader → Customer Success Manager',
-        nextSteps: ['Develop communication skills', 'Look for entry-level positions', 'Consider customer service training'],
-        salaryProgression: '£18k → £25k → £35k+',
-        source: 'local_analysis',
-        requirements: ['Strong communication skills', 'Patience', 'Problem-solving ability']
-      });
-    }
-    
-    // Apprenticeship opportunities if mentioned
-    if (lowerText.includes('apprentice') || lowerText.includes('hands-on') || lowerText.includes('practical') || lowerText.includes("don't want") && lowerText.includes('university')) {
-      cards.push({
-        id: `local-healthcare-apprentice-${Date.now()}`,
-        title: 'Healthcare Support Apprentice',
-        industry: 'Healthcare & Social Care',
-        description: 'Learn while working in healthcare settings, gaining practical experience and qualifications.',
-        matchPercentage: 90,
-        salaryRange: { min: 15000, max: 20000, currency: 'GBP' },
-        location: 'UK Wide',
-        keySkills: ['Willingness to Learn', 'Communication', 'Empathy', 'Reliability'],
-        educationLevel: 'Apprenticeship Program',
-        workArrangement: 'On-site with training',
-        careerProgression: 'Apprentice → Qualified Healthcare Assistant → Senior Roles',
-        nextSteps: ['Research apprenticeship programs', 'Apply to local healthcare providers', 'Prepare for interviews'],
-        salaryProgression: '£15k → £20k → £25k+',
-        source: 'local_analysis',
-        requirements: ['Interest in healthcare', 'Good communication', 'Commitment to learning']
-      });
-    }
-    
-    // Community/social work roles
-    if (lowerText.includes('helping others') || lowerText.includes('helping people') || (lowerText.includes('helping') && lowerText.includes('communication'))) {
-      cards.push({
-        id: `local-community-support-${Date.now()}`,
-        title: 'Community Support Worker',
-        industry: 'Community Services',
-        description: 'Support individuals and families in the community, helping them access services and develop independence.',
-        matchPercentage: 85,
-        salaryRange: { min: 19000, max: 26000, currency: 'GBP' },
-        location: 'UK Wide',
-        keySkills: ['Communication', 'Empathy', 'Problem Solving', 'Advocacy'],
-        educationLevel: 'Secondary/Relevant training',
-        workArrangement: 'Community-based',
-        careerProgression: 'Support Worker → Senior Support Worker → Team Coordinator',
-        nextSteps: ['Gain relevant qualifications', 'Volunteer in community settings', 'Develop interpersonal skills'],
-        salaryProgression: '£19k → £26k → £32k+',
-        source: 'local_analysis',
-        requirements: ['Strong interpersonal skills', 'Empathy', 'Reliable transport']
-      });
-    }
-    
-    return cards.slice(0, 5); // Limit to top 5 most relevant cards
+    return cards.slice(0, 6); // Increased limit for more comprehensive recommendations
   };
 
   // Helper function to extract profile data locally from conversation when MCP analysis is insufficient
   const extractProfileFromConversation = (conversationText: string): PersonProfile => {
     const lowerText = conversationText.toLowerCase();
     
-    // Extract interests from conversation
+    // Minimal local extraction - only for complete MCP failures
+    // Trust OpenAI/MCP for intelligent analysis, only extract basics as emergency fallback
     const interests: string[] = [];
-    if (lowerText.includes('physics')) interests.push('Physics');
-    if (lowerText.includes('maths') || lowerText.includes('math')) interests.push('Mathematics');
-    if (lowerText.includes('ai') || lowerText.includes('artificial intelligence')) interests.push('Artificial Intelligence');
-    if (lowerText.includes('problem solving') || lowerText.includes('problem-solving')) interests.push('Problem Solving');
-    if (lowerText.includes('environmental') || lowerText.includes('conservation')) interests.push('Environmental Conservation');
-    if (lowerText.includes('care home') || lowerText.includes('caring for') || lowerText.includes('helping others')) interests.push('Healthcare & Care');
-    
-    // Extract skills from conversation
     const skills: string[] = [];
-    if (lowerText.includes('physics')) skills.push('Physics knowledge');
-    if (lowerText.includes('maths') || lowerText.includes('math')) skills.push('Mathematical analysis');
-    if (lowerText.includes('problem solving') || lowerText.includes('problem-solving')) skills.push('Problem solving');
-    if (lowerText.includes('team') && lowerText.includes('like working')) skills.push('Teamwork');
-    if (lowerText.includes('ai') || lowerText.includes('looking at ai')) skills.push('AI literacy');
-    if (lowerText.includes('care') || lowerText.includes('looking after')) skills.push('Caregiving');
-    
-    // Better skill extraction for explicit mentions
-    if (lowerText.includes('good at problem solving') || lowerText.includes('quite good at problem solving')) skills.push('Problem solving');
-    if (lowerText.includes('good at communication') || lowerText.includes('really good at communication')) skills.push('Communication');
-    if (lowerText.includes('empathy') || lowerText.includes('empathetic')) skills.push('Empathy');
-    if (lowerText.includes('helping') && (lowerText.includes('grandma') || lowerText.includes('others'))) skills.push('Interpersonal support');
-    if (lowerText.includes('patience') || lowerText.includes('patient')) skills.push('Patience');
-    
-    // Extract goals from conversation
     const goals: string[] = [];
-    if (lowerText.includes('fulfilling') || lowerText.includes('meaningful')) goals.push('Find meaningful work');
-    if (lowerText.includes('money') && lowerText.includes('important')) goals.push('Financial stability');
-    if (lowerText.includes("don't know what") || lowerText.includes('unsure about career')) goals.push('Explore career options');
-    if (lowerText.includes('balance') || (lowerText.includes('money') && lowerText.includes('fulfilling'))) goals.push('Work-life balance');
-    if (lowerText.includes('help people') || lowerText.includes('make a difference')) goals.push('Help others');
-    
-    // Better goal extraction
-    if (lowerText.includes('fulfilling career without') && lowerText.includes('degree')) goals.push('Find fulfilling career without degree');
-    if (lowerText.includes('apprentice') && lowerText.includes('up for that')) goals.push('Pursue apprenticeship opportunities');
-    if (lowerText.includes("don't") && lowerText.includes('university') && lowerText.includes('moment')) goals.push('Avoid university for now');
-    if (lowerText.includes('career') && lowerText.includes('options')) goals.push('Explore different career paths');
-    
-    // Extract values from conversation
     const values: string[] = [];
-    if (lowerText.includes('problem solving') && lowerText.includes('important value')) values.push('Problem solving');
-    if (lowerText.includes('conservation') && lowerText.includes('important')) values.push('Conservation');
-    if (lowerText.includes('team') && lowerText.includes('like')) values.push('Collaboration');
-    if (lowerText.includes('helping') || lowerText.includes('care')) values.push('Helping others');
-    if (lowerText.includes("don't want") && lowerText.includes('military')) values.push('Non-military environment');
-    if (lowerText.includes('fulfilling') || lowerText.includes('meaningful')) values.push('Meaningful work');
     
-    // Extract work style
-    const workStyle: string[] = [];
-    if (lowerText.includes('team') && lowerText.includes('like working')) workStyle.push('Collaborative');
-    if (lowerText.includes('problem solving')) workStyle.push('Analytical');
+    // Only extract if explicitly mentioned with high confidence patterns
+    if (lowerText.includes('i enjoy') || lowerText.includes('i love')) {
+      // Let OpenAI handle this - avoid hardcoded extraction
+    }
     
+    if (lowerText.includes('good at') || lowerText.includes('skilled at')) {
+      // Let OpenAI handle this - avoid hardcoded extraction  
+    }
+    
+    if (lowerText.includes('want to') || lowerText.includes('goal is')) {
+      // Let OpenAI handle this - avoid hardcoded extraction
+    }
+    
+    // Return minimal profile - rely on MCP/OpenAI for real analysis
     return {
-      interests: [...new Set(interests)], // Remove duplicates
-      goals: [...new Set(goals)],
-      skills: [...new Set(skills)],
-      values: [...new Set(values)],
+      interests: [],
+      goals: [],
+      skills: [],
+      values: [],
       careerStage: "exploring",
-      workStyle: [...new Set(workStyle)],
+      workStyle: [],
       lastUpdated: new Date().toLocaleDateString()
     };
   };
@@ -381,10 +391,29 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           const localProfile = extractProfileFromConversation(conversationText);
           const localHasContent = localProfile.interests.length > 0 || localProfile.skills.length > 0 || localProfile.goals.length > 0;
           
-          if (hasRealData && (mcpInterests.length + mcpSkills.length + mcpGoals.length + mcpValues.length) >= 3) {
-            // MCP has substantial data, use it
+          // Filter career titles from MCP interests
+          const careerTitleKeywords = ['engineer', 'developer', 'manager', 'analyst', 'specialist', 'consultant', 'architect', 'scientist', 'technician', 'director', 'coordinator'];
+          const filteredMcpInterests = mcpInterests.filter(interest => 
+            !careerTitleKeywords.some(keyword => interest.toLowerCase().includes(keyword))
+          );
+          
+          // Debug logging to understand MCP categorization issues
+          if (mcpInterests.length > 0) {
+            console.log('🔍 MCP Analysis Debug:', {
+              originalInterests: mcpInterests,
+              filteredInterests: filteredMcpInterests,
+              removedCareerTitles: mcpInterests.filter(interest => 
+                careerTitleKeywords.some(keyword => interest.toLowerCase().includes(keyword))
+              ),
+              skills: mcpSkills,
+              goals: mcpGoals
+            });
+          }
+          
+          if (hasRealData && (filteredMcpInterests.length + mcpSkills.length + mcpGoals.length + mcpValues.length) >= 2) {
+            // MCP has substantial data, use it (with filtered interests)
             const autoProfile: PersonProfile = {
-              interests: mcpInterests,
+              interests: filteredMcpInterests,
               goals: mcpGoals,
               skills: mcpSkills,
               values: mcpValues,
@@ -393,15 +422,33 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
               lastUpdated: new Date().toLocaleDateString()
             };
             
-            console.log('👤 Auto-generated user profile from MCP analysis:', autoProfile);
+            console.log('👤 Auto-generated user profile from MCP analysis (filtered):', autoProfile);
             onPersonProfileGenerated(autoProfile);
-          } else if (localHasContent) {
-            // MCP analysis is insufficient, use enhanced local extraction
-            console.log('⚠️ MCP analysis insufficient, using enhanced local extraction');
-            console.log('👤 Generated enhanced local profile:', localProfile);
-            onPersonProfileGenerated(localProfile);
           } else {
-            console.log('⚠️ Both MCP and local analysis insufficient for profile generation');
+            // Only use local fallback if MCP completely fails
+            console.log('⚠️ MCP analysis insufficient, checking local fallback need');
+            console.log('📊 MCP Data Quality:', {
+              hasRealData,
+              totalDataPoints: filteredMcpInterests.length + mcpSkills.length + mcpGoals.length + mcpValues.length,
+              threshold: 2
+            });
+            
+            // Minimal local fallback - only create profile if conversation is very rich
+            if (currentHistory.length >= 10) {
+              const minimalProfile: PersonProfile = {
+                interests: ['Career exploration'], // Generic fallback
+                goals: ['Explore career options'],
+                skills: [],
+                values: [],
+                careerStage: "exploring",
+                workStyle: [],
+                lastUpdated: new Date().toLocaleDateString()
+              };
+              console.log('👤 Generated minimal fallback profile:', minimalProfile);
+              onPersonProfileGenerated(minimalProfile);
+            } else {
+              console.log('⚠️ Insufficient conversation depth for profile generation');
+            }
           }
         } catch (error) {
           console.error('❌ Error auto-generating profile:', error);
@@ -496,6 +543,32 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         
         if (uniqueCards.length > careerCards.length) {
           console.log('🎯 Enhanced career recommendations with local supplement:', {
+            original: careerCards.length,
+            supplemented: uniqueCards.length,
+            added: uniqueCards.length - careerCards.length
+          });
+          onCareerCardsGenerated(uniqueCards);
+        }
+      }
+      
+      // For AI/tech conversations, supplement even with 3+ cards if conversation is very rich
+      const isAiTechConversation = conversationText.toLowerCase().includes('ai') || 
+                                  conversationText.toLowerCase().includes('software development') ||
+                                  conversationText.toLowerCase().includes('machine learning') ||
+                                  conversationText.toLowerCase().includes('entrepreneur');
+      
+      if (careerCards.length >= 3 && careerCards.length < 6 && currentHistory.length >= 12 && isAiTechConversation) {
+        console.log('🔍 Rich AI/tech conversation detected, supplementing with specialized local cards...');
+        const supplementalCards = generateLocalCareerCards(conversationText, hasCareInterest);
+        const combinedCards = [...careerCards, ...supplementalCards];
+        
+        // Remove duplicates by title (case-insensitive)
+        const uniqueCards = combinedCards.filter((card, index, arr) => 
+          arr.findIndex(c => c.title.toLowerCase() === card.title.toLowerCase()) === index
+        );
+        
+        if (uniqueCards.length > careerCards.length) {
+          console.log('🎯 Enhanced AI/tech career recommendations:', {
             original: careerCards.length,
             supplemented: uniqueCards.length,
             added: uniqueCards.length - careerCards.length

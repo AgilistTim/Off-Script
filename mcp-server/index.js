@@ -639,11 +639,12 @@ const GetUserPreferencesTool = z.object({
 
 class OffScriptMCPServer {
   constructor() {
-    this.openai = null;
-    this.server = null;
-    this.httpApp = null;
-    this.setupOpenAI();
-    this.setupMCPServer();
+    this.httpApp = express();
+    this.isRunning = false;
+    this.cachedConversationHistory = []; // Cache for conversation history
+    this.lastCacheUpdate = null; // Track when cache was last updated
+    this.setupMiddleware();
+    this.setupMCPHttpServer();
   }
 
   setupOpenAI() {
@@ -660,7 +661,22 @@ class OffScriptMCPServer {
     }
   }
 
-  setupMCPServer() {
+  setupMiddleware() {
+    // Enable CORS
+    this.httpApp.use(cors({
+      origin: [
+        'http://localhost:5173', 
+        'http://localhost:5174', 
+        'http://localhost:3000',
+        'https://off-script-elevenlabs-preview.onrender.com'
+      ],
+      credentials: true
+    }));
+
+    this.httpApp.use(express.json());
+  }
+
+  setupMCPHttpServer() {
     this.server = new Server(
       {
         name: 'OffScript Career Guidance Server',
@@ -983,17 +999,43 @@ class OffScriptMCPServer {
       try {
         const { conversationHistory, userId = 'anonymous', triggerReason } = req.body;
         
+        // Cache conversation history for tool calls
+        if (conversationHistory) {
+          if (typeof conversationHistory === 'string') {
+            // Convert string format to messages array
+            const lines = conversationHistory.split('\n').filter(line => line.trim());
+            this.cachedConversationHistory = lines.map((line, index) => {
+              const [role, ...contentParts] = line.split(':');
+              return {
+                role: role.trim() === 'user' ? 'user' : 'assistant',
+                content: contentParts.join(':').trim()
+              };
+            });
+          } else if (Array.isArray(conversationHistory)) {
+            this.cachedConversationHistory = conversationHistory;
+          }
+          this.lastCacheUpdate = new Date();
+          
+          Logger.info('Cached conversation history for tool calls', { 
+            messageCount: this.cachedConversationHistory.length,
+            userId 
+          });
+        }
+        
         // Convert conversationHistory string to messages array format expected by service
         const messages = [];
         if (conversationHistory && typeof conversationHistory === 'string') {
           // Split conversation and create alternating user/assistant messages
           const lines = conversationHistory.split('\n').filter(line => line.trim());
           lines.forEach((line, index) => {
+            const [role, ...contentParts] = line.split(':');
             messages.push({
-              role: index % 2 === 0 ? 'user' : 'assistant',
-              content: line.trim()
+              role: role.trim() === 'user' ? 'user' : 'assistant',
+              content: contentParts.join(':').trim()
             });
           });
+        } else if (Array.isArray(conversationHistory)) {
+          messages.push(...conversationHistory);
         }
         
         // If no messages available, create a placeholder to generate initial insights
@@ -1178,10 +1220,21 @@ class OffScriptMCPServer {
     Logger.info('MCP: Analyzing conversation for careers:', args);
     
     try {
-      // Use our existing conversation analysis
-      const analysisResult = await ConversationAnalysisService.analyzeWithOpenAI(
-        args.trigger_reason || 'Manual trigger'
-      );
+      // Get conversation history from the global cache that should be set by the frontend
+      let conversationText = '';
+      
+      if (this.cachedConversationHistory && this.cachedConversationHistory.length > 0) {
+        conversationText = this.cachedConversationHistory
+          .map(msg => `${msg.role}: ${msg.content}`)
+          .join('\n');
+        Logger.info('Using cached conversation history', { messageCount: this.cachedConversationHistory.length });
+      } else {
+        Logger.warn('No conversation history available, using trigger reason as fallback');
+        conversationText = args.trigger_reason || 'Manual trigger';
+      }
+
+      // Use proper conversation analysis with the full conversation
+      const analysisResult = await ConversationAnalysisService.analyzeWithOpenAI(conversationText);
 
       return {
         success: true,
