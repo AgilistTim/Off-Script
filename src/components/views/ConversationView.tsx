@@ -104,7 +104,32 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   // Handle career cards generated from ElevenLabs widget
   const handleCareerCardsGenerated = useCallback((newCards: CareerCard[]) => {
     console.log('🎯 ConversationView: Received career cards:', newCards.length);
-    setCareerCards(prev => [...prev, ...newCards]);
+    
+    setCareerCards(prev => {
+      // Combine previous and new cards
+      const combined = [...prev, ...newCards];
+      
+      // Deduplicate by title (case-insensitive)
+      const seen = new Set<string>();
+      const deduplicated = combined.filter(card => {
+        const normalizedTitle = card.title.toLowerCase().trim();
+        if (seen.has(normalizedTitle)) {
+          console.log('🔄 Removing duplicate career card:', card.title);
+          return false;
+        }
+        seen.add(normalizedTitle);
+        return true;
+      });
+      
+      console.log('✨ Career cards after deduplication:', {
+        originalCount: combined.length,
+        deduplicatedCount: deduplicated.length,
+        duplicatesRemoved: combined.length - deduplicated.length
+      });
+      
+      return deduplicated;
+    });
+    
     setHasStartedConversation(true);
     
     // Track engagement - show registration prompt after user gets career cards
