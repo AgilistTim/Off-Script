@@ -493,6 +493,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         // Trigger analysis after a brief delay to allow for more content
         const analysisTimer = setTimeout(async () => {
           try {
+            console.log('🚀 AUTO-TRIGGERING career analysis (bypassing agent tool call)');
+            
             const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
             
             const response = await fetch(`${mcpEndpoint}/analyze`, {
@@ -501,24 +503,33 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
               body: JSON.stringify({
                 conversationHistory: conversationText,
                 userId: currentUser?.uid || `guest_${Date.now()}`,
-                triggerReason: 'real_time_transcript_analysis'
+                triggerReason: 'auto_trigger_sufficient_conversation'
               }),
             });
 
             if (response.ok) {
               const result = await response.json();
+              console.log('✅ AUTO-TRIGGER Analysis result:', result);
+              
               const analysisData = result.analysis || result;
               const careerCards = analysisData.careerCards || [];
               
               if (careerCards.length > 0 && onCareerCardsGenerated) {
-                console.log('🎯 Auto-generated career cards from real-time transcript:', careerCards.length);
+                console.log('🎯 AUTO-GENERATED career cards from conversation:', careerCards.length);
                 onCareerCardsGenerated(careerCards);
+                
+                // Optional: Send a message to the conversation to acknowledge the cards
+                console.log('✨ Career analysis complete - cards should now be visible in UI');
+              } else {
+                console.log('⚠️ Auto-trigger analysis completed but no career cards generated');
               }
+            } else {
+              console.warn('⚠️ Auto-trigger analysis request failed:', response.status, response.statusText);
             }
           } catch (error) {
-            console.warn('Auto-analysis from transcript failed:', error);
+            console.warn('⚠️ Auto-trigger analysis failed:', error);
           }
-        }, 3000);
+        }, 2000); // Reduced delay for faster response
 
         return () => clearTimeout(analysisTimer);
       }

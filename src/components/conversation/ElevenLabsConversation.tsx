@@ -499,36 +499,50 @@ export const ElevenLabsConversation: React.FC<ElevenLabsConversationProps> = ({
   // Auto-trigger MCP analysis when conversation reaches meaningful length
   useEffect(() => {
     const triggerAutoAnalysis = async () => {
-      if (conversationHistory.length >= 4 && conversationHistory.length % 4 === 0) {
-        console.log('🔄 Auto-triggering MCP analysis after', conversationHistory.length, 'messages');
-        
-        try {
-          if (import.meta.env.VITE_ENABLE_MCP_ENHANCEMENT === 'true') {
-            const mcpInterests = await conversationAnalyzer.analyzeConversationWithMCP(
-              conversationHistory, 
-              currentUser?.uid
-            );
-            
-            if (mcpInterests.length > 0) {
-              const careerCards = await conversationAnalyzer.generateCareerCardsWithMCP(
-                mcpInterests, 
+      if (conversationHistory.length >= 2) {
+        const totalContent = conversationHistory.map(m => m.content).join(' ');
+        if (totalContent.length >= 80) { // Reduced threshold for faster triggering
+          console.log('🚀 AUTO-TRIGGERING MCP analysis - sufficient conversation detected');
+          
+          try {
+            if (import.meta.env.VITE_ENABLE_MCP_ENHANCEMENT === 'true') {
+              console.log('🔬 Using MCP-enhanced conversation analysis');
+              
+              const mcpInterests = await conversationAnalyzer.analyzeConversationWithMCP(
+                conversationHistory as Array<{ role: 'user' | 'assistant'; content: string }>, 
                 currentUser?.uid
               );
               
-              if (careerCards.length > 0 && onCareerCardsGenerated) {
-                onCareerCardsGenerated(careerCards);
-                console.log('🎯 Auto-generated', careerCards.length, 'career cards');
+              if (mcpInterests.length > 0) {
+                console.log('🎯 MCP detected interests:', mcpInterests.length);
+                
+                const careerCards = await conversationAnalyzer.generateCareerCardsWithMCP(
+                  mcpInterests, 
+                  currentUser?.uid
+                );
+                
+                if (careerCards.length > 0 && onCareerCardsGenerated) {
+                  console.log('✨ AUTO-GENERATED MCP career cards:', careerCards.length);
+                  onCareerCardsGenerated(careerCards);
+                  console.log('🎯 Career cards should now be visible in the UI!');
+                } else {
+                  console.log('⚠️ MCP analysis completed but no career cards generated');
+                }
+              } else {
+                console.log('⚠️ MCP analysis completed but no interests detected');
               }
             }
+          } catch (error) {
+            console.warn('⚠️ Auto-trigger MCP analysis failed:', error);
           }
-        } catch (error) {
-          console.warn('⚠️ Auto-analysis failed:', error);
         }
       }
     };
     
-    triggerAutoAnalysis();
-  }, [conversationHistory.length, currentUser?.uid, onCareerCardsGenerated]);
+    // Trigger analysis with a short delay after conversation updates
+    const analysisTimer = setTimeout(triggerAutoAnalysis, 1000);
+    return () => clearTimeout(analysisTimer);
+  }, [conversationHistory.length, conversationHistory, currentUser?.uid, onCareerCardsGenerated]);
 
   // Handle quick actions
   const handleQuickAction = useCallback(async (action: string) => {
