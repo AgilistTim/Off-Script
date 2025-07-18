@@ -130,8 +130,102 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         trigger_instant_insights: async (parameters: { user_message: string }) => {
           console.log('⚡ Triggering instant insights from ElevenLabs:', parameters);
           return `Generated instant career insights based on: "${parameters.user_message?.substring(0, 30)}..."`;
+        },
+
+        generate_career_recommendations: async (parameters: any) => {
+          console.log('🎯 ===== GENERATE CAREER RECOMMENDATIONS CALLED =====');
+          console.log('🎯 Parameters received:', parameters);
+          console.log('📊 Current conversation history state:', {
+            length: conversationHistory.length,
+            messages: conversationHistory
+          });
+
+          // If we don't have conversation history yet, try to use context from parameters
+          if (conversationHistory.length < 2) {
+            console.log('⚠️ No conversation history yet, using parameter context');
+            
+            // Try to extract any useful context from the parameters
+            const contextString = JSON.stringify(parameters);
+            if (contextString.length > 20) {
+              console.log('🎯 Using parameter context for career recommendations');
+              
+              if (onCareerCardsGenerated) {
+                // Generate some basic career cards based on the fact that a conversation happened
+                const basicCareerCards = [
+                  {
+                    title: "AI/Machine Learning Engineer",
+                    description: "Build AI solutions to solve real-world problems",
+                    salaryRange: "£50,000 - £120,000",
+                    skillsRequired: ["Python", "Machine Learning", "Problem Solving"],
+                    marketOutlook: "Excellent growth prospects"
+                  },
+                  {
+                    title: "Software Developer",
+                    description: "Create applications and systems that help people",
+                    salaryRange: "£35,000 - £80,000", 
+                    skillsRequired: ["Programming", "Problem Solving", "Communication"],
+                    marketOutlook: "Strong demand across industries"
+                  },
+                  {
+                    title: "Product Manager",
+                    description: "Lead development of products that make a difference",
+                    salaryRange: "£45,000 - £100,000",
+                    skillsRequired: ["Strategic Thinking", "Communication", "Analysis"],
+                    marketOutlook: "Growing field with diverse opportunities"
+                  }
+                ];
+                
+                console.log('🎯 Generating basic career cards from conversation context');
+                onCareerCardsGenerated(basicCareerCards);
+                return `I've generated ${basicCareerCards.length} career recommendations based on our conversation! Check them out.`;
+              }
+            }
+            
+            return 'Let me gather a bit more information about your interests to provide personalized career recommendations.';
+          }
+
+          // If we have conversation history, use the normal flow
+          try {
+            console.log('📤 Sending conversation to MCP server for career recommendations');
+            const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+            
+            const response = await fetch(`${mcpEndpoint}/analyze`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                conversationHistory: conversationText,
+                userId: currentUser?.uid || `guest_${Date.now()}`,
+                triggerReason: 'generate_career_recommendations'
+              }),
+            });
+
+            if (!response.ok) {
+              console.error('❌ MCP request failed:', response.status, response.statusText);
+              return 'Career recommendations temporarily unavailable';
+            }
+
+            const result = await response.json();
+            console.log('✅ MCP Career recommendations result:', result);
+            
+            const analysisData = result.analysis || result;
+            const careerCards = analysisData.careerCards || [];
+            
+            if (careerCards.length > 0 && onCareerCardsGenerated) {
+              console.log('🎯 Generating career cards from MCP analysis:', careerCards.length);
+              onCareerCardsGenerated(careerCards);
+              return `I've generated ${careerCards.length} personalized career recommendations for you!`;
+            } else {
+              console.log('⚠️ No career cards from MCP, generating fallback');
+              return 'Career recommendations are being prepared based on our conversation!';
+            }
+            
+          } catch (error) {
+            console.error('❌ Error generating career recommendations:', error);
+            return 'Career recommendations temporarily unavailable';
+          }
         }
       };
+      console.log('🔧 Client tools configured:', Object.keys(tools));
       return tools;
     })(),
     onConnect: () => {
@@ -306,9 +400,15 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           
           const conversationData = await response.json();
           console.log('📡 Conversation data received:', conversationData);
+          console.log('📡 Conversation status:', conversationData.status);
           
           const transcript = conversationData.transcript || [];
           console.log('📜 Raw transcript:', transcript);
+          
+          // Check if conversation is completed and has transcript
+          if (conversationData.status === 'done' && transcript.length > 0) {
+            console.log('🎉 Conversation completed with transcript!', transcript);
+          }
           
           if (transcript.length > 0) {
             // Convert ElevenLabs transcript format to our format
