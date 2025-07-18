@@ -69,131 +69,9 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     });
   }, [conversationHistory]);
 
-  // Client tools that call our MCP server
-  const clientTools = {
-    analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
-      console.log('🔍 Analyzing conversation for careers:', parameters);
-      console.log('📊 Current conversation history state:', {
-        length: conversationHistory.length,
-        messages: conversationHistory
-      });
-
-      if (conversationHistory.length < 2 || conversationHistory.map(m => m.content).join(' ').length < 20) {
-        console.log('⚠️ Not enough conversation history for analysis yet');
-        return 'Keep chatting! I need a bit more conversation to understand your interests and generate personalized career recommendations.';
-      }
-
-      try {
-        console.log('📤 Sending conversation to MCP server:', {
-          endpoint: mcpEndpoint,
-          historyLength: conversationHistory.length,
-          contentPreview: conversationHistory.map(m => m.content.substring(0, 30)).join(' | ')
-        });
-
-        const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-        
-        const response = await fetch(`${mcpEndpoint}/analyze`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            conversationHistory: conversationText,
-            userId: currentUser?.uid || `guest_${Date.now()}`,
-            triggerReason: parameters.trigger_reason
-          }),
-        });
-
-        console.log('📥 MCP Response status:', response.status);
-        
-        if (!response.ok) {
-          console.error('❌ MCP request failed:', response.status, response.statusText);
-          return 'Career analysis temporarily unavailable';
-        }
-
-        const result = await response.json();
-        console.log('✅ MCP Analysis result:', result);
-        
-        const analysisData = result.analysis || result;
-        const careerCards = analysisData.careerCards || [];
-        
-        if (careerCards.length > 0 && onCareerCardsGenerated) {
-          console.log('🎯 Generating career cards:', careerCards.length);
-          onCareerCardsGenerated(careerCards);
-          return `I've generated ${careerCards.length} career recommendations based on our conversation!`;
-        } else {
-          console.log('⚠️ No career cards generated');
-          return 'Career recommendations will appear as we chat more about your interests!';
-        }
-        
-      } catch (error) {
-        console.error('❌ Error analyzing conversation:', error);
-        return 'Career analysis temporarily unavailable';
-      }
-    },
-
-    trigger_instant_insights: async (parameters: { user_message: string }) => {
-      console.log('⚡ Triggering instant insights:', parameters);
-      
-      if (!parameters.user_message || parameters.user_message.trim().length < 10) {
-        console.log('⚠️ User message too short for instant insights');
-        return 'Tell me more about what interests you career-wise!';
-      }
-      
-      try {
-        // Combine current message with existing conversation history for better context
-        const fullContext = conversationHistory.map(msg => msg.content).join('\n') + 
-                            (conversationHistory.length > 0 ? '\n' : '') + 
-                            parameters.user_message;
-        
-        console.log('📤 Sending instant insight request:', {
-          messageLength: parameters.user_message.length,
-          contextLength: fullContext.length,
-          preview: parameters.user_message.substring(0, 50) + '...'
-        });
-        
-        const response = await fetch(`${mcpEndpoint}/analyze`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            conversationHistory: fullContext,
-            userId: currentUser?.uid || `guest_${Date.now()}`,
-            triggerReason: 'instant_insights'
-          }),
-        });
-
-        if (!response.ok) {
-          console.error('Failed to trigger insights:', response.status);
-          return 'Insights temporarily unavailable';
-        }
-
-        const result = await response.json();
-        console.log('✅ Instant insights result:', result);
-        
-        const analysisData = result.analysis || result;
-        const careerCards = analysisData.careerCards || [];
-        
-        if (careerCards.length > 0 && onCareerCardsGenerated) {
-          onCareerCardsGenerated(careerCards);
-        }
-        
-        return `Generated instant career insights based on your message: "${parameters.user_message.substring(0, 30)}..."`;
-        
-      } catch (error) {
-        console.error('Error triggering insights:', error);
-        return 'Instant insights temporarily unavailable';
-      }
-    }
-  };
-
-  // 🔍 DEBUGGING: Log client tools
-  console.log('🔧 Client tools configured:', Object.keys(clientTools));
-
-  // Initialize conversation with client tools
+  // Initialize conversation with empty client tools first
   const conversation = useConversation({
-    clientTools,
+    clientTools: {},
     onConnect: () => {
       console.log('🟢 ElevenLabs connected');
       console.log('🔧 Connection established with config:', { agentId: agentId?.substring(0, 8) + '...', hasApiKey: !!apiKey });
@@ -308,12 +186,233 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       }
       
       console.log('🎤 ===== onUserTranscriptReceived COMPLETE =====');
+    },
+    // Try additional callbacks that might exist in React SDK
+    onStatusChange: (status: string) => {
+      console.log('🔄 ===== onStatusChange TRIGGERED =====');
+      console.log('🔄 Status changed to:', status);
+      console.log('🔄 ===== onStatusChange COMPLETE =====');
+    },
+    onModeChange: (mode: string) => {
+      console.log('🎯 ===== onModeChange TRIGGERED =====');
+      console.log('🎯 Mode changed to:', mode);
+      console.log('🎯 ===== onModeChange COMPLETE =====');
     }
   });
 
   // 🔍 DEBUGGING: Log conversation object
   console.log('🔧 Conversation object:', conversation);
   console.log('🔧 Conversation methods:', Object.keys(conversation || {}));
+
+  // 🔍 DEBUGGING: Monitor conversation state properties
+  useEffect(() => {
+    console.log('📊 Conversation state changed:', {
+      status: conversation?.status,
+      isSpeaking: conversation?.isSpeaking,
+      canSendFeedback: conversation?.canSendFeedback,
+      micMuted: conversation?.micMuted
+    });
+  }, [conversation?.status, conversation?.isSpeaking, conversation?.canSendFeedback, conversation?.micMuted]);
+
+  // 🔍 DEBUGGING: Try to poll conversation object for data
+  useEffect(() => {
+    if (conversation?.status === 'connected') {
+      console.log('🔍 Starting conversation data polling...');
+      
+             const pollConversationData = async () => {
+         try {
+           // Try to get conversation ID and any other data
+           const conversationId = conversation.getId ? conversation.getId() : 'unknown';
+           console.log('🔍 Polling conversation data:', {
+             id: conversationId,
+             status: conversation.status,
+             isSpeaking: conversation.isSpeaking,
+             canSendFeedback: conversation.canSendFeedback,
+             allMethods: Object.keys(conversation)
+           });
+           
+           // Try to call any methods that might give us conversation data
+           if (conversation.getInputVolume) {
+             try {
+               const inputVolume = await conversation.getInputVolume();
+               console.log('🔍 Input volume:', inputVolume);
+             } catch (e) {
+               console.log('🔍 Could not get input volume:', e);
+             }
+           }
+           
+           if (conversation.getOutputVolume) {
+             try {
+               const outputVolume = await conversation.getOutputVolume();
+               console.log('🔍 Output volume:', outputVolume);
+             } catch (e) {
+               console.log('🔍 Could not get output volume:', e);
+             }
+           }
+           
+         } catch (error) {
+           console.log('🔍 Error polling conversation data:', error);
+         }
+       };
+      
+      // Poll every 2 seconds during active conversation
+      const pollInterval = setInterval(pollConversationData, 2000);
+      
+      return () => {
+        console.log('🔍 Stopping conversation data polling...');
+        clearInterval(pollInterval);
+      };
+    }
+  }, [conversation?.status]);
+
+  // Client tools that call our MCP server
+  const clientTools = {
+    analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
+      console.log('🔍 ===== ANALYZE TOOL CALLED =====');
+      console.log('🔍 Analyzing conversation for careers:', parameters);
+      console.log('📊 Current conversation history state:', {
+        length: conversationHistory.length,
+        messages: conversationHistory
+      });
+
+      // 🔍 DEBUGGING: Try to extract conversation data from the context this tool was called in
+      try {
+        console.log('🔍 Trying to extract conversation context from ElevenLabs...');
+        
+        // Since this tool is being called by ElevenLabs, maybe there's conversation context available
+        // Let's log everything about the current state
+        console.log('🔍 Current conversation object state:', {
+          status: conversation?.status,
+          isSpeaking: conversation?.isSpeaking,
+          canSendFeedback: conversation?.canSendFeedback,
+          id: conversation?.getId ? conversation.getId() : 'unknown'
+        });
+        
+        // Check if there's any conversation data we can access
+        console.log('🔍 Conversation object properties:', Object.getOwnPropertyNames(conversation || {}));
+        console.log('🔍 Parameters received by tool:', parameters);
+        
+      } catch (error) {
+        console.log('🔍 Error extracting conversation context:', error);
+      }
+
+      if (conversationHistory.length < 2 || conversationHistory.map(m => m.content).join(' ').length < 20) {
+        console.log('⚠️ Not enough conversation history for analysis yet');
+        
+        // 🔍 DEBUGGING: Since the tool is being called, there MUST be conversation data somewhere
+        console.log('🔍 BUT: Tool was called by ElevenLabs, so conversation must exist somewhere!');
+        console.log('🔍 This suggests our callback approach is wrong and we need to find another way');
+        
+        return 'Keep chatting! I need a bit more conversation to understand your interests and generate personalized career recommendations.';
+      }
+
+      try {
+        console.log('📤 Sending conversation to MCP server:', {
+          endpoint: mcpEndpoint,
+          historyLength: conversationHistory.length,
+          contentPreview: conversationHistory.map(m => m.content.substring(0, 30)).join(' | ')
+        });
+
+        const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+        
+        const response = await fetch(`${mcpEndpoint}/analyze`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            conversationHistory: conversationText,
+            userId: currentUser?.uid || `guest_${Date.now()}`,
+            triggerReason: parameters.trigger_reason
+          }),
+        });
+
+        console.log('📥 MCP Response status:', response.status);
+        
+        if (!response.ok) {
+          console.error('❌ MCP request failed:', response.status, response.statusText);
+          return 'Career analysis temporarily unavailable';
+        }
+
+        const result = await response.json();
+        console.log('✅ MCP Analysis result:', result);
+        
+        const analysisData = result.analysis || result;
+        const careerCards = analysisData.careerCards || [];
+        
+        if (careerCards.length > 0 && onCareerCardsGenerated) {
+          console.log('🎯 Generating career cards:', careerCards.length);
+          onCareerCardsGenerated(careerCards);
+          return `I've generated ${careerCards.length} career recommendations based on our conversation!`;
+        } else {
+          console.log('⚠️ No career cards generated');
+          return 'Career recommendations will appear as we chat more about your interests!';
+        }
+        
+      } catch (error) {
+        console.error('❌ Error analyzing conversation:', error);
+        return 'Career analysis temporarily unavailable';
+      }
+    },
+
+    trigger_instant_insights: async (parameters: { user_message: string }) => {
+      console.log('⚡ Triggering instant insights:', parameters);
+      
+      if (!parameters.user_message || parameters.user_message.trim().length < 10) {
+        console.log('⚠️ User message too short for instant insights');
+        return 'Tell me more about what interests you career-wise!';
+      }
+      
+      try {
+        // Combine current message with existing conversation history for better context
+        const fullContext = conversationHistory.map(msg => msg.content).join('\n') + 
+                            (conversationHistory.length > 0 ? '\n' : '') + 
+                            parameters.user_message;
+        
+        console.log('📤 Sending instant insight request:', {
+          messageLength: parameters.user_message.length,
+          contextLength: fullContext.length,
+          preview: parameters.user_message.substring(0, 50) + '...'
+        });
+        
+        const response = await fetch(`${mcpEndpoint}/analyze`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            conversationHistory: fullContext,
+            userId: currentUser?.uid || `guest_${Date.now()}`,
+            triggerReason: 'instant_insights'
+          }),
+        });
+
+        if (!response.ok) {
+          console.error('Failed to trigger insights:', response.status);
+          return 'Insights temporarily unavailable';
+        }
+
+        const result = await response.json();
+        console.log('✅ Instant insights result:', result);
+        
+        const analysisData = result.analysis || result;
+        const careerCards = analysisData.careerCards || [];
+        
+        if (careerCards.length > 0 && onCareerCardsGenerated) {
+          onCareerCardsGenerated(careerCards);
+        }
+        
+        return `Generated instant career insights based on your message: "${parameters.user_message.substring(0, 30)}..."`;
+        
+      } catch (error) {
+        console.error('Error triggering insights:', error);
+        return 'Instant insights temporarily unavailable';
+      }
+    }
+  };
+
+  // 🔍 DEBUGGING: Log client tools
+  console.log('🔧 Client tools configured:', Object.keys(clientTools));
 
   const startConversation = useCallback(async () => {
     console.log('🚀 ===== STARTING CONVERSATION =====');
