@@ -55,6 +55,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   // Add throttling to prevent duplicate tool calls
   const [lastAnalysisTime, setLastAnalysisTime] = useState<number>(0);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
+  const [isConnected, setIsConnected] = useState<boolean>(false);
 
   // Use the helper function to get environment variables
   const agentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
@@ -96,6 +97,12 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
 
   // Enhanced conversation analysis with care sector detection
   const analyzeConversationForCareerInsights = useCallback(async (triggerReason: string) => {
+    // Don't analyze if disconnected
+    if (!isConnected) {
+      console.log('🚫 Analysis blocked - ElevenLabs disconnected');
+      return 'Analysis stopped - conversation ended';
+    }
+    
     const now = Date.now();
     
     // Reduce throttling time to 2 seconds (was too aggressive at 5 seconds)
@@ -236,7 +243,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     } finally {
       setIsAnalyzing(false);
     }
-  }, [conversationHistory, currentUser?.uid, onCareerCardsGenerated, lastAnalysisTime, isAnalyzing]);
+  }, [isConnected, conversationHistory, currentUser?.uid, onCareerCardsGenerated, lastAnalysisTime, isAnalyzing]);
 
   // Validate configuration on mount
   useEffect(() => {
@@ -410,10 +417,21 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     onConnect: () => {
       console.log('🟢 ElevenLabs connected');
       setConnectionStatus('connected');
+      setIsConnected(true);
     },
     onDisconnect: () => {
       console.log('🔴 ElevenLabs disconnected');
       setConnectionStatus('disconnected');
+      setIsConnected(false);
+      
+      // Stop any ongoing analysis and prevent further analysis
+      console.log('🛑 Cleaning up: Stopping ongoing analysis and resetting state');
+      setIsAnalyzing(false);
+      setLastAnalysisTime(0);
+      
+      // Clear conversation history to prevent stale analysis
+      console.log('🧹 Clearing conversation history to prevent stale analysis');
+      setConversationHistory([]);
     },
     onMessage: (message: any) => {
       console.log('📦 Raw message received:', message);
@@ -510,8 +528,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       messages: conversationHistory.map(m => `${m.role}: ${m.content.substring(0, 30)}...`)
     });
     
-    // Only trigger backup analysis if we have substantial conversation AND no recent analysis
-    if (conversationHistory.length >= 4) { // Higher threshold to reduce spam
+    // Only trigger backup analysis if CONNECTED and we have substantial conversation AND no recent analysis
+    if (isConnected && conversationHistory.length >= 4) { // Higher threshold to reduce spam
       const totalContent = conversationHistory.map(m => m.content).join(' ');
       const now = Date.now();
       const timeSinceLastAnalysis = now - lastAnalysisTime;
@@ -531,7 +549,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     } else {
       console.log('⚠️ Not enough conversation history yet:', conversationHistory.length, 'messages');
     }
-  }, [conversationHistory.length, conversationHistory, analyzeConversationForCareerInsights]);
+  }, [isConnected, conversationHistory.length, conversationHistory, analyzeConversationForCareerInsights]);
 
   // Client tools that call our MCP server
   // Note: These are now handled by the conversation clientTools above to prevent duplicates
