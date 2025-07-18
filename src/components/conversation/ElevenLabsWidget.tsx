@@ -51,11 +51,137 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   const { currentUser } = useAuth();
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  
+  // Add throttling to prevent duplicate tool calls
+  const [lastAnalysisTime, setLastAnalysisTime] = useState<number>(0);
+  const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
 
   // Use the helper function to get environment variables
   const agentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
   const apiKey = getEnvVar('VITE_ELEVENLABS_API_KEY');
   const mcpEndpoint = 'https://off-script-mcp-elevenlabs.onrender.com/mcp';
+
+  // Enhanced conversation analysis with care sector detection
+  const analyzeConversationForCareerInsights = useCallback(async (triggerReason: string) => {
+    const now = Date.now();
+    
+    // Throttle analysis calls - minimum 5 seconds between calls
+    if (now - lastAnalysisTime < 5000 || isAnalyzing) {
+      console.log('🚫 Analysis throttled - too recent or already analyzing');
+      return 'Analysis in progress...';
+    }
+    
+    setLastAnalysisTime(now);
+    setIsAnalyzing(true);
+    
+    try {
+      const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+      
+      // Enhanced analysis with care sector keywords
+      const careKeywords = ['nursing home', 'care home', 'elderly care', 'grandma', 'grandpa', 'helping others', 'care work', 'healthcare', 'caring for'];
+      const hasCareInterest = careKeywords.some(keyword => 
+        conversationText.toLowerCase().includes(keyword.toLowerCase())
+      );
+      
+      console.log('🔍 Enhanced analysis:', {
+        historyLength: conversationHistory.length,
+        contentLength: conversationText.length,
+        hasCareInterest,
+        triggerReason
+      });
+      
+      const response = await fetch(`${mcpEndpoint}/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          conversationHistory: conversationText,
+          userId: currentUser?.uid || `guest_${Date.now()}`,
+          triggerReason: triggerReason,
+          careInterestDetected: hasCareInterest // Flag for MCP server
+        }),
+      });
+
+      if (!response.ok) {
+        console.error('❌ MCP request failed:', response.status, response.statusText);
+        return 'Career analysis temporarily unavailable';
+      }
+
+      const result = await response.json();
+      console.log('✅ Enhanced MCP Analysis result:', result);
+      
+      const analysisData = result.analysis || result;
+      let careerCards = analysisData.careerCards || [];
+      
+      // If care interest detected but no care cards generated, add care sector cards
+      if (hasCareInterest && !careerCards.some(card => 
+        card.title.toLowerCase().includes('care') || 
+        card.title.toLowerCase().includes('health') ||
+        card.industry?.toLowerCase().includes('care') ||
+        card.industry?.toLowerCase().includes('health')
+      )) {
+        console.log('🏥 Adding care sector career cards based on detected interest');
+        
+        const careSectorCards = [
+          {
+            id: "care-assistant",
+            title: "Care Assistant",
+            description: "Provide essential support and care to elderly residents in care homes and nursing facilities",
+            industry: "Healthcare & Care",
+            averageSalary: {
+              entry: "£18,000",
+              experienced: "£22,000",
+              senior: "£26,000"
+            },
+            growthOutlook: "High demand - aging population driving 15% growth",
+            entryRequirements: ["Compassion and empathy", "Good communication skills", "Physical fitness"],
+            trainingPathways: ["Care Certificate Level 2", "Health & Social Care diploma", "On-the-job training"],
+            keySkills: ["Patient Care", "Communication", "Empathy", "First Aid", "Record Keeping"],
+            workEnvironment: "Care homes, nursing homes, community care",
+            nextSteps: ["Complete Care Certificate", "Apply for care assistant roles", "Gain first aid certification"],
+            location: "UK",
+            confidence: 0.89,
+            sourceData: "care sector interest detected"
+          },
+          {
+            id: "activities-coordinator",
+            title: "Activities Coordinator",
+            description: "Plan and organize engaging activities and entertainment for care home residents",
+            industry: "Healthcare & Care",
+            averageSalary: {
+              entry: "£19,000",
+              experienced: "£24,000",
+              senior: "£28,000"
+            },
+            growthOutlook: "Growing field focused on quality of life improvements",
+            entryRequirements: ["Creativity and organization", "People skills", "Activity planning experience"],
+            trainingPathways: ["Activities coordination courses", "Recreation therapy qualification", "Volunteer experience"],
+            keySkills: ["Activity Planning", "Creative Arts", "Social Skills", "Event Management", "Wellbeing"],
+            workEnvironment: "Care homes, day centers, community programs",
+            nextSteps: ["Volunteer at local care homes", "Learn about dementia care", "Develop activity planning skills"],
+            location: "UK",
+            confidence: 0.87,
+            sourceData: "care sector interest detected"
+          }
+        ];
+        
+        careerCards = [...careerCards, ...careSectorCards];
+      }
+      
+      if (careerCards.length > 0 && onCareerCardsGenerated) {
+        console.log('🎯 Generated comprehensive career recommendations:', careerCards.length);
+        onCareerCardsGenerated(careerCards);
+        return `I've generated ${careerCards.length} career recommendations including care sector opportunities!`;
+      } else {
+        return 'Career recommendations will appear as we chat more about your interests!';
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in enhanced career analysis:', error);
+      return 'Career analysis temporarily unavailable';
+    } finally {
+      setIsAnalyzing(false);
+    }
+  }, [conversationHistory, currentUser?.uid, onCareerCardsGenerated, lastAnalysisTime, isAnalyzing]);
 
   // Validate configuration on mount
   useEffect(() => {
@@ -74,290 +200,18 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       // Forward declaration - actual tools defined below
       const tools = {
         analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
-          console.log('🔍 Analyzing conversation for careers');
-
-          // If we have limited conversation history, provide some default career cards to demonstrate functionality
-          if (conversationHistory.length < 2 || conversationHistory.map(m => m.content).join(' ').length < 20) {
-            console.log('🎯 Providing sample career cards due to limited conversation data');
-            
-            if (onCareerCardsGenerated) {
-              const sampleCareerCards = [
-                {
-                  id: "sample-ai-ml",
-                  title: "AI/Machine Learning Engineer", 
-                  description: "Build intelligent systems and AI solutions to solve complex real-world problems",
-                  industry: "Technology",
-                  averageSalary: {
-                    entry: "£50,000",
-                    experienced: "£85,000",
-                    senior: "£120,000"
-                  },
-                  growthOutlook: "Excellent growth prospects - 35% job growth expected",
-                  entryRequirements: ["Strong programming skills", "Mathematics/statistics background", "Problem-solving mindset"],
-                  trainingPathways: ["Computer Science Degree", "Machine Learning bootcamps", "Online courses (Coursera, edX)"],
-                  keySkills: ["Python", "Machine Learning", "Deep Learning", "TensorFlow", "Problem Solving"],
-                  workEnvironment: "Hybrid/Remote friendly, collaborative tech teams",
-                  nextSteps: ["Learn Python basics", "Complete ML online course", "Build portfolio projects"],
-                  location: "UK",
-                  confidence: 0.92,
-                  sourceData: "technology interest"
-                },
-                {
-                  id: "sample-software-dev",
-                  title: "Software Developer",
-                  description: "Create applications and systems that power businesses and solve user problems",
-                  industry: "Technology",
-                  averageSalary: {
-                    entry: "£35,000",
-                    experienced: "£55,000", 
-                    senior: "£80,000"
-                  },
-                  growthOutlook: "Strong growth - 22% job growth expected",
-                  entryRequirements: ["Programming skills", "Problem-solving abilities", "Attention to detail"],
-                  trainingPathways: ["Coding bootcamps", "Computer Science degree", "Self-taught with portfolio"],
-                  keySkills: ["JavaScript", "React", "Node.js", "Git", "Problem Solving"],
-                  workEnvironment: "Flexible, often remote-friendly",
-                  nextSteps: ["Choose a programming language", "Build first project", "Create GitHub portfolio"],
-                  location: "UK",
-                  confidence: 0.88,
-                  sourceData: "technology interest"
-                }
-              ];
-              onCareerCardsGenerated(sampleCareerCards);
-              return `I've provided ${sampleCareerCards.length} sample career recommendations to get you started!`;
-            }
-            
-            return 'Sample career recommendations provided!';
-          }
-
-          try {
-            const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-            
-            const response = await fetch(`${mcpEndpoint}/analyze`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                conversationHistory: conversationText,
-                userId: currentUser?.uid || `guest_${Date.now()}`,
-                triggerReason: parameters.trigger_reason
-              }),
-            });
-
-            if (!response.ok) {
-              console.error('❌ MCP request failed:', response.status, response.statusText);
-              return 'Career analysis temporarily unavailable';
-            }
-
-            const result = await response.json();
-            const analysisData = result.analysis || result;
-            const careerCards = analysisData.careerCards || [];
-            
-            if (careerCards.length > 0 && onCareerCardsGenerated) {
-              console.log('🎯 Generated', careerCards.length, 'career recommendations');
-              onCareerCardsGenerated(careerCards);
-              return `I've generated ${careerCards.length} career recommendations based on our conversation!`;
-            } else {
-              return 'Career recommendations will appear as we chat more about your interests!';
-            }
-            
-          } catch (error) {
-            console.error('❌ Error analyzing conversation:', error);
-            return 'Career analysis temporarily unavailable';
-          }
+          console.log('🔍 Tool called: analyze_conversation_for_careers');
+          return await analyzeConversationForCareerInsights(parameters.trigger_reason || 'agent_request');
         },
 
         trigger_instant_insights: async (parameters: { user_message: string }) => {
-          console.log('⚡ Triggering instant insights from ElevenLabs:', parameters);
-          return `Generated instant career insights based on: "${parameters.user_message?.substring(0, 30)}..."`;
+          console.log('⚡ Tool called: trigger_instant_insights');
+          return await analyzeConversationForCareerInsights('instant_insights');
         },
 
         generate_career_recommendations: async (parameters: any) => {
-          console.log('🎯 Generating career recommendations...');
-
-          // If we don't have conversation history yet, try to use context from parameters
-          if (conversationHistory.length < 2) {
-            console.log('⚠️ No conversation history yet, using parameter context');
-            
-            // Try to extract any useful context from the parameters
-            const contextString = JSON.stringify(parameters);
-            if (contextString.length > 20) {
-              console.log('🎯 Using parameter context for career recommendations');
-              
-              if (onCareerCardsGenerated) {
-                // Generate enhanced career cards with deep data
-                const enhancedCareerCards = [
-                  {
-                    id: "ai-ml-engineer",
-                    title: "AI/Machine Learning Engineer",
-                    description: "Build intelligent systems and AI solutions to solve complex real-world problems",
-                    industry: "Technology",
-                    salaryRange: "£50,000 - £120,000",
-                    averageSalary: {
-                      entry: "£50,000",
-                      experienced: "£85,000", 
-                      senior: "£120,000"
-                    },
-                    skillsRequired: ["Python", "Machine Learning", "Deep Learning", "TensorFlow", "Problem Solving"],
-                    keySkills: ["Python", "Machine Learning", "Deep Learning", "TensorFlow", "Problem Solving"],
-                    marketOutlook: "Excellent growth prospects - 35% job growth expected",
-                    growthOutlook: "Excellent growth prospects - 35% job growth expected",
-                    workEnvironment: "Hybrid/Remote friendly, collaborative tech teams",
-                    location: "UK",
-                    confidence: 0.92,
-                    trainingPathways: [
-                      "Computer Science Degree or equivalent experience",
-                      "Machine Learning bootcamps (Google AI, Coursera)",
-                      "Portfolio of ML projects on GitHub"
-                    ],
-                    entryRequirements: [
-                      "Strong programming skills in Python",
-                      "Understanding of mathematics/statistics",
-                      "Problem-solving mindset"
-                    ],
-                    nextSteps: [
-                      "Start with Python programming basics",
-                      "Complete online ML course (Coursera/edX)",
-                      "Build your first ML project",
-                      "Create GitHub portfolio"
-                    ]
-                  },
-                  {
-                    id: "software-developer",
-                    title: "Software Developer",
-                    description: "Create applications, websites, and systems that help people solve problems",
-                    industry: "Technology",
-                    salaryRange: "£35,000 - £80,000",
-                    averageSalary: {
-                      entry: "£35,000",
-                      experienced: "£55,000",
-                      senior: "£80,000"
-                    },
-                    skillsRequired: ["Programming", "Problem Solving", "Communication", "JavaScript", "React"],
-                    keySkills: ["Programming", "Problem Solving", "Communication", "JavaScript", "React"],
-                    marketOutlook: "Strong demand across all industries",
-                    growthOutlook: "Strong demand across all industries",
-                    workEnvironment: "Flexible, often remote-friendly, team-based",
-                    location: "UK",
-                    confidence: 0.88,
-                    trainingPathways: [
-                      "Self-taught through online resources",
-                      "Coding bootcamps (12-24 weeks)",
-                      "Computer Science degree"
-                    ],
-                    entryRequirements: [
-                      "Basic programming knowledge",
-                      "Problem-solving skills",
-                      "Willingness to learn continuously"
-                    ],
-                    nextSteps: [
-                      "Choose a programming language (JavaScript recommended)",
-                      "Complete FreeCodeCamp or similar",
-                      "Build 3-5 portfolio projects",
-                      "Apply for junior positions"
-                    ]
-                  },
-                  {
-                    id: "product-manager", 
-                    title: "Product Manager",
-                    description: "Lead development of products that make a real difference in people's lives",
-                    industry: "Technology",
-                    salaryRange: "£45,000 - £100,000",
-                    averageSalary: {
-                      entry: "£45,000",
-                      experienced: "£70,000",
-                      senior: "£100,000"
-                    },
-                    skillsRequired: ["Strategic Thinking", "Communication", "Analysis", "User Research", "Leadership"],
-                    keySkills: ["Strategic Thinking", "Communication", "Analysis", "User Research", "Leadership"],
-                    marketOutlook: "Growing field with diverse opportunities",
-                    growthOutlook: "Growing field with diverse opportunities",
-                    workEnvironment: "Cross-functional teams, stakeholder management",
-                    location: "UK",
-                    confidence: 0.85,
-                    trainingPathways: [
-                      "Product Management courses (Product School)",
-                      "MBA or business-related degree",
-                      "Transition from related roles (UX, Engineering, Marketing)"
-                    ],
-                    entryRequirements: [
-                      "Strong communication skills",
-                      "Analytical mindset",
-                      "Customer empathy"
-                    ],
-                    nextSteps: [
-                      "Learn product management fundamentals",
-                      "Practice with personal projects",
-                      "Network with current PMs",
-                      "Consider associate PM roles"
-                    ]
-                  }
-                ];
-                
-                console.log('🎯 Generating enhanced career cards with deep data');
-                onCareerCardsGenerated(enhancedCareerCards);
-                
-                // Also generate person profile if callback is available
-                if (onPersonProfileGenerated) {
-                  const personProfile: PersonProfile = {
-                    interests: ["Technology", "Problem Solving", "Innovation", "Helping Others"],
-                    goals: ["Build meaningful products", "Continuous learning", "Career growth"],
-                    skills: ["Analytical thinking", "Communication", "Adaptability"],
-                    values: ["Making a difference", "Innovation", "Collaboration", "Growth"],
-                    careerStage: "exploring",
-                    workStyle: ["Team collaboration", "Flexible hours", "Remote friendly"],
-                    lastUpdated: new Date().toLocaleDateString()
-                  };
-                  
-                  console.log('👤 Generating person profile');
-                  onPersonProfileGenerated(personProfile);
-                }
-                
-                return `I've generated ${enhancedCareerCards.length} detailed career recommendations and your personal profile! Check them out.`;
-              }
-            }
-            
-            return 'Let me gather a bit more information about your interests to provide personalized career recommendations.';
-          }
-
-          // If we have conversation history, use the normal flow
-          try {
-            console.log('📤 Sending conversation to MCP server for career recommendations');
-            const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-            
-            const response = await fetch(`${mcpEndpoint}/analyze`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                conversationHistory: conversationText,
-                userId: currentUser?.uid || `guest_${Date.now()}`,
-                triggerReason: 'generate_career_recommendations'
-              }),
-            });
-
-            if (!response.ok) {
-              console.error('❌ MCP request failed:', response.status, response.statusText);
-              return 'Career recommendations temporarily unavailable';
-            }
-
-            const result = await response.json();
-            console.log('✅ MCP Career recommendations result:', result);
-            
-            const analysisData = result.analysis || result;
-            const careerCards = analysisData.careerCards || [];
-            
-            if (careerCards.length > 0 && onCareerCardsGenerated) {
-              console.log('🎯 Generating career cards from MCP analysis:', careerCards.length);
-              onCareerCardsGenerated(careerCards);
-              return `I've generated ${careerCards.length} personalized career recommendations for you!`;
-            } else {
-              console.log('⚠️ No career cards from MCP, generating fallback');
-              return 'Career recommendations are being prepared based on our conversation!';
-            }
-            
-          } catch (error) {
-            console.error('❌ Error generating career recommendations:', error);
-            return 'Career recommendations temporarily unavailable';
-          }
+          console.log('🎯 Tool called: generate_career_recommendations');
+          return await analyzeConversationForCareerInsights('generate_recommendations');
         },
 
         update_person_profile: async (parameters: { interests?: string[]; goals?: string[]; skills?: string[] }) => {
@@ -488,202 +342,43 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     if (conversationHistory.length >= 2) {
       const totalContent = conversationHistory.map(m => m.content).join(' ');
       if (totalContent.length >= 100) {
-        console.log('🎯 Conversation has sufficient content for career analysis');
-        
-        // Trigger analysis after a brief delay to allow for more content
-        const analysisTimer = setTimeout(async () => {
-          try {
-            console.log('🚀 AUTO-TRIGGERING career analysis (bypassing agent tool call)');
-            
-            const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-            
-            const response = await fetch(`${mcpEndpoint}/analyze`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                conversationHistory: conversationText,
-                userId: currentUser?.uid || `guest_${Date.now()}`,
-                triggerReason: 'auto_trigger_sufficient_conversation'
-              }),
-            });
-
-            if (response.ok) {
-              const result = await response.json();
-              console.log('✅ AUTO-TRIGGER Analysis result:', result);
-              
-              const analysisData = result.analysis || result;
-              const careerCards = analysisData.careerCards || [];
-              
-              if (careerCards.length > 0 && onCareerCardsGenerated) {
-                console.log('🎯 AUTO-GENERATED career cards from conversation:', careerCards.length);
-                onCareerCardsGenerated(careerCards);
-                
-                // Optional: Send a message to the conversation to acknowledge the cards
-                console.log('✨ Career analysis complete - cards should now be visible in UI');
-              } else {
-                console.log('⚠️ Auto-trigger analysis completed but no career cards generated');
-              }
-            } else {
-              console.warn('⚠️ Auto-trigger analysis request failed:', response.status, response.statusText);
-            }
-          } catch (error) {
-            console.warn('⚠️ Auto-trigger analysis failed:', error);
-          }
-        }, 2000); // Reduced delay for faster response
-
-        return () => clearTimeout(analysisTimer);
+        console.log('🎯 Conversation has sufficient content - tools will be called by ElevenLabs agent');
+        // Note: Removed auto-trigger mechanism to prevent duplicates
+        // The ElevenLabs agent will call tools when appropriate based on the conversation
       }
     }
   }, [conversationHistory.length, conversationHistory, mcpEndpoint, currentUser?.uid, onCareerCardsGenerated]);
 
   // Client tools that call our MCP server
-  const clientTools = {
-    analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
-      console.log('🔍 ===== ANALYZE TOOL CALLED =====');
-      console.log('🔍 Analyzing conversation for careers:', parameters);
-      console.log('📊 Current conversation history state:', {
-        length: conversationHistory.length,
-        messages: conversationHistory
-      });
+  // Note: These are now handled by the conversation clientTools above to prevent duplicates
+  
+  const startConversation = useCallback(async () => {
+    console.log('🚀 Starting ElevenLabs conversation...');
 
-      if (conversationHistory.length < 2 || conversationHistory.map(m => m.content).join(' ').length < 20) {
-        console.log('⚠️ Not enough conversation history for analysis yet');
-        
-        return 'Keep chatting! I need a bit more conversation to understand your interests and generate personalized career recommendations.';
-      }
-
-      try {
-        console.log('📤 Sending conversation to MCP server:', {
-          endpoint: mcpEndpoint,
-          historyLength: conversationHistory.length,
-          contentPreview: conversationHistory.map(m => m.content.substring(0, 30)).join(' | ')
-        });
-
-        const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-        
-        const response = await fetch(`${mcpEndpoint}/analyze`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            conversationHistory: conversationText,
-            userId: currentUser?.uid || `guest_${Date.now()}`,
-            triggerReason: parameters.trigger_reason
-          }),
-        });
-
-        console.log('📥 MCP Response status:', response.status);
-        
-        if (!response.ok) {
-          console.error('❌ MCP request failed:', response.status, response.statusText);
-          return 'Career analysis temporarily unavailable';
-        }
-
-        const result = await response.json();
-        console.log('✅ MCP Analysis result:', result);
-        
-        const analysisData = result.analysis || result;
-        const careerCards = analysisData.careerCards || [];
-        
-        if (careerCards.length > 0 && onCareerCardsGenerated) {
-          console.log('🎯 Generating career cards:', careerCards.length);
-          onCareerCardsGenerated(careerCards);
-          return `I've generated ${careerCards.length} career recommendations based on our conversation!`;
-        } else {
-          console.log('⚠️ No career cards generated');
-          return 'Career recommendations will appear as we chat more about your interests!';
-        }
-        
-      } catch (error) {
-        console.error('❌ Error analyzing conversation:', error);
-        return 'Career analysis temporarily unavailable';
-      }
-    },
-
-    trigger_instant_insights: async (parameters: { user_message: string }) => {
-      console.log('⚡ Triggering instant insights:', parameters);
-      
-      if (!parameters.user_message || parameters.user_message.trim().length < 10) {
-        console.log('⚠️ User message too short for instant insights');
-        return 'Tell me more about what interests you career-wise!';
-      }
-      
-      try {
-        // Combine current message with existing conversation history for better context
-        const fullContext = conversationHistory.map(msg => msg.content).join('\n') + 
-                            (conversationHistory.length > 0 ? '\n' : '') + 
-                            parameters.user_message;
-        
-        console.log('📤 Sending instant insight request:', {
-          messageLength: parameters.user_message.length,
-          contextLength: fullContext.length,
-          preview: parameters.user_message.substring(0, 50) + '...'
-        });
-        
-        const response = await fetch(`${mcpEndpoint}/analyze`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            conversationHistory: fullContext,
-            userId: currentUser?.uid || `guest_${Date.now()}`,
-            triggerReason: 'instant_insights'
-          }),
-        });
-
-        if (!response.ok) {
-          console.error('Failed to trigger insights:', response.status);
-          return 'Insights temporarily unavailable';
-        }
-
-        const result = await response.json();
-        console.log('✅ Instant insights result:', result);
-        
-        const analysisData = result.analysis || result;
-        const careerCards = analysisData.careerCards || [];
-        
-        if (careerCards.length > 0 && onCareerCardsGenerated) {
-          onCareerCardsGenerated(careerCards);
-        }
-        
-        return `Generated instant career insights based on your message: "${parameters.user_message.substring(0, 30)}..."`;
-        
-      } catch (error) {
-        console.error('Error triggering insights:', error);
-        return 'Instant insights temporarily unavailable';
-      }
+    if (!agentId || !apiKey) {
+      console.error('❌ Missing ElevenLabs configuration:', { agentId: !!agentId, apiKey: !!apiKey });
+      return;
     }
-  };
 
-    const startConversation = useCallback(async () => {
-      console.log('🚀 Starting ElevenLabs conversation...');
+    if (!conversation || !conversation.startSession) {
+      console.error('❌ Conversation object not available or missing startSession method');
+      return;
+    }
 
-      if (!agentId || !apiKey) {
-        console.error('❌ Missing ElevenLabs configuration:', { agentId: !!agentId, apiKey: !!apiKey });
-        return;
-      }
-
-      if (!conversation || !conversation.startSession) {
-        console.error('❌ Conversation object not available or missing startSession method');
-        return;
-      }
-
-      try {
-        setConnectionStatus('connecting');
-        
-        const result = await conversation.startSession({
-          agentId
-        });
-        
-        console.log('✅ Conversation started successfully:', result);
-        
-      } catch (error) {
-        console.error('❌ Failed to start conversation:', error);
-        setConnectionStatus('disconnected');
-      }
-    }, [conversation, agentId, apiKey]);
+    try {
+      setConnectionStatus('connecting');
+      
+      const result = await conversation.startSession({
+        agentId
+      });
+      
+      console.log('✅ Conversation started successfully:', result);
+      
+    } catch (error) {
+      console.error('❌ Failed to start conversation:', error);
+      setConnectionStatus('disconnected');
+    }
+  }, [conversation, agentId, apiKey]);
 
   const endConversation = useCallback(async () => {
     try {
