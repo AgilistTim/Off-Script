@@ -605,14 +605,19 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         });
         onCareerCardsGenerated(careerCards);
       } else {
-        console.log('⚠️ MCP did not generate career cards, creating local recommendations...');
-        const localCards = generateLocalCareerCards(conversationText, hasCareInterest);
-        if (localCards.length > 0) {
-          console.log('🎯 Generated local career recommendations:', {
-            total: localCards.length,
-            source: 'local_analysis'
-          });
-          onCareerCardsGenerated(localCards);
+        // Only use local fallback for very short conversations where OpenAI might not have enough context
+        if (currentHistory.length < 8) {
+          console.log('⚠️ Short conversation - using local recommendations as OpenAI fallback...');
+          const localCards = generateLocalCareerCards(conversationText, hasCareInterest);
+          if (localCards.length > 0) {
+            console.log('🎯 Generated local career recommendations (fallback):', {
+              total: localCards.length,
+              source: 'local_fallback_short_conversation'
+            });
+            onCareerCardsGenerated(localCards);
+          }
+        } else {
+          console.log('⚠️ MCP analysis failed for substantial conversation - OpenAI should handle this');
         }
       }
       

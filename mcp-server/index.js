@@ -243,23 +243,33 @@ class ConversationAnalysisService {
         messages: [
           {
             role: 'system',
-            content: `You are an expert career counselor. Analyze the conversation to identify career interests, skills, and preferences.
+            content: `You are an expert career counselor and conversation analyst. Extract comprehensive career insights from conversations.
 
-Extract:
-- Career interests and fields they mention
-- Skills they want to develop or have
-- Work environment preferences
-- Industry mentions
-- Learning goals`
+ANALYSIS REQUIREMENTS:
+- Extract ALL mentioned interests, hobbies, activities, and subjects (not just career-related)
+- Identify demonstrated skills from stories, experiences, and activities described
+- Detect career goals, aspirations, and what motivates them professionally
+- Note work style preferences, values, and what they find fulfilling
+- Look for specific technologies, tools, projects, or domains mentioned
+- Consider both explicit statements and implicit preferences
+
+EXTRACTION GUIDELINES:
+- Include specific technologies (e.g., "AI", "Python", "machine learning")
+- Extract skills from activities (e.g., "building tools" → Problem Solving, Technical Skills)
+- Note helping motivations (e.g., "helping grandma" → Empathy, Care, Family Support)
+- Capture project experiences (e.g., "phone calls, analysis, reports" → Communication, Analysis, Reporting)
+- Extract industry interests from context (e.g., "voice solutions" → Audio Technology, AI)
+
+Be comprehensive - extract 3-8 interests, 2-6 skills, and 1-4 goals minimum from meaningful conversations.`
           },
           {
             role: 'user',
-            content: `Analyze this conversation for career insights:\n\n${conversationText}`
+            content: `Analyze this conversation for comprehensive career insights:\n\n${conversationText}`
           }
         ],
         response_format: zodResponseFormat(ConversationAnalysis, 'conversation_analysis'),
         temperature: 0.3,
-        max_tokens: 1000
+        max_tokens: 1500
       });
 
       const message = completion.choices[0]?.message;
