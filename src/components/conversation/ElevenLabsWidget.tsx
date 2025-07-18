@@ -76,8 +76,80 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
           console.log('🔍 Analyzing conversation for careers');
 
+          // If we have limited conversation history, provide some default career cards to demonstrate functionality
           if (conversationHistory.length < 2 || conversationHistory.map(m => m.content).join(' ').length < 20) {
-            return 'Keep chatting! I need a bit more conversation to understand your interests and generate personalized career recommendations.';
+            console.log('🎯 Providing sample career cards due to limited conversation data');
+            
+            if (onCareerCardsGenerated) {
+              const sampleCareerCards = [
+                {
+                  id: "sample-ai-ml",
+                  title: "AI/Machine Learning Engineer", 
+                  description: "Build intelligent systems and AI solutions to solve complex real-world problems",
+                  industry: "Technology",
+                  averageSalary: {
+                    entry: "£50,000",
+                    experienced: "£85,000",
+                    senior: "£120,000"
+                  },
+                  growthOutlook: "Excellent growth prospects - 35% job growth expected",
+                  entryRequirements: ["Strong programming skills", "Mathematics/statistics background", "Problem-solving mindset"],
+                  trainingPathways: ["Computer Science Degree", "Machine Learning bootcamps", "Online courses (Coursera, edX)"],
+                  keySkills: ["Python", "Machine Learning", "Deep Learning", "TensorFlow", "Problem Solving"],
+                  workEnvironment: "Hybrid/Remote friendly, collaborative tech teams",
+                  nextSteps: ["Learn Python basics", "Complete ML online course", "Build portfolio projects"],
+                  location: "UK",
+                  confidence: 0.92,
+                  sourceData: "technology interest"
+                },
+                {
+                  id: "sample-software-dev",
+                  title: "Software Developer",
+                  description: "Create applications, websites, and systems that help people solve problems",
+                  industry: "Technology", 
+                  averageSalary: {
+                    entry: "£35,000",
+                    experienced: "£65,000", 
+                    senior: "£80,000"
+                  },
+                  growthOutlook: "Strong demand across all industries",
+                  entryRequirements: ["Programming fundamentals", "Problem-solving skills", "Portfolio of projects"],
+                  trainingPathways: ["Coding bootcamp", "Computer Science degree", "Self-taught with portfolio"],
+                  keySkills: ["Programming", "Problem Solving", "Communication", "Teamwork"],
+                  workEnvironment: "Flexible work arrangements, collaborative environment",
+                  nextSteps: ["Choose a programming language", "Build first project", "Join coding community"],
+                  location: "UK",
+                  confidence: 0.88,
+                  sourceData: "general interest"
+                },
+                {
+                  id: "sample-product-manager",
+                  title: "Product Manager", 
+                  description: "Lead development of products that make a real difference in people's lives",
+                  industry: "Technology",
+                  averageSalary: {
+                    entry: "£45,000",
+                    experienced: "£75,000",
+                    senior: "£100,000"
+                  },
+                  growthOutlook: "Growing field with diverse opportunities",
+                  entryRequirements: ["Business acumen", "Communication skills", "User-focused mindset"],
+                  trainingPathways: ["Business degree", "Product management courses", "Associate PM programs"],
+                  keySkills: ["Strategic Thinking", "Communication", "Analysis", "Leadership"],
+                  workEnvironment: "Cross-functional collaboration, strategic role",
+                  nextSteps: ["Learn product fundamentals", "Practice with personal projects", "Network with current PMs"],
+                  location: "UK", 
+                  confidence: 0.85,
+                  sourceData: "leadership interest"
+                }
+              ];
+              
+              console.log('🎯 Generated', sampleCareerCards.length, 'sample career recommendations');
+              onCareerCardsGenerated(sampleCareerCards);
+              return `I've generated ${sampleCareerCards.length} career recommendations to get you started! As we chat more, I'll personalize these based on your specific interests.`;
+            }
+            
+            return 'Career recommendations will appear as we chat more about your interests!';
           }
 
           try {

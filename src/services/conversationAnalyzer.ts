@@ -187,6 +187,7 @@ export class ConversationAnalyzer {
       if (userMessages.length === 0) return [];
 
       const conversationText = userMessages.join('\n');
+      console.log('🔬 Analyzing conversation text:', conversationText.substring(0, 100) + '...');
 
       // Use structured output with Zod for reliable parsing
       // @ts-ignore - parse() is available at runtime but not yet in typings
@@ -220,20 +221,39 @@ export class ConversationAnalyzer {
         max_tokens: 1200
       });
 
+      console.log('🔬 OpenAI response received');
       const parsed = completion.choices[0]?.message?.parsed;
-      if (!parsed) return [];
+      if (!parsed) {
+        console.error('🔬 No parsed response from OpenAI');
+        return [];
+      }
+
+      console.log('🔬 Parsed interests:', parsed.interests.length);
 
       // Filter and validate interests with type safety
-      return parsed.interests
+      const validInterests = parsed.interests
         .filter((interest): interest is ConversationInterest => 
           interest.confidence > 0.6 &&
           typeof interest.interest === 'string' &&
           typeof interest.context === 'string' &&
           Array.isArray(interest.extractedTerms)
         );
+
+      console.log('🔬 Valid interests after filtering:', validInterests.length);
+      return validInterests;
       
     } catch (error) {
-      console.error('Error analyzing full conversation:', error);
+      console.error('❌ Error in analyzeFullConversation:', error);
+      
+      // Fallback to individual message analysis if full conversation fails
+      if (messages.length > 0) {
+        const lastMessage = messages.filter(msg => msg.role === 'user').pop();
+        if (lastMessage) {
+          console.log('🔄 Falling back to individual message analysis');
+          return await this.analyzeMessage(lastMessage.content, []);
+        }
+      }
+      
       return [];
     }
   }

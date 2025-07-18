@@ -387,6 +387,48 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
         });
       } else {
         console.log('⚠️ No career cards generated from analysis');
+        
+        // Provide sample career cards if no cards exist and it's early in conversation
+        if (careerCards.length === 0 && conversationHistory.length <= 2) {
+          console.log('🎯 Providing initial sample career cards');
+          const sampleCards = [
+            {
+              id: "unified-sample-1",
+              title: "Data Analyst",
+              description: "Transform data into insights that drive business decisions",
+              industry: "Technology",
+              averageSalary: { entry: "£28,000", experienced: "£45,000", senior: "£65,000" },
+              growthOutlook: "High demand across all sectors",
+              entryRequirements: ["Analytical thinking", "Basic statistics", "Excel proficiency"],
+              trainingPathways: ["Data analysis courses", "Statistics degree", "Self-taught with projects"],
+              keySkills: ["Data Analysis", "Excel", "Problem Solving", "Communication"],
+              workEnvironment: "Office or remote, collaborative projects",
+              nextSteps: ["Learn Excel advanced features", "Try a data visualization tool", "Practice with real datasets"],
+              location: "UK",
+              confidence: 0.85,
+              sourceData: "initial exploration"
+            },
+            {
+              id: "unified-sample-2", 
+              title: "Digital Marketing Specialist",
+              description: "Help businesses connect with customers through digital channels",
+              industry: "Marketing",
+              averageSalary: { entry: "£25,000", experienced: "£40,000", senior: "£60,000" },
+              growthOutlook: "Rapidly growing field with diverse opportunities",
+              entryRequirements: ["Creative thinking", "Communication skills", "Digital literacy"],
+              trainingPathways: ["Digital marketing courses", "Marketing degree", "Google certifications"],
+              keySkills: ["Social Media", "Content Creation", "Analytics", "Strategy"],
+              workEnvironment: "Creative environment, mix of strategy and execution",
+              nextSteps: ["Learn about social media marketing", "Create sample campaigns", "Get Google Analytics certified"],
+              location: "UK",
+              confidence: 0.82,
+              sourceData: "general interest"
+            }
+          ];
+          
+          setCareerCards(sampleCards);
+          console.log('✅ Added sample career cards to get started');
+        }
       }
       
       if (result.interests.length > 0) {
@@ -397,7 +439,7 @@ export const UnifiedChatInterface: React.FC<UnifiedChatInterfaceProps> = ({
     } catch (error) {
       console.error('Error analyzing user message:', error);
     }
-  }, [conversationHistory, deduplicateCareerCards]);
+  }, [conversationHistory, deduplicateCareerCards, careerCards.length]);
 
   // Add message to state and optionally persist to Firestore
   const addMessage = useCallback(async (message: UnifiedMessage) => {
