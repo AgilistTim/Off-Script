@@ -220,10 +220,30 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       }
       
       if (careerCards.length > 0 && onCareerCardsGenerated) {
-        // Deduplicate cards by title to prevent duplicates
-        const uniqueCards = careerCards.filter((card, index, array) => 
-          array.findIndex(c => c.title.toLowerCase() === card.title.toLowerCase()) === index
-        );
+        // Aggressive deduplication by title similarity to catch variations like "Outdoor Activities Guide"
+        const uniqueCards = careerCards.filter((card, index, array) => {
+          // Normalize title by removing common words and variations
+          const normalizeTitle = (title: string) => {
+            return title.toLowerCase()
+              .replace(/\s+/g, ' ')
+              .replace(/[^\w\s]/g, '')
+              .split(' ')
+              .filter(word => !['and', 'the', 'a', 'an', 'or', 'in', 'of', 'for', '&'].includes(word))
+              .sort()
+              .join('');
+          };
+          
+          const normalizedTitle = normalizeTitle(card.title);
+          const normalizedIndustry = card.industry?.toLowerCase().replace(/[^\w]/g, '') || 'unknown';
+          const key = `${normalizedTitle}-${normalizedIndustry}`;
+          
+          return array.findIndex(c => {
+            const cNormalizedTitle = normalizeTitle(c.title);
+            const cNormalizedIndustry = c.industry?.toLowerCase().replace(/[^\w]/g, '') || 'unknown';
+            const cKey = `${cNormalizedTitle}-${cNormalizedIndustry}`;
+            return cKey === key;
+          }) === index;
+        });
         
         console.log('🎯 Generated career recommendations:', {
           total: careerCards.length,
@@ -232,7 +252,10 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         });
         
         onCareerCardsGenerated(uniqueCards);
-        return `I've generated ${uniqueCards.length} unique career recommendations based on our conversation!`;
+        
+        // Return specific career titles so the agent can reference them accurately
+        const cardTitles = uniqueCards.map(card => card.title).join(', ');
+        return `I've generated ${uniqueCards.length} career recommendations: ${cardTitles}. You can reference these specific careers in our conversation.`;
       } else {
         return 'Career recommendations will appear as we chat more about your interests!';
       }
@@ -297,7 +320,10 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
                 if (result.careerCards?.length > 0) {
                   console.log('🎯 Generated immediate career cards:', result.careerCards.length);
                   onCareerCardsGenerated(result.careerCards);
-                  return `Generated ${result.careerCards.length} career insights from your message!`;
+                  
+                  // Provide specific career titles to the agent
+                  const cardTitles = result.careerCards.map(card => card.title).join(', ');
+                  return `Generated ${result.careerCards.length} career insights: ${cardTitles}. Please reference these specific careers when discussing options.`;
                 }
               }
             } catch (error) {
@@ -334,7 +360,10 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
                 if (result.careerCards?.length > 0) {
                   console.log('🎯 Generated interest-based career cards:', result.careerCards.length);
                   onCareerCardsGenerated(result.careerCards);
-                  return `Generated ${result.careerCards.length} recommendations based on your interests!`;
+                  
+                  // Provide specific career titles to the agent
+                  const cardTitles = result.careerCards.map(card => card.title).join(', ');
+                  return `Generated ${result.careerCards.length} recommendations: ${cardTitles}. These are the specific careers available for discussion based on your interests: ${parameters.interests?.join(', ')}.`;
                 }
               }
             } catch (error) {
