@@ -1305,6 +1305,10 @@ class OffScriptMCPServer {
         success: true,
         analysis: {
           detectedInterests: analysis.detectedInterests,
+          detectedSkills: analysis.detectedSkills,
+          detectedGoals: analysis.detectedGoals,  
+          detectedValues: analysis.detectedValues,
+          userProfile: analysis.userProfile,
           confidence: analysis.confidence,
           careerCards: analysis.careerCards,
           timestamp: new Date().toISOString(),
