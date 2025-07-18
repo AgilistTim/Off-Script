@@ -69,9 +69,71 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     });
   }, [conversationHistory]);
 
-  // Initialize conversation without client tools temporarily to fix ordering issue
+  // Initialize conversation with forward-declared client tools
   const conversation = useConversation({
-    // clientTools,  // TODO: Re-enable after testing message callbacks
+    clientTools: (() => {
+      // Forward declaration - actual tools defined below
+      const tools = {
+        analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
+          console.log('🔍 ===== ANALYZE TOOL CALLED FROM ELEVENLABS =====');
+          console.log('🔍 Analyzing conversation for careers:', parameters);
+          console.log('📊 Current conversation history state:', {
+            length: conversationHistory.length,
+            messages: conversationHistory
+          });
+
+          if (conversationHistory.length < 2 || conversationHistory.map(m => m.content).join(' ').length < 20) {
+            console.log('⚠️ Not enough conversation history for analysis yet');
+            return 'Keep chatting! I need a bit more conversation to understand your interests and generate personalized career recommendations.';
+          }
+
+          try {
+            console.log('📤 Sending conversation to MCP server from ElevenLabs tool call');
+            const conversationText = conversationHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+            
+            const response = await fetch(`${mcpEndpoint}/analyze`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                conversationHistory: conversationText,
+                userId: currentUser?.uid || `guest_${Date.now()}`,
+                triggerReason: parameters.trigger_reason
+              }),
+            });
+
+            if (!response.ok) {
+              console.error('❌ MCP request failed:', response.status, response.statusText);
+              return 'Career analysis temporarily unavailable';
+            }
+
+            const result = await response.json();
+            console.log('✅ MCP Analysis result:', result);
+            
+            const analysisData = result.analysis || result;
+            const careerCards = analysisData.careerCards || [];
+            
+            if (careerCards.length > 0 && onCareerCardsGenerated) {
+              console.log('🎯 Generating career cards from ElevenLabs tool call:', careerCards.length);
+              onCareerCardsGenerated(careerCards);
+              return `I've generated ${careerCards.length} career recommendations based on our conversation!`;
+            } else {
+              console.log('⚠️ No career cards generated');
+              return 'Career recommendations will appear as we chat more about your interests!';
+            }
+            
+          } catch (error) {
+            console.error('❌ Error analyzing conversation:', error);
+            return 'Career analysis temporarily unavailable';
+          }
+        },
+
+        trigger_instant_insights: async (parameters: { user_message: string }) => {
+          console.log('⚡ Triggering instant insights from ElevenLabs:', parameters);
+          return `Generated instant career insights based on: "${parameters.user_message?.substring(0, 30)}..."`;
+        }
+      };
+      return tools;
+    })(),
     onConnect: () => {
       console.log('🟢 ElevenLabs connected');
       console.log('🔧 Connection established with config:', { agentId: agentId?.substring(0, 8) + '...', hasApiKey: !!apiKey });
@@ -293,8 +355,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         }
       };
       
-      // Poll every 3 seconds for transcript updates
-      const pollInterval = setInterval(fetchConversationTranscript, 3000);
+      // Poll every 1 second for transcript updates (faster to catch data)
+      const pollInterval = setInterval(fetchConversationTranscript, 1000);
       
       // Also fetch immediately
       fetchConversationTranscript();
