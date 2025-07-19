@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CareerDetailsModal } from '../ui/career-details-modal';
 
@@ -39,13 +39,67 @@ export const CareerCardsPanel: React.FC<CareerCardsPanelProps> = ({
   const [selectedCard, setSelectedCard] = useState<CareerCard | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Ensure all cards have required fields with fallbacks
-  const normalizedCards: CareerCard[] = cards.map((card, index) => ({
-    ...card,
-    id: card.id || `career-card-${index}`,
-    industry: card.industry || 'Technology',
-    location: card.location || 'UK'
-  }));
+  // Helper function to generate truly unique ID only when needed
+  const generateUniqueId = (card: CareerCard, index: number): string => {
+    // NEVER regenerate if card already has a valid ID
+    if (card.id && card.id !== '' && card.id.length > 5) {
+      return card.id;
+    }
+    
+    // Create a stable, unique ID based on content hash
+    const titleHash = card.title.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 20);
+    const descHash = card.description ? card.description.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 10) : '';
+    
+    // Use a more stable approach - don't use timestamp which changes
+    const stableHash = titleHash + '-' + descHash + '-' + index;
+    return `career-generated-${stableHash}`;
+  };
+
+  // Memoize normalized cards to prevent regeneration on every render
+  const normalizedCards: CareerCard[] = useMemo(() => {
+    console.log('🔧 CareerCardsPanel: Processing cards for normalization:', {
+      totalCards: cards.length,
+      cardIds: cards.map(c => ({ title: c.title.substring(0, 20), id: c.id || 'NO_ID' }))
+    });
+    
+    return cards.map((card, index) => {
+      // Only generate ID if absolutely necessary
+      const finalId = generateUniqueId(card, index);
+      const wasGenerated = finalId !== card.id;
+      
+      if (wasGenerated) {
+        console.log('🔧 Generated new ID for card:', {
+          title: card.title.substring(0, 30),
+          originalId: card.id || 'NO_ID',
+          newId: finalId,
+          index
+        });
+      }
+      
+      return {
+        ...card,
+        id: finalId,
+        industry: card.industry || 'Technology',
+        location: card.location || 'UK'
+      };
+    });
+  }, [cards]); // Only recalculate when cards array actually changes
+
+  // Debug: Check for duplicate IDs in final normalized cards
+  React.useEffect(() => {
+    const ids = normalizedCards.map(card => card.id);
+    const duplicateIds = ids.filter((id, index) => ids.indexOf(id) !== index);
+    
+    if (duplicateIds.length > 0) {
+      console.error('🚨 DUPLICATE IDs DETECTED in CareerCardsPanel:', {
+        duplicateIds,
+        allIds: ids,
+        totalCards: normalizedCards.length
+      });
+    } else {
+      console.log('✅ All career card IDs are unique:', ids.length, 'cards');
+    }
+  }, [normalizedCards]);
 
   const handleCardClick = (card: CareerCard) => {
     setSelectedCard(card);
