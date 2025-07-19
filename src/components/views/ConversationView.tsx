@@ -89,6 +89,13 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   const [toastNagDismissed, setToastNagDismissed] = useState(false);
   const toastNagTimer = useRef<NodeJS.Timeout | null>(null);
   
+  // Analysis loading state
+  const [analysisState, setAnalysisState] = useState({ 
+    isAnalyzing: false, 
+    type: undefined as 'career_analysis' | 'profile_update' | undefined,
+    progress: '' 
+  });
+  
   // Progressive engagement state (legacy - keeping for compatibility)
   const [careerProfile, setCareerProfile] = useState<EnhancedCareerProfile | null>(null);
   const [showInsightsPanel, setShowInsightsPanel] = useState(false);
@@ -320,6 +327,16 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     setUserEngagementCount(prev => prev + 1);
   }, [careerCards.length, currentUser, toastNagShown, toastNagDismissed]); // Added dependencies for logging
 
+  // Handle analysis state changes
+  const handleAnalysisStateChange = useCallback((state: { isAnalyzing: boolean; type?: 'career_analysis' | 'profile_update'; progress?: string }) => {
+    console.log('🔄 Analysis state change:', state);
+    setAnalysisState({
+      isAnalyzing: state.isAnalyzing,
+      type: state.type,
+      progress: state.progress || ''
+    });
+  }, []);
+
   // Handle person profile generated/updated with upsert logic
   const handlePersonProfileGenerated = useCallback((newProfile: PersonProfile) => {
     console.log('👤 ConversationView: Received person profile:', newProfile);
@@ -437,9 +454,25 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
             </p>
           </div>
           
+          {/* Analysis Loading Indicator */}
+          {analysisState.isAnalyzing && (
+            <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+              <div className="flex items-center space-x-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+                <div>
+                  <p className="text-sm font-medium text-blue-800">
+                    {analysisState.type === 'career_analysis' ? '🎯 Analyzing Career Opportunities' : '👤 Updating Profile'}
+                  </p>
+                  <p className="text-xs text-blue-600">{analysisState.progress}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
           <ElevenLabsWidget
             onCareerCardsGenerated={handleCareerCardsGenerated}
             onPersonProfileGenerated={handlePersonProfileGenerated}
+            onAnalysisStateChange={handleAnalysisStateChange}
             className="flex-1"
           />
           

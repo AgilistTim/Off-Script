@@ -40,12 +40,14 @@ interface PersonProfile {
 interface ElevenLabsWidgetProps {
   onCareerCardsGenerated?: (cards: any[]) => void;
   onPersonProfileGenerated?: (profile: PersonProfile) => void;
+  onAnalysisStateChange?: (state: { isAnalyzing: boolean; type?: 'career_analysis' | 'profile_update'; progress?: string }) => void;
   className?: string;
 }
 
 export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   onCareerCardsGenerated,
   onPersonProfileGenerated,
+  onAnalysisStateChange,
   className = ''
 }) => {
   const { currentUser } = useAuth();
@@ -131,6 +133,9 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     if (!isConnected) {
       console.log('🔄 Analysis proceeding with cached conversation data (ElevenLabs disconnected)');
     }
+    
+    // Start loading state
+    onAnalysisStateChange?.({ isAnalyzing: true, type: 'career_analysis', progress: 'Analyzing your conversation...' });
     
     try {
       console.log('🎯 ANALYSIS TRIGGERED:', { 
@@ -280,13 +285,21 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       
       // Return specific career titles so the agent can reference them accurately
       const cardTitles = careerCards.map(card => card.title).join(', ');
+      
+      // Complete loading state
+      onAnalysisStateChange?.({ isAnalyzing: false });
+      
       return `I've generated ${careerCards.length} career recommendations: ${cardTitles}. You can reference these specific careers in our conversation.`;
       
     } catch (error) {
       console.error('❌ Error in enhanced career analysis:', error);
+      
+      // Complete loading state on error
+      onAnalysisStateChange?.({ isAnalyzing: false });
+      
       return 'Career analysis temporarily unavailable';
     }
-  }, [isConnected, currentUser?.uid, onCareerCardsGenerated]); // Removed conversationHistory dependency since using ref
+  }, [isConnected, currentUser?.uid, onCareerCardsGenerated, onAnalysisStateChange]); // Removed conversationHistory dependency since using ref
 
   // Validate configuration on mount
   useEffect(() => {
@@ -314,6 +327,9 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         console.log('🚨 TOOL CALLED: update_person_profile - AGENT IS CALLING TOOLS!');
         console.log('👤 Updating person profile based on conversation...');
         console.log('👤 Profile parameters:', parameters);
+        
+        // Start loading state for profile update
+        onAnalysisStateChange?.({ isAnalyzing: true, type: 'profile_update', progress: 'Updating your profile...' });
         
         if (onPersonProfileGenerated) {
           try {
@@ -362,11 +378,18 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
                 
                 console.log('🎯 Generated enhanced persona profile:', updatedProfile);
                 onPersonProfileGenerated(updatedProfile);
+                
+                // Complete loading state
+                onAnalysisStateChange?.({ isAnalyzing: false });
+                
                 return `I've analyzed our conversation and updated your profile with insights about your interests in ${updatedProfile.interests.join(', ')}!`;
               }
             }
           } catch (error) {
             console.error('❌ Error generating persona from conversation:', error);
+            
+            // Complete loading state on error
+            onAnalysisStateChange?.({ isAnalyzing: false });
           }
           
           // Fallback to basic profile
@@ -381,8 +404,15 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           };
           
           onPersonProfileGenerated(updatedProfile);
+          
+          // Complete loading state
+          onAnalysisStateChange?.({ isAnalyzing: false });
+          
           return "I've updated your profile based on our conversation!";
         }
+        
+        // Complete loading state for simple update
+        onAnalysisStateChange?.({ isAnalyzing: false });
         
         return "Profile updated successfully!";
       }
