@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { useAppStore } from '../../stores/useAppStore';
 import Header from '../Header';
 import Footer from '../Footer';
@@ -31,6 +32,22 @@ const MainLayout: React.FC = () => {
       
       {/* Footer */}
       <Footer />
+      
+      {/* Global Toast Notifications */}
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#ffffff',
+            color: '#374151',
+            border: '1px solid #e5e7eb',
+            borderRadius: '0.75rem',
+            fontSize: '14px',
+            maxWidth: '400px',
+          },
+        }}
+      />
     </div>
   );
 };

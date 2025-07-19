@@ -1182,13 +1182,17 @@ class OffScriptMCPServer {
             const lines = conversationHistory.split('\n').filter(line => line.trim());
             this.cachedConversationHistory = lines.map((line, index) => {
               const [role, ...contentParts] = line.split(':');
+              const content = contentParts.join(':').trim();
               return {
                 role: role.trim() === 'user' ? 'user' : 'assistant',
-                content: contentParts.join(':').trim()
+                content: content
               };
-            });
+            }).filter(msg => msg.content && msg.content.length > 0); // Filter out empty messages
           } else if (Array.isArray(conversationHistory)) {
-            this.cachedConversationHistory = conversationHistory;
+            // Filter out any messages with empty content
+            this.cachedConversationHistory = conversationHistory.filter(msg => 
+              msg && msg.content && typeof msg.content === 'string' && msg.content.trim().length > 0
+            );
           }
           this.lastCacheUpdate = new Date();
           
@@ -1198,29 +1202,48 @@ class OffScriptMCPServer {
           });
         }
         
-        // Convert conversationHistory string to messages array format expected by service
+        // Convert conversationHistory to messages array format expected by service
         const messages = [];
         if (conversationHistory && typeof conversationHistory === 'string') {
           // Split conversation and create alternating user/assistant messages
           const lines = conversationHistory.split('\n').filter(line => line.trim());
           lines.forEach((line, index) => {
             const [role, ...contentParts] = line.split(':');
-            messages.push({
-              role: role.trim() === 'user' ? 'user' : 'assistant',
-              content: contentParts.join(':').trim()
-            });
+            const content = contentParts.join(':').trim();
+            
+            // Only add messages with non-empty content
+            if (content && content.length > 0) {
+              messages.push({
+                role: role.trim() === 'user' ? 'user' : 'assistant',
+                content: content
+              });
+            }
           });
         } else if (Array.isArray(conversationHistory)) {
-          messages.push(...conversationHistory);
+          // Filter out any messages with empty content
+          conversationHistory.forEach(msg => {
+            if (msg && msg.content && typeof msg.content === 'string' && msg.content.trim().length > 0) {
+              messages.push({
+                role: msg.role === 'user' ? 'user' : 'assistant',
+                content: msg.content.trim()
+              });
+            }
+          });
         }
         
-        // If no messages available, create a placeholder to generate initial insights
+        // If no valid messages available, create a placeholder to generate initial insights
         if (messages.length === 0) {
           messages.push({
             role: 'user',
             content: `I'm exploring career options and would like some guidance. ${triggerReason ? `Context: ${triggerReason}` : ''}`
           });
         }
+        
+        Logger.info('Processing conversation analysis', {
+          originalInput: typeof conversationHistory === 'string' ? 'string' : Array.isArray(conversationHistory) ? 'array' : 'unknown',
+          validMessages: messages.length,
+          userId
+        });
         
         const result = await this.handleAnalyzeConversation({ messages, userId });
         

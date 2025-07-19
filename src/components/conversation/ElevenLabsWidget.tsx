@@ -139,13 +139,19 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         contentLength: currentHistory.map(m => m.content).join(' ').length 
       });
 
-      // Skip sample cards - real conversation analysis is working
+      // Filter out any messages with empty content before sending to MCP
+      const validMessages = currentHistory.filter(msg => 
+        msg.content && typeof msg.content === 'string' && msg.content.trim().length > 0
+      );
+
       console.log('🔍 Conversation analysis in progress...', {
-        historyLength: currentHistory.length,
-        contentLength: currentHistory.map(m => m.content).join(' ').length
+        originalLength: currentHistory.length,
+        validMessagesLength: validMessages.length,
+        filteredOut: currentHistory.length - validMessages.length,
+        contentLength: validMessages.map(m => m.content).join(' ').length
       });
       
-      const conversationText = currentHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+      const conversationText = validMessages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
       
       // Enhanced analysis with care sector keywords
       const careKeywords = ['nursing home', 'care home', 'elderly care', 'grandma', 'grandpa', 'helping others', 'care work', 'healthcare', 'caring for'];
@@ -154,15 +160,15 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       );
       
       console.log('🔍 Enhanced analysis:', {
-        historyLength: currentHistory.length,
+        historyLength: validMessages.length,
         contentLength: conversationText.length,
         hasCareInterest,
         triggerReason
       });
       
-      // Create enhanced context for better MCP analysis
+      // Create enhanced context for better MCP analysis - send as message array
       const enhancedContext = {
-        conversationHistory: conversationText,
+        conversationHistory: validMessages, // Send as array instead of string
         analysisRequest: {
           extractGoals: "Extract career goals, aspirations, and what the user wants to achieve professionally. Look for phrases about wanting fulfilling work, work-life balance, financial goals, impact goals.",
           extractSkills: "Extract both mentioned skills (like physics, maths, problem-solving) and implied skills from activities and interests. Include academic subjects, hobbies, and demonstrated abilities.",
@@ -171,8 +177,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           careerPreferences: "Note preferences about work environment, team vs individual work, specific sectors of interest or avoidance."
         },
         conversationSummary: {
-          totalMessages: currentHistory.length,
-          userMessages: currentHistory.filter(m => m.role === 'user').length,
+          totalMessages: validMessages.length,
+          userMessages: validMessages.filter(m => m.role === 'user').length,
           keyTopics: triggerReason,
           careInterestDetected: hasCareInterest
         }
@@ -201,7 +207,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       let careerCards = analysisData.careerCards || [];
       
       // Generate user profile automatically when analyzing conversation (only if we have meaningful data)
-      if (currentHistory.length >= 2 && onPersonProfileGenerated) {
+      if (validMessages.length >= 2 && onPersonProfileGenerated) {
         try {
           const profileData = analysisData.userProfile || {};
           
@@ -312,14 +318,17 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         if (onPersonProfileGenerated) {
           try {
             // Use conversation history and parameters to generate detailed profile
-            const conversationText = conversationHistoryRef.current.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+            const validMessages = conversationHistoryRef.current.filter(msg => 
+              msg.content && typeof msg.content === 'string' && msg.content.trim().length > 0
+            );
+            const conversationText = validMessages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
             
             if (conversationText.length > 20) { // If we have real conversation content
               const response = await fetch(`${mcpEndpoint}/analyze`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                  conversationHistory: conversationText,
+                  conversationHistory: validMessages, // Send as array
                   userId: currentUser?.uid || `guest_${Date.now()}`,
                   triggerReason: 'persona_update',
                   generatePersona: true,

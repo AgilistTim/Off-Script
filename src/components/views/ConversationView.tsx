@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../../context/AuthContext';
 import { useChatContext } from '../../context/ChatContext';
 import { Mic, MicOff, Sparkles, TrendingUp, BookOpen, Users, PanelRightClose, PanelRightOpen, Play } from 'lucide-react';
+import { toast } from 'react-hot-toast';
 import { cn } from '../../lib/utils';
 
 // Import our simplified components
@@ -83,10 +84,108 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   const [showRegistrationPrompt, setShowRegistrationPrompt] = useState(false);
   const [userEngagementCount, setUserEngagementCount] = useState(0);
   
+  // Toast nag state
+  const [toastNagShown, setToastNagShown] = useState(false);
+  const [toastNagDismissed, setToastNagDismissed] = useState(false);
+  const toastNagTimer = useRef<NodeJS.Timeout | null>(null);
+  
   // Progressive engagement state (legacy - keeping for compatibility)
   const [careerProfile, setCareerProfile] = useState<EnhancedCareerProfile | null>(null);
   const [showInsightsPanel, setShowInsightsPanel] = useState(false);
   const [newInsights, setNewInsights] = useState<CareerInsight[]>([]);
+
+  // Toast nag functions - defined early to avoid dependency issues
+  const handleTemporaryDismiss = useCallback(() => {
+    setToastNagDismissed(true);
+    if (toastNagTimer.current) {
+      clearInterval(toastNagTimer.current);
+    }
+  }, []);
+
+  const handlePermanentDismiss = useCallback(() => {
+    setToastNagDismissed(true);
+    localStorage.setItem('career-nag-dismissed', Date.now().toString());
+    if (toastNagTimer.current) {
+      clearInterval(toastNagTimer.current);
+    }
+  }, []);
+
+  // Handle registration
+  const handleRegister = useCallback(() => {
+    // Redirect to registration page or open auth modal
+    window.location.href = '/register';
+  }, []);
+
+  const showProgressNagToast = useCallback(() => {
+    console.log('🍞 SHOWING TOAST with', careerCards.length, 'career cards');
+    toast((t) => (
+      <div className="flex flex-col space-y-3 p-2 max-w-sm">
+        <div className="flex items-start space-x-3">
+          <div className="text-2xl">💼</div>
+          <div className="flex-1">
+            <div className="font-semibold text-gray-900">Don't lose your career progress!</div>
+            <div className="text-sm text-gray-600 mt-1">
+              You've discovered {careerCards.length} career matches. Create an account to save them and unlock your personalized dashboard.
+            </div>
+          </div>
+        </div>
+        
+        <div className="flex space-x-2">
+          <Button
+            onClick={() => {
+              toast.dismiss(t.id);
+              handleRegister();
+            }}
+            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded-md"
+          >
+            Save Progress
+          </Button>
+          <Button
+            onClick={() => {
+              toast.dismiss(t.id);
+              handleTemporaryDismiss();
+            }}
+            variant="outline"
+            className="text-sm py-2 px-3 rounded-md"
+          >
+            Later
+          </Button>
+        </div>
+        
+        <button
+          onClick={() => {
+            toast.dismiss(t.id);
+            handlePermanentDismiss();
+          }}
+          className="text-xs text-gray-400 hover:text-gray-600 text-center underline"
+        >
+          Don't show again
+        </button>
+      </div>
+    ), {
+      duration: 8000, // Show for 8 seconds
+      position: 'top-right',
+      style: {
+        background: 'white',
+        border: '1px solid #e5e7eb',
+        borderRadius: '0.75rem',
+        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+        padding: '0',
+      },
+    });
+  }, [careerCards.length, handleRegister, handleTemporaryDismiss, handlePermanentDismiss]);
+
+  // TEST FUNCTION - Remove after debugging
+  const testToastNag = useCallback(() => {
+    console.log('🧪 MANUAL TOAST TEST - Current state:', {
+      careerCardsLength: careerCards.length,
+      currentUser: !!currentUser,
+      toastNagDismissed,
+      toastNagShown,
+      localStorage: localStorage.getItem('career-nag-dismissed')
+    });
+    showProgressNagToast();
+  }, [careerCards.length, currentUser, toastNagDismissed, toastNagShown, showProgressNagToast]);
 
   // Check if conversation has started based on messages or career cards
   useEffect(() => {
@@ -101,9 +200,82 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     }
   }, [careerCards]);
 
+  // Toast nag system for account creation after 3 cards
+  useEffect(() => {
+    console.log('🍞 Toast nag check:', {
+      careerCardsLength: careerCards.length,
+      currentUser: !!currentUser,
+      toastNagDismissed,
+      toastNagShown,
+      shouldTrigger: careerCards.length >= 3 && !currentUser && !toastNagDismissed && !toastNagShown
+    });
+
+    // Only show for unregistered users who haven't dismissed the nag
+    if (currentUser) {
+      console.log('🍞 Toast nag blocked: User is logged in');
+      return;
+    }
+    
+    if (toastNagDismissed) {
+      console.log('🍞 Toast nag blocked: User dismissed it');
+      return;
+    }
+    
+    // Check if we have persistently dismissed this
+    const persistentDismiss = localStorage.getItem('career-nag-dismissed');
+    if (persistentDismiss) {
+      const dismissTime = parseInt(persistentDismiss);
+      const daysSinceDismiss = (Date.now() - dismissTime) / (1000 * 60 * 60 * 24);
+      
+      console.log('🍞 Persistent dismiss check:', { daysSinceDismiss, shouldShow: daysSinceDismiss >= 3 });
+      
+      // Show again after 3 days
+      if (daysSinceDismiss < 3) {
+        console.log('🍞 Toast nag blocked: Persistently dismissed within 3 days');
+        setToastNagDismissed(true);
+        return;
+      }
+    }
+
+    // Trigger after 3 career cards
+    if (careerCards.length >= 3 && !toastNagShown) {
+      console.log('🍞 TRIGGERING TOAST NAG - Career cards >= 3!', {
+        careerCardsLength: careerCards.length,
+        toastNagShown
+      });
+      
+      // Show initial toast immediately
+      showProgressNagToast();
+      setToastNagShown(true);
+      
+      // Set up recurring reminders every 2 minutes (not too annoying)
+      toastNagTimer.current = setInterval(() => {
+        if (!currentUser && !toastNagDismissed) {
+          console.log('🍞 Recurring toast nag reminder');
+          showProgressNagToast();
+        }
+      }, 120000); // 2 minutes
+    } else {
+      console.log('🍞 Toast nag not triggered yet:', {
+        careerCardsLength: careerCards.length,
+        needsAtLeast: 3,
+        toastNagShown,
+        reason: careerCards.length < 3 ? 'Not enough cards' : toastNagShown ? 'Already shown' : 'Unknown'
+      });
+    }
+
+    // Cleanup timer
+    return () => {
+      if (toastNagTimer.current) {
+        clearInterval(toastNagTimer.current);
+      }
+    };
+  }, [careerCards.length, currentUser, toastNagDismissed, toastNagShown, showProgressNagToast]);
+
   // Handle career cards generated from ElevenLabs widget
   const handleCareerCardsGenerated = useCallback((newCards: CareerCard[]) => {
     console.log('🎯 ConversationView: Received career cards:', newCards.length);
+    console.log('🎯 Current career cards before update:', careerCards.length);
     
     setCareerCards(prev => {
       // Combine previous and new cards
@@ -124,7 +296,18 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
       console.log('✨ Career cards after deduplication:', {
         originalCount: combined.length,
         deduplicatedCount: deduplicated.length,
-        duplicatesRemoved: combined.length - deduplicated.length
+        duplicatesRemoved: combined.length - deduplicated.length,
+        previousLength: prev.length,
+        newTotal: deduplicated.length
+      });
+      
+      // Log toast trigger conditions
+      console.log('🍞 Toast trigger check after cards update:', {
+        newCardsCount: deduplicated.length,
+        willTriggerToast: deduplicated.length >= 3,
+        currentUser: !!currentUser,
+        toastNagShown,
+        toastNagDismissed
       });
       
       return deduplicated;
@@ -134,7 +317,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     
     // Track engagement - show registration prompt after user gets career cards
     setUserEngagementCount(prev => prev + 1);
-  }, []);
+  }, [careerCards.length, currentUser, toastNagShown, toastNagDismissed]); // Added dependencies for logging
 
   // Handle person profile generated/updated with upsert logic
   const handlePersonProfileGenerated = useCallback((newProfile: PersonProfile) => {
@@ -230,12 +413,6 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     }
   }, [currentUser, careerCards.length, showRegistrationPrompt, userEngagementCount]);
 
-  // Handle registration
-  const handleRegister = useCallback(() => {
-    // Redirect to registration page or open auth modal
-    window.location.href = '/register';
-  }, []);
-
   // Handle dismissing registration prompt
   const handleDismissRegistration = useCallback(() => {
     setShowRegistrationPrompt(false);
@@ -265,6 +442,39 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
             className="flex-1"
           />
           
+          {/* TEMPORARY DEBUG BUTTON - Remove after testing */}
+          {process.env.NODE_ENV === 'development' && !currentUser && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-xs text-yellow-700 mb-2">
+                Debug: Cards={careerCards.length}, User={!!currentUser ? 'logged' : 'guest'}, 
+                Dismissed={toastNagDismissed ? 'yes' : 'no'}, Shown={toastNagShown ? 'yes' : 'no'}
+              </p>
+              <p className="text-xs text-yellow-700 mb-2">
+                RegPrompt={showRegistrationPrompt ? 'shown' : 'hidden'}, 
+                LocalStorage={localStorage.getItem('career-nag-dismissed') ? 'blocked' : 'clear'}
+              </p>
+              <div className="flex space-x-2">
+                <button
+                  onClick={testToastNag}
+                  className="px-3 py-1 bg-yellow-500 text-white text-xs rounded hover:bg-yellow-600"
+                >
+                  Test Toast Nag
+                </button>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem('career-nag-dismissed');
+                    sessionStorage.removeItem('registration-prompt-dismissed');
+                    setToastNagDismissed(false);
+                    setToastNagShown(false);
+                    console.log('🧹 Cleared localStorage and reset toast states');
+                  }}
+                  className="px-3 py-1 bg-red-500 text-white text-xs rounded hover:bg-red-600"
+                >
+                  Reset All
+                </button>
+              </div>
+            </div>
+          )}
 
         </div>
 
