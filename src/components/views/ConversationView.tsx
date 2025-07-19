@@ -163,29 +163,24 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         </button>
       </div>
     ), {
-      duration: 8000, // Show for 8 seconds
-      position: 'top-right',
+      duration: Infinity, // Never auto-dismiss - user must choose an action
+      position: 'top-center',
       style: {
         background: 'white',
         border: '1px solid #e5e7eb',
-        borderRadius: '0.75rem',
-        boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+        borderRadius: '12px',
+        boxShadow: '0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
         padding: '0',
-      },
+        maxWidth: '400px'
+      }
     });
   }, [careerCards.length, handleRegister, handleTemporaryDismiss, handlePermanentDismiss]);
 
-  // TEST FUNCTION - Remove after debugging
+  // Test function for manual toast triggering (development only)
   const testToastNag = useCallback(() => {
-    console.log('🧪 MANUAL TOAST TEST - Current state:', {
-      careerCardsLength: careerCards.length,
-      currentUser: !!currentUser,
-      toastNagDismissed,
-      toastNagShown,
-      localStorage: localStorage.getItem('career-nag-dismissed')
-    });
+    console.log('🧪 MANUAL TOAST TEST');
     showProgressNagToast();
-  }, [careerCards.length, currentUser, toastNagDismissed, toastNagShown, showProgressNagToast]);
+  }, [showProgressNagToast]);
 
   // Check if conversation has started based on messages or career cards
   useEffect(() => {
@@ -270,7 +265,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         clearInterval(toastNagTimer.current);
       }
     };
-  }, [careerCards.length, currentUser, toastNagDismissed, toastNagShown, showProgressNagToast]);
+  }, [careerCards.length, currentUser, toastNagDismissed, toastNagShown]); // Removed showProgressNagToast to break circular dependency
 
   // Handle career cards generated from ElevenLabs widget
   const handleCareerCardsGenerated = useCallback((newCards: CareerCard[]) => {
@@ -286,7 +281,11 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
       const deduplicated = combined.filter(card => {
         const normalizedTitle = card.title.toLowerCase().trim();
         if (seen.has(normalizedTitle)) {
-          console.log('🔄 Removing duplicate career card:', card.title);
+          console.log('🔄 Removing duplicate career card:', {
+            title: card.title,
+            normalizedTitle,
+            alreadySeen: Array.from(seen)
+          });
           return false;
         }
         seen.add(normalizedTitle);
@@ -298,7 +297,9 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         deduplicatedCount: deduplicated.length,
         duplicatesRemoved: combined.length - deduplicated.length,
         previousLength: prev.length,
-        newTotal: deduplicated.length
+        newCards: newCards.length,
+        newTotal: deduplicated.length,
+        allTitles: deduplicated.map(card => card.title)
       });
       
       // Log toast trigger conditions
