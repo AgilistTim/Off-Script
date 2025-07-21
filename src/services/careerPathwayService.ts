@@ -484,38 +484,118 @@ class CareerPathwayService {
       console.log('🔍 CareerPathwayService: Getting current user profile for user:', userId);
       
       const { db } = await import('./firebase');
-      const { collection, query, where, orderBy, limit, getDocs } = await import('firebase/firestore');
+      const { collection, query, where, orderBy, limit, getDocs, doc, getDoc } = await import('firebase/firestore');
       
-      // Get the most recent chat summary with profile data
-      const summaryQuery = query(
-        collection(db, 'chatSummaries'),
-        where('userId', '==', userId),
-        orderBy('createdAt', 'desc'),
-        limit(1)
-      );
+      let profileData: any = null;
       
-      const summarySnapshot = await getDocs(summaryQuery);
+      // Try multiple data sources for profile information
       
-      if (summarySnapshot.empty) {
-        console.log('No chat summaries found for user');
-        return null;
+      // 1. First try chat summaries (main source)
+      try {
+        const summaryQuery = query(
+          collection(db, 'chatSummaries'),
+          where('userId', '==', userId),
+          orderBy('createdAt', 'desc'),
+          limit(1)
+        );
+        
+        const summarySnapshot = await getDocs(summaryQuery);
+        
+        if (!summarySnapshot.empty) {
+          const data = summarySnapshot.docs[0].data();
+          profileData = {
+            interests: data.interests || [],
+            goals: data.careerGoals || [],
+            skills: data.skills || [],
+            values: [], // Not typically in chat summaries
+            careerStage: 'exploring',
+            workStyle: [], // Not typically in chat summaries
+            source: 'chat_summary',
+            lastUpdated: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
+          };
+          console.log('✅ Found current user profile from chat summary');
+        }
+      } catch (summaryError: any) {
+        if (summaryError?.code === 'permission-denied') {
+          console.warn('⚠️ Permission denied accessing chatSummaries (will try other sources)');
+        } else {
+          console.warn('⚠️ Error accessing chatSummaries:', summaryError);
+        }
       }
       
-      const doc = summarySnapshot.docs[0];
-      const data = doc.data();
+      // 2. Fallback: Try user document directly
+      if (!profileData) {
+        try {
+          const userDoc = await getDoc(doc(db, 'users', userId));
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData.interests || userData.careerGoals || userData.skills) {
+              profileData = {
+                interests: userData.interests || [],
+                goals: userData.careerGoals || [],
+                skills: userData.skills || [],
+                values: userData.values || [],
+                careerStage: userData.careerStage || 'exploring',
+                workStyle: userData.workStyle || [],
+                source: 'user_document',
+                lastUpdated: userData.updatedAt?.toDate ? userData.updatedAt.toDate() : new Date()
+              };
+              console.log('✅ Found current user profile from user document');
+            }
+          }
+        } catch (userError) {
+          console.warn('⚠️ Error accessing user document:', userError);
+        }
+      }
       
-      console.log('✅ Found current user profile from chat summary');
-      return {
-        interests: data.interests || [],
-        goals: data.careerGoals || [],
-        skills: data.skills || [],
-        values: [], // Not typically in chat summaries
-        careerStage: 'exploring',
-        workStyle: [], // Not typically in chat summaries
-        isCurrent: true,
-        source: 'conversation',
-        lastUpdated: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
-      };
+      // 3. Fallback: Try thread career guidance for any profile data
+      if (!profileData) {
+        try {
+          const guidanceQuery = query(
+            collection(db, 'threadCareerGuidance'),
+            where('userId', '==', userId),
+            orderBy('updatedAt', 'desc'),
+            limit(1)
+          );
+          
+          const guidanceSnapshot = await getDocs(guidanceQuery);
+          
+          if (!guidanceSnapshot.empty) {
+            const data = guidanceSnapshot.docs[0].data();
+            const guidance = data.guidance;
+            
+            if (guidance) {
+              // Extract profile-like data from career guidance
+              const interests = guidance.alternativePathways?.map((p: any) => p.industry).filter(Boolean) || [];
+              const skills = guidance.primaryPathway?.requiredSkills || [];
+              
+              profileData = {
+                interests: [...new Set(interests)],
+                goals: ['Find career path'], // Generic goal based on guidance
+                skills: skills.slice(0, 5), // Limit to first 5 skills
+                values: [],
+                careerStage: 'exploring',
+                workStyle: [],
+                source: 'career_guidance',
+                lastUpdated: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date()
+              };
+              console.log('✅ Found current user profile from career guidance');
+            }
+          }
+        } catch (guidanceError) {
+          console.warn('⚠️ Error accessing threadCareerGuidance:', guidanceError);
+        }
+      }
+      
+      if (profileData) {
+        return {
+          ...profileData,
+          isCurrent: true
+        };
+      }
+      
+      console.log('No current profile data found for user');
+      return null;
       
     } catch (error) {
       console.error('Error getting current user profile:', error);
@@ -597,74 +677,86 @@ class CareerPathwayService {
       const careerCards: any[] = [];
       
       // Get career cards from thread guidance
-      const guidanceQuery = query(
-        collection(db, 'threadCareerGuidance'),
-        where('userId', '==', userId),
-        orderBy('updatedAt', 'desc')
-      );
-      
-      const guidanceSnapshot = await getDocs(guidanceQuery);
-      
-      for (const doc of guidanceSnapshot.docs) {
-        const data = doc.data();
+      try {
+        const guidanceQuery = query(
+          collection(db, 'threadCareerGuidance'),
+          where('userId', '==', userId),
+          orderBy('updatedAt', 'desc')
+        );
         
-        if (data.guidance?.alternativePathways) {
-          data.guidance.alternativePathways.forEach((pathway: any) => {
+        const guidanceSnapshot = await getDocs(guidanceQuery);
+        
+        for (const doc of guidanceSnapshot.docs) {
+          const data = doc.data();
+          
+          if (data.guidance?.alternativePathways) {
+            data.guidance.alternativePathways.forEach((pathway: any) => {
+              careerCards.push({
+                id: `guidance-${doc.id}-${pathway.title.toLowerCase().replace(/\s/g, '-')}`,
+                title: pathway.title,
+                description: pathway.description,
+                industry: pathway.industry || 'Technology',
+                averageSalary: pathway.averageSalary || {
+                  entry: '£25,000',
+                  experienced: '£35,000', 
+                  senior: '£50,000'
+                },
+                growthOutlook: pathway.growthOutlook || 'Growing demand',
+                keySkills: pathway.requiredSkills || [],
+                trainingPathways: pathway.trainingPathways || [],
+                nextSteps: pathway.nextSteps || [],
+                confidence: pathway.match || 80,
+                workEnvironment: pathway.workEnvironment || 'Office-based',
+                entryRequirements: pathway.entryRequirements || [],
+                location: 'UK',
+                isCurrent: true,
+                source: 'conversation_guidance',
+                threadId: data.threadId
+              });
+            });
+          }
+          
+          // Also include primary pathway
+          if (data.guidance?.primaryPathway) {
+            const primary = data.guidance.primaryPathway;
             careerCards.push({
-              id: `guidance-${doc.id}-${pathway.title.toLowerCase().replace(/\s/g, '-')}`,
-              title: pathway.title,
-              description: pathway.description,
-              industry: pathway.industry || 'Technology',
-              averageSalary: pathway.averageSalary || {
+              id: `guidance-${doc.id}-primary`,
+              title: primary.title,
+              description: primary.description,
+              industry: primary.industry || 'Technology',
+              averageSalary: primary.averageSalary || {
                 entry: '£25,000',
-                experienced: '£35,000', 
+                experienced: '£35,000',
                 senior: '£50,000'
               },
-              growthOutlook: pathway.growthOutlook || 'Growing demand',
-              keySkills: pathway.requiredSkills || [],
-              trainingPathways: pathway.trainingPathways || [],
-              nextSteps: pathway.nextSteps || [],
-              confidence: pathway.match || 80,
-              workEnvironment: pathway.workEnvironment || 'Office-based',
-              entryRequirements: pathway.entryRequirements || [],
+              growthOutlook: primary.growthOutlook || 'Growing demand',
+              keySkills: primary.requiredSkills || [],
+              trainingPathways: primary.trainingPathways || [],
+              nextSteps: primary.nextSteps || [],
+              confidence: primary.match || 85,
+              workEnvironment: primary.workEnvironment || 'Office-based',
+              entryRequirements: primary.entryRequirements || [],
               location: 'UK',
               isCurrent: true,
               source: 'conversation_guidance',
-              threadId: data.threadId
+              threadId: data.threadId,
+              isPrimary: true
             });
-          });
+          }
         }
         
-        // Also include primary pathway
-        if (data.guidance?.primaryPathway) {
-          const primary = data.guidance.primaryPathway;
-          careerCards.push({
-            id: `guidance-${doc.id}-primary`,
-            title: primary.title,
-            description: primary.description,
-            industry: primary.industry || 'Technology',
-            averageSalary: primary.averageSalary || {
-              entry: '£25,000',
-              experienced: '£35,000',
-              senior: '£50,000'
-            },
-            growthOutlook: primary.growthOutlook || 'Growing demand',
-            keySkills: primary.requiredSkills || [],
-            trainingPathways: primary.trainingPathways || [],
-            nextSteps: primary.nextSteps || [],
-            confidence: primary.match || 85,
-            workEnvironment: primary.workEnvironment || 'Office-based',
-            entryRequirements: primary.entryRequirements || [],
-            location: 'UK',
-            isCurrent: true,
-            source: 'conversation_guidance',
-            threadId: data.threadId,
-            isPrimary: true
-          });
+        console.log('✅ Found current career cards from thread guidance:', careerCards.length);
+        
+      } catch (guidanceError: any) {
+        if (guidanceError?.code === 'permission-denied') {
+          console.warn('⚠️ Permission denied accessing threadCareerGuidance (user may not have any career guidance yet)');
+        } else if (guidanceError?.code === 'failed-precondition') {
+          console.warn('⚠️ Firestore index still building for threadCareerGuidance (this is normal for new deployments)');
+        } else {
+          console.warn('⚠️ Error accessing threadCareerGuidance:', guidanceError);
         }
       }
       
-      console.log('✅ Found current career cards:', careerCards.length);
       return careerCards;
       
     } catch (error) {

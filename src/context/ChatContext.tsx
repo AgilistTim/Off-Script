@@ -396,8 +396,14 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Fetched summary for thread:', threadId, summary);
       setCurrentSummary(summary);
       return summary;
-    } catch (error) {
-      console.error('Error fetching thread summary:', error);
+    } catch (error: any) {
+      if (error?.code === 'permission-denied') {
+        console.warn('⚠️ Permission denied accessing chatSummaries for thread:', threadId, '(user may not have summary data yet)');
+      } else if (error?.code === 'failed-precondition') {
+        console.warn('⚠️ Firestore index still building for chatSummaries (this is normal for new deployments)');
+      } else {
+        console.error('Error fetching thread summary:', error);
+      }
       setCurrentSummary(null);
       return null;
     }
@@ -456,8 +462,17 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Check for recommendations with debouncing and caching
       debouncedCheckVideoRecommendations(summary);
-    }, (error) => {
-      console.error('Error in summary listener:', error);
+    }, (error: any) => {
+      if (error?.code === 'permission-denied') {
+        console.warn('⚠️ Permission denied in summary listener for thread:', currentThread?.id, '(user may not have summary data yet)');
+        setCurrentSummary(null);
+      } else if (error?.code === 'failed-precondition') {
+        console.warn('⚠️ Firestore index still building for chatSummaries listener (this is normal for new deployments)');
+        setCurrentSummary(null);
+      } else {
+        console.error('Error in summary listener:', error);
+        setCurrentSummary(null);
+      }
     });
     
     // Clean up listener on unmount or when thread changes
