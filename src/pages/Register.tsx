@@ -67,18 +67,18 @@ const Register: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-2xl space-y-6">
+      <div className="w-full max-w-md sm:max-w-lg md:max-w-2xl space-y-6">
         {/* Guest Data Preview */}
         {hasGuestData() && (
           <GuestDataPreview className="mb-6" />
         )}
         
-        <Card className="p-8 shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+        <Card className="p-6 md:p-8 shadow-xl border-0 bg-white/80 backdrop-blur-sm">
+          <div className="text-center mb-6 md:mb-8">
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
               Create Your Account
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 text-sm md:text-base">
               {hasGuestData() 
                 ? "Continue your career journey and save your progress" 
                 : "Start your career exploration journey"
@@ -86,9 +86,9 @@ const Register: React.FC = () => {
             </p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
             {error && (
-              <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+              <div className="p-3 md:p-4 bg-red-50 border border-red-200 rounded-lg">
                 <p className="text-red-600 text-sm text-center">{error}</p>
               </div>
             )}
@@ -105,7 +105,7 @@ const Register: React.FC = () => {
                 required
                 disabled={loading}
                 placeholder="Enter your full name"
-                className="w-full"
+                className="w-full h-11 md:h-12"
               />
             </div>
 
@@ -121,7 +121,7 @@ const Register: React.FC = () => {
                 required
                 disabled={loading}
                 placeholder="Enter your email"
-                className="w-full"
+                className="w-full h-11 md:h-12"
               />
             </div>
 
@@ -137,7 +137,7 @@ const Register: React.FC = () => {
                 required
                 disabled={loading}
                 placeholder="Create a password"
-                className="w-full"
+                className="w-full h-11 md:h-12"
               />
             </div>
 
@@ -153,21 +153,21 @@ const Register: React.FC = () => {
                 required
                 disabled={loading}
                 placeholder="Confirm your password"
-                className="w-full"
+                className="w-full h-11 md:h-12"
               />
             </div>
 
             <Button
               type="submit"
               disabled={loading}
-              className="w-full py-3 text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all duration-200"
+              className="w-full h-11 md:h-12 py-3 text-base md:text-lg font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 transition-all duration-200"
             >
               {loading ? 'Creating Account...' : 'Create Account'}
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
-            <p className="text-gray-600">
+          <div className="mt-4 md:mt-6 text-center">
+            <p className="text-gray-600 text-sm md:text-base">
               Already have an account?{' '}
               <Link 
                 to="/login" 

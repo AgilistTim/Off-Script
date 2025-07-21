@@ -31,10 +31,40 @@ Transform from career suggestion platform to **end-to-end career development eco
 
 ---
 
-### **Phase 2: Action-Oriented Tools** *(Week 3-6)*
-**Goal**: Convert interest discovery into concrete action plans
+### **Phase 2: Action-Oriented Tools & Conversation Continuity** *(Week 3-6)*
+**Goal**: Convert interest discovery into concrete action plans + enable seamless conversation resumption
 
 #### **P0 - Game Changers**
+
+##### **🔄 `conversation_context_management`** - Seamless Resumption
+**Purpose**: Enable users to resume career conversations across sessions with full context
+```typescript
+Parameters: { 
+  user_id: string, 
+  conversation_action: "start" | "resume" | "continue",
+  previous_session_summary?: string,
+  conversation_goals?: string[]
+}
+Returns: {
+  dynamic_variables: ContextVariables,
+  conversation_state: ConversationState,
+  personalized_greeting: string,
+  suggested_topics: string[]
+}
+```
+**Technical Implementation**:
+- **Post-Call Webhooks**: Capture conversation summaries and user insights
+- **State Management**: Store conversation history, preferences, and progress
+- **Dynamic Variables**: Pass relevant context when starting new ElevenLabs sessions
+- **Contextual Updates**: Send real-time context during conversations
+- **Smart Prompting**: Design prompts that naturally continue from previous sessions
+
+**Impact**: Transforms one-off interactions into ongoing career development journeys. Users can pick up exactly where they left off, building deeper relationships with the AI career advisor.
+
+**User Experience**:
+- "Hi [Name], let's continue exploring that UX design career we discussed last week..."
+- "I remember you were interested in sustainable engineering roles. How did that course research go?"
+- "Based on our previous conversation about your math skills, I found some relevant data science opportunities..."
 
 ##### **🎯 `create_action_plan`** - The Transformation Tool
 **Purpose**: Convert career interest into concrete 30/60/90-day plans
