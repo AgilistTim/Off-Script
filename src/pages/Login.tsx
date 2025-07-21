@@ -47,7 +47,14 @@ const Login: React.FC = () => {
       if (userData && userData.role === 'admin') {
         navigate('/admin/videos');
       } else {
-        navigate('/dashboard');
+        // Navigate to dashboard and pass migration result if present
+        navigate('/dashboard', migrationResult ? { 
+          state: { 
+            migrationComplete: true,
+            migrationResult,
+            showWelcome: true
+          }
+        } : undefined);
       }
     } catch (err) {
       setError('Failed to sign in. Please check your credentials.');

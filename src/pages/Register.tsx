@@ -49,7 +49,14 @@ const Register: React.FC = () => {
         console.log('✅ Registration with migration completed:', migrationMessage);
       }
       
-      navigate('/dashboard');
+      // Navigate to dashboard and pass migration result to trigger data refresh
+      navigate('/dashboard', { 
+        state: { 
+          migrationComplete: true,
+          migrationResult,
+          showWelcome: true
+        }
+      });
     } catch (err) {
       setError('Failed to create an account');
       console.error(err);

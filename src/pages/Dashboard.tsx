@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAppStore } from '../stores/useAppStore';
 import { useChatContext } from '../context/ChatContext';
@@ -10,8 +10,8 @@ import VideoCard from '../components/video/VideoCard';
 import CareerGuidancePanel from '../components/career-guidance/CareerGuidancePanel';
 import CareerExplorationOverview from '../components/career-guidance/CareerExplorationOverview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { db } from '../services/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
@@ -104,6 +104,7 @@ const DashboardVideoCard: React.FC<DashboardVideoCardProps> = ({ videoId }) => {
 
 const Dashboard: React.FC = () => {
   const { currentUser } = useAuth();
+  const location = useLocation();
   const { 
     currentThread, 
     currentSummary, 
@@ -132,6 +133,44 @@ const Dashboard: React.FC = () => {
   // New state for current conversation data
   const [combinedPersonProfile, setCombinedPersonProfile] = useState<any | null>(null);
   const [currentCareerCards, setCurrentCareerCards] = useState<any[]>([]);
+  const [dataRefreshKey, setDataRefreshKey] = useState(0); // Force refresh trigger
+
+  // Handle migration completion from router state
+  useEffect(() => {
+    const locationState = location.state as any;
+    if (locationState?.migrationComplete) {
+      console.log('🎉 Migration detected, refreshing dashboard data...');
+      
+      // Clear location state to prevent repeated refreshes
+      window.history.replaceState({}, document.title);
+      
+      // Force refresh all data by incrementing the refresh key
+      setDataRefreshKey(prev => prev + 1);
+      
+      // Show welcome notification
+      if (locationState.showWelcome && locationState.migrationResult) {
+        const { dataTransferred } = locationState.migrationResult;
+        let welcomeMessage = 'Welcome! ';
+        
+        if (dataTransferred.careerCards > 0) {
+          welcomeMessage += `Your ${dataTransferred.careerCards} career discoveries have been saved. `;
+        }
+        if (dataTransferred.conversationMessages > 0) {
+          welcomeMessage += `Your conversation history has been preserved. `;
+        }
+        
+        setNotification({
+          message: welcomeMessage,
+          type: 'success'
+        });
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+          setNotification(null);
+        }, 5000);
+      }
+    }
+  }, [location.state]);
 
   const dismissNotification = () => {
     setNotification(null);
@@ -262,7 +301,7 @@ const Dashboard: React.FC = () => {
     fetchCombinedPersonProfile();
     fetchCurrentCareerCards();
     fetchMigratedPersonProfile();
-  }, [fetchRecommendations, fetchCombinedPersonProfile, fetchCurrentCareerCards, fetchMigratedPersonProfile]);
+  }, [fetchRecommendations, fetchCombinedPersonProfile, fetchCurrentCareerCards, fetchMigratedPersonProfile, dataRefreshKey]);
 
   const handleSelectExploration = async (threadId: string) => {
     try {
