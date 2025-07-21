@@ -178,7 +178,7 @@ const Dashboard: React.FC = () => {
 
   // Fetch combined person profile (current + migrated)
   const fetchCombinedPersonProfile = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUser || loading) return;
     
     try {
       const profile = await careerPathwayService.getCombinedUserProfile(currentUser.uid);
@@ -195,11 +195,11 @@ const Dashboard: React.FC = () => {
     } catch (error) {
       console.error('Error loading combined person profile:', error);
     }
-  }, [currentUser]);
+  }, [currentUser, loading]);
 
   // Fetch current career cards from conversations
   const fetchCurrentCareerCards = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUser || loading) return;
     
     try {
       const cards = await careerPathwayService.getCurrentCareerCards(currentUser.uid);
@@ -208,20 +208,24 @@ const Dashboard: React.FC = () => {
     } catch (error) {
       console.error('Error loading current career cards:', error);
     }
-  }, [currentUser]);
+  }, [currentUser, loading]);
 
   // Enhanced method to check for migration completion and show appropriate notifications
   const checkForMigrationData = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUser || loading) return;
     
     try {
       // Check if user has migration data that might not be immediately visible
       const explorations = await careerPathwayService.getUserCareerExplorations(currentUser.uid);
-      const hasThreadCards = currentCareerCards.length > 0;
+      
+      // Get current career cards count directly to avoid dependency
+      const currentCards = await careerPathwayService.getCurrentCareerCards(currentUser.uid);
+      const hasThreadCards = currentCards.length > 0;
       const hasMigratedCards = explorations.some(exp => exp.threadId.includes('_card_'));
       
       // If we have migrated profile but no visible career cards, show helpful notification
-      if (combinedPersonProfile?.hasMigratedData && !hasThreadCards && !hasMigratedCards) {
+      const profile = await careerPathwayService.getCombinedUserProfile(currentUser.uid);
+      if (profile?.hasMigratedData && !hasThreadCards && !hasMigratedCards) {
         setNotification({
           message: 'Your migrated career discoveries are being processed. They should appear within a few minutes. Try refreshing if they don\'t show up.',
           type: 'info'
@@ -230,11 +234,11 @@ const Dashboard: React.FC = () => {
     } catch (error) {
       console.warn('Could not check migration data status:', error);
     }
-  }, [currentUser, currentCareerCards, combinedPersonProfile]);
+  }, [currentUser, loading]); // Removed state dependencies that cause infinite loops
 
   // Fetch migrated person profile (legacy - now using combined)
   const fetchMigratedPersonProfile = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUser || loading) return;
     
     try {
       const profile = await careerPathwayService.getMigratedPersonProfile(currentUser.uid);
@@ -248,28 +252,21 @@ const Dashboard: React.FC = () => {
         setMigratedPersonProfile(updatedProfile);
         console.log('✅ Loaded migrated person profile:', updatedProfile);
         
-        // After loading migrated profile, check if career cards are visible
-        setTimeout(() => {
-          checkForMigrationData();
-        }, 2000); // Give time for career explorations to load
+        // Check for migration notification (once per load)
+        checkForMigrationData();
       }
     } catch (error) {
       console.error('Error loading migrated person profile:', error);
     }
-  }, [currentUser, checkForMigrationData]);
+  }, [currentUser, loading, checkForMigrationData]);
 
   // Enhanced career card fetching for both current and migrated
   const fetchCareerCardDetails = useCallback(async (threadId: string) => {
-    try {
-      // Check if this is a current career card
-      const currentCard = currentCareerCards.find(card => card.id === threadId);
-      if (currentCard) {
-        setSelectedCareerCard(currentCard);
-        setShowCareerCardModal(true);
-        console.log('✅ Loaded current career card:', currentCard);
-        return;
-      }
+    if (!currentUser || loading) {
+      return;
+    }
 
+    try {
       // Check if this is a migrated career card
       if (threadId.includes('_card_')) {
         const careerCard = await careerPathwayService.getMigratedCareerCard(threadId);
@@ -296,13 +293,12 @@ const Dashboard: React.FC = () => {
         type: 'info'
       });
     }
-  }, [currentCareerCards]);
+  }, [currentUser, loading]); // Removed currentCareerCards dependency
 
   // Fetch video recommendations
   const fetchRecommendations = useCallback(async () => {
-    if (!currentUser) return;
+    if (!currentUser || loading) return;
     
-    setLoading(true);
     try {
       // Fallback to popular videos if no personalized recommendations
       const videosRef = collection(db, 'videos');
@@ -318,17 +314,107 @@ const Dashboard: React.FC = () => {
         message: 'Unable to load video recommendations',
         type: 'info'
       });
-    } finally {
-      setLoading(false);
     }
-  }, [currentUser]);
+  }, [currentUser, loading]);
 
+  // Stable data fetch on mount and when dataRefreshKey changes
   useEffect(() => {
-    fetchRecommendations();
-    fetchCombinedPersonProfile();
-    fetchCurrentCareerCards();
-    fetchMigratedPersonProfile();
-  }, [fetchRecommendations, fetchCombinedPersonProfile, fetchCurrentCareerCards, fetchMigratedPersonProfile, dataRefreshKey]);
+    if (!currentUser) return;
+    
+    let isMounted = true; // Prevent state updates if component unmounts
+    
+    const fetchAllData = async () => {
+      if (loading) return; // Prevent concurrent calls
+      
+      console.log('🔄 Dashboard: Starting data fetch...');
+      setLoading(true);
+      
+      try {
+        // Fetch all data in parallel
+        const [
+          videosResult,
+          combinedProfile,
+          currentCards,
+          migratedProfile
+        ] = await Promise.allSettled([
+          // Fetch video recommendations
+          (async () => {
+            const videosRef = collection(db, 'videos');
+            const videosQuery = query(videosRef, orderBy('views', 'desc'), limit(4));
+            const videosSnapshot = await getDocs(videosQuery);
+            return videosSnapshot.docs.map(doc => doc.id);
+          })(),
+          
+          // Fetch combined profile
+          careerPathwayService.getCombinedUserProfile(currentUser.uid),
+          
+          // Fetch current career cards
+          careerPathwayService.getCurrentCareerCards(currentUser.uid),
+          
+          // Fetch migrated profile
+          careerPathwayService.getMigratedPersonProfile(currentUser.uid)
+        ]);
+        
+        // Only update state if component is still mounted
+        if (!isMounted) return;
+        
+        // Process video recommendations
+        if (videosResult.status === 'fulfilled') {
+          setRecommendedVideos(videosResult.value);
+        }
+        
+        // Process combined profile
+        if (combinedProfile.status === 'fulfilled' && combinedProfile.value) {
+          const updatedProfile = {
+            ...combinedProfile.value,
+            name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+            email: currentUser.email
+          };
+          setCombinedPersonProfile(updatedProfile);
+          console.log('✅ Loaded combined person profile:', updatedProfile);
+        }
+        
+        // Process current career cards
+        if (currentCards.status === 'fulfilled') {
+          setCurrentCareerCards(currentCards.value);
+          console.log('✅ Loaded current career cards:', currentCards.value.length);
+        }
+        
+        // Process migrated profile
+        if (migratedProfile.status === 'fulfilled' && migratedProfile.value) {
+          const updatedProfile = {
+            ...migratedProfile.value,
+            name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+            email: currentUser.email
+          };
+          setMigratedPersonProfile(updatedProfile);
+          console.log('✅ Loaded migrated person profile:', updatedProfile);
+        }
+        
+        console.log('✅ Dashboard: All data fetched successfully');
+        
+      } catch (error) {
+        console.error('❌ Dashboard: Error in data fetch:', error);
+        if (isMounted) {
+          setNotification({
+            message: 'Error loading dashboard data. Please try refreshing.',
+            type: 'info'
+          });
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
+    
+    fetchAllData();
+    
+    // Cleanup function
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser, dataRefreshKey]); // Only depend on stable values
 
   const handleSelectExploration = async (threadId: string) => {
     try {
