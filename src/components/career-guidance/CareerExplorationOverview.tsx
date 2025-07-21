@@ -5,7 +5,7 @@ import careerPathwayService, { CareerExplorationSummary } from '../../services/c
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { Loader2, MessageSquare, ArrowRight, Clock, Star } from 'lucide-react';
+import { Loader2, MessageSquare, ArrowRight, Clock, Star, RefreshCw } from 'lucide-react';
 
 interface CareerExplorationOverviewProps {
   onSelectExploration?: (threadId: string) => void;
@@ -21,30 +21,42 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [directExplorations, setDirectExplorations] = useState<CareerExplorationSummary[]>([]);
+  const [refreshCount, setRefreshCount] = useState(0);
+
+  const loadExplorations = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      
+      if (!currentUser) {
+        setIsLoading(false);
+        return;
+      }
+
+      const explorations = await careerPathwayService.getUserCareerExplorations(currentUser.uid);
+      setDirectExplorations(explorations);
+      
+      // If no migrated career cards found but we expected them, show retry option
+      const hasMigratedCards = explorations.some(exp => exp.threadId.includes('_card_'));
+      if (!hasMigratedCards && refreshCount === 0) {
+        console.log('🔄 No migrated career cards found on first load - they may still be processing');
+      }
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load career explorations');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const loadExplorations = async () => {
-      try {
-        setIsLoading(true);
-        setError(null);
-        
-        if (!currentUser) {
-          setIsLoading(false);
-          return;
-        }
-
-        const explorations = await careerPathwayService.getUserCareerExplorations(currentUser.uid);
-        setDirectExplorations(explorations);
-        
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load career explorations');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     loadExplorations();
-  }, [currentUser]);
+  }, [currentUser, refreshCount]);
+
+  const handleRefresh = () => {
+    setRefreshCount(prev => prev + 1);
+    loadExplorations();
+  };
 
   // Combine direct explorations with current career cards
   const allExplorations = useMemo(() => {
@@ -136,11 +148,31 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
               <CardDescription className="mb-4">
                 Discover personalized career paths by chatting with our AI assistant about your interests, goals, and aspirations.
               </CardDescription>
-              <Button asChild>
-                <a href="/chat" className="inline-flex items-center">
-                  Start Exploring <ArrowRight className="ml-2 h-4 w-4" />
-                </a>
-              </Button>
+              <div className="flex gap-3 justify-center">
+                <Button asChild>
+                  <a href="/chat" className="inline-flex items-center">
+                    Start Exploring <ArrowRight className="ml-2 h-4 w-4" />
+                  </a>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleRefresh}
+                  disabled={isLoading}
+                  className="inline-flex items-center"
+                >
+                  {isLoading ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <RefreshCw className="mr-2 h-4 w-4" />
+                  )}
+                  {isLoading ? 'Loading...' : 'Refresh'}
+                </Button>
+              </div>
+              {refreshCount > 0 && (
+                <p className="text-xs text-gray-500 mt-2">
+                  If your career discoveries don't appear, they may still be processing. Try again in a few minutes.
+                </p>
+              )}
             </div>
           </div>
         </CardContent>
@@ -157,6 +189,20 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
             {allExplorations.length} career {allExplorations.length === 1 ? 'path' : 'paths'} discovered
           </p>
         </div>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={handleRefresh}
+          disabled={isLoading}
+          className="inline-flex items-center"
+        >
+          {isLoading ? (
+            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+          ) : (
+            <RefreshCw className="mr-1 h-3 w-3" />
+          )}
+          {isLoading ? 'Loading...' : 'Refresh'}
+        </Button>
       </div>
       
       <div className="grid gap-4">

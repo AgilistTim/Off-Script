@@ -210,6 +210,28 @@ const Dashboard: React.FC = () => {
     }
   }, [currentUser]);
 
+  // Enhanced method to check for migration completion and show appropriate notifications
+  const checkForMigrationData = useCallback(async () => {
+    if (!currentUser) return;
+    
+    try {
+      // Check if user has migration data that might not be immediately visible
+      const explorations = await careerPathwayService.getUserCareerExplorations(currentUser.uid);
+      const hasThreadCards = currentCareerCards.length > 0;
+      const hasMigratedCards = explorations.some(exp => exp.threadId.includes('_card_'));
+      
+      // If we have migrated profile but no visible career cards, show helpful notification
+      if (combinedPersonProfile?.hasMigratedData && !hasThreadCards && !hasMigratedCards) {
+        setNotification({
+          message: 'Your migrated career discoveries are being processed. They should appear within a few minutes. Try refreshing if they don\'t show up.',
+          type: 'info'
+        });
+      }
+    } catch (error) {
+      console.warn('Could not check migration data status:', error);
+    }
+  }, [currentUser, currentCareerCards, combinedPersonProfile]);
+
   // Fetch migrated person profile (legacy - now using combined)
   const fetchMigratedPersonProfile = useCallback(async () => {
     if (!currentUser) return;
@@ -225,11 +247,16 @@ const Dashboard: React.FC = () => {
         };
         setMigratedPersonProfile(updatedProfile);
         console.log('✅ Loaded migrated person profile:', updatedProfile);
+        
+        // After loading migrated profile, check if career cards are visible
+        setTimeout(() => {
+          checkForMigrationData();
+        }, 2000); // Give time for career explorations to load
       }
     } catch (error) {
       console.error('Error loading migrated person profile:', error);
     }
-  }, [currentUser]);
+  }, [currentUser, checkForMigrationData]);
 
   // Enhanced career card fetching for both current and migrated
   const fetchCareerCardDetails = useCallback(async (threadId: string) => {
