@@ -477,6 +477,203 @@ class CareerPathwayService {
   }
 
   /**
+   * Get current user profile from their chat conversations
+   */
+  async getCurrentUserProfile(userId: string): Promise<any | null> {
+    try {
+      console.log('🔍 CareerPathwayService: Getting current user profile for user:', userId);
+      
+      const { db } = await import('./firebase');
+      const { collection, query, where, orderBy, limit, getDocs } = await import('firebase/firestore');
+      
+      // Get the most recent chat summary with profile data
+      const summaryQuery = query(
+        collection(db, 'chatSummaries'),
+        where('userId', '==', userId),
+        orderBy('createdAt', 'desc'),
+        limit(1)
+      );
+      
+      const summarySnapshot = await getDocs(summaryQuery);
+      
+      if (summarySnapshot.empty) {
+        console.log('No chat summaries found for user');
+        return null;
+      }
+      
+      const doc = summarySnapshot.docs[0];
+      const data = doc.data();
+      
+      console.log('✅ Found current user profile from chat summary');
+      return {
+        interests: data.interests || [],
+        goals: data.careerGoals || [],
+        skills: data.skills || [],
+        values: [], // Not typically in chat summaries
+        careerStage: 'exploring',
+        workStyle: [], // Not typically in chat summaries
+        isCurrent: true,
+        source: 'conversation',
+        lastUpdated: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
+      };
+      
+    } catch (error) {
+      console.error('Error getting current user profile:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get combined user profile (current + migrated)
+   */
+  async getCombinedUserProfile(userId: string): Promise<any | null> {
+    try {
+      console.log('🔍 CareerPathwayService: Getting combined user profile for user:', userId);
+      
+      const [currentProfile, migratedProfile] = await Promise.all([
+        this.getCurrentUserProfile(userId),
+        this.getMigratedPersonProfile(userId)
+      ]);
+      
+      if (!currentProfile && !migratedProfile) {
+        return null;
+      }
+      
+      // Merge profiles, prioritizing current conversation data
+      const combinedProfile = {
+        interests: [...new Set([
+          ...(currentProfile?.interests || []),
+          ...(migratedProfile?.interests || [])
+        ])],
+        goals: [...new Set([
+          ...(currentProfile?.goals || []),
+          ...(migratedProfile?.goals || [])
+        ])],
+        skills: [...new Set([
+          ...(currentProfile?.skills || []),
+          ...(migratedProfile?.skills || [])
+        ])],
+        values: [...new Set([
+          ...(currentProfile?.values || []),
+          ...(migratedProfile?.values || [])
+        ])],
+        careerStage: currentProfile?.careerStage || migratedProfile?.careerStage || 'exploring',
+        workStyle: [...new Set([
+          ...(currentProfile?.workStyle || []),
+          ...(migratedProfile?.workStyle || [])
+        ])],
+        hasBothSources: !!(currentProfile && migratedProfile),
+        hasCurrentData: !!currentProfile,
+        hasMigratedData: !!migratedProfile,
+        lastUpdated: currentProfile?.lastUpdated || migratedProfile?.lastUpdated || new Date()
+      };
+      
+      console.log('✅ Combined user profile created:', {
+        currentData: !!currentProfile,
+        migratedData: !!migratedProfile,
+        totalInterests: combinedProfile.interests.length,
+        totalGoals: combinedProfile.goals.length,
+        totalSkills: combinedProfile.skills.length
+      });
+      
+      return combinedProfile;
+      
+    } catch (error) {
+      console.error('Error getting combined user profile:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get current career cards from thread guidance 
+   */
+  async getCurrentCareerCards(userId: string): Promise<any[]> {
+    try {
+      console.log('🔍 CareerPathwayService: Getting current career cards for user:', userId);
+      
+      const { db } = await import('./firebase');
+      const { collection, query, where, orderBy, getDocs } = await import('firebase/firestore');
+      
+      const careerCards: any[] = [];
+      
+      // Get career cards from thread guidance
+      const guidanceQuery = query(
+        collection(db, 'threadCareerGuidance'),
+        where('userId', '==', userId),
+        orderBy('updatedAt', 'desc')
+      );
+      
+      const guidanceSnapshot = await getDocs(guidanceQuery);
+      
+      for (const doc of guidanceSnapshot.docs) {
+        const data = doc.data();
+        
+        if (data.guidance?.alternativePathways) {
+          data.guidance.alternativePathways.forEach((pathway: any) => {
+            careerCards.push({
+              id: `guidance-${doc.id}-${pathway.title.toLowerCase().replace(/\s/g, '-')}`,
+              title: pathway.title,
+              description: pathway.description,
+              industry: pathway.industry || 'Technology',
+              averageSalary: pathway.averageSalary || {
+                entry: '£25,000',
+                experienced: '£35,000', 
+                senior: '£50,000'
+              },
+              growthOutlook: pathway.growthOutlook || 'Growing demand',
+              keySkills: pathway.requiredSkills || [],
+              trainingPathways: pathway.trainingPathways || [],
+              nextSteps: pathway.nextSteps || [],
+              confidence: pathway.match || 80,
+              workEnvironment: pathway.workEnvironment || 'Office-based',
+              entryRequirements: pathway.entryRequirements || [],
+              location: 'UK',
+              isCurrent: true,
+              source: 'conversation_guidance',
+              threadId: data.threadId
+            });
+          });
+        }
+        
+        // Also include primary pathway
+        if (data.guidance?.primaryPathway) {
+          const primary = data.guidance.primaryPathway;
+          careerCards.push({
+            id: `guidance-${doc.id}-primary`,
+            title: primary.title,
+            description: primary.description,
+            industry: primary.industry || 'Technology',
+            averageSalary: primary.averageSalary || {
+              entry: '£25,000',
+              experienced: '£35,000',
+              senior: '£50,000'
+            },
+            growthOutlook: primary.growthOutlook || 'Growing demand',
+            keySkills: primary.requiredSkills || [],
+            trainingPathways: primary.trainingPathways || [],
+            nextSteps: primary.nextSteps || [],
+            confidence: primary.match || 85,
+            workEnvironment: primary.workEnvironment || 'Office-based',
+            entryRequirements: primary.entryRequirements || [],
+            location: 'UK',
+            isCurrent: true,
+            source: 'conversation_guidance',
+            threadId: data.threadId,
+            isPrimary: true
+          });
+        }
+      }
+      
+      console.log('✅ Found current career cards:', careerCards.length);
+      return careerCards;
+      
+    } catch (error) {
+      console.error('Error getting current career cards:', error);
+      return [];
+    }
+  }
+
+  /**
    * Delete career guidance for a specific thread
    */
   async deleteThreadCareerGuidance(threadId: string, userId: string): Promise<void> {

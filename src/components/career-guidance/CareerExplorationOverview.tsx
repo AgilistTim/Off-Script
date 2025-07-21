@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useChatContext } from '../../context/ChatContext';
 import { useAuth } from '../../context/AuthContext';
 import careerPathwayService, { CareerExplorationSummary } from '../../services/careerPathwayService';
@@ -9,9 +9,13 @@ import { Loader2, MessageSquare, ArrowRight, Clock, Star } from 'lucide-react';
 
 interface CareerExplorationOverviewProps {
   onSelectExploration?: (threadId: string) => void;
+  currentCareerCards?: any[]; // Add prop for current career cards
 }
 
-const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({ onSelectExploration }) => {
+const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({ 
+  onSelectExploration, 
+  currentCareerCards = [] 
+}) => {
   const { careerExplorations } = useChatContext();
   const { currentUser } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
@@ -42,8 +46,26 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({ o
     loadExplorations();
   }, [currentUser]);
 
-  // Use direct explorations or fallback to ChatContext ones
-  const explorationsToShow = directExplorations.length > 0 ? directExplorations : careerExplorations;
+  // Combine direct explorations with current career cards
+  const allExplorations = useMemo(() => {
+    const explorations = directExplorations.length > 0 ? directExplorations : careerExplorations;
+    
+    // Add current career cards as exploration items
+    const currentCardExplorations = currentCareerCards.map(card => ({
+      threadId: card.id,
+      threadTitle: card.title,
+      primaryCareerPath: card.title,
+      lastUpdated: new Date(),
+      match: card.confidence || 80,
+      description: card.description,
+      isCurrent: true,
+      source: card.source
+    }));
+    
+    // Combine and sort by last updated
+    const combined = [...explorations, ...currentCardExplorations];
+    return combined.sort((a, b) => b.lastUpdated.getTime() - a.lastUpdated.getTime());
+  }, [directExplorations, careerExplorations, currentCareerCards]);
 
   const formatDate = (date: Date | any) => {
     const now = new Date();
@@ -101,7 +123,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({ o
     );
   }
 
-  if (explorationsToShow.length === 0) {
+  if (allExplorations.length === 0) {
     return (
       <Card>
         <CardContent className="p-6 text-center">
@@ -130,15 +152,15 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({ o
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900">Your Career Explorations</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Your Career Discoveries</h3>
           <p className="text-sm text-gray-500 mt-1">
-            {explorationsToShow.length} career {explorationsToShow.length === 1 ? 'path' : 'paths'} discovered
+            {allExplorations.length} career {allExplorations.length === 1 ? 'path' : 'paths'} discovered
           </p>
         </div>
       </div>
       
       <div className="grid gap-4">
-        {explorationsToShow.map((exploration) => (
+        {allExplorations.map((exploration) => (
           <div
             key={exploration.threadId}
             className="bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 cursor-pointer group"
@@ -157,6 +179,11 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({ o
                 <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
                   {exploration.match}% match
                 </div>
+                {(exploration as any).isCurrent && (
+                  <div className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                    Current
+                  </div>
+                )}
               </div>
             </div>
 

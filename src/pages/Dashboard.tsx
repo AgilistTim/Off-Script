@@ -129,11 +129,49 @@ const Dashboard: React.FC = () => {
   const [selectedCareerCard, setSelectedCareerCard] = useState<any | null>(null);
   const [showCareerCardModal, setShowCareerCardModal] = useState(false);
 
+  // New state for current conversation data
+  const [combinedPersonProfile, setCombinedPersonProfile] = useState<any | null>(null);
+  const [currentCareerCards, setCurrentCareerCards] = useState<any[]>([]);
+
   const dismissNotification = () => {
     setNotification(null);
   };
 
-  // Fetch migrated person profile
+  // Fetch combined person profile (current + migrated)
+  const fetchCombinedPersonProfile = useCallback(async () => {
+    if (!currentUser) return;
+    
+    try {
+      const profile = await careerPathwayService.getCombinedUserProfile(currentUser.uid);
+      if (profile) {
+        // Update with user's actual name from registration
+        const updatedProfile = {
+          ...profile,
+          name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+          email: currentUser.email
+        };
+        setCombinedPersonProfile(updatedProfile);
+        console.log('✅ Loaded combined person profile:', updatedProfile);
+      }
+    } catch (error) {
+      console.error('Error loading combined person profile:', error);
+    }
+  }, [currentUser]);
+
+  // Fetch current career cards from conversations
+  const fetchCurrentCareerCards = useCallback(async () => {
+    if (!currentUser) return;
+    
+    try {
+      const cards = await careerPathwayService.getCurrentCareerCards(currentUser.uid);
+      setCurrentCareerCards(cards);
+      console.log('✅ Loaded current career cards:', cards.length);
+    } catch (error) {
+      console.error('Error loading current career cards:', error);
+    }
+  }, [currentUser]);
+
+  // Fetch migrated person profile (legacy - now using combined)
   const fetchMigratedPersonProfile = useCallback(async () => {
     if (!currentUser) return;
     
@@ -154,28 +192,45 @@ const Dashboard: React.FC = () => {
     }
   }, [currentUser]);
 
-  // Fetch career card details for migrated cards
-  const fetchMigratedCareerCard = useCallback(async (threadId: string) => {
+  // Enhanced career card fetching for both current and migrated
+  const fetchCareerCardDetails = useCallback(async (threadId: string) => {
     try {
-      const careerCard = await careerPathwayService.getMigratedCareerCard(threadId);
-      if (careerCard) {
-        setSelectedCareerCard(careerCard);
+      // Check if this is a current career card
+      const currentCard = currentCareerCards.find(card => card.id === threadId);
+      if (currentCard) {
+        setSelectedCareerCard(currentCard);
         setShowCareerCardModal(true);
-        console.log('✅ Loaded migrated career card:', careerCard);
+        console.log('✅ Loaded current career card:', currentCard);
+        return;
+      }
+
+      // Check if this is a migrated career card
+      if (threadId.includes('_card_')) {
+        const careerCard = await careerPathwayService.getMigratedCareerCard(threadId);
+        if (careerCard) {
+          setSelectedCareerCard(careerCard);
+          setShowCareerCardModal(true);
+          console.log('✅ Loaded migrated career card:', careerCard);
+        } else {
+          setNotification({
+            message: 'Could not load career card details. This may be from an older migration.',
+            type: 'info'
+          });
+        }
       } else {
         setNotification({
-          message: 'Could not load career card details. This may be from an older migration.',
+          message: 'This career discovery was from your conversation. Start a new conversation to explore it further!',
           type: 'info'
         });
       }
     } catch (error) {
-      console.error('Error loading migrated career card:', error);
+      console.error('Error loading career card:', error);
       setNotification({
         message: 'Error loading career card details.',
         type: 'info'
       });
     }
-  }, []);
+  }, [currentCareerCards]);
 
   // Fetch video recommendations
   const fetchRecommendations = useCallback(async () => {
@@ -204,21 +259,14 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchRecommendations();
+    fetchCombinedPersonProfile();
+    fetchCurrentCareerCards();
     fetchMigratedPersonProfile();
-  }, [fetchRecommendations, fetchMigratedPersonProfile]);
+  }, [fetchRecommendations, fetchCombinedPersonProfile, fetchCurrentCareerCards, fetchMigratedPersonProfile]);
 
   const handleSelectExploration = async (threadId: string) => {
     try {
-      // Check if this is a migrated career card (has compound key format)
-      if (threadId.includes('_card_')) {
-        // This is a migrated career exploration, fetch and show career card details
-        await fetchMigratedCareerCard(threadId);
-        return;
-      }
-      
-      // Try to select the thread (this will work for normal chat-based explorations)
-      await selectThread(threadId);
-      setActiveTab('current-path');
+      await fetchCareerCardDetails(threadId);
     } catch (error) {
       console.log('Thread not found, likely a migrated career exploration:', threadId);
       
@@ -398,7 +446,7 @@ const Dashboard: React.FC = () => {
         </div>
         
         {/* Person Profile Section */}
-        {migratedPersonProfile && (
+        {combinedPersonProfile && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -413,18 +461,31 @@ const Dashboard: React.FC = () => {
                   <div>
                     <CardTitle className="text-xl">Your Profile</CardTitle>
                     <CardDescription>
-                      Insights from your career exploration{migratedPersonProfile.isMigrated && ' (migrated from guest session)'}
+                      Insights from your career exploration
+                      {combinedPersonProfile.hasBothSources && ' (current conversations + guest session)'}
+                      {combinedPersonProfile.hasCurrentData && !combinedPersonProfile.hasMigratedData && ' (from conversations)'}
+                      {!combinedPersonProfile.hasCurrentData && combinedPersonProfile.hasMigratedData && ' (migrated from guest session)'}
                     </CardDescription>
                   </div>
+                  {combinedPersonProfile.hasBothSources && (
+                    <div className="flex space-x-2">
+                      <Badge variant="default" className="text-xs">
+                        Current Data
+                      </Badge>
+                      <Badge variant="outline" className="text-xs">
+                        Guest Session
+                      </Badge>
+                    </div>
+                  )}
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {migratedPersonProfile.interests && migratedPersonProfile.interests.length > 0 && (
+                  {combinedPersonProfile.interests && combinedPersonProfile.interests.length > 0 && (
                     <div>
                       <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Interests</h4>
                       <div className="flex flex-wrap gap-1">
-                        {migratedPersonProfile.interests.map((interest: string, index: number) => (
+                        {combinedPersonProfile.interests.map((interest: string, index: number) => (
                           <Badge key={index} variant="outline" className="text-xs">
                             {interest}
                           </Badge>
@@ -433,11 +494,11 @@ const Dashboard: React.FC = () => {
                     </div>
                   )}
                   
-                  {migratedPersonProfile.goals && migratedPersonProfile.goals.length > 0 && (
+                  {combinedPersonProfile.goals && combinedPersonProfile.goals.length > 0 && (
                     <div>
                       <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Goals</h4>
                       <div className="flex flex-wrap gap-1">
-                        {migratedPersonProfile.goals.map((goal: string, index: number) => (
+                        {combinedPersonProfile.goals.map((goal: string, index: number) => (
                           <Badge key={index} variant="outline" className="text-xs">
                             {goal}
                           </Badge>
@@ -446,11 +507,11 @@ const Dashboard: React.FC = () => {
                     </div>
                   )}
                   
-                  {migratedPersonProfile.skills && migratedPersonProfile.skills.length > 0 && (
+                  {combinedPersonProfile.skills && combinedPersonProfile.skills.length > 0 && (
                     <div>
                       <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Skills</h4>
                       <div className="flex flex-wrap gap-1">
-                        {migratedPersonProfile.skills.map((skill: string, index: number) => (
+                        {combinedPersonProfile.skills.map((skill: string, index: number) => (
                           <Badge key={index} variant="outline" className="text-xs">
                             {skill}
                           </Badge>
@@ -459,11 +520,11 @@ const Dashboard: React.FC = () => {
                     </div>
                   )}
                   
-                  {migratedPersonProfile.values && migratedPersonProfile.values.length > 0 && (
+                  {combinedPersonProfile.values && combinedPersonProfile.values.length > 0 && (
                     <div>
                       <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Values</h4>
                       <div className="flex flex-wrap gap-1">
-                        {migratedPersonProfile.values.map((value: string, index: number) => (
+                        {combinedPersonProfile.values.map((value: string, index: number) => (
                           <Badge key={index} variant="outline" className="text-xs">
                             {value}
                           </Badge>
@@ -500,6 +561,7 @@ const Dashboard: React.FC = () => {
             <CardContent>
               <CareerExplorationOverview 
                 onSelectExploration={handleSelectExploration}
+                currentCareerCards={currentCareerCards}
               />
             </CardContent>
           </Card>
