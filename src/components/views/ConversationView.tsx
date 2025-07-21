@@ -21,6 +21,9 @@ import { Button } from '../ui/button';
 import { RegistrationPrompt } from '../conversation/RegistrationPrompt';
 import { PersonCard } from '../conversation/PersonCard';
 
+// Import guest session service
+import { guestSessionService } from '../../services/guestSessionService';
+
 interface PersonProfile {
   interests: string[];
   goals: string[];
@@ -309,6 +312,16 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         allTitles: deduplicated.map(card => card.title)
       });
       
+      // Save to guest session if user is not logged in
+      if (!currentUser && newCards.length > 0) {
+        try {
+          guestSessionService.addCareerCards(newCards);
+          console.log('💾 Saved career cards to guest session');
+        } catch (error) {
+          console.error('Failed to save career cards to guest session:', error);
+        }
+      }
+      
       // Log toast trigger conditions
       console.log('🍞 Toast trigger check after cards update:', {
         newCardsCount: deduplicated.length,
@@ -365,6 +378,22 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
       if (!prev) {
         // No existing profile, use normalized new one
         console.log('👤 No existing profile, creating new one');
+        
+        // Save to guest session if user is not logged in
+        if (!currentUser) {
+          try {
+            // Convert to guest session format
+            const guestProfile = {
+              ...normalizedNewProfile,
+              careerStage: normalizedNewProfile.careerStage as "exploring" | "deciding" | "transitioning" | "advancing"
+            };
+            guestSessionService.updatePersonProfile(guestProfile);
+            console.log('💾 Saved new person profile to guest session');
+          } catch (error) {
+            console.error('Failed to save person profile to guest session:', error);
+          }
+        }
+        
         return normalizedNewProfile;
       }
       
@@ -400,9 +429,24 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         merged: mergedProfile
       });
       
+      // Save merged profile to guest session if user is not logged in
+      if (!currentUser) {
+        try {
+          // Convert to guest session format
+          const guestProfile = {
+            ...mergedProfile,
+            careerStage: mergedProfile.careerStage as "exploring" | "deciding" | "transitioning" | "advancing"
+          };
+          guestSessionService.updatePersonProfile(guestProfile);
+          console.log('💾 Saved updated person profile to guest session');
+        } catch (error) {
+          console.error('Failed to save updated person profile to guest session:', error);
+        }
+      }
+      
       return mergedProfile;
     });
-  }, []);
+  }, [currentUser]); // Added currentUser dependency
 
   // Handle person profile updates from the PersonCard component
   const handlePersonProfileUpdate = useCallback((profile: PersonProfile) => {

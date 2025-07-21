@@ -139,42 +139,43 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({ o
       
       <div className="grid gap-4">
         {explorationsToShow.map((exploration) => (
-          <Card 
+          <div
             key={exploration.threadId}
-            className="cursor-pointer transition-all hover:shadow-md border-2 hover:border-blue-200"
+            className="bg-gradient-to-br from-white to-gray-50 border border-gray-200 rounded-lg p-4 hover:shadow-md transition-all duration-200 cursor-pointer group"
             onClick={() => onSelectExploration?.(exploration.threadId)}
           >
-            <CardHeader className="pb-3">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <CardTitle className="text-base font-medium text-gray-900 mb-2">
-                    {exploration.threadTitle}
-                  </CardTitle>
-                  <CardDescription className="text-sm">
-                    {exploration.description}
-                  </CardDescription>
-                </div>
-                <Badge 
-                  variant={getMatchVariant(exploration.match)}
-                  className={`ml-4 ${getMatchColor(exploration.match)}`}
-                >
-                  <Star className="w-3 h-3 mr-1" />
-                  {exploration.match}% Match
-                </Badge>
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1">
+                <h4 className="font-semibold text-gray-800 group-hover:text-blue-600 transition-colors">
+                  {exploration.primaryCareerPath}
+                </h4>
+                <p className="text-sm text-gray-600 mt-1">
+                  {exploration.threadTitle}
+                </p>
               </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="flex items-center justify-between text-sm text-gray-500">
-                <div className="flex items-center space-x-4">
-                  <span className="font-medium text-gray-700">{exploration.primaryCareerPath}</span>
-                </div>
-                <div className="flex items-center space-x-1">
-                  <Clock className="w-3 h-3" />
-                  <span>{formatDate(exploration.lastUpdated)}</span>
+              <div className="flex items-center space-x-2">
+                <div className="bg-green-100 text-green-800 text-xs px-2 py-1 rounded-full">
+                  {exploration.match}% match
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+
+            <p className="text-gray-700 text-sm mb-3 line-clamp-2">
+              {exploration.description}
+            </p>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-1">
+                <Clock className="w-4 h-4 text-gray-500" />
+                <span className="text-sm text-gray-600">
+                  {formatDate(exploration.lastUpdated)}
+                </span>
+              </div>
+              <div className="text-xs text-gray-400">
+                Click for details →
+              </div>
+            </div>
+          </div>
         ))}
       </div>
     </div>

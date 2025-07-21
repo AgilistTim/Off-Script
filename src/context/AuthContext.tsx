@@ -11,22 +11,26 @@ import {
 import { auth, googleProvider } from '../services/firebase';
 import { createUserDocument, getUserById } from '../services/userService';
 import { User } from '../models/User';
+import { guestSessionService } from '../services/guestSessionService';
+import GuestMigrationService from '../services/guestMigrationService';
 
 interface AuthContextType {
   currentUser: FirebaseUser | null;
   userData: User | null;
   loading: boolean;
-  signUp: (email: string, password: string, displayName: string) => Promise<FirebaseUser>;
-  signIn: (email: string, password: string) => Promise<FirebaseUser>;
+  signUp: (email: string, password: string, displayName: string) => Promise<{ user: FirebaseUser; migrationResult: any }>;
+  signIn: (email: string, password: string) => Promise<{ user: FirebaseUser; migrationResult: any }>;
   logout: () => Promise<void>;
   refreshUserData: () => Promise<User | null>;
+  hasGuestData: () => boolean;
+  getGuestDataPreview: () => any;
 }
 
-const AuthContext = createContext<AuthContextType | null>(null);
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (!context) {
+  if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
@@ -63,7 +67,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // Create a new user with email and password
-  const signUp = async (email: string, password: string, displayName: string): Promise<FirebaseUser> => {
+  const signUp = async (email: string, password: string, displayName: string): Promise<{ user: FirebaseUser; migrationResult: any }> => {
+    // Capture guest session before creating account
+    const guestSession = guestSessionService.getGuestSession();
+    const hasGuestData = guestSessionService.hasSignificantData();
+    
+    console.log('🔄 SignUp: Guest data available:', hasGuestData);
+    if (hasGuestData) {
+      console.log('📊 Guest data preview:', GuestMigrationService.getGuestDataPreview());
+    }
+
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     
     // Update profile with display name
@@ -76,12 +89,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       displayName,
       userCredential.user.photoURL
     );
+
+    // Migrate guest data if available
+    let migrationResult = null;
+    if (hasGuestData) {
+      try {
+        console.log('🔄 Starting guest data migration for new user:', userCredential.user.uid);
+        migrationResult = await GuestMigrationService.migrateGuestToRegisteredUser(
+          userCredential.user.uid,
+          guestSession,
+          'registration'
+        );
+        
+        if (migrationResult) {
+          console.log('✅ Guest data migration completed:', migrationResult);
+        }
+      } catch (migrationError) {
+        console.error('⚠️ Guest data migration failed (registration continues):', migrationError);
+        // Don't fail registration if migration fails
+      }
+    }
     
-    return userCredential.user;
+    return { user: userCredential.user, migrationResult };
   };
 
   // Sign in with email and password
-  const signIn = async (email: string, password: string): Promise<FirebaseUser> => {
+  const signIn = async (email: string, password: string): Promise<{ user: FirebaseUser; migrationResult: any }> => {
+    // Capture guest session before login
+    const guestSession = guestSessionService.getGuestSession();
+    const hasGuestData = guestSessionService.hasSignificantData();
+    
+    console.log('🔄 SignIn: Guest data available:', hasGuestData);
+
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
     
     // Update user document in Firestore
@@ -91,12 +130,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       userCredential.user.displayName,
       userCredential.user.photoURL
     );
+
+    // Handle guest data migration if available
+    let migrationResult = null;
+    if (hasGuestData) {
+      try {
+        // Ask user if they want to merge guest data
+        const shouldMerge = window.confirm(
+          `We found ${guestSession.careerCards.length} career cards and conversation history from your recent browsing. Would you like to save this to your account?`
+        );
+        
+        if (shouldMerge) {
+          console.log('🔄 Starting guest data migration for existing user:', userCredential.user.uid);
+          migrationResult = await GuestMigrationService.migrateGuestToRegisteredUser(
+            userCredential.user.uid,
+            guestSession,
+            'login'
+          );
+          
+          if (migrationResult) {
+            console.log('✅ Guest data migration completed:', migrationResult);
+          }
+        } else {
+          // User declined migration, clear guest session
+          guestSessionService.clearSession();
+          console.log('❌ User declined guest data migration, session cleared');
+        }
+      } catch (migrationError) {
+        console.error('⚠️ Guest data migration failed (login continues):', migrationError);
+        // Don't fail login if migration fails
+      }
+    }
     
-    return userCredential.user;
+    return { user: userCredential.user, migrationResult };
   };
 
   // Sign in with Google
   const signInWithGoogle = async (): Promise<FirebaseUser> => {
+    // Capture guest session before Google login
+    const guestSession = guestSessionService.getGuestSession();
+    const hasGuestData = guestSessionService.hasSignificantData();
+
     const userCredential = await signInWithPopup(auth, googleProvider);
     
     // Update user document in Firestore
@@ -106,6 +180,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       userCredential.user.displayName,
       userCredential.user.photoURL
     );
+
+    // Handle guest data migration for Google sign-in
+    if (hasGuestData) {
+      try {
+        console.log('🔄 Starting guest data migration for Google user:', userCredential.user.uid);
+        await GuestMigrationService.migrateGuestToRegisteredUser(
+          userCredential.user.uid,
+          guestSession,
+          'login'
+        );
+      } catch (migrationError) {
+        console.error('⚠️ Guest data migration failed (Google login continues):', migrationError);
+      }
+    }
     
     return userCredential.user;
   };
@@ -114,6 +202,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = async (): Promise<void> => {
     setUserData(null);
     return await signOut(auth);
+  };
+
+  // Guest data helper methods
+  const hasGuestData = (): boolean => {
+    return GuestMigrationService.hasGuestDataToMigrate();
+  };
+
+  const getGuestDataPreview = () => {
+    return GuestMigrationService.getGuestDataPreview();
   };
 
   // Listen for auth state changes
@@ -140,7 +237,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signIn,
     logout,
-    refreshUserData
+    refreshUserData,
+    hasGuestData,
+    getGuestDataPreview
   };
 
   return (

@@ -71,32 +71,18 @@ const Header: React.FC = () => {
 
           <nav className="hidden md:flex space-x-8">
             <Link 
-              to="/explore"
-              className="text-gray-700 hover:text-blue-600 transition-colors"
-            >
-              Explore Careers
-            </Link>
-            <Link 
               to="/chat"
-              className="text-gray-700 hover:text-blue-600 transition-colors"
+              className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
             >
-              AI Chat
+              Chat
             </Link>
             {currentUser && (
               <Link 
                 to="/dashboard"
-                className="text-gray-700 hover:text-blue-600 transition-colors"
+                className="text-gray-700 hover:text-blue-600 transition-colors font-medium"
               >
                 Dashboard
               </Link>
-            )}
-            {isHomePage && (
-              <button 
-                onClick={() => scrollToSection('pathways')}
-                className="text-gray-700 hover:text-blue-600 transition-colors"
-              >
-                Alt Pathways
-              </button>
             )}
             {isAdmin && (
               <Link 
@@ -110,9 +96,6 @@ const Header: React.FC = () => {
           </nav>
 
           <div className="flex items-center space-x-4">
-            <Link to="/explore" className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-              <Search className="h-5 w-5" />
-            </Link>
             {currentUser ? (
               <div className="relative">
                 <button 
@@ -171,18 +154,11 @@ const Header: React.FC = () => {
         <div className="md:hidden bg-white border-t border-gray-200">
           <div className="px-2 pt-2 pb-3 space-y-1">
             <Link 
-              to="/explore"
-              className="block w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md"
-              onClick={() => setIsMenuOpen(false)}
-            >
-              Explore Careers
-            </Link>
-            <Link 
               to="/chat"
               className="block w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md"
               onClick={() => setIsMenuOpen(false)}
             >
-              AI Chat
+              Chat
             </Link>
             {currentUser && (
               <Link 
@@ -192,14 +168,6 @@ const Header: React.FC = () => {
               >
                 Dashboard
               </Link>
-            )}
-            {isHomePage && (
-              <button 
-                onClick={() => scrollToSection('pathways')}
-                className="block w-full text-left px-3 py-2 text-gray-700 hover:bg-gray-50 rounded-md"
-              >
-                Alt Pathways
-              </button>
             )}
             {isAdmin && (
               <Link 

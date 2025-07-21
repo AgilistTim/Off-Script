@@ -20,10 +20,28 @@ const Login: React.FC = () => {
     try {
       setError('');
       setLoading(true);
-      await signIn(email, password);
+      
+      // Use the new signIn format that returns migration results
+      const { user, migrationResult } = await signIn(email, password);
+      
+      // Show migration feedback if data was transferred
+      if (migrationResult) {
+        const { dataTransferred } = migrationResult;
+        let migrationMessage = 'Welcome back! ';
+        
+        if (dataTransferred.careerCards > 0) {
+          migrationMessage += `Your ${dataTransferred.careerCards} career discoveries have been saved. `;
+        }
+        if (dataTransferred.conversationMessages > 0) {
+          migrationMessage += `Your conversation history has been preserved. `;
+        }
+        
+        // You could show this as a toast instead of console
+        console.log('✅ Migration completed:', migrationMessage);
+      }
       
       // Check if user is admin
-      const userDoc = await getDoc(doc(db, 'users', auth.currentUser?.uid || ''));
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
       const userData = userDoc.data();
       
       if (userData && userData.role === 'admin') {

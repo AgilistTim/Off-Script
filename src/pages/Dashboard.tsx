@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAppStore } from '../stores/useAppStore';
 import { useChatContext } from '../context/ChatContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Sparkles, Bell, X, GraduationCap, Target, BookOpen, Play } from 'lucide-react';
+import { MessageSquare, Sparkles, Bell, X, GraduationCap, Target, BookOpen, Play, User } from 'lucide-react';
 import { getVideoById } from '../services/videoService';
 import VideoCard from '../components/video/VideoCard';
 import CareerGuidancePanel from '../components/career-guidance/CareerGuidancePanel';
@@ -12,8 +12,10 @@ import CareerExplorationOverview from '../components/career-guidance/CareerExplo
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
+import { Badge } from '../components/ui/badge';
 import { db } from '../services/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
+import careerPathwayService from '../services/careerPathwayService';
 
 // Notification component
 interface NotificationProps {
@@ -121,10 +123,59 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [recommendedVideos, setRecommendedVideos] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
+  
+  // New state for migrated data
+  const [migratedPersonProfile, setMigratedPersonProfile] = useState<any | null>(null);
+  const [selectedCareerCard, setSelectedCareerCard] = useState<any | null>(null);
+  const [showCareerCardModal, setShowCareerCardModal] = useState(false);
 
   const dismissNotification = () => {
     setNotification(null);
   };
+
+  // Fetch migrated person profile
+  const fetchMigratedPersonProfile = useCallback(async () => {
+    if (!currentUser) return;
+    
+    try {
+      const profile = await careerPathwayService.getMigratedPersonProfile(currentUser.uid);
+      if (profile) {
+        // Update with user's actual name from registration
+        const updatedProfile = {
+          ...profile,
+          name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
+          email: currentUser.email
+        };
+        setMigratedPersonProfile(updatedProfile);
+        console.log('✅ Loaded migrated person profile:', updatedProfile);
+      }
+    } catch (error) {
+      console.error('Error loading migrated person profile:', error);
+    }
+  }, [currentUser]);
+
+  // Fetch career card details for migrated cards
+  const fetchMigratedCareerCard = useCallback(async (threadId: string) => {
+    try {
+      const careerCard = await careerPathwayService.getMigratedCareerCard(threadId);
+      if (careerCard) {
+        setSelectedCareerCard(careerCard);
+        setShowCareerCardModal(true);
+        console.log('✅ Loaded migrated career card:', careerCard);
+      } else {
+        setNotification({
+          message: 'Could not load career card details. This may be from an older migration.',
+          type: 'info'
+        });
+      }
+    } catch (error) {
+      console.error('Error loading migrated career card:', error);
+      setNotification({
+        message: 'Error loading career card details.',
+        type: 'info'
+      });
+    }
+  }, []);
 
   // Fetch video recommendations
   const fetchRecommendations = useCallback(async () => {
@@ -153,11 +204,30 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchRecommendations();
-  }, [fetchRecommendations]);
+    fetchMigratedPersonProfile();
+  }, [fetchRecommendations, fetchMigratedPersonProfile]);
 
   const handleSelectExploration = async (threadId: string) => {
-    await selectThread(threadId);
-    setActiveTab('current-path');
+    try {
+      // Check if this is a migrated career card (has compound key format)
+      if (threadId.includes('_card_')) {
+        // This is a migrated career exploration, fetch and show career card details
+        await fetchMigratedCareerCard(threadId);
+        return;
+      }
+      
+      // Try to select the thread (this will work for normal chat-based explorations)
+      await selectThread(threadId);
+      setActiveTab('current-path');
+    } catch (error) {
+      console.log('Thread not found, likely a migrated career exploration:', threadId);
+      
+      // For other types of migrated explorations, show a notification
+      setNotification({
+        message: 'This career discovery was from your guest session. Start a new conversation to explore it further!',
+        type: 'info'
+      });
+    }
   };
 
   if (!currentUser) {
@@ -193,6 +263,120 @@ const Dashboard: React.FC = () => {
         )}
       </AnimatePresence>
 
+      {/* Career Card Modal */}
+      <AnimatePresence>
+        {showCareerCardModal && selectedCareerCard && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                      {selectedCareerCard.title}
+                    </h2>
+                    {selectedCareerCard.isMigrated && (
+                      <Badge variant="outline" className="mt-2">
+                        From Guest Session
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowCareerCardModal(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                
+                <div className="space-y-4">
+                  <p className="text-gray-600 dark:text-gray-300">
+                    {selectedCareerCard.description}
+                  </p>
+                  
+                  {selectedCareerCard.averageSalary && (
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                        Average Salary
+                      </h3>
+                      <div className="grid grid-cols-3 gap-4 text-sm">
+                        <div>
+                          <span className="text-gray-500">Entry:</span><br/>
+                          <span className="font-medium">{selectedCareerCard.averageSalary.entry}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Experienced:</span><br/>
+                          <span className="font-medium">{selectedCareerCard.averageSalary.experienced}</span>
+                        </div>
+                        <div>
+                          <span className="text-gray-500">Senior:</span><br/>
+                          <span className="font-medium">{selectedCareerCard.averageSalary.senior}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedCareerCard.keySkills && selectedCareerCard.keySkills.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                        Key Skills
+                      </h3>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedCareerCard.keySkills.map((skill: string, index: number) => (
+                          <Badge key={index} variant="secondary">
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {selectedCareerCard.trainingPathways && selectedCareerCard.trainingPathways.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                        Training Pathways
+                      </h3>
+                      <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300">
+                        {selectedCareerCard.trainingPathways.map((pathway: string, index: number) => (
+                          <li key={index}>{pathway}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {selectedCareerCard.nextSteps && selectedCareerCard.nextSteps.length > 0 && (
+                    <div>
+                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                        Next Steps
+                      </h3>
+                      <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300">
+                        {selectedCareerCard.nextSteps.map((step: string, index: number) => (
+                          <li key={index}>{step}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-6 flex justify-end">
+                  <Button asChild>
+                    <Link to="/chat">
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Explore Further
+                    </Link>
+                  </Button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Welcome Header */}
         <div className="text-center space-y-4">
@@ -213,165 +397,139 @@ const Dashboard: React.FC = () => {
           </motion.p>
         </div>
         
-        {/* Enhanced Personalized Guidance Section */}
-        <Card className="shadow-lg">
-          <CardHeader>
-            <div className="flex items-center justify-between">
+        {/* Person Profile Section */}
+        {migratedPersonProfile && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+          >
+            <Card className="shadow-lg">
+              <CardHeader>
+                <div className="flex items-center space-x-3">
+                  <div className="p-2 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg">
+                    <User className="h-6 w-6 text-white" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-xl">Your Profile</CardTitle>
+                    <CardDescription>
+                      Insights from your career exploration{migratedPersonProfile.isMigrated && ' (migrated from guest session)'}
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                  {migratedPersonProfile.interests && migratedPersonProfile.interests.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Interests</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {migratedPersonProfile.interests.map((interest: string, index: number) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {interest}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {migratedPersonProfile.goals && migratedPersonProfile.goals.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Goals</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {migratedPersonProfile.goals.map((goal: string, index: number) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {goal}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {migratedPersonProfile.skills && migratedPersonProfile.skills.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Skills</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {migratedPersonProfile.skills.map((skill: string, index: number) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {skill}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {migratedPersonProfile.values && migratedPersonProfile.values.length > 0 && (
+                    <div>
+                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Values</h4>
+                      <div className="flex flex-wrap gap-1">
+                        {migratedPersonProfile.values.map((value: string, index: number) => (
+                          <Badge key={index} variant="outline" className="text-xs">
+                            {value}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </motion.div>
+        )}
+        
+        {/* Career Exploration Overview - Simplified */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card className="shadow-lg">
+            <CardHeader>
               <div className="flex items-center space-x-3">
                 <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
-                  <Sparkles className="h-6 w-6 text-white" />
+                  <GraduationCap className="h-6 w-6 text-white" />
                 </div>
                 <div>
-                  <CardTitle className="text-2xl">Personalized Guidance</CardTitle>
-                  <CardDescription className="text-base">
-                    AI-powered insights tailored to your career aspirations
+                  <CardTitle className="text-xl">Your Career Discoveries</CardTitle>
+                  <CardDescription>
+                    Personalized career paths based on your conversations
                   </CardDescription>
                 </div>
               </div>
-              <Button asChild variant="outline">
-                <Link to="/chat" className="flex items-center space-x-2">
-                  <MessageSquare className="h-4 w-4" />
-                  <span>Chat for more →</span>
+            </CardHeader>
+            <CardContent>
+              <CareerExplorationOverview 
+                onSelectExploration={handleSelectExploration}
+              />
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* Continue Exploring CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.4 }}
+          className="text-center"
+        >
+          <Card className="p-8 bg-gradient-to-br from-blue-50 to-purple-50 border-0 shadow-lg">
+            <div className="space-y-4">
+              <Sparkles className="h-12 w-12 text-blue-600 mx-auto" />
+              <h3 className="text-xl font-semibold text-gray-900">
+                Ready to explore more?
+              </h3>
+              <p className="text-gray-600 max-w-md mx-auto">
+                Continue your career conversation to discover more opportunities and get personalized guidance.
+              </p>
+              <Button size="lg" asChild className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+                <Link to="/chat">
+                  <MessageSquare className="w-5 h-5 mr-2" />
+                  Continue Conversation
                 </Link>
               </Button>
             </div>
-          </CardHeader>
-
-          <CardContent className="p-0">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <div className="border-b border-gray-200 px-3 md:px-6">
-                <TabsList className="grid w-full grid-cols-1 md:grid-cols-3 h-auto md:h-14 bg-gray-50 gap-1 md:gap-0 p-1">
-                  <TabsTrigger 
-                    value="overview"
-                    className="flex items-center justify-center md:space-x-2 text-sm md:text-base py-3 md:py-0 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                  >
-                    <Target className="w-4 h-4 md:w-5 md:h-5" />
-                    <span className="ml-2 md:ml-0">Overview</span>
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="videos"
-                    className="flex items-center justify-center md:space-x-2 text-sm md:text-base py-3 md:py-0 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                  >
-                    <Play className="w-4 h-4 md:w-5 md:h-5" />
-                    <span className="ml-2 md:ml-0">Videos</span>
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="current-path"
-                    className="flex items-center justify-center md:space-x-2 text-sm md:text-base py-3 md:py-0 data-[state=active]:bg-white data-[state=active]:shadow-sm"
-                  >
-                    <GraduationCap className="w-4 h-4 md:w-5 md:h-5" />
-                    <span className="ml-2 md:ml-0">Current Path</span>
-                    {careerGuidance && (
-                      <div className="w-2 h-2 bg-blue-500 rounded-full ml-1"></div>
-                    )}
-                  </TabsTrigger>
-                </TabsList>
-              </div>
-
-              <div className="p-3 md:p-6">
-                <TabsContent value="overview" className="mt-0">
-                  <CareerExplorationOverview onSelectExploration={handleSelectExploration} />
-                </TabsContent>
-
-                <TabsContent value="videos" className="mt-0">
-                  <div className="space-y-4 md:space-y-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                      <div>
-                        <h3 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white">
-                          Recommended Videos
-                        </h3>
-                        <p className="text-sm md:text-base text-gray-600 dark:text-gray-300 mt-1">
-                          Curated content to support your career development
-                        </p>
-                      </div>
-                      <Button 
-                        onClick={fetchRecommendations} 
-                        variant="outline"
-                        disabled={loading}
-                      >
-                        {loading ? 'Loading...' : 'Refresh'}
-                      </Button>
-                    </div>
-                    
-                    {loading ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                        {[1, 2, 3, 4].map((i) => (
-                          <div key={i} className="bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden animate-pulse h-48"></div>
-                        ))}
-                      </div>
-                    ) : recommendedVideos.length > 0 ? (
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                        {recommendedVideos.map((videoId) => (
-                          <DashboardVideoCard key={videoId} videoId={videoId} />
-                        ))}
-                      </div>
-                    ) : (
-                      <Card>
-                        <CardContent className="p-8 text-center">
-                          <div className="space-y-4">
-                            <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                              <Play className="h-6 w-6 text-blue-600" />
-                            </div>
-                            <div>
-                              <CardTitle className="text-lg mb-2">Discover Learning Content</CardTitle>
-                              <CardDescription className="mb-4">
-                                Chat with our AI assistant to get personalized video recommendations based on your interests and career goals.
-                              </CardDescription>
-                              <Button asChild>
-                                <Link to="/chat">
-                                  <MessageSquare className="w-4 h-4 mr-2" />
-                                  Get AI Insights
-                                </Link>
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="current-path" className="mt-0">
-                  {careerGuidance ? (
-                    <CareerGuidancePanel
-                      guidance={careerGuidance}
-                      onRefresh={refreshCareerGuidance}
-                      isLoading={careerGuidanceLoading}
-                    />
-                  ) : (
-                    <Card>
-                      <CardContent className="p-8 text-center">
-                        <div className="space-y-4">
-                          <div className="mx-auto w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center">
-                            <GraduationCap className="h-6 w-6 text-gray-400" />
-                          </div>
-                          <div>
-                            <CardTitle className="text-lg mb-2">No Career Path Selected</CardTitle>
-                            <CardDescription className="mb-4">
-                              Start exploring your career options in the Overview tab or chat with our AI to discover your ideal career path.
-                            </CardDescription>
-                            <div className="flex justify-center space-x-3">
-                              <Button onClick={() => setActiveTab('overview')} variant="outline">
-                                <Target className="w-4 h-4 mr-2" />
-                                View Overview
-                              </Button>
-                              <Button asChild>
-                                <Link to="/chat">
-                                  <MessageSquare className="w-4 h-4 mr-2" />
-                                  Start Exploring
-                                </Link>
-                              </Button>
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </TabsContent>
-              </div>
-            </Tabs>
-          </CardContent>
-        </Card>
+          </Card>
+        </motion.div>
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import { useAuth } from '../../context/AuthContext';
+import { guestSessionService } from '../../services/guestSessionService';
 
 // Helper function to get environment variables from both sources (dev + production)
 const getEnvVar = (key: string): string | undefined => {
@@ -86,7 +87,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       const updated = [...prev, { role, content: content.trim() }];
       console.log(`✅ Added ${role} message. New history length:`, updated.length);
       
-      // TODO: Persist to Firebase for user's conversation history
+      // Save conversation to Firebase for logged-in users
       if (currentUser?.uid) {
         console.log('📝 TODO: Save conversation to Firebase for user:', currentUser.uid);
         // Future implementation:
@@ -96,6 +97,14 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         //   timestamp: new Date(),
         //   conversationId: conversation?.getConversationId?.() || 'unknown'
         // });
+      } else {
+        // Save to guest session for non-logged-in users
+        try {
+          guestSessionService.addConversationMessage(role, content.trim());
+          console.log('💾 Saved message to guest session');
+        } catch (error) {
+          console.error('Failed to save message to guest session:', error);
+        }
       }
       
       return updated;
