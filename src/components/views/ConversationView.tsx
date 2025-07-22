@@ -87,6 +87,9 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   const [showRegistrationPrompt, setShowRegistrationPrompt] = useState(false);
   const [userEngagementCount, setUserEngagementCount] = useState(0);
   
+  // Conversation state tracking
+  const [isConversationActive, setIsConversationActive] = useState(false);
+  
   // Toast nag state
   const [toastNagShown, setToastNagShown] = useState(false);
   const [toastNagDismissed, setToastNagDismissed] = useState(false);
@@ -192,6 +195,68 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     showProgressNagToast();
   }, [showProgressNagToast]);
 
+  // Handle conversation end - show registration toast if user generated valuable data
+  const handleConversationEnd = useCallback((hasGeneratedData: boolean, careerCardCount: number) => {
+    setIsConversationActive(false);
+    
+    // Only show registration prompt if user isn't logged in and generated valuable data
+    if (!currentUser && hasGeneratedData && careerCardCount > 0) {
+      console.log('🎯 ConversationView: Conversation ended with valuable data, showing registration toast');
+      
+      toast((t) => (
+        <div className="flex flex-col space-y-3 p-2 max-w-sm">
+          <div className="flex items-start space-x-3">
+            <div className="text-2xl">💼</div>
+            <div className="flex-1">
+              <div className="font-semibold text-gray-900">Save your career progress!</div>
+              <div className="text-sm text-gray-600 mt-1">
+                You discovered {careerCardCount} career matches in our conversation. Create an account to save them and continue your career journey.
+              </div>
+            </div>
+          </div>
+          
+          <div className="flex space-x-2">
+            <Button
+              onClick={() => {
+                toast.dismiss(t.id);
+                handleRegister();
+              }}
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm py-2 px-3 rounded-md"
+            >
+              Save My Progress
+            </Button>
+            <Button
+              onClick={() => {
+                toast.dismiss(t.id);
+              }}
+              variant="outline"
+              className="text-sm py-2 px-3 rounded-md"
+            >
+              Continue Without Account
+            </Button>
+          </div>
+        </div>
+      ), {
+        duration: 8000, // Auto-dismiss after 8 seconds
+        position: 'top-center',
+        style: {
+          background: 'white',
+          border: '1px solid #e5e7eb',
+          borderRadius: '12px',
+          boxShadow: '0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          padding: '0',
+          maxWidth: '400px'
+        }
+      });
+    }
+  }, [currentUser, handleRegister]);
+
+  // Handle conversation start
+  const handleConversationStart = useCallback(() => {
+    setIsConversationActive(true);
+    console.log('🟢 ConversationView: Conversation started, disabling intrusive prompts');
+  }, []);
+
   // Check if conversation has started based on messages or career cards
   useEffect(() => {
     if (messages && messages.length > 0) {
@@ -205,17 +270,18 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     }
   }, [careerCards]);
 
-  // Toast nag system for account creation after 3 cards
+  // Toast nag system for account creation after 3 cards - only when conversation is NOT active
   useEffect(() => {
     console.log('🍞 Toast nag check:', {
       careerCardsLength: careerCards.length,
       currentUser: !!currentUser,
       toastNagDismissed,
       toastNagShown,
-      shouldTrigger: careerCards.length >= 3 && !currentUser && !toastNagDismissed && !toastNagShown
+      isConversationActive,
+      shouldTrigger: careerCards.length >= 3 && !currentUser && !toastNagDismissed && !toastNagShown && !isConversationActive
     });
 
-    // Only show for unregistered users who haven't dismissed the nag
+    // Only show for unregistered users who haven't dismissed the nag AND conversation is not active
     if (currentUser) {
       console.log('🍞 Toast nag blocked: User is logged in');
       return;
@@ -223,6 +289,11 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     
     if (toastNagDismissed) {
       console.log('🍞 Toast nag blocked: User dismissed it');
+      return;
+    }
+    
+    if (isConversationActive) {
+      console.log('🍞 Toast nag blocked: Conversation is active - will show after disconnect');
       return;
     }
     
@@ -242,11 +313,12 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
       }
     }
 
-    // Trigger after 3 career cards
+    // Trigger after 3 career cards - but only when conversation is not active
     if (careerCards.length >= 3 && !toastNagShown) {
-      console.log('🍞 TRIGGERING TOAST NAG - Career cards >= 3!', {
+      console.log('🍞 TRIGGERING TOAST NAG - Career cards >= 3 and conversation inactive!', {
         careerCardsLength: careerCards.length,
-        toastNagShown
+        toastNagShown,
+        isConversationActive
       });
       
       // Show initial toast immediately
@@ -255,7 +327,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
       
       // Set up recurring reminders every 2 minutes (not too annoying)
       toastNagTimer.current = setInterval(() => {
-        if (!currentUser && !toastNagDismissed) {
+        if (!currentUser && !toastNagDismissed && !isConversationActive) {
           console.log('🍞 Recurring toast nag reminder');
           showProgressNagToast();
         }
@@ -265,7 +337,8 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         careerCardsLength: careerCards.length,
         needsAtLeast: 3,
         toastNagShown,
-        reason: careerCards.length < 3 ? 'Not enough cards' : toastNagShown ? 'Already shown' : 'Unknown'
+        isConversationActive,
+        reason: careerCards.length < 3 ? 'Not enough cards' : toastNagShown ? 'Already shown' : isConversationActive ? 'Conversation active' : 'Unknown'
       });
     }
 
@@ -275,7 +348,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         clearInterval(toastNagTimer.current);
       }
     };
-  }, [careerCards.length, currentUser, toastNagDismissed, toastNagShown]); // Removed showProgressNagToast to break circular dependency
+  }, [careerCards.length, currentUser, toastNagDismissed, toastNagShown, isConversationActive, showProgressNagToast]);
 
   // Handle career cards generated from ElevenLabs widget
   const handleCareerCardsGenerated = useCallback((newCards: CareerCard[]) => {
@@ -460,20 +533,26 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     setUserPersona(persona);
   }, []);
 
-  // Trigger registration prompt immediately when cards are generated
+  // Trigger registration prompt immediately when cards are generated - but NOT during active conversation
   useEffect(() => {
     // Show registration prompt if:
     // 1. User is not logged in
     // 2. They've received career cards (engaged with the system)
     // 3. We haven't shown the prompt yet
     // 4. User hasn't dismissed it in this session
+    // 5. Conversation is NOT currently active (key change)
     const dismissed = sessionStorage.getItem('registration-prompt-dismissed');
     
-    if (!currentUser && careerCards.length > 0 && !showRegistrationPrompt && userEngagementCount >= 1 && !dismissed) {
-      // Show immediately when cards are generated - they've seen the value
+    if (!currentUser && careerCards.length > 0 && !showRegistrationPrompt && userEngagementCount >= 1 && !dismissed && !isConversationActive) {
+      // Show immediately when cards are generated and conversation is not active
+      console.log('🎯 ConversationView: Showing registration prompt - conversation inactive, user has career cards');
       setShowRegistrationPrompt(true);
+    } else if (isConversationActive && showRegistrationPrompt) {
+      // Hide registration prompt if conversation becomes active
+      console.log('🎯 ConversationView: Hiding registration prompt - conversation became active');
+      setShowRegistrationPrompt(false);
     }
-  }, [currentUser, careerCards.length, showRegistrationPrompt, userEngagementCount]);
+  }, [currentUser, careerCards.length, showRegistrationPrompt, userEngagementCount, isConversationActive]);
 
   // Handle dismissing registration prompt
   const handleDismissRegistration = useCallback(() => {
@@ -517,6 +596,8 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
             onCareerCardsGenerated={handleCareerCardsGenerated}
             onPersonProfileGenerated={handlePersonProfileGenerated}
             onAnalysisStateChange={handleAnalysisStateChange}
+            onConversationStart={handleConversationStart}
+            onConversationEnd={handleConversationEnd}
             className="flex-1"
           />
           

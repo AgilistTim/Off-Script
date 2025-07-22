@@ -42,6 +42,8 @@ interface ElevenLabsWidgetProps {
   onCareerCardsGenerated?: (cards: any[]) => void;
   onPersonProfileGenerated?: (profile: PersonProfile) => void;
   onAnalysisStateChange?: (state: { isAnalyzing: boolean; type?: 'career_analysis' | 'profile_update'; progress?: string }) => void;
+  onConversationStart?: () => void;
+  onConversationEnd?: (hasGeneratedData: boolean, careerCardCount: number) => void;
   className?: string;
 }
 
@@ -49,6 +51,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   onCareerCardsGenerated,
   onPersonProfileGenerated,
   onAnalysisStateChange,
+  onConversationStart,
+  onConversationEnd,
   className = ''
 }) => {
   const { currentUser } = useAuth();
@@ -56,6 +60,10 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
   
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  
+  // Track data generated during this conversation session
+  const [sessionCareerCardCount, setSessionCareerCardCount] = useState(0);
+  const [sessionHasGeneratedProfile, setSessionHasGeneratedProfile] = useState(false);
   
   // Use ref to access current conversation history in tool closures
   const conversationHistoryRef = useRef<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
@@ -265,6 +273,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
             };
             
             console.log('👤 Generated user profile from OpenAI analysis:', autoProfile);
+            // Track session progress for conversation end callback
+            setSessionHasGeneratedProfile(true);
             onPersonProfileGenerated(autoProfile);
           } else {
             // OpenAI analysis was insufficient - log but don't generate fake profile
@@ -286,6 +296,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           total: careerCards.length,
           source: 'openai_analysis'
         });
+        // Track session progress for conversation end callback
+        setSessionCareerCardCount(prev => prev + careerCards.length);
         onCareerCardsGenerated(careerCards);
       } else {
         console.log('⚠️ OpenAI analysis did not generate career cards');
@@ -386,6 +398,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
                 };
                 
                 console.log('🎯 Generated enhanced persona profile:', updatedProfile);
+                // Track session progress for conversation end callback
+                setSessionHasGeneratedProfile(true);
                 onPersonProfileGenerated(updatedProfile);
                 
                 // Complete loading state
@@ -412,6 +426,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
             lastUpdated: new Date().toLocaleDateString()
           };
           
+          // Track session progress for conversation end callback
+          setSessionHasGeneratedProfile(true);
           onPersonProfileGenerated(updatedProfile);
           
           // Complete loading state
@@ -430,6 +446,10 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       console.log('🟢 ElevenLabs connected');
       setConnectionStatus('connected');
       setIsConnected(true);
+      // Reset session tracking for new conversation
+      setSessionCareerCardCount(0);
+      setSessionHasGeneratedProfile(false);
+      onConversationStart?.(); // Call the new prop
     },
     onDisconnect: () => {
       console.log('🔴 ElevenLabs disconnected');
@@ -439,6 +459,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       // Note: We deliberately preserve conversation history, career cards, and profile data
       // when disconnecting to maintain user's progress and insights
       console.log('💾 Preserving conversation data and generated insights after disconnect');
+      onConversationEnd?.(sessionHasGeneratedProfile, sessionCareerCardCount);
     },
     onMessage: (message: any) => {
       console.log('📦 Raw message received:', message);
