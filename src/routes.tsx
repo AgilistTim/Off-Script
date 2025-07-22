@@ -25,6 +25,7 @@ const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 // Legacy pages (will be deprecated)
 const NotFound = lazy(() => import('./pages/NotFound'));
 const StyleGuide = lazy(() => import('./components/StyleGuide'));
+const Profile = lazy(() => import('./pages/Profile'));
 
 // Loading fallback
 const LoadingFallback = () => (
@@ -115,7 +116,11 @@ export const router = createBrowserRouter([
       },
       {
         path: 'profile',
-        element: <Navigate to="/dashboard" replace />
+        element: (
+          <ProtectedRoute>
+            <Profile />
+          </ProtectedRoute>
+        )
       },
       // Development/debug pages
       {

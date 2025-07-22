@@ -5,6 +5,11 @@ import { db } from '../services/firebase';
 import { updateUserProfile, updateUserPreferences } from '../services/userService';
 import { UserProfile, UserPreferences } from '../models/User';
 import { motion } from 'framer-motion';
+import { User, Briefcase, Target, TrendingUp, Heart } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
+import careerPathwayService from '../services/careerPathwayService';
 
 const Profile: React.FC = () => {
   const { currentUser, userData, refreshUserData } = useAuth();
@@ -13,6 +18,10 @@ const Profile: React.FC = () => {
   const [isAddingCareerGoal, setIsAddingCareerGoal] = useState(false);
   const [isAddingSkill, setIsAddingSkill] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  
+  // Migrated career insights state
+  const [migratedProfile, setMigratedProfile] = useState<any | null>(null);
+  const [combinedProfile, setCombinedProfile] = useState<any | null>(null);
   
   // Profile form state
   const [profile, setProfile] = useState<Partial<UserProfile>>({
@@ -93,6 +102,31 @@ const Profile: React.FC = () => {
       }
     }
   }, [userData]);
+
+  // Fetch migrated career insights
+  useEffect(() => {
+    const fetchCareerInsights = async () => {
+      if (!currentUser) return;
+      
+      try {
+        // Get migrated profile from career pathway service
+        const migratedData = await careerPathwayService.getMigratedPersonProfile(currentUser.uid);
+        if (migratedData) {
+          setMigratedProfile(migratedData);
+        }
+        
+        // Get combined profile 
+        const combinedData = await careerPathwayService.getCombinedUserProfile(currentUser.uid);
+        if (combinedData) {
+          setCombinedProfile(combinedData);
+        }
+      } catch (error) {
+        console.error('Error fetching career insights:', error);
+      }
+    };
+    
+    fetchCareerInsights();
+  }, [currentUser]);
   
   // Handle profile form submission
   const handleProfileSubmit = async (e: React.FormEvent) => {
@@ -423,293 +457,401 @@ const Profile: React.FC = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="max-w-4xl mx-auto p-4"
+      className="max-w-6xl mx-auto p-4 space-y-6"
     >
-      <h1 className="text-2xl font-bold mb-6">Your Profile</h1>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Your Profile</h1>
       
       {message && (
-        <div className={`p-4 mb-6 rounded ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={`p-4 rounded-lg ${message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
+        >
           {message.text}
-        </div>
+        </motion.div>
       )}
       
-      <div className="flex flex-col md:flex-row gap-8">
+      {/* Career Insights Section */}
+      {(migratedProfile || combinedProfile) && (
+        <Card className="bg-gradient-to-br from-teal-50 to-blue-50 border border-teal-200">
+          <CardHeader className="pb-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-12 h-12 bg-teal-100 rounded-lg flex items-center justify-center">
+                <User className="w-6 h-6 text-teal-600" />
+              </div>
+              <div>
+                <CardTitle className="text-xl text-gray-900">Your Profile</CardTitle>
+                <CardDescription className="text-gray-600">
+                  Insights from your career exploration (migrated from guest session)
+                </CardDescription>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {/* Interests */}
+              {(combinedProfile?.interests || migratedProfile?.interests) && (
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-gray-900 flex items-center">
+                    <Heart className="w-4 h-4 mr-2 text-pink-500" />
+                    Interests
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {(combinedProfile?.interests || migratedProfile?.interests || []).slice(0, 6).map((interest: string, index: number) => (
+                      <Badge key={index} variant="secondary" className="bg-pink-100 text-pink-800 hover:bg-pink-200">
+                        {interest}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Goals */}
+              {(combinedProfile?.goals || migratedProfile?.goals) && (
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-gray-900 flex items-center">
+                    <Target className="w-4 h-4 mr-2 text-blue-500" />
+                    Goals
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {(combinedProfile?.goals || migratedProfile?.goals || []).slice(0, 4).map((goal: string, index: number) => (
+                      <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200">
+                        {goal}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Skills */}
+              {(combinedProfile?.skills || migratedProfile?.skills) && (
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-gray-900 flex items-center">
+                    <Briefcase className="w-4 h-4 mr-2 text-purple-500" />
+                    Skills
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {(combinedProfile?.skills || migratedProfile?.skills || []).slice(0, 5).map((skill: string, index: number) => (
+                      <Badge key={index} variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-200">
+                        {skill}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Values */}
+              {(combinedProfile?.values || migratedProfile?.values) && (
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-gray-900 flex items-center">
+                    <TrendingUp className="w-4 h-4 mr-2 text-green-500" />
+                    Values
+                  </h3>
+                  <div className="flex flex-wrap gap-2">
+                    {(combinedProfile?.values || migratedProfile?.values || []).slice(0, 4).map((value: string, index: number) => (
+                      <Badge key={index} variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-200">
+                        {value}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Profile Information */}
-        <div className="flex-1">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
-            <h2 className="text-xl font-semibold mb-4">Profile Information</h2>
-            
+        <Card>
+          <CardHeader>
+            <CardTitle>Profile Information</CardTitle>
+            <CardDescription>Update your personal details and preferences</CardDescription>
+          </CardHeader>
+          <CardContent>
             <form onSubmit={handleProfileSubmit} className="space-y-4">
               {/* Bio */}
               <div>
-                <label className="block text-sm font-medium mb-1">Bio</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Bio</label>
                 <textarea
                   value={profile.bio || ''}
                   onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-                  className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   rows={3}
+                  placeholder="Tell us a bit about yourself..."
                 />
               </div>
               
               {/* School */}
               <div>
-                <label className="block text-sm font-medium mb-1">School</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">School</label>
                 <input
                   type="text"
                   value={profile.school || ''}
                   onChange={(e) => setProfile({ ...profile, school: e.target.value })}
-                  className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  placeholder="Your school or institution"
                 />
               </div>
               
               {/* Grade */}
               <div>
-                <label className="block text-sm font-medium mb-1">Grade/Year</label>
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Grade/Year</label>
                 <input
                   type="text"
                   value={profile.grade || ''}
                   onChange={(e) => setProfile({ ...profile, grade: e.target.value })}
-                  className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  placeholder="e.g., 11, Year 12, Freshman"
                 />
               </div>
               
               {/* Interests */}
               <div>
-                <label className="block text-sm font-medium mb-1">Interests</label>
-                <div className="flex flex-wrap gap-2 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Interests</label>
+                <div className="flex flex-wrap gap-2 mb-3">
                   {objectToArray(profile.interests).length > 0 ? (
                     objectToArray(profile.interests).map((interest, index) => (
-                      <div key={index} className="bg-blue-100 dark:bg-blue-900 px-3 py-1 rounded-full flex items-center">
-                        <span>{interest}</span>
+                      <Badge key={index} variant="secondary" className="bg-blue-100 text-blue-800 hover:bg-blue-200">
+                        {interest}
                         <button 
                           type="button" 
                           onClick={() => removeInterest(interest)}
-                          className="ml-2 text-red-500 hover:text-red-700"
+                          className="ml-2 text-red-500 hover:text-red-700 font-bold"
                         >
-                          &times;
+                          ×
                         </button>
-                      </div>
+                      </Badge>
                     ))
                   ) : (
                     <div className="text-gray-500 text-sm italic">No interests added yet</div>
                   )}
                 </div>
-                <div className="flex">
+                <div className="flex gap-2">
                   <input
                     type="text"
                     value={newInterest}
                     onChange={(e) => setNewInterest(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addInterest()}
-                    className="flex-1 p-2 border rounded-l dark:bg-gray-700 dark:border-gray-600"
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addInterest())}
+                    className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     placeholder="Add an interest"
                   />
-                  <button
+                  <Button
                     type="button"
                     onClick={addInterest}
                     disabled={isAddingInterest}
-                    className="bg-blue-500 text-white px-4 py-2 rounded-r hover:bg-blue-600 disabled:bg-blue-300"
+                    variant="outline"
+                    size="sm"
                   >
                     {isAddingInterest ? 'Adding...' : 'Add'}
-                  </button>
+                  </Button>
                 </div>
               </div>
               
               {/* Career Goals */}
               <div>
-                <label className="block text-sm font-medium mb-1">Career Goals</label>
-                <div className="flex flex-wrap gap-2 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Career Goals</label>
+                <div className="flex flex-wrap gap-2 mb-3">
                   {objectToArray(profile.careerGoals).length > 0 ? (
                     objectToArray(profile.careerGoals).map((goal, index) => (
-                      <div key={index} className="bg-green-100 dark:bg-green-900 px-3 py-1 rounded-full flex items-center">
-                        <span>{goal}</span>
+                      <Badge key={index} variant="secondary" className="bg-green-100 text-green-800 hover:bg-green-200">
+                        {goal}
                         <button 
                           type="button" 
                           onClick={() => removeCareerGoal(goal)}
-                          className="ml-2 text-red-500 hover:text-red-700"
+                          className="ml-2 text-red-500 hover:text-red-700 font-bold"
                         >
-                          &times;
+                          ×
                         </button>
-                      </div>
+                      </Badge>
                     ))
                   ) : (
                     <div className="text-gray-500 text-sm italic">No career goals added yet</div>
                   )}
                 </div>
-                <div className="flex">
+                <div className="flex gap-2">
                   <input
                     type="text"
                     value={newCareerGoal}
                     onChange={(e) => setNewCareerGoal(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addCareerGoal()}
-                    className="flex-1 p-2 border rounded-l dark:bg-gray-700 dark:border-gray-600"
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addCareerGoal())}
+                    className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     placeholder="Add a career goal"
                   />
-                  <button
+                  <Button
                     type="button"
                     onClick={addCareerGoal}
                     disabled={isAddingCareerGoal}
-                    className="bg-green-500 text-white px-4 py-2 rounded-r hover:bg-green-600 disabled:bg-green-300"
+                    variant="outline" 
+                    size="sm"
                   >
                     {isAddingCareerGoal ? 'Adding...' : 'Add'}
-                  </button>
+                  </Button>
                 </div>
               </div>
               
               {/* Skills */}
               <div>
-                <label className="block text-sm font-medium mb-1">Skills</label>
-                <div className="flex flex-wrap gap-2 mb-2">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Skills</label>
+                <div className="flex flex-wrap gap-2 mb-3">
                   {objectToArray(profile.skills).length > 0 ? (
                     objectToArray(profile.skills).map((skill, index) => (
-                      <div key={index} className="bg-purple-100 dark:bg-purple-900 px-3 py-1 rounded-full flex items-center">
-                        <span>{skill}</span>
+                      <Badge key={index} variant="secondary" className="bg-purple-100 text-purple-800 hover:bg-purple-200">
+                        {skill}
                         <button 
                           type="button" 
                           onClick={() => removeSkill(skill)}
-                          className="ml-2 text-red-500 hover:text-red-700"
+                          className="ml-2 text-red-500 hover:text-red-700 font-bold"
                         >
-                          &times;
+                          ×
                         </button>
-                      </div>
+                      </Badge>
                     ))
                   ) : (
                     <div className="text-gray-500 text-sm italic">No skills added yet</div>
                   )}
                 </div>
-                <div className="flex">
+                <div className="flex gap-2">
                   <input
                     type="text"
                     value={newSkill}
                     onChange={(e) => setNewSkill(e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && addSkill()}
-                    className="flex-1 p-2 border rounded-l dark:bg-gray-700 dark:border-gray-600"
+                    onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addSkill())}
+                    className="flex-1 p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                     placeholder="Add a skill"
                   />
-                  <button
+                  <Button
                     type="button"
                     onClick={addSkill}
                     disabled={isAddingSkill}
-                    className="bg-purple-500 text-white px-4 py-2 rounded-r hover:bg-purple-600 disabled:bg-purple-300"
+                    variant="outline"
+                    size="sm"
                   >
                     {isAddingSkill ? 'Adding...' : 'Add'}
-                  </button>
+                  </Button>
                 </div>
               </div>
               
-              <button
+              <Button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:opacity-50"
+                className="w-full"
               >
                 {loading ? 'Saving...' : 'Save Profile'}
-              </button>
+              </Button>
             </form>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
         
-        {/* Account Settings */}
-        <div className="flex-1">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md mb-6">
-            <h2 className="text-xl font-semibold mb-4">Account Information</h2>
-            
-            <div className="space-y-4">
+        {/* Account Information & Preferences */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Account Information</CardTitle>
+              <CardDescription>Your account details and registration info</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">Email</label>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Email</label>
                 <input
                   type="email"
                   value={currentUser.email || ''}
                   disabled
-                  className="w-full p-2 border rounded bg-gray-100 dark:bg-gray-700 dark:border-gray-600"
+                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-1">Display Name</label>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Display Name</label>
                 <input
                   type="text"
                   value={currentUser.displayName || ''}
                   disabled
-                  className="w-full p-2 border rounded bg-gray-100 dark:bg-gray-700 dark:border-gray-600"
+                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-1">Account Created</label>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Account Created</label>
                 <input
                   type="text"
-                  value={userData?.createdAt ? new Date(userData.createdAt).toLocaleString() : ''}
+                  value={userData?.createdAt ? new Date(userData.createdAt).toLocaleDateString() + ', ' + new Date(userData.createdAt).toLocaleTimeString() : ''}
                   disabled
-                  className="w-full p-2 border rounded bg-gray-100 dark:bg-gray-700 dark:border-gray-600"
+                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium mb-1">Last Login</label>
+                <label className="block text-sm font-medium mb-1 text-gray-700 dark:text-gray-300">Last Login</label>
                 <input
                   type="text"
-                  value={userData?.lastLogin ? new Date(userData.lastLogin).toLocaleString() : ''}
+                  value={userData?.lastLogin ? new Date(userData.lastLogin).toLocaleDateString() + ', ' + new Date(userData.lastLogin).toLocaleTimeString() : ''}
                   disabled
-                  className="w-full p-2 border rounded bg-gray-100 dark:bg-gray-700 dark:border-gray-600"
+                  className="w-full p-3 border border-gray-300 rounded-lg bg-gray-50 text-gray-600 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400"
                 />
               </div>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
           
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-semibold mb-4">Preferences</h2>
-            
-            <form onSubmit={handlePreferencesSubmit} className="space-y-4">
-              {/* Theme */}
-              <div>
-                <label className="block text-sm font-medium mb-1">Theme</label>
-                <select
-                  value={preferences.theme}
-                  onChange={(e) => setPreferences({ ...preferences, theme: e.target.value as 'light' | 'dark' | 'system' })}
-                  className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+          <Card>
+            <CardHeader>
+              <CardTitle>Preferences</CardTitle>
+              <CardDescription>Customize your experience</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={handlePreferencesSubmit} className="space-y-4">
+                {/* Theme */}
+                <div>
+                  <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">Theme</label>
+                  <select
+                    value={preferences.theme}
+                    onChange={(e) => setPreferences({ ...preferences, theme: e.target.value as 'light' | 'dark' | 'system' })}
+                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  >
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                    <option value="system">System</option>
+                  </select>
+                </div>
+                
+                {/* Notifications */}
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    id="notifications"
+                    checked={preferences.notifications}
+                    onChange={(e) => setPreferences({ ...preferences, notifications: e.target.checked })}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                  />
+                  <label htmlFor="notifications" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Enable In-App Notifications
+                  </label>
+                </div>
+                
+                {/* Email Updates */}
+                <div className="flex items-center space-x-3">
+                  <input
+                    type="checkbox"
+                    id="emailUpdates"
+                    checked={preferences.emailUpdates}
+                    onChange={(e) => setPreferences({ ...preferences, emailUpdates: e.target.checked })}
+                    className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                  />
+                  <label htmlFor="emailUpdates" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Receive Email Updates
+                  </label>
+                </div>
+                
+                <Button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full"
                 >
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                  <option value="system">System</option>
-                </select>
-              </div>
-              
-              {/* Notifications */}
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="notifications"
-                  checked={preferences.notifications}
-                  onChange={(e) => setPreferences({ ...preferences, notifications: e.target.checked })}
-                  className="mr-2"
-                />
-                <label htmlFor="notifications" className="text-sm font-medium">
-                  Enable In-App Notifications
-                </label>
-              </div>
-              
-              {/* Email Updates */}
-              <div className="flex items-center">
-                <input
-                  type="checkbox"
-                  id="emailUpdates"
-                  checked={preferences.emailUpdates}
-                  onChange={(e) => setPreferences({ ...preferences, emailUpdates: e.target.checked })}
-                  className="mr-2"
-                />
-                <label htmlFor="emailUpdates" className="text-sm font-medium">
-                  Receive Email Updates
-                </label>
-              </div>
-              
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full bg-blue-600 text-white py-2 px-4 rounded hover:bg-blue-700 disabled:opacity-50"
-              >
-                {loading ? 'Saving...' : 'Save Preferences'}
-              </button>
-            </form>
-          </div>
+                  {loading ? 'Saving...' : 'Save Preferences'}
+                </Button>
+              </form>
+            </CardContent>
+          </Card>
         </div>
       </div>
     </motion.div>
