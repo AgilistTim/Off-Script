@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { useAppStore } from '../stores/useAppStore';
 import { useChatContext } from '../context/ChatContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Sparkles, Bell, X, GraduationCap, Target, BookOpen, Play, User } from 'lucide-react';
+import { MessageSquare, Sparkles, Bell, X, GraduationCap, Target, BookOpen, Play } from 'lucide-react';
 import { getVideoById } from '../services/videoService';
 import VideoCard from '../components/video/VideoCard';
 import CareerGuidancePanel from '../components/career-guidance/CareerGuidancePanel';
@@ -126,12 +126,10 @@ const Dashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState(searchParams.get('tab') || 'overview');
   
   // New state for migrated data
-  const [migratedPersonProfile, setMigratedPersonProfile] = useState<any | null>(null);
   const [selectedCareerCard, setSelectedCareerCard] = useState<any | null>(null);
   const [showCareerCardModal, setShowCareerCardModal] = useState(false);
 
   // New state for current conversation data
-  const [combinedPersonProfile, setCombinedPersonProfile] = useState<any | null>(null);
   const [currentCareerCards, setCurrentCareerCards] = useState<any[]>([]);
   const [dataRefreshKey, setDataRefreshKey] = useState(0); // Force refresh trigger
 
@@ -176,27 +174,6 @@ const Dashboard: React.FC = () => {
     setNotification(null);
   };
 
-  // Fetch combined person profile (current + migrated)
-  const fetchCombinedPersonProfile = useCallback(async () => {
-    if (!currentUser || loading) return;
-    
-    try {
-      const profile = await careerPathwayService.getCombinedUserProfile(currentUser.uid);
-      if (profile) {
-        // Update with user's actual name from registration
-        const updatedProfile = {
-          ...profile,
-          name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-          email: currentUser.email
-        };
-        setCombinedPersonProfile(updatedProfile);
-        console.log('✅ Loaded combined person profile:', updatedProfile);
-      }
-    } catch (error) {
-      console.error('Error loading combined person profile:', error);
-    }
-  }, [currentUser, loading]);
-
   // Fetch current career cards from conversations
   const fetchCurrentCareerCards = useCallback(async () => {
     if (!currentUser || loading) return;
@@ -223,9 +200,8 @@ const Dashboard: React.FC = () => {
       const hasThreadCards = currentCards.length > 0;
       const hasMigratedCards = explorations.some(exp => exp.threadId.includes('_card_'));
       
-      // If we have migrated profile but no visible career cards, show helpful notification
-      const profile = await careerPathwayService.getCombinedUserProfile(currentUser.uid);
-      if (profile?.hasMigratedData && !hasThreadCards && !hasMigratedCards) {
+      // Check if user has migrated data but no visible career cards
+      if (explorations.length > 0 && !hasThreadCards && !hasMigratedCards) {
         setNotification({
           message: 'Your migrated career discoveries are being processed. They should appear within a few minutes. Try refreshing if they don\'t show up.',
           type: 'info'
@@ -235,30 +211,6 @@ const Dashboard: React.FC = () => {
       console.warn('Could not check migration data status:', error);
     }
   }, [currentUser, loading]); // Removed state dependencies that cause infinite loops
-
-  // Fetch migrated person profile (legacy - now using combined)
-  const fetchMigratedPersonProfile = useCallback(async () => {
-    if (!currentUser || loading) return;
-    
-    try {
-      const profile = await careerPathwayService.getMigratedPersonProfile(currentUser.uid);
-      if (profile) {
-        // Update with user's actual name from registration
-        const updatedProfile = {
-          ...profile,
-          name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-          email: currentUser.email
-        };
-        setMigratedPersonProfile(updatedProfile);
-        console.log('✅ Loaded migrated person profile:', updatedProfile);
-        
-        // Check for migration notification (once per load)
-        checkForMigrationData();
-      }
-    } catch (error) {
-      console.error('Error loading migrated person profile:', error);
-    }
-  }, [currentUser, loading, checkForMigrationData]);
 
   // Enhanced career card fetching for both current and migrated
   const fetchCareerCardDetails = useCallback(async (threadId: string) => {
@@ -333,9 +285,7 @@ const Dashboard: React.FC = () => {
         // Fetch all data in parallel
         const [
           videosResult,
-          combinedProfile,
-          currentCards,
-          migratedProfile
+          currentCards
         ] = await Promise.allSettled([
           // Fetch video recommendations
           (async () => {
@@ -345,14 +295,8 @@ const Dashboard: React.FC = () => {
             return videosSnapshot.docs.map(doc => doc.id);
           })(),
           
-          // Fetch combined profile
-          careerPathwayService.getCombinedUserProfile(currentUser.uid),
-          
           // Fetch current career cards
-          careerPathwayService.getCurrentCareerCards(currentUser.uid),
-          
-          // Fetch migrated profile
-          careerPathwayService.getMigratedPersonProfile(currentUser.uid)
+          careerPathwayService.getCurrentCareerCards(currentUser.uid)
         ]);
         
         // Only update state if component is still mounted
@@ -363,32 +307,10 @@ const Dashboard: React.FC = () => {
           setRecommendedVideos(videosResult.value);
         }
         
-        // Process combined profile
-        if (combinedProfile.status === 'fulfilled' && combinedProfile.value) {
-          const updatedProfile = {
-            ...combinedProfile.value,
-            name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-            email: currentUser.email
-          };
-          setCombinedPersonProfile(updatedProfile);
-          console.log('✅ Loaded combined person profile:', updatedProfile);
-        }
-        
         // Process current career cards
         if (currentCards.status === 'fulfilled') {
           setCurrentCareerCards(currentCards.value);
           console.log('✅ Loaded current career cards:', currentCards.value.length);
-        }
-        
-        // Process migrated profile
-        if (migratedProfile.status === 'fulfilled' && migratedProfile.value) {
-          const updatedProfile = {
-            ...migratedProfile.value,
-            name: currentUser.displayName || currentUser.email?.split('@')[0] || 'User',
-            email: currentUser.email
-          };
-          setMigratedPersonProfile(updatedProfile);
-          console.log('✅ Loaded migrated person profile:', updatedProfile);
         }
         
         console.log('✅ Dashboard: All data fetched successfully');
@@ -578,118 +500,37 @@ const Dashboard: React.FC = () => {
       </AnimatePresence>
 
       <div className="max-w-7xl mx-auto space-y-8">
-        {/* Welcome Header */}
-        <div className="text-center space-y-4">
-          <motion.h1 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white"
-          >
-            Your Career Journey
-          </motion.h1>
-          <motion.p
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-lg text-gray-600 dark:text-gray-300"
-          >
-            Discover your potential and plan your path forward
-          </motion.p>
-        </div>
-        
-        {/* Person Profile Section */}
-        {combinedPersonProfile && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card className="shadow-lg">
-              <CardHeader>
-                <div className="flex items-center space-x-3">
-                  <div className="p-2 bg-gradient-to-r from-green-500 to-blue-600 rounded-lg">
-                    <User className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <CardTitle className="text-xl">Your Profile</CardTitle>
-                    <CardDescription>
-                      Insights from your career exploration
-                      {combinedPersonProfile.hasBothSources && ' (current conversations + guest session)'}
-                      {combinedPersonProfile.hasCurrentData && !combinedPersonProfile.hasMigratedData && ' (from conversations)'}
-                      {!combinedPersonProfile.hasCurrentData && combinedPersonProfile.hasMigratedData && ' (migrated from guest session)'}
-                    </CardDescription>
-                  </div>
-                  {combinedPersonProfile.hasBothSources && (
-                    <div className="flex space-x-2">
-                      <Badge variant="default" className="text-xs">
-                        Current Data
-                      </Badge>
-                      <Badge variant="outline" className="text-xs">
-                        Guest Session
-                      </Badge>
-                    </div>
-                  )}
+        {/* Welcome Section with Profile Link */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
+          <Card className="shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                    Welcome back, {currentUser.displayName || currentUser.email?.split('@')[0] || 'User'}!
+                  </h2>
+                  <p className="text-gray-600">
+                    Continue your career exploration and discover new opportunities.
+                  </p>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                  {combinedPersonProfile.interests && combinedPersonProfile.interests.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Interests</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {combinedPersonProfile.interests.map((interest: string, index: number) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {interest}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {combinedPersonProfile.goals && combinedPersonProfile.goals.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Goals</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {combinedPersonProfile.goals.map((goal: string, index: number) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {goal}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {combinedPersonProfile.skills && combinedPersonProfile.skills.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Skills</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {combinedPersonProfile.skills.map((skill: string, index: number) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {skill}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  
-                  {combinedPersonProfile.values && combinedPersonProfile.values.length > 0 && (
-                    <div>
-                      <h4 className="font-semibold text-gray-900 dark:text-white mb-2">Values</h4>
-                      <div className="flex flex-wrap gap-1">
-                        {combinedPersonProfile.values.map((value: string, index: number) => (
-                          <Badge key={index} variant="outline" className="text-xs">
-                            {value}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                <div className="flex space-x-3">
+                  <Link 
+                    to="/profile"
+                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                  >
+                    <GraduationCap className="h-4 w-4" />
+                    <span>View Profile</span>
+                  </Link>
                 </div>
-              </CardContent>
-            </Card>
-          </motion.div>
-        )}
-        
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+
         {/* Career Exploration Overview - Simplified */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
