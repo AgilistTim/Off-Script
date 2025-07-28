@@ -110,6 +110,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   // Toast nag functions - defined early to avoid dependency issues
   const handleTemporaryDismiss = useCallback(() => {
     setToastNagDismissed(true);
+    setShowRegistrationPrompt(false);
     if (toastNagTimer.current) {
       clearInterval(toastNagTimer.current);
     }
@@ -117,6 +118,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
 
   const handlePermanentDismiss = useCallback(() => {
     setToastNagDismissed(true);
+    setShowRegistrationPrompt(false);
     localStorage.setItem('career-nag-dismissed', Date.now().toString());
     if (toastNagTimer.current) {
       clearInterval(toastNagTimer.current);
@@ -125,6 +127,8 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
 
   // Handle registration
   const handleRegister = useCallback(() => {
+    // Close the modal first
+    setShowRegistrationPrompt(false);
     // Redirect to registration page or open auth modal
     window.location.href = '/register';
   }, []);
@@ -848,7 +852,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         <AnimatePresence>
           {showRegistrationPrompt && (
             <RegistrationPrompt
-              onRegister={handlePermanentDismiss}
+              onRegister={handleRegister}
               onDismiss={handleTemporaryDismiss}
             />
           )}
