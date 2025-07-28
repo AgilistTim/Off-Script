@@ -17,74 +17,81 @@ const DiscoverCareerPath: React.FC = () => {
         
         {/* Main Heading */}
         <div className="max-w-4xl mx-auto mb-16">
-          <h2 className="text-4xl lg:text-5xl font-bold text-primary-black mb-6">
+          <h2 className="text-4xl lg:text-6xl font-bold text-primary-black mb-8 leading-tight">
             Discover Your Career Path
           </h2>
           
-          <p className="text-lg lg:text-xl text-text-secondary leading-relaxed max-w-2xl mx-auto">
+          <p className="text-xl lg:text-2xl text-text-secondary leading-relaxed max-w-3xl mx-auto mb-12">
             AI-powered conversation that creates your personalized career profile in real-time
           </p>
+
+          {/* Prominent Main CTA */}
+          <div className="mb-16">
+            <button
+              onClick={handleGetInsights}
+              className="bg-primary-blue hover:bg-primary-blue/90 text-white px-16 py-6 rounded-2xl text-xl font-bold transition-all duration-brand transform hover:scale-105 shadow-2xl hover:shadow-3xl inline-flex items-center space-x-3"
+            >
+              <span>Get Real Insights Now</span>
+              <Sparkles className="h-6 w-6" />
+            </button>
+            <p className="text-text-secondary text-lg mt-4 font-medium">
+              No signup required • Get AI insights instantly
+            </p>
+          </div>
         </div>
 
         {/* Feature Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 lg:gap-12 max-w-5xl mx-auto">
           
           {/* Voice & Chat */}
-          <div className="bg-white p-8 rounded-2xl border border-gray-200 hover:border-primary-blue/30 transition-all duration-brand group">
-            <div className="w-16 h-16 bg-primary-blue/10 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-primary-blue/20 transition-colors duration-brand">
-              <MessageCircle className="h-8 w-8 text-primary-blue" />
+          <div className="bg-white p-10 rounded-3xl border-2 border-gray-100 hover:border-primary-blue/30 transition-all duration-brand group hover:shadow-2xl">
+            <div className="w-20 h-20 bg-primary-blue/10 rounded-2xl flex items-center justify-center mx-auto mb-8 group-hover:bg-primary-blue/20 transition-colors duration-brand group-hover:scale-110">
+              <MessageCircle className="h-10 w-10 text-primary-blue" />
             </div>
-            <h3 className="text-xl font-bold text-primary-black mb-3">
+            <h3 className="text-2xl font-bold text-primary-black mb-4">
               Voice & Chat
             </h3>
-            <p className="text-text-secondary leading-relaxed">
-              Natural conversation
+            <p className="text-text-secondary leading-relaxed text-lg">
+              Natural conversation interface powered by advanced AI
             </p>
           </div>
 
           {/* AI Analysis */}
-          <div className="bg-white p-8 rounded-2xl border border-gray-200 hover:border-primary-lavender/50 transition-all duration-brand group">
-            <div className="w-16 h-16 bg-primary-lavender/10 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-primary-lavender/20 transition-colors duration-brand">
-              <Sparkles className="h-8 w-8 text-primary-lavender" />
+          <div className="bg-white p-10 rounded-3xl border-2 border-gray-100 hover:border-primary-lavender/50 transition-all duration-brand group hover:shadow-2xl">
+            <div className="w-20 h-20 bg-primary-lavender/10 rounded-2xl flex items-center justify-center mx-auto mb-8 group-hover:bg-primary-lavender/20 transition-colors duration-brand group-hover:scale-110">
+              <Sparkles className="h-10 w-10 text-primary-lavender" />
             </div>
-            <h3 className="text-xl font-bold text-primary-black mb-3">
+            <h3 className="text-2xl font-bold text-primary-black mb-4">
               AI Analysis
             </h3>
-            <p className="text-text-secondary leading-relaxed">
-              Authentic insights
+            <p className="text-text-secondary leading-relaxed text-lg">
+              Authentic insights from real UK job market data
             </p>
           </div>
 
           {/* Career Matches */}
-          <div className="bg-white p-8 rounded-2xl border border-gray-200 hover:border-primary-green/50 transition-all duration-brand group">
-            <div className="w-16 h-16 bg-primary-green/10 rounded-2xl flex items-center justify-center mx-auto mb-6 group-hover:bg-primary-green/20 transition-colors duration-brand">
-              <Brain className="h-8 w-8 text-primary-green" />
+          <div className="bg-white p-10 rounded-3xl border-2 border-gray-100 hover:border-primary-green/50 transition-all duration-brand group hover:shadow-2xl">
+            <div className="w-20 h-20 bg-primary-green/10 rounded-2xl flex items-center justify-center mx-auto mb-8 group-hover:bg-primary-green/20 transition-colors duration-brand group-hover:scale-110">
+              <Brain className="h-10 w-10 text-primary-green" />
             </div>
-            <h3 className="text-xl font-bold text-primary-black mb-3">
+            <h3 className="text-2xl font-bold text-primary-black mb-4">
               Career Matches
             </h3>
-            <p className="text-text-secondary leading-relaxed">
-              Personalized
-              <br />
-              recommendations
+            <p className="text-text-secondary leading-relaxed text-lg">
+              Personalized recommendations based on your unique profile
             </p>
           </div>
         </div>
 
-        {/* Main CTA Button */}
-        <div className="mb-8">
+        {/* Secondary CTA */}
+        <div className="mt-16">
           <button
             onClick={handleGetInsights}
-            className="bg-primary-blue hover:bg-primary-blue/90 text-white px-12 py-4 rounded-2xl text-lg font-semibold transition-all duration-brand transform hover:scale-105 shadow-lg hover:shadow-xl"
+            className="bg-primary-black hover:bg-primary-peach text-primary-white hover:text-primary-black px-12 py-4 rounded-button text-lg font-semibold transition-all duration-brand transform hover:scale-105 shadow-lg hover:shadow-xl"
           >
-            Get Real Insights Now
+            Start Your Free Career Analysis →
           </button>
         </div>
-
-        {/* Footer Text */}
-        <p className="text-text-secondary text-base">
-          No signup required • Get AI insights instantly
-        </p>
       </div>
     </section>
   );

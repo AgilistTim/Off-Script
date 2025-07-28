@@ -1,31 +1,33 @@
 import React from 'react';
-import { Speech } from './ui/button';
+import { useNavigate } from 'react-router-dom';
 
 const SpeechBubbleTiles: React.FC = () => {
+  const navigate = useNavigate();
+  
   const tiles = [
     {
       id: 1,
-      title: "YOUR FIRST PITCH: HOW TO SELL AN IDEA",
+      title: "SKIP UNIVERSITY DEBT: ALTERNATIVE PATHWAYS TO UK CAREERS",
       color: "peach" as const,
-      link: "#"
+      action: () => navigate('/chat')
     },
     {
       id: 2,
-      title: "FUTURE-PROOFING YOUR DEGREE: WHAT TO STUDY & WHY IT MATTERS",
+      title: "AI-POWERED CAREER MATCHING: FIND YOUR PERFECT UK JOB PATH",
       color: "mint" as const,
-      link: "#"
+      action: () => navigate('/chat')
     },
     {
       id: 3,
-      title: "CAREER CLARITY: HOW TO CHOOSE A FIELD",
+      title: "REAL UK SALARIES: VERIFIED DATA FROM ACTUAL PROFESSIONALS",
       color: "blue" as const,
-      link: "#"
+      action: () => navigate('/chat')
     },
     {
       id: 4,
-      title: "APPRENTICESHIPS 2.0: EARNING, LEARNING, AND LEVELLING UP",
+      title: "APPRENTICESHIPS & BOOTCAMPS: EARNING WHILE LEARNING IN 2025",
       color: "yellow" as const,
-      link: "#"
+      action: () => navigate('/chat')
     }
   ];
 
@@ -44,29 +46,39 @@ const SpeechBubbleTiles: React.FC = () => {
     }
   };
 
-  const getSpeechVariant = (color: string) => {
-    if (color === 'peach') return 'peach' as const;
-    return 'blue' as const; // Use blue as default for all others since we only have blue/peach speech variants
-  };
-
   return (
-    <section className="py-section bg-primary-white">
+    <section id="career-journey" className="py-section bg-primary-white">
       <div className="container">
+        {/* Section Header */}
+        <div className="text-center mb-16">
+          <h2 className="text-4xl lg:text-5xl font-bold text-primary-black mb-6">
+            Start Your Career Journey
+          </h2>
+          <p className="text-lg text-text-secondary max-w-2xl mx-auto">
+            Explore proven UK pathways that help you land meaningful careers without university debt
+          </p>
+        </div>
+
         {/* Grid of Speech Bubble Tiles */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-8">
           {tiles.map((tile) => (
             <div key={tile.id} className="relative group">
               {/* Custom Speech Bubble with proper Off Script styling */}
-              <div className={`
-                relative w-full p-8 lg:p-12 
-                ${getColorClasses(tile.color)}
-                transition-all duration-brand
-                group-hover:transform group-hover:scale-105
-                cursor-pointer
-                aspect-square
-                flex items-center justify-center
-                text-center
-              `}>
+              <button
+                onClick={tile.action}
+                className={`
+                  relative w-full p-8 lg:p-12 
+                  ${getColorClasses(tile.color)}
+                  transition-all duration-brand
+                  group-hover:transform group-hover:scale-105
+                  cursor-pointer
+                  aspect-square
+                  flex items-center justify-center
+                  text-center
+                  border-none
+                  focus:outline-none focus:ring-4 focus:ring-primary-blue/20
+                `}
+              >
                 {/* Diagonal lines - top */}
                 <div className="absolute top-4 left-4 right-4">
                   <div className="h-1 bg-primary-black transform -rotate-12"></div>
@@ -96,9 +108,22 @@ const SpeechBubbleTiles: React.FC = () => {
                     }`}
                   />
                 </div>
-              </div>
+              </button>
             </div>
           ))}
+        </div>
+
+        {/* CTA Section */}
+        <div className="text-center mt-16">
+          <button
+            onClick={() => navigate('/chat')}
+            className="bg-primary-black hover:bg-primary-peach text-primary-white hover:text-primary-black px-12 py-4 rounded-button text-lg font-semibold transition-all duration-brand transform hover:scale-105 shadow-lg hover:shadow-xl"
+          >
+            Start Your AI Career Conversation →
+          </button>
+          <p className="text-text-secondary text-sm mt-4">
+            No signup required • Get personalized guidance instantly
+          </p>
         </div>
       </div>
     </section>
