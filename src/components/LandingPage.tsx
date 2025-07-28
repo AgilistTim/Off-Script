@@ -3,7 +3,6 @@ import Header from './Header';
 import Hero from './Hero';
 import SpeechBubbleTiles from './SpeechBubbleTiles';
 import UKPathwaysSection from './UKPathwaysSection';
-import DiscoverCareerPath from './DiscoverCareerPath';
 import Footer from './Footer';
 
 const LandingPage: React.FC = () => {
@@ -20,9 +19,6 @@ const LandingPage: React.FC = () => {
       
       {/* UK Alternative Career Pathways Section */}
       <UKPathwaysSection />
-      
-      {/* Discover Your Career Path Section */}
-      <DiscoverCareerPath />
       
       {/* Footer */}
       <Footer />

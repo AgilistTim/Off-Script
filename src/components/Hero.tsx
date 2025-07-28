@@ -27,12 +27,17 @@ const Hero: React.FC = () => {
           {/* Left Column - CTA Content */}
           <div className="space-y-8 lg:space-y-12">
             {/* Date/Event Info */}
-            <div className="inline-flex items-center space-x-2 bg-primary-blue/10 px-4 py-2 rounded-full">
-              <Sparkles className="h-5 w-5 text-primary-blue" />
+            <a 
+              href="https://offscriptgen.com" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center space-x-2 bg-primary-blue/10 px-4 py-2 rounded-full hover:bg-primary-blue/20 transition-colors duration-brand group"
+            >
+              <Sparkles className="h-5 w-5 text-primary-blue group-hover:scale-110 transition-transform duration-brand" />
               <span className="text-primary-blue font-semibold text-sm uppercase tracking-wide">
                 LDN / 24-25 JAN 2026
               </span>
-            </div>
+            </a>
             
             {/* Main Headline */}
             <div className="space-y-8">
@@ -69,7 +74,7 @@ const Hero: React.FC = () => {
               <Button 
                 variant="white"
                 size="lg"
-                onClick={() => scrollToSection('discover')}
+                onClick={() => scrollToSection('career-journey')}
                 className="text-xl px-8 py-4"
               >
                 Learn More
