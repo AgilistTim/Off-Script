@@ -649,11 +649,11 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
                       </motion.div>
                       <div>
                         <h2 className="text-2xl font-bold text-primary-white mb-1">VOICE AI COACH</h2>
-                        <p className="text-electric-blue font-semibold">POWERED BY ELEVENLABS*</p>
+                        {/* <p className="text-electric-blue font-semibold">POWERED BY ELEVENLABS*</p> */}
                       </div>
                     </div>
                     
-                    {/* Quick Actions */}
+                    {/* Quick Actions - Commented out as redundant with Start Conversation 
                     <div className="flex space-x-3">
                       <motion.button
                         className="px-4 py-2 bg-electric-blue/20 hover:bg-electric-blue/30 text-electric-blue border border-electric-blue/40 rounded-lg text-sm font-bold transition-all duration-300"
@@ -672,6 +672,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
                         VOICE CALL
                       </motion.button>
                     </div>
+                    */}
                   </div>
 
                   {/* Analysis Loading */}
@@ -725,7 +726,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
                       />
                       <span className="text-acid-green font-semibold">AI READY</span>
                     </div>
-                    <div className="text-primary-white/60">
+                    <div className="text-electric-blue font-semibold">
                       {careerCards.length} INSIGHTS GENERATED
                     </div>
                   </div>
@@ -795,7 +796,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
                         <h3 className="text-xl font-bold text-primary-white mb-2">
                           START TALKING TO GENERATE
                         </h3>
-                        <p className="text-primary-white/60 text-sm">
+                        <p className="text-electric-blue/80 text-sm font-medium">
                           Your personalized career insights will appear here
                         </p>
                       </motion.div>
@@ -806,15 +807,15 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
                   <div className="mt-6 grid grid-cols-3 gap-4">
                     <div className="text-center">
                       <div className="text-2xl font-bold text-neon-pink">{careerCards.length}</div>
-                      <div className="text-xs text-primary-white/60">CAREERS</div>
+                      <div className="text-xs text-neon-pink/80 font-semibold">CAREERS</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-cyber-yellow">{userEngagementCount}</div>
-                      <div className="text-xs text-primary-white/60">INTERACTIONS</div>
+                      <div className="text-xs text-cyber-yellow/80 font-semibold">INTERACTIONS</div>
                     </div>
                     <div className="text-center">
                       <div className="text-2xl font-bold text-acid-green">AI</div>
-                      <div className="text-xs text-primary-white/60">POWERED</div>
+                      <div className="text-xs text-acid-green/80 font-semibold">POWERED</div>
                     </div>
                   </div>
                 </motion.div>
@@ -822,6 +823,27 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
             </div>
           </div>
         </div>
+
+                        {/* Person Profile Display */}
+        <AnimatePresence>
+          {personProfile && (
+            <motion.div
+              className="fixed bottom-6 left-6 z-50"
+              initial={{ opacity: 0, scale: 0.8, x: -100 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              exit={{ opacity: 0, scale: 0.8, x: -100 }}
+              transition={{ duration: 0.5, ease: [0.6, 0.01, 0.05, 0.95] }}
+            >
+              <PersonCard
+                profile={personProfile}
+                onUpdateProfile={(updatedProfile) => {
+                  setPersonProfile(updatedProfile);
+                  // Update guest session if needed
+                }}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Registration Prompt */}
         <AnimatePresence>
