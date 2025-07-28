@@ -1,7 +1,11 @@
 import React from 'react';
-import { ArrowRight, Sparkles, Target, Users } from 'lucide-react';
+import { ArrowRight, Sparkles, Target, Users, ChevronDown } from 'lucide-react';
+import { Button } from './ui/button';
+import { useNavigate } from 'react-router-dom';
 
 const Hero: React.FC = () => {
+  const navigate = useNavigate();
+
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId);
     if (element) {
@@ -9,98 +13,143 @@ const Hero: React.FC = () => {
     }
   };
 
+  const handleStartConversation = () => {
+    // Navigate to the app conversation interface
+    navigate('/chat');
+  };
+
   return (
-    <section id="hero" className="relative bg-gradient-to-br from-blue-900 via-blue-800 to-purple-900 text-white overflow-hidden">
-      <div className="absolute inset-0 bg-black/20" />
-      <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20" />
-      
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
-        <div className="lg:grid lg:grid-cols-2 lg:gap-8 items-center">
-          <div className="mb-12 lg:mb-0">
-            <div className="flex items-center space-x-2 mb-6">
-              <Sparkles className="h-6 w-6 text-yellow-400" />
-              <span className="text-yellow-400 font-semibold">Discover Your UK Career Future</span>
-            </div>
-            
-            <h1 className="text-4xl lg:text-6xl font-bold leading-tight mb-6">
-              Skip University Debt,
-              <span className="block bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
-                Land UK Jobs
-              </span>
+    <section id="hero" className="relative bg-primary-white text-primary-black overflow-hidden">
+      {/* Off Script Hero Layout */}
+      <div className="container offscript-hero py-hero-padding lg:py-hero-padding-lg">
+        
+        {/* Left Column - CTA Content */}
+        <div className="space-y-8 lg:space-y-12">
+          {/* Date/Event Info */}
+          <div className="inline-flex items-center space-x-2 bg-primary-blue/10 px-4 py-2 rounded-full">
+            <Sparkles className="h-5 w-5 text-primary-blue" />
+            <span className="text-primary-blue font-semibold text-sm uppercase tracking-wide">
+              LDN / 24-25 JAN 2026
+            </span>
+          </div>
+          
+          {/* Main Headline */}
+          <div className="space-y-6">
+            <h1 className="text-h1 font-bold leading-none">
+              FLIP THE
+              <br />
+              <span className="italic text-primary-blue">SCRIPT</span>
             </h1>
             
-            <p className="text-xl text-blue-100 mb-8 leading-relaxed">
+            <p className="text-xl lg:text-2xl leading-relaxed max-w-lg">
+              Skip University Debt,
+              <br />
+              <strong>Land UK Jobs</strong>
+            </p>
+
+            <p className="text-base lg:text-lg text-text-secondary leading-relaxed max-w-2xl">
               Discover alternative career pathways through AI-powered guidance, real UK salary data, 
               and verified industry insights. Your dream job doesn't require £35K+ student debt.
             </p>
-
-            <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4 mb-8 border border-white/20">
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <div className="text-2xl font-bold text-yellow-400">92%</div>
-                  <div className="text-sm text-blue-100">Employers prioritize soft skills</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-green-400">79%</div>
-                  <div className="text-sm text-blue-100">Bootcamp employment rate</div>
-                </div>
-                <div>
-                  <div className="text-2xl font-bold text-orange-400">13x</div>
-                  <div className="text-sm text-blue-100">Cheaper than university</div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4">
-              <button 
-                onClick={() => scrollToSection('explore')}
-                className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 px-8 py-4 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 flex items-center justify-center space-x-2"
-              >
-                <span>Explore UK Careers</span>
-                <ArrowRight className="h-5 w-5" />
-              </button>
-              <button 
-                onClick={() => scrollToSection('videos')}
-                className="border-2 border-white/30 hover:border-white/50 px-8 py-4 rounded-lg font-semibold transition-all duration-300 hover:bg-white/10"
-              >
-                Watch UK Career Stories
-              </button>
-            </div>
           </div>
-          
-          <div className="relative">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-4">
-                <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20 hover:bg-white/20 transition-all duration-300">
-                  <Target className="h-8 w-8 text-green-400 mb-3" />
-                  <h3 className="font-semibold mb-2">10x Faster Entry</h3>
-                  <p className="text-sm text-blue-100">UK alternative pathways: months not years to career-ready.</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20 hover:bg-white/20 transition-all duration-300 mt-8">
-                  <Users className="h-8 w-8 text-purple-400 mb-3" />
-                  <h3 className="font-semibold mb-2">50K+ UK Success Stories</h3>
-                  <p className="text-sm text-blue-100">Join thousands who've launched careers without university debt.</p>
-                </div>
-              </div>
-              <div className="space-y-4 mt-8">
-                <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20 hover:bg-white/20 transition-all duration-300">
-                  <div className="w-8 h-8 bg-gradient-to-r from-yellow-400 to-orange-400 rounded-full mb-3 flex items-center justify-center">
-                    <span className="text-black font-bold text-sm">AI</span>
-                  </div>
-                  <h3 className="font-semibold mb-2">UK-Specific Guidance</h3>
-                  <p className="text-sm text-blue-100">AI recommendations based on UK job market data and regional opportunities.</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl border border-white/20 hover:bg-white/20 transition-all duration-300">
-                  <div className="w-8 h-8 bg-red-500 rounded-full mb-3 flex items-center justify-center">
-                    <span className="text-white font-bold text-sm">£</span>
-                  </div>
-                  <h3 className="font-semibold mb-2">Real UK Salaries</h3>
-                  <p className="text-sm text-blue-100">Verified salary data from actual UK professionals, not estimates.</p>
-                </div>
-              </div>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 lg:gap-6">
+            <Button 
+              variant="black"
+              size="compact"
+              onClick={handleStartConversation}
+              className="group"
+            >
+              <span>Start Conversation</span>
+              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-1" />
+            </Button>
+            
+            <Button 
+              variant="white"
+              size="compact"
+              onClick={() => scrollToSection('discover')}
+            >
+              Learn More
+            </Button>
+          </div>
+
+          {/* Stats Grid */}
+          <div className="grid grid-cols-3 gap-6 py-8 border-t border-gray-200">
+            <div className="text-center">
+              <div className="text-2xl lg:text-3xl font-bold text-primary-blue">92%</div>
+              <div className="text-sm text-text-secondary">Employers prioritize skills over degrees</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl lg:text-3xl font-bold text-primary-peach">79%</div>
+              <div className="text-sm text-text-secondary">Bootcamp employment rate</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl lg:text-3xl font-bold text-primary-green">13x</div>
+              <div className="text-sm text-text-secondary">Cheaper than university</div>
             </div>
           </div>
         </div>
+        
+        {/* Right Column - Visual Content */}
+        <div className="relative">
+          {/* Feature Cards Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 lg:gap-8">
+            
+            {/* Card 1 - AI Guidance */}
+            <div className="bg-primary-blue/10 p-8 rounded-2xl border-2 border-primary-blue/20 hover:border-primary-blue/40 transition-all duration-brand group">
+              <div className="w-12 h-12 bg-primary-blue rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-brand">
+                <span className="text-primary-white font-bold text-lg">AI</span>
+              </div>
+              <h3 className="text-xl font-bold mb-3">UK-Specific AI Guidance</h3>
+              <p className="text-text-secondary leading-relaxed">
+                Personalized career recommendations based on real UK job market data and regional opportunities.
+              </p>
+            </div>
+
+            {/* Card 2 - Fast Entry */}
+            <div className="bg-primary-peach/10 p-8 rounded-2xl border-2 border-primary-peach/20 hover:border-primary-peach/40 transition-all duration-brand group sm:mt-12">
+              <div className="w-12 h-12 bg-primary-peach rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-brand">
+                <Target className="h-6 w-6 text-primary-black" />
+              </div>
+              <h3 className="text-xl font-bold mb-3">10x Faster Entry</h3>
+              <p className="text-text-secondary leading-relaxed">
+                Alternative pathways: months not years to become career-ready with real-world skills.
+              </p>
+            </div>
+
+            {/* Card 3 - Real Salaries */}
+            <div className="bg-primary-green/10 p-8 rounded-2xl border-2 border-primary-green/20 hover:border-primary-green/40 transition-all duration-brand group">
+              <div className="w-12 h-12 bg-primary-green rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-brand">
+                <span className="text-primary-black font-bold text-lg">£</span>
+              </div>
+              <h3 className="text-xl font-bold mb-3">Real UK Salaries</h3>
+              <p className="text-text-secondary leading-relaxed">
+                Verified salary data from actual UK professionals, not estimates or outdated figures.
+              </p>
+            </div>
+
+            {/* Card 4 - Success Stories */}
+            <div className="bg-primary-lavender/10 p-8 rounded-2xl border-2 border-primary-lavender/20 hover:border-primary-lavender/40 transition-all duration-brand group sm:-mt-12">
+              <div className="w-12 h-12 bg-primary-lavender rounded-xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-brand">
+                <Users className="h-6 w-6 text-primary-black" />
+              </div>
+              <h3 className="text-xl font-bold mb-3">50K+ Success Stories</h3>
+              <p className="text-text-secondary leading-relaxed">
+                Join thousands who've launched careers without university debt across the UK.
+              </p>
+            </div>
+          </div>
+
+          {/* Floating Elements */}
+          <div className="absolute -top-4 -right-4 w-20 h-20 bg-primary-yellow rounded-full opacity-50 animate-bounce-slow hidden lg:block"></div>
+          <div className="absolute -bottom-8 -left-4 w-16 h-16 bg-primary-mint rounded-full opacity-60 animate-bounce-slow delay-1000 hidden lg:block"></div>
+        </div>
+      </div>
+
+      {/* Scroll Indicator */}
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 animate-bounce">
+        <ChevronDown className="h-6 w-6 text-text-secondary" />
       </div>
     </section>
   );

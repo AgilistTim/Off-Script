@@ -7,8 +7,9 @@ const MainLayout = lazy(() => import('./components/layouts/MainLayout'));
 const AuthLayout = lazy(() => import('./components/layouts/AuthLayout'));
 const AdminLayout = lazy(() => import('./components/admin/AdminLayout'));
 
-// Core pages for simplified architecture
-const EngagementPage = lazy(() => import('./pages/Engagement'));
+// Core pages
+const Home = lazy(() => import('./pages/Home')); // Landing page
+const EngagementPage = lazy(() => import('./pages/Engagement')); // Conversation interface
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 
 // Auth pages
@@ -79,10 +80,18 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-// Create and export the router with simplified 3-page architecture
+// Create and export the router with proper separation of landing page and app
 export const router = createBrowserRouter([
   {
     path: '/',
+    element: (
+      <Suspense fallback={<LoadingFallback />}>
+        <Home />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/chat',
     element: (
       <Suspense fallback={<LoadingFallback />}>
         <MainLayout />
@@ -91,45 +100,43 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <EngagementPage /> // Main landing page with voice/chat + insights
-      },
+        element: <EngagementPage />
+      }
+    ]
+  },
+  {
+    path: '/dashboard',
+    element: (
+      <Suspense fallback={<LoadingFallback />}>
+        <MainLayout />
+      </Suspense>
+    ),
+    children: [
       {
-        path: 'dashboard',
+        index: true,
         element: (
           <ProtectedRoute>
             <Dashboard />
           </ProtectedRoute>
         )
-      },
-      // Legacy route redirects
+      }
+    ]
+  },
+  {
+    path: '/profile',
+    element: (
+      <Suspense fallback={<LoadingFallback />}>
+        <MainLayout />
+      </Suspense>
+    ),
+    children: [
       {
-        path: 'chat',
-        element: <Navigate to="/" replace />
-      },
-      {
-        path: 'explore',
-        element: <Navigate to="/" replace />
-      },
-      {
-        path: 'videos/:videoId',
-        element: <Navigate to="/" replace />
-      },
-      {
-        path: 'profile',
+        index: true,
         element: (
           <ProtectedRoute>
             <Profile />
           </ProtectedRoute>
         )
-      },
-      // Development/debug pages
-      {
-        path: 'style-guide',
-        element: <StyleGuide />
-      },
-      {
-        path: '*',
-        element: <NotFound />
       }
     ]
   },
@@ -191,7 +198,23 @@ export const router = createBrowserRouter([
       }
     ]
   },
-  // Legacy auth route redirects
+  {
+    path: '/style-guide',
+    element: (
+      <Suspense fallback={<LoadingFallback />}>
+        <StyleGuide />
+      </Suspense>
+    )
+  },
+  // Legacy route redirects
+  {
+    path: '/explore',
+    element: <Navigate to="/" replace />
+  },
+  {
+    path: '/videos/:videoId',
+    element: <Navigate to="/" replace />
+  },
   {
     path: '/login',
     element: <Navigate to="/auth/login" replace />
@@ -199,5 +222,14 @@ export const router = createBrowserRouter([
   {
     path: '/register',
     element: <Navigate to="/auth/register" replace />
+  },
+  // 404 page
+  {
+    path: '*',
+    element: (
+      <Suspense fallback={<LoadingFallback />}>
+        <NotFound />
+      </Suspense>
+    )
   }
 ]);
