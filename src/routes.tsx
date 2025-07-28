@@ -9,7 +9,7 @@ const AdminLayout = lazy(() => import('./components/admin/AdminLayout'));
 
 // Core pages
 const Home = lazy(() => import('./pages/Home')); // Landing page
-const EngagementPage = lazy(() => import('./pages/Engagement')); // Conversation interface
+const EngagementPage = lazy(() => import('./pages/Engagement'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 
 // Auth pages
