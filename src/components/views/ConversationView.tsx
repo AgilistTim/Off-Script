@@ -818,32 +818,31 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
                       <div className="text-xs text-acid-green/80 font-semibold">POWERED</div>
                     </div>
                   </div>
+
+                  {/* Person Profile Display */}
+                  {personProfile && (
+                    <motion.div
+                      className="mt-6"
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: 0.2 }}
+                    >
+                      <PersonCard
+                        profile={personProfile}
+                        onUpdateProfile={(updatedProfile) => {
+                          setPersonProfile(updatedProfile);
+                          // Update guest session if needed
+                        }}
+                      />
+                    </motion.div>
+                  )}
                 </motion.div>
               </motion.div>
             </div>
           </div>
         </div>
 
-                        {/* Person Profile Display */}
-        <AnimatePresence>
-          {personProfile && (
-            <motion.div
-              className="fixed bottom-6 left-6 z-50"
-              initial={{ opacity: 0, scale: 0.8, x: -100 }}
-              animate={{ opacity: 1, scale: 1, x: 0 }}
-              exit={{ opacity: 0, scale: 0.8, x: -100 }}
-              transition={{ duration: 0.5, ease: [0.6, 0.01, 0.05, 0.95] }}
-            >
-              <PersonCard
-                profile={personProfile}
-                onUpdateProfile={(updatedProfile) => {
-                  setPersonProfile(updatedProfile);
-                  // Update guest session if needed
-                }}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
+        
 
         {/* Registration Prompt */}
         <AnimatePresence>
