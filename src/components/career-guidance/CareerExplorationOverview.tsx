@@ -776,11 +776,6 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                     >
                       {exploration.match}% match
                     </Badge>
-                    {careerData.confidence && (
-                      <div className={`text-xs ${getMatchColor(careerData.confidence)}`}>
-                        {careerData.confidence}% AI confidence
-                      </div>
-                    )}
                   </div>
                 </div>
 
@@ -874,7 +869,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                           <p className="text-sm text-gray-600">Loading detailed career guidance...</p>
                         </div>
                       ) : (
-                        <Tabs defaultValue="overview" className="w-full">
+                        <Tabs defaultValue="learning" className="w-full">
                           {/* Show fallback indicator if this is fallback guidance */}
                           {(() => {
                             const guidance = careerGuidanceData.get(exploration.threadId);
@@ -891,11 +886,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                             </div>
                           )}
 
-                          <TabsList className="grid w-full grid-cols-3 mb-6">
-                            <TabsTrigger value="overview" className="flex items-center space-x-2">
-                              <Target className="w-4 h-4" />
-                              <span>Overview</span>
-                            </TabsTrigger>
+                          <TabsList className="grid w-full grid-cols-2 mb-6">
                             <TabsTrigger value="learning" className="flex items-center space-x-2">
                               <BookOpen className="w-4 h-4" />
                               <span>Learning</span>
@@ -905,68 +896,6 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                               <span>Take Action</span>
                             </TabsTrigger>
                           </TabsList>
-
-                          <TabsContent value="overview" className="space-y-6">
-                            {/* Detailed Salary Breakdown */}
-                            {careerData.averageSalary && typeof careerData.averageSalary === 'object' && (
-                              <div>
-                                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                                  <DollarSign className="w-4 h-4 mr-2 text-green-600" />
-                                  Salary Progression
-                                </h4>
-                                <div className="grid grid-cols-3 gap-4">
-                                  <div className="text-center p-3 bg-white rounded-lg border">
-                                    <div className="text-xs text-gray-500 mb-1">Entry Level</div>
-                                    <div className="text-lg font-bold text-gray-900">
-                                      {careerData.averageSalary.entry}
-                                    </div>
-                                  </div>
-                                  <div className="text-center p-3 bg-white rounded-lg border">
-                                    <div className="text-xs text-gray-500 mb-1">Experienced</div>
-                                    <div className="text-lg font-bold text-gray-900">
-                                      {careerData.averageSalary.experienced}
-                                    </div>
-                                  </div>
-                                  <div className="text-center p-3 bg-white rounded-lg border">
-                                    <div className="text-xs text-gray-500 mb-1">Senior Level</div>
-                                    <div className="text-lg font-bold text-gray-900">
-                                      {careerData.averageSalary.senior}
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-
-                            {/* All Key Skills */}
-                            {careerData.keySkills.length > 0 && (
-                              <div>
-                                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                                  <Star className="w-4 h-4 mr-2 text-purple-600" />
-                                  Required Skills
-                                </h4>
-                                <div className="flex flex-wrap gap-2">
-                                  {careerData.keySkills.map((skill, index) => (
-                                    <Badge key={index} variant="secondary">
-                                      {skill}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Work Environment */}
-                            {careerData.workEnvironment && (
-                              <div>
-                                <h4 className="text-sm font-semibold text-gray-900 mb-3 flex items-center">
-                                  <Users className="w-4 h-4 mr-2 text-indigo-600" />
-                                  Work Environment
-                                </h4>
-                                <p className="text-sm text-gray-700 bg-white p-3 rounded-lg border">
-                                  {careerData.workEnvironment}
-                                </p>
-                              </div>
-                            )}
-                          </TabsContent>
 
                           <TabsContent value="learning" className="space-y-6">
                             {careerGuidanceData.has(exploration.threadId) ? (
