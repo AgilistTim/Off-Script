@@ -7,11 +7,14 @@ import { guestSessionService } from '../../services/guestSessionService';
 const getEnvVar = (key: string): string | undefined => {
   // Try import.meta.env first (development)
   const devValue = import.meta.env[key];
-  if (devValue) return devValue;
+  if (devValue && devValue !== 'undefined') return devValue;
   
   // Fallback to window.ENV (production runtime injection)
   if (typeof window !== 'undefined' && window.ENV) {
-    return window.ENV[key];
+    const prodValue = window.ENV[key];
+    if (prodValue && prodValue !== '__ELEVENLABS_API_KEY__' && prodValue !== '__ELEVENLABS_AGENT_ID__') {
+      return prodValue;
+    }
   }
   
   return undefined;
@@ -57,17 +60,35 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
 }) => {
   const { currentUser } = useAuth();
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
-  const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
-  
+  const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string; timestamp: Date }>>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
+  const [insightsGenerated, setInsightsGenerated] = useState(0);
+  const [envLoaded, setEnvLoaded] = useState(false);
   
   // Track data generated during this conversation session
   const [sessionCareerCardCount, setSessionCareerCardCount] = useState(0);
   const [sessionHasGeneratedProfile, setSessionHasGeneratedProfile] = useState(false);
   
   // Use ref to access current conversation history in tool closures
-  const conversationHistoryRef = useRef<Array<{ role: 'user' | 'assistant'; content: string }>>([]);
+  const conversationHistoryRef = useRef(conversationHistory);
   
+  // Check if environment variables are loaded
+  useEffect(() => {
+    const checkEnvLoaded = () => {
+      const agentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
+      const apiKey = getEnvVar('VITE_ELEVENLABS_API_KEY');
+      
+      if (agentId && apiKey) {
+        setEnvLoaded(true);
+      } else {
+        // Retry after a short delay to allow window.ENV to populate
+        setTimeout(checkEnvLoaded, 100);
+      }
+    };
+    
+    checkEnvLoaded();
+  }, []);
+
   // Update ref whenever state changes
   useEffect(() => {
     conversationHistoryRef.current = conversationHistory;
@@ -92,7 +113,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         return prev; // Skip duplicate
       }
       
-      const updated = [...prev, { role, content: content.trim() }];
+      const updated = [...prev, { role, content: content.trim(), timestamp: new Date() }];
       console.log(`✅ Added ${role} message. New history length:`, updated.length);
       
       // Save conversation to Firebase for logged-in users
@@ -142,6 +163,16 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     const currentHistory = conversationHistoryRef.current;
     
     // Allow analysis with cached conversation data even when disconnected
+    if (!envLoaded) { // Check if environment variables are loaded
+      console.log('🚫 Analysis blocked - ElevenLabs environment not loaded');
+      return 'Please ensure ElevenLabs configuration is correct.';
+    }
+
+    if (!agentId || !apiKey) {
+      console.error('❌ Missing ElevenLabs configuration:', { agentId: !!agentId, apiKey: !!apiKey });
+      return 'ElevenLabs configuration is missing. Please check your environment variables.';
+    }
+
     if (!isConnected && currentHistory.length === 0) {
       console.log('🚫 Analysis blocked - No conversation history available');
       return 'Please start a conversation first to generate career insights';
@@ -320,7 +351,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       
       return 'Career analysis temporarily unavailable';
     }
-  }, [isConnected, currentUser?.uid, onCareerCardsGenerated, onAnalysisStateChange]); // Removed conversationHistory dependency since using ref
+  }, [envLoaded, agentId, apiKey, onCareerCardsGenerated, onAnalysisStateChange]); // Removed conversationHistory dependency since using ref
 
   // Validate configuration on mount
   useEffect(() => {
@@ -596,10 +627,23 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     }
   }, [conversation]);
 
-  // Configuration check
+  // Configuration check - wait for environment to load
+  if (!envLoaded) {
+    return (
+      <div className={`p-6 border-2 border-dashed border-gray-300 rounded-lg text-center ${className}`}>
+        <div className="text-gray-500">
+          <p className="text-lg font-medium">Loading ElevenLabs Configuration...</p>
+          <p className="text-sm mt-2">Waiting for environment variables to load</p>
+        </div>
+      </div>
+    );
+  }
+
   const isConfigured = agentId && apiKey && 
     agentId !== 'your_elevenlabs_agent_id_here' && 
-    apiKey !== 'your_elevenlabs_api_key_here';
+    apiKey !== 'your_elevenlabs_api_key_here' &&
+    agentId !== '__ELEVENLABS_AGENT_ID__' &&
+    apiKey !== '__ELEVENLABS_API_KEY__';
 
   if (!isConfigured) {
     return (
@@ -607,6 +651,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         <div className="text-gray-500">
           <p className="text-lg font-medium">ElevenLabs Configuration Required</p>
           <p className="text-sm mt-2">Please configure VITE_ELEVENLABS_AGENT_ID and VITE_ELEVENLABS_API_KEY</p>
+          <p className="text-xs mt-1 text-gray-400">Current: agentId={agentId || 'undefined'}, apiKey={apiKey ? 'present' : 'undefined'}</p>
         </div>
       </div>
     );
