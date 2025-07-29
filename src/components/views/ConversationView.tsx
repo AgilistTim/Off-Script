@@ -274,7 +274,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   }, [careerCards.length, currentUser, toastNagDismissed, toastNagShown, isConversationActive, showProgressNagToast]);
 
   // Handle career cards generated from ElevenLabs widget
-  const handleCareerCardsGenerated = useCallback((newCards: CareerCard[]) => {
+  const handleCareerCardsGenerated = useCallback(async (newCards: CareerCard[]) => {
     console.log('🎯 ConversationView: Received career cards:', newCards.length);
     console.log('🎯 Current career cards before update:', careerCards.length);
     
@@ -329,6 +329,18 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
       
       return deduplicated;
     });
+    
+    // Save to Firebase if user is logged in (outside of setState)
+    if (currentUser && newCards.length > 0) {
+      try {
+        const careerPathwayService = await import('../../services/careerPathwayService');
+        const service = careerPathwayService.careerPathwayService;
+        await service.saveCareerCardsFromConversation(currentUser.uid, newCards);
+        console.log('💾 Saved career cards to Firebase for logged-in user');
+      } catch (error) {
+        console.error('Failed to save career cards to Firebase:', error);
+      }
+    }
     
     setHasStartedConversation(true);
     

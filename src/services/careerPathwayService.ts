@@ -219,6 +219,146 @@ class CareerPathwayService {
   }
 
   /**
+   * Save career cards generated during conversation for logged-in users
+   */
+  async saveCareerCardsFromConversation(userId: string, careerCards: any[]): Promise<void> {
+    try {
+      console.log('💾 Saving career cards from conversation for user:', userId, 'Cards:', careerCards.length);
+      
+      const { db } = await import('./firebase');
+      const { collection, doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+      
+      // Create a career exploration document for the conversation-generated cards
+      const explorationRef = doc(collection(db, 'careerExplorations'));
+      const threadId = `conversation_${Date.now()}`;
+      
+      // Prepare career cards with timestamps and source
+      const now = new Date();
+      const processedCards = careerCards.map(card => ({
+        ...card,
+        discoveredAt: now.toISOString(),
+        source: 'conversation_analysis'
+      }));
+      
+      await setDoc(explorationRef, {
+        userId,
+        threadId,
+        title: `Career Insights from Conversation`,
+        description: 'Career recommendations generated during AI conversation',
+        createdAt: serverTimestamp(),
+        careerCards: processedCards,
+        cardCount: careerCards.length,
+        source: 'conversation',
+        explorationComplete: true,
+        // Store individual cards for dashboard access
+        primaryCareerPath: careerCards[0]?.title || 'Career Exploration',
+        match: careerCards[0]?.confidence || 85,
+        lastUpdated: new Date()
+      });
+
+      // Also store in thread guidance format for consistency
+      const guidanceData: ThreadCareerGuidance = {
+        id: `${threadId}_guidance-primary`,
+        threadId,
+        userId,
+        guidance: {
+          userProfile: {
+            goals: careerCards.flatMap(card => card.nextSteps ? [card.nextSteps] : []).slice(0, 3),
+            interests: careerCards.flatMap(card => card.industry ? [card.industry] : []).slice(0, 3),
+            skills: careerCards.flatMap(card => card.keySkills || []).slice(0, 5),
+            careerStage: 'exploring' as const
+          },
+          primaryPathway: {
+            id: careerCards[0]?.id || `primary-${Date.now()}`,
+            title: careerCards[0]?.title || 'Career Exploration',
+            description: careerCards[0]?.description || 'Explore career opportunities',
+            match: careerCards[0]?.confidence || 85,
+            trainingOptions: [],
+            volunteeringOpportunities: [],
+            fundingOptions: [],
+            nextSteps: {
+              immediate: ['Research this career field', 'Identify key skills needed'],
+              shortTerm: ['Connect with professionals', 'Begin skill development'],
+              longTerm: ['Gain relevant experience', 'Apply for opportunities']
+            },
+            reflectiveQuestions: [
+              'What aspects of this career excite you most?',
+              'How do your current skills align with this path?',
+              'What additional training might you need?'
+            ],
+            keyResources: [
+              {
+                title: 'Career Research',
+                description: 'Research this career field thoroughly'
+              }
+            ],
+            progressionPath: [
+              {
+                stage: 'Exploration',
+                description: 'Learn about the career and requirements',
+                timeframe: '1-3 months',
+                requirements: ['Research', 'Information gathering']
+              }
+            ]
+          },
+          alternativePathways: careerCards.slice(1).map(card => ({
+            id: card.id || `alt-${Date.now()}`,
+            title: card.title,
+            description: card.description,
+            match: card.confidence || 80,
+            trainingOptions: [],
+            volunteeringOpportunities: [],
+            fundingOptions: [],
+            nextSteps: {
+              immediate: ['Research this alternative path'],
+              shortTerm: ['Explore requirements'],
+              longTerm: ['Consider as backup option']
+            },
+            reflectiveQuestions: [
+              'How does this compare to your primary choice?',
+              'What unique opportunities does this offer?'
+            ],
+            keyResources: [
+              {
+                title: 'Alternative Career Path',
+                description: 'Explore this as an alternative option'
+              }
+            ],
+            progressionPath: [
+              {
+                stage: 'Consideration',
+                description: 'Evaluate as alternative option',
+                timeframe: '1-2 months',
+                requirements: ['Research', 'Comparison with primary choice']
+              }
+            ]
+          })),
+          crossCuttingResources: {
+            generalFunding: [],
+            careerSupport: []
+          },
+          generatedAt: new Date(),
+          actionPlan: {
+            thisWeek: ['Research career requirements', 'Identify skill gaps'],
+            thisMonth: ['Connect with professionals in the field', 'Begin skill development'],
+            next3Months: ['Apply for relevant opportunities', 'Build portfolio']
+          }
+        },
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      await setDoc(doc(db, 'threadCareerGuidance', guidanceData.id), guidanceData);
+      
+      console.log('✅ Successfully saved conversation career cards to Firebase');
+      
+    } catch (error) {
+      console.error('❌ Error saving conversation career cards:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Retrieve career guidance for a specific thread
    */
   async getThreadCareerGuidance(threadId: string, userId: string): Promise<ComprehensiveCareerGuidance | null> {
