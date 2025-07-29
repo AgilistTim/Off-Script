@@ -2908,10 +2908,28 @@ exports.generateCareerPathways = (0, https_1.onRequest)({
             goals: userProfile.goals?.length || 0,
             careerStage: userProfile.careerStage
         });
+        // Check if OpenAI API key secret is available
+        const openaiApiKey = openaiApiKeySecret.value();
+        if (!openaiApiKey) {
+            firebase_functions_1.logger.error('OpenAI API key secret not found');
+            response.status(500).json({
+                success: false,
+                error: 'OpenAI API key not configured',
+                message: 'Server configuration error'
+            });
+            return;
+        }
         const openai = new openai_1.default({
-            apiKey: openaiApiKeySecret.value(),
+            apiKey: openaiApiKey,
         });
-        const systemPrompt = `You are a UK career guidance specialist with comprehensive knowledge of training providers, volunteering opportunities, and funding schemes across the UK. Generate detailed, actionable career guidance with real UK-specific resources.`;
+        const systemPrompt = `You are a UK career guidance specialist with comprehensive knowledge of training providers, volunteering opportunities, and funding schemes across the UK. Generate detailed, actionable career guidance with real UK-specific resources.
+
+CRITICAL: When generating training courses and links:
+- For university courses, use actual UK university URLs (e.g., Imperial College London, University of Edinburgh, UCL, etc.)
+- For professional training, use recognized UK providers (Coursera UK, FutureLearn, Institute of Engineering and Technology, etc.)
+- For apprenticeships, use gov.uk apprenticeship URLs
+- NEVER link different subjects to unrelated course pages
+- If you're unsure of exact URLs, use reputable search patterns like "find-postgraduate-study.ac.uk" or "prospects.ac.uk"`;
         const userPrompt = `Generate comprehensive UK career guidance for a user with this profile:
 
 INTERESTS: ${userProfile.interests?.join(', ') || 'Not specified'}
@@ -2919,7 +2937,7 @@ SKILLS: ${userProfile.skills?.join(', ') || 'Not specified'}
 GOALS: ${userProfile.goals?.join(', ') || 'Not specified'}
 CAREER STAGE: ${userProfile.careerStage || 'exploring'}
 
-Provide a JSON response with this exact structure:
+Provide a JSON response with this exact structure - be specific and actionable:
 
 {
   "primaryPathway": {
@@ -2931,67 +2949,133 @@ Provide a JSON response with this exact structure:
   },
   "training": [
     {
-      "title": "Course name",
-      "provider": "Training provider name",
+      "title": "Specific course name (e.g., 'MSc Artificial Intelligence - University of Edinburgh')",
+      "provider": "Actual UK training provider or university",
       "duration": "Course length",
-      "cost": "Course cost with £ symbol",
+      "cost": "Course cost with £ symbol or 'Free' or 'Funded'",
       "location": "UK location or 'Online'",
-      "description": "Brief course description",
-      "link": "Real UK course URL if available, or '#' if not"
+      "description": "Brief course description and what it leads to",
+      "link": "Only provide links if you're confident they're correct UK URLs, otherwise use 'https://find-postgraduate-study.ac.uk' for university courses or 'https://www.prospects.ac.uk' for general career guidance"
     }
   ],
   "volunteering": [
     {
-      "title": "Volunteer role title",
-      "organization": "UK organization name",
+      "title": "Specific volunteer role title",
+      "organization": "Real UK charity or organization (e.g., Age UK, British Red Cross, etc.)",
       "timeCommitment": "Weekly time commitment",
       "location": "UK location or 'Various locations'", 
-      "description": "Role description",
-      "benefits": "Skills/experience gained",
-      "link": "Real UK organization URL if available, or '#' if not"
+      "description": "Role description and skills gained",
+      "benefits": "Specific skills and experience gained",
+      "link": "Organization's main website or volunteer portal if known, otherwise 'https://do-it.org' for volunteer search"
     }
   ],
   "funding": [
     {
-      "title": "Funding scheme name",
-      "provider": "Government/organization providing funding",
+      "title": "Specific funding scheme name",
+      "provider": "Government department or funding body",
       "amount": "Funding amount with £ symbol",
-      "eligibility": "Who can apply",
+      "eligibility": "Who can apply - be specific",
       "description": "What the funding covers",
-      "link": "Real UK funding scheme URL if available, or '#' if not"
+      "link": "Gov.uk URL for government schemes or organization website"
     }
   ],
   "resources": [
     {
-      "title": "Resource name",
+      "title": "Specific resource name",
       "organization": "UK organization/website",
       "description": "What this resource provides",
-      "link": "Real UK resource URL if available, or '#' if not"
+      "link": "Reputable UK career website or industry association"
     }
   ]
 }
 
-Focus on real UK opportunities. Use actual UK training providers, recognized charities, government schemes, and career services where possible.`;
+EXPANDED LEARNING PATHS: Include diverse pathways beyond formal education:
+- University degrees and postgraduate courses
+- Professional certifications and industry qualifications  
+- Online courses and MOOCs
+- Apprenticeships and traineeships
+- Self-directed learning resources
+- Industry bootcamps and intensive programs
+- Professional association training
+- Entrepreneurship and startup programs
+- Entry-level job opportunities with training
+- Volunteer-to-paid pathways
+
+Focus on real UK opportunities with actionable next steps.`;
+        firebase_functions_1.logger.info('Making OpenAI API request', {
+            model: 'gpt-4o-mini',
+            messageLength: userPrompt.length
+        });
         const completion = await openai.chat.completions.create({
-            model: "gpt-4",
+            model: "gpt-4o-mini",
             messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: userPrompt }
             ],
             temperature: 0.7,
             max_tokens: 2000,
+            response_format: { type: "json_object" } // Ensure JSON response
         });
         const responseText = completion.choices[0]?.message?.content;
         if (!responseText) {
+            firebase_functions_1.logger.error('No response content from OpenAI');
             throw new Error('No response from OpenAI');
         }
+        firebase_functions_1.logger.info('OpenAI API response received', {
+            responseLength: responseText.length,
+            tokensUsed: completion.usage?.total_tokens || 0
+        });
         let careerGuidance;
         try {
             careerGuidance = JSON.parse(responseText);
         }
         catch (parseError) {
-            firebase_functions_1.logger.error('Failed to parse OpenAI response as JSON', { responseText });
-            throw new Error('Invalid JSON response from OpenAI');
+            firebase_functions_1.logger.error('Failed to parse OpenAI response as JSON', {
+                responseText: responseText.substring(0, 500) + '...',
+                parseError: parseError instanceof Error ? parseError.message : String(parseError)
+            });
+            // Provide fallback structure
+            careerGuidance = {
+                primaryPathway: {
+                    title: "Career Exploration",
+                    description: "Explore various career paths based on your interests and skills",
+                    timeline: "3-6 months",
+                    requirements: ["Research skills", "Networking"],
+                    progression: ["Self-assessment", "Research careers", "Gain experience", "Apply for roles"]
+                },
+                training: [{
+                        title: "Career Development Course",
+                        provider: "FutureLearn",
+                        duration: "4 weeks",
+                        cost: "Free",
+                        location: "Online",
+                        description: "Develop essential career planning skills",
+                        link: "https://www.futurelearn.com"
+                    }],
+                volunteering: [{
+                        title: "Community Volunteer",
+                        organization: "Local charity",
+                        timeCommitment: "2-4 hours per week",
+                        location: "Various locations",
+                        description: "Gain valuable experience while helping the community",
+                        benefits: "Communication, teamwork, leadership skills",
+                        link: "https://do-it.org"
+                    }],
+                funding: [{
+                        title: "Career Development Loan",
+                        provider: "Gov.uk",
+                        amount: "£300-£10,000",
+                        eligibility: "Adults 18+ seeking career development",
+                        description: "Government loan for career training",
+                        link: "https://www.gov.uk/career-development-loans"
+                    }],
+                resources: [{
+                        title: "National Careers Service",
+                        organization: "Gov.uk",
+                        description: "Free career guidance and job search support",
+                        link: "https://nationalcareers.service.gov.uk"
+                    }]
+            };
         }
         firebase_functions_1.logger.info('Successfully generated career pathways', {
             trainingCount: careerGuidance.training?.length || 0,
@@ -3008,12 +3092,18 @@ Focus on real UK opportunities. Use actual UK training providers, recognized cha
     catch (error) {
         firebase_functions_1.logger.error('Error in generateCareerPathways function', {
             error: error.message,
-            stack: error.stack
+            stack: error.stack,
+            code: error.code,
+            type: error.constructor.name
         });
         response.status(500).json({
             success: false,
             error: 'Failed to generate career pathways',
-            message: error.message
+            message: error.message,
+            details: {
+                type: error.constructor.name,
+                code: error.code || 'UNKNOWN_ERROR'
+            }
         });
     }
 });

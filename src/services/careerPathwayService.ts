@@ -952,6 +952,13 @@ class CareerPathwayService {
    */
   private async generateCareerPathways(userProfile: any): Promise<CareerPathway[]> {
     try {
+      console.log('🎯 Attempting to generate AI career pathways for user profile:', {
+        interests: userProfile.interests?.length || 0,
+        skills: userProfile.skills?.length || 0,
+        goals: userProfile.goals?.length || 0,
+        careerStage: userProfile.careerStage
+      });
+
       // Call OpenAI API through Firebase Function for comprehensive career pathway generation
       const response = await fetch(`${env.apiEndpoints.openaiAssistant}/generateCareerPathways`, {
         method: 'POST',
@@ -968,19 +975,70 @@ class CareerPathwayService {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate AI career pathways');
+        const errorText = await response.text().catch(() => 'Unknown error');
+        console.error('🔴 Career pathways API error:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText: errorText.substring(0, 500)
+        });
+        throw new Error(`Failed to generate AI career pathways: ${response.status} ${response.statusText}`);
       }
 
       const aiResponse = await response.json();
       
       // Check if the response is successful and has data
       if (!aiResponse.success || !aiResponse.data) {
+        console.error('🔴 Invalid career pathways API response:', aiResponse);
         throw new Error('Invalid response from career pathways API');
       }
       
-      const aiData = aiResponse.data;
+      console.log('✅ Successfully generated AI career pathways');
+      return this.transformAIResponseToPathways(aiResponse.data);
       
-      // Transform the OpenAI response into CareerPathway format
+    } catch (error) {
+      console.error('❌ AI pathway generation failed, using curated pathways:', error);
+      
+      // Return curated UK career pathways based on user profile as fallback
+      return this.getCuratedCareerPathways(userProfile);
+    }
+  }
+
+  /**
+   * Enhance AI-generated pathways with verified UK resources
+   */
+  private enhanceWithUKResources(pathway: any, userProfile: any, isPrimary: boolean): CareerPathway {
+    // Add UK-specific enhancements based on career field
+    const ukResources = this.getUKResourcesForField(pathway.title);
+    
+    return {
+      id: `pathway-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      title: pathway.title,
+      description: pathway.description,
+      match: isPrimary ? 95 : Math.floor(Math.random() * 20) + 70,
+      trainingOptions: [
+        ...pathway.trainingOptions || [],
+        ...ukResources.training
+      ],
+      volunteeringOpportunities: [
+        ...pathway.volunteeringOpportunities || [],
+        ...ukResources.volunteering
+      ],
+      fundingOptions: [
+        ...pathway.fundingOptions || [],
+        ...ukResources.funding
+      ],
+      nextSteps: pathway.nextSteps || this.generateDefaultNextSteps(pathway.title),
+      reflectiveQuestions: pathway.reflectiveQuestions || this.generateReflectiveQuestions(pathway.title),
+      keyResources: ukResources.keyResources,
+      progressionPath: pathway.progressionPath || this.generateProgressionPath(pathway.title)
+    };
+  }
+
+  /**
+   * Transform AI response data into CareerPathway format
+   */
+  private transformAIResponseToPathways(aiData: any): CareerPathway[] {
+    try {
       const primaryPathway: CareerPathway = {
         id: 'ai-generated-primary',
         title: aiData.primaryPathway?.title || 'AI-Generated Career Path',
@@ -1050,200 +1108,215 @@ class CareerPathwayService {
       };
       
       return [primaryPathway];
-
     } catch (error) {
-      console.warn('AI pathway generation failed, using curated pathways:', error);
-      // Fallback to curated pathways based on user interests
-      return this.getCuratedPathways(userProfile);
+      console.error('❌ Error transforming AI response:', error);
+      return this.getCuratedCareerPathways({});
     }
   }
 
   /**
-   * Enhance AI-generated pathways with verified UK resources
+   * Get curated career pathways as fallback when AI generation fails
    */
-  private enhanceWithUKResources(pathway: any, userProfile: any, isPrimary: boolean): CareerPathway {
-    // Add UK-specific enhancements based on career field
-    const ukResources = this.getUKResourcesForField(pathway.title);
-    
-    return {
-      id: `pathway-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      title: pathway.title,
-      description: pathway.description,
-      match: isPrimary ? 95 : Math.floor(Math.random() * 20) + 70,
-      trainingOptions: [
-        ...pathway.trainingOptions || [],
-        ...ukResources.training
-      ],
-      volunteeringOpportunities: [
-        ...pathway.volunteeringOpportunities || [],
-        ...ukResources.volunteering
-      ],
-      fundingOptions: [
-        ...pathway.fundingOptions || [],
-        ...ukResources.funding
-      ],
-      nextSteps: pathway.nextSteps || this.generateDefaultNextSteps(pathway.title),
-      reflectiveQuestions: pathway.reflectiveQuestions || this.generateReflectiveQuestions(pathway.title),
-      keyResources: ukResources.keyResources,
-      progressionPath: pathway.progressionPath || this.generateProgressionPath(pathway.title)
-    };
-  }
+  private getCuratedCareerPathways(userProfile: any): CareerPathway[] {
+    console.log('🔄 Generating curated career pathways as fallback');
 
-  /**
-   * Get curated UK career pathways as fallback
-   */
-  private getCuratedPathways(userProfile: any): CareerPathway[] {
-    const primaryField = this.determinePrimaryField(userProfile);
+    // Determine likely career interest based on user profile
+    const interests = userProfile.interests || [];
+    const skills = userProfile.skills || [];
+    const goals = userProfile.goals || [];
     
-    switch (primaryField) {
-      case 'healthcare':
-        return this.getHealthcarePathways();
-      case 'technology':
-        return this.getTechnologyPathways();
-      case 'care':
-        return this.getCarePathways();
-      case 'creative':
-        return this.getCreativePathways();
-      case 'business':
-        return this.getBusinessPathways();
-      default:
-        return this.getGeneralPathways();
-    }
-  }
-
-  /**
-   * Get care sector pathways (based on the user's example)
-   */
-  private getCarePathways(): CareerPathway[] {
-    return [{
-      id: 'care-elderly-creative',
-      title: 'Elderly Care & Creative Therapy',
-      description: 'Combining care work with creative activities to support elderly people\'s wellbeing and social engagement.',
-      match: 95,
-      trainingOptions: [
-        {
-          title: 'Level 2 Adult Social Care Certificate',
-          level: 'Level 2',
-          duration: '6-8 months',
-          cost: 'Up to £1,540 funded',
-          fundingAvailable: 'Learning & Development Support Scheme (Apr 2025–Mar 2026)',
-          provider: 'City & Guilds, RoSPA, NCFE',
-          description: 'Ofqual‑regulated qualification covering communications, safeguarding, and wellbeing',
-          link: 'https://www.gov.uk/government/publications/adult-social-care-learning-development-support-scheme'
-        },
-        {
-          title: 'Level 2 Preparing to Work in Adult Social Care',
-          level: 'Level 2',
-          duration: '6-12 weeks',
-          cost: 'Free online',
-          provider: 'Learndirect',
-          description: 'Fully online certificate with optional placement opportunities',
-          link: 'https://www.learndirect.com/courses/care-courses/preparing-to-work-in-adult-social-care-level-2'
-        }
-      ],
-      volunteeringOpportunities: [
-        {
-          organization: 'NHS Trusts',
-          role: 'Arts & Creative Care Volunteer',
-          description: 'Arts sessions (singing, craft) for patients in hospital wards',
-          location: 'Various NHS trusts across UK',
-          timeCommitment: '2-4 hours per week',
-          skillsGained: ['Patient interaction', 'Creative facilitation', 'Healthcare environment experience'],
-          careerPathConnection: 'Direct pathway to healthcare and social care careers',
-          link: 'https://www.nhsvolunteerresponders.org.uk'
-        },
-        {
-          organization: 'Sue Ryder',
-          role: 'Palliative & Bereavement Care Volunteer',
-          description: 'Supporting people with life-limiting conditions and their families',
-          location: 'Across the UK',
-          timeCommitment: '3-6 hours per week',
-          skillsGained: ['Emotional support', 'Communication', 'Empathy and resilience'],
-          careerPathConnection: 'Experience in specialized care environments',
-          link: 'https://www.sueryder.org/support-us/volunteer'
-        },
-        {
-          organization: 'British Red Cross',
-          role: 'Home from Hospital & Befriending Volunteer',
-          description: 'Therapeutic care and befriending services for elderly people',
-          location: 'Community-based across UK',
-          timeCommitment: '2-4 hours per week',
-          skillsGained: ['Community care', 'Independence support', 'Social interaction'],
-          careerPathConnection: 'Foundation for community care roles',
-          link: 'https://www.redcross.org.uk/get-involved/volunteer'
-        }
-      ],
-      fundingOptions: [
-        {
-          name: 'Learning & Development Support Scheme',
-          amount: 'Up to £1,540',
-          eligibility: ['Working in adult social care', 'New entrants to the sector'],
-          description: 'Government funding for adult social care qualifications',
-          link: 'https://www.gov.uk/government/publications/adult-social-care-learning-development-support-scheme'
-        }
-      ],
-      nextSteps: {
-        immediate: [
-          'Apply for NHS arts volunteer role at local trust',
-          'Research Level 2 Adult Social Care Certificate providers in your area',
-          'Visit local care homes to understand the environment'
+    // Define curated career pathways for common UK career areas
+    const curatedPathways: CareerPathway[] = [
+      {
+        id: 'curated-digital-tech',
+        title: 'Digital Technology & Software Development',
+        description: 'Explore careers in coding, web development, and digital innovation',
+        match: interests.some((i: string) => 
+          ['technology', 'coding', 'programming', 'software', 'digital', 'AI', 'data', 'tech'].some(keyword => 
+            i.toLowerCase().includes(keyword.toLowerCase())
+          )
+        ) ? 90 : 70,
+        trainingOptions: [
+          {
+            title: 'Software Developer Apprenticeship',
+            level: 'Level 4',
+            duration: '18-24 months',
+            cost: 'Free (funded)',
+            provider: 'Various UK employers',
+            description: 'Learn programming while earning a salary',
+            link: 'https://www.apprenticeships.gov.uk'
+          },
+          {
+            title: 'Full Stack Web Development Bootcamp',
+            level: 'Intensive',
+            duration: '12-16 weeks',
+            cost: '£8,000-£12,000',
+            provider: 'General Assembly, Le Wagon',
+            description: 'Intensive coding bootcamp covering modern web technologies',
+            link: 'https://www.prospects.ac.uk'
+          }
         ],
-        shortTerm: [
-          'Enroll in funded Level 2 qualification',
-          'Begin volunteering to gain experience',
-          'Connect with current care workers for insights'
+        volunteeringOpportunities: [
+          {
+            organization: 'Code Club',
+            role: 'Volunteer Coding Instructor',
+            description: 'Teach coding to young people in schools and community centers',
+            location: 'Various UK locations',
+            link: 'https://codeclub.org',
+            timeCommitment: '2-3 hours per week',
+            skillsGained: ['Teaching', 'Communication', 'Technical skills'],
+            careerPathConnection: 'Develops technical and communication skills valuable in tech careers'
+          }
         ],
-        longTerm: [
-          'Complete qualification and gain certification',
-          'Apply for paid positions in care settings',
-          'Consider specializing in creative therapy or dementia care'
+        fundingOptions: [
+          {
+            name: 'Advanced Learner Loan',
+            amount: '£300-£10,000',
+            eligibility: ['19+', 'UK resident', 'Level 3+ courses'],
+            description: 'Government loan for adult education and training',
+            link: 'https://www.gov.uk/advanced-learner-loan'
+          }
+        ],
+        nextSteps: {
+          immediate: ['Learn basic programming concepts', 'Choose a programming language', 'Practice coding daily'],
+          shortTerm: ['Complete online tutorials', 'Build first project', 'Join coding community'],
+          longTerm: ['Apply for apprenticeships or courses', 'Build portfolio', 'Network with professionals']
+        },
+        reflectiveQuestions: [
+          'What type of technology problems would you enjoy solving?',
+          'Do you prefer working independently or as part of a team?',
+          'Are you interested in creating apps, websites, or working with data?'
+        ],
+        keyResources: [
+          {
+            title: 'Codecademy',
+            description: 'Free online coding tutorials and exercises',
+            link: 'https://www.codecademy.com'
+          },
+          {
+            title: 'freeCodeCamp',
+            description: 'Comprehensive free programming curriculum',
+            link: 'https://www.freecodecamp.org'
+          }
+        ],
+        progressionPath: [
+          {
+            stage: 'Beginner',
+            description: 'Learn programming fundamentals through online resources',
+            timeframe: '0-6 months',
+            requirements: ['Basic computer skills', 'Self-motivation']
+          },
+          {
+            stage: 'Developing',
+            description: 'Complete formal training and build projects',
+            timeframe: '6-18 months',
+            requirements: ['Programming knowledge', 'Portfolio projects']
+          },
+          {
+            stage: 'Professional',
+            description: 'Secure junior developer role and continue learning',
+            timeframe: '18+ months',
+            requirements: ['Technical skills', 'Professional experience']
+          }
         ]
       },
-      reflectiveQuestions: [
-        'Which environment feels most enriching: hospital bedside, care home, or community centre?',
-        'Do you prefer one-on-one conversations or facilitating group activities?',
-        'How do you balance caregiving with maintaining your own wellbeing?',
-        'What creative activities bring you the most joy to share with others?'
-      ],
-      keyResources: [
-        {
-          title: 'Skills for Care',
-          description: 'UK adult social care sector skills development and career information',
-          link: 'https://www.skillsforcare.org.uk'
+      {
+        id: 'curated-healthcare',
+        title: 'Healthcare & Social Care',
+        description: 'Make a difference in people\'s lives through healthcare careers',
+        match: interests.some((i: string) => 
+          ['health', 'care', 'medical', 'nursing', 'therapy', 'mental health', 'wellbeing'].some(keyword => 
+            i.toLowerCase().includes(keyword.toLowerCase())
+          )
+        ) ? 90 : 65,
+        trainingOptions: [
+          {
+            title: 'Health and Social Care Level 3 Diploma',
+            level: 'Level 3',
+            duration: '12-18 months',
+            cost: 'Free (16-18) or funded options available',
+            provider: 'Local colleges',
+            description: 'Foundation qualification for healthcare careers',
+            link: 'https://find-postgraduate-study.ac.uk'
+          },
+          {
+            title: 'Mental Health First Aid Training',
+            level: 'Certificate',
+            duration: '2 days',
+            cost: '£200-£300',
+            provider: 'Mental Health First Aid England',
+            description: 'Learn to support people experiencing mental health issues',
+            link: 'https://mhfaengland.org'
+          }
+        ],
+        volunteeringOpportunities: [
+          {
+            organization: 'Age UK',
+            role: 'Befriending Volunteer',
+            description: 'Provide companionship and support to older adults',
+            location: 'Various UK locations',
+            link: 'https://www.ageuk.org.uk',
+            timeCommitment: '2-4 hours per week',
+            skillsGained: ['Empathy', 'Communication', 'Patience'],
+            careerPathConnection: 'Develops essential interpersonal skills for healthcare careers'
+          }
+        ],
+        fundingOptions: [
+          {
+            name: 'NHS Learning Support Fund',
+            amount: '£1,000-£3,000',
+            eligibility: ['Nursing students', 'Allied health students'],
+            description: 'Financial support for healthcare training',
+            link: 'https://www.gov.uk/nhs-bursaries'
+          }
+        ],
+        nextSteps: {
+          immediate: ['Research healthcare roles', 'Volunteer in care settings', 'Develop empathy skills'],
+          shortTerm: ['Complete relevant qualifications', 'Gain hands-on experience', 'Build professional network'],
+          longTerm: ['Apply for healthcare positions', 'Continue professional development', 'Specialize in chosen area']
         },
-        {
-          title: 'Care Quality Commission',
-          description: 'Information about care standards and what good care looks like',
-          link: 'https://www.cqc.org.uk'
-        }
-      ],
-      progressionPath: [
-        {
-          stage: 'Volunteer & Explore',
-          description: 'Gain experience through volunteering while researching career options',
-          timeframe: '1-3 months',
-          requirements: ['Volunteer application', 'Basic safeguarding training']
-        },
-        {
-          stage: 'Formal Training',
-          description: 'Complete Level 2 Adult Social Care Certificate',
-          timeframe: '6-8 months',
-          requirements: ['Course enrollment', 'Placement hours', 'Assessment completion']
-        },
-        {
-          stage: 'Entry-level Position',
-          description: 'Secure first paid role in care sector',
-          timeframe: '8-12 months',
-          requirements: ['Completed qualification', 'References from volunteering', 'DBS check']
-        },
-        {
-          stage: 'Specialization',
-          description: 'Develop expertise in specific areas like dementia care or creative therapy',
-          timeframe: '2-3 years',
-          requirements: ['Work experience', 'Additional training', 'Professional development']
-        }
-      ]
-    }];
+        reflectiveQuestions: [
+          'What motivates you to help others?',
+          'How do you handle emotionally challenging situations?',
+          'Which aspect of healthcare interests you most?'
+        ],
+        keyResources: [
+          {
+            title: 'NHS Careers',
+            description: 'Comprehensive guide to healthcare careers and training',
+            link: 'https://www.healthcareers.nhs.uk'
+          },
+          {
+            title: 'Skills for Care',
+            description: 'Information about social care careers and training',
+            link: 'https://www.skillsforcare.org.uk'
+          }
+        ],
+        progressionPath: [
+          {
+            stage: 'Entry Level',
+            description: 'Start with basic care qualifications and volunteer experience',
+            timeframe: '0-12 months',
+            requirements: ['Basic qualifications', 'DBS check', 'Compassionate nature']
+          },
+          {
+            stage: 'Qualified',
+            description: 'Complete professional training and gain employment',
+            timeframe: '1-3 years',
+            requirements: ['Professional qualification', 'Work experience', 'Registration']
+          },
+          {
+            stage: 'Specialist',
+            description: 'Develop expertise in chosen healthcare area',
+            timeframe: '3+ years',
+            requirements: ['Advanced qualifications', 'Specialist experience', 'Continuous development']
+          }
+        ]
+      }
+    ];
+
+    // Return pathways sorted by match score
+    return curatedPathways.sort((a, b) => b.match - a.match);
   }
 
   /**

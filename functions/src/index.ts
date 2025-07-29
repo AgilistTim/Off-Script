@@ -3359,8 +3359,21 @@ export const generateCareerPathways = onRequest(
         careerStage: userProfile.careerStage
       });
 
+      // Check if OpenAI API key secret is available
+      const openaiApiKey = openaiApiKeySecret.value();
+      
+      if (!openaiApiKey) {
+        logger.error('OpenAI API key secret not found');
+        response.status(500).json({
+          success: false,
+          error: 'OpenAI API key not configured',
+          message: 'Server configuration error'
+        });
+        return;
+      }
+
       const openai = new OpenAI({
-        apiKey: openaiApiKeySecret.value(),
+        apiKey: openaiApiKey,
       });
 
       const systemPrompt = `You are a UK career guidance specialist with comprehensive knowledge of training providers, volunteering opportunities, and funding schemes across the UK. Generate detailed, actionable career guidance with real UK-specific resources.
@@ -3445,28 +3458,85 @@ EXPANDED LEARNING PATHS: Include diverse pathways beyond formal education:
 
 Focus on real UK opportunities with actionable next steps.`;
 
+      logger.info('Making OpenAI API request', {
+        model: 'gpt-4o-mini',
+        messageLength: userPrompt.length
+      });
+
       const completion = await openai.chat.completions.create({
-        model: "gpt-4",
+        model: "gpt-4o-mini", // Using more available model
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt }
         ],
         temperature: 0.7,
         max_tokens: 2000,
+        response_format: { type: "json_object" } // Ensure JSON response
       });
 
       const responseText = completion.choices[0]?.message?.content;
       
       if (!responseText) {
+        logger.error('No response content from OpenAI');
         throw new Error('No response from OpenAI');
       }
+
+      logger.info('OpenAI API response received', {
+        responseLength: responseText.length,
+        tokensUsed: completion.usage?.total_tokens || 0
+      });
 
       let careerGuidance;
       try {
         careerGuidance = JSON.parse(responseText);
       } catch (parseError) {
-        logger.error('Failed to parse OpenAI response as JSON', { responseText });
-        throw new Error('Invalid JSON response from OpenAI');
+        logger.error('Failed to parse OpenAI response as JSON', { 
+          responseText: responseText.substring(0, 500) + '...',
+          parseError: parseError instanceof Error ? parseError.message : String(parseError)
+        });
+        
+        // Provide fallback structure
+        careerGuidance = {
+          primaryPathway: {
+            title: "Career Exploration",
+            description: "Explore various career paths based on your interests and skills",
+            timeline: "3-6 months",
+            requirements: ["Research skills", "Networking"],
+            progression: ["Self-assessment", "Research careers", "Gain experience", "Apply for roles"]
+          },
+          training: [{
+            title: "Career Development Course",
+            provider: "FutureLearn",
+            duration: "4 weeks",
+            cost: "Free",
+            location: "Online",
+            description: "Develop essential career planning skills",
+            link: "https://www.futurelearn.com"
+          }],
+          volunteering: [{
+            title: "Community Volunteer",
+            organization: "Local charity",
+            timeCommitment: "2-4 hours per week",
+            location: "Various locations",
+            description: "Gain valuable experience while helping the community",
+            benefits: "Communication, teamwork, leadership skills",
+            link: "https://do-it.org"
+          }],
+          funding: [{
+            title: "Career Development Loan",
+            provider: "Gov.uk",
+            amount: "£300-£10,000",
+            eligibility: "Adults 18+ seeking career development",
+            description: "Government loan for career training",
+            link: "https://www.gov.uk/career-development-loans"
+          }],
+          resources: [{
+            title: "National Careers Service",
+            organization: "Gov.uk",
+            description: "Free career guidance and job search support",
+            link: "https://nationalcareers.service.gov.uk"
+          }]
+        };
       }
 
       logger.info('Successfully generated career pathways', {
@@ -3485,13 +3555,19 @@ Focus on real UK opportunities with actionable next steps.`;
     } catch (error: any) {
       logger.error('Error in generateCareerPathways function', {
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
+        code: error.code,
+        type: error.constructor.name
       });
       
       response.status(500).json({
         success: false,
         error: 'Failed to generate career pathways',
-        message: error.message
+        message: error.message,
+        details: {
+          type: error.constructor.name,
+          code: error.code || 'UNKNOWN_ERROR'
+        }
       });
     }
   }
