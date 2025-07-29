@@ -185,39 +185,41 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     // Start loading state
     onAnalysisStateChange?.({ isAnalyzing: true, type: 'career_analysis', progress: 'Analyzing your conversation...' });
     
-    try {
-      console.log('🎯 ANALYSIS TRIGGERED:', { 
-        triggerReason, 
-        historyLength: currentHistory.length,
-        contentLength: currentHistory.map(m => m.content).join(' ').length 
-      });
+          try {
+        // Filter out any messages with empty content before sending to MCP
+        const validMessages = currentHistory.filter(msg => 
+          msg.content && typeof msg.content === 'string' && msg.content.trim().length > 0
+        );
+        
+        const conversationText = validMessages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+        
+        console.log('🎯 ANALYSIS TRIGGERED:', { triggerReason, historyLength: validMessages.length, contentLength: conversationText.length });
+        console.log('🔍 Conversation analysis in progress...', { 
+          originalLength: currentHistory.length, 
+          validMessagesLength: validMessages.length, 
+          filteredOut: currentHistory.length - validMessages.length,
+          contentLength: conversationText.length
+        });
+        
+        // Log the actual conversation content being sent for analysis
+        console.log('📝 Conversation content being analyzed:', {
+          messages: validMessages.map(m => `${m.role}: ${m.content.substring(0, 100)}...`),
+          fullText: conversationText.substring(0, 300) + '...'
+        });
 
-      // Filter out any messages with empty content before sending to MCP
-      const validMessages = currentHistory.filter(msg => 
-        msg.content && typeof msg.content === 'string' && msg.content.trim().length > 0
-      );
-
-      console.log('🔍 Conversation analysis in progress...', {
-        originalLength: currentHistory.length,
-        validMessagesLength: validMessages.length,
-        filteredOut: currentHistory.length - validMessages.length,
-        contentLength: validMessages.map(m => m.content).join(' ').length
-      });
-      
-      const conversationText = validMessages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-      
-      // Enhanced analysis with care sector keywords
-      const careKeywords = ['nursing home', 'care home', 'elderly care', 'grandma', 'grandpa', 'helping others', 'care work', 'healthcare', 'caring for'];
-      const hasCareInterest = careKeywords.some(keyword => 
-        conversationText.toLowerCase().includes(keyword.toLowerCase())
-      );
-      
-      console.log('🔍 Enhanced analysis:', {
-        historyLength: validMessages.length,
-        contentLength: conversationText.length,
-        hasCareInterest,
-        triggerReason
-      });
+        // Enhanced care sector detection
+        const hasCareInterest = conversationText.toLowerCase().includes('care') || 
+                                conversationText.toLowerCase().includes('elderly') || 
+                                conversationText.toLowerCase().includes('help') ||
+                                conversationText.toLowerCase().includes('vulnerable') ||
+                                conversationText.toLowerCase().includes('support');
+        
+        console.log('🔍 Enhanced analysis:', { 
+          historyLength: validMessages.length, 
+          contentLength: conversationText.length,
+          hasCareInterest,
+          triggerReason
+        });
       
       // Create enhanced context for better MCP analysis - send as message array
       const enhancedContext = {
@@ -234,7 +236,11 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           userMessages: validMessages.filter(m => m.role === 'user').length,
           keyTopics: triggerReason,
           careInterestDetected: hasCareInterest
-        }
+        },
+        // Cache-busting to ensure fresh analysis
+        timestamp: Date.now(),
+        analysisId: `analysis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        forceFreshAnalysis: true
       };
       
       const response = await fetch(`${mcpEndpoint}/analyze`, {
@@ -400,7 +406,11 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
                   userId: currentUser?.uid || `guest_${Date.now()}`,
                   triggerReason: 'persona_update',
                   generatePersona: true,
-                  profileParams: parameters
+                  profileParams: parameters,
+                  // Cache-busting for profile updates
+                  timestamp: Date.now(),
+                  analysisId: `profile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                  forceFreshAnalysis: true
                 })
               });
               
