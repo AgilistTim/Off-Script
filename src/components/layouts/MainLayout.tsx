@@ -25,7 +25,7 @@ const MainLayout: React.FC = () => {
       {/* Main content */}
       <div className="flex-1">
         {/* Page content */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <main>
           <Outlet />
         </main>
       </div>

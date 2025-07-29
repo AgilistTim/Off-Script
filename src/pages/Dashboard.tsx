@@ -4,7 +4,26 @@ import { useAuth } from '../context/AuthContext';
 import { useAppStore } from '../stores/useAppStore';
 import { useChatContext } from '../context/ChatContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MessageSquare, Sparkles, Bell, X, GraduationCap, Target, BookOpen, Play } from 'lucide-react';
+import { 
+  MessageSquare, 
+  Sparkles, 
+  Bell, 
+  X, 
+  GraduationCap, 
+  Target, 
+  BookOpen, 
+  Play,
+  Zap,
+  Crown,
+  Rocket,
+  Star,
+  Users,
+  TrendingUp,
+  PoundSterling,
+  ArrowRight,
+  RefreshCw,
+  Trash2
+} from 'lucide-react';
 import { getVideoById } from '../services/videoService';
 import VideoCard from '../components/video/VideoCard';
 import CareerGuidancePanel from '../components/career-guidance/CareerGuidancePanel';
@@ -17,10 +36,10 @@ import { db } from '../services/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import careerPathwayService from '../services/careerPathwayService';
 
-// Notification component
+// Notification component with street-art styling
 interface NotificationProps {
   message: string;
-  type: 'info' | 'success';
+  type: 'info' | 'success' | 'error';
   onDismiss: () => void;
 }
 
@@ -34,31 +53,37 @@ const Notification: React.FC<NotificationProps> = ({ message, type, onDismiss })
     return () => clearTimeout(timer);
   }, [onDismiss]);
   
-  const bgColor = type === 'success' 
-    ? 'bg-green-100 dark:bg-green-900/30 border-green-500' 
-    : 'bg-blue-100 dark:bg-blue-900/30 border-blue-500';
+  const bgGradient = type === 'success' 
+    ? 'bg-gradient-to-r from-acid-green/20 to-cyber-yellow/20 border-acid-green/50' 
+    : type === 'error'
+    ? 'bg-gradient-to-r from-neon-pink/20 to-sunset-orange/20 border-neon-pink/50'
+    : 'bg-gradient-to-r from-electric-blue/20 to-neon-pink/20 border-electric-blue/50';
   
   const textColor = type === 'success'
-    ? 'text-green-800 dark:text-green-200'
-    : 'text-blue-800 dark:text-blue-200';
+    ? 'text-acid-green'
+    : type === 'error'
+    ? 'text-neon-pink'
+    : 'text-electric-blue';
   
   return (
     <motion.div 
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className={`fixed top-4 right-4 z-50 p-4 rounded-lg shadow-lg border-l-4 ${bgColor} max-w-md`}
+      initial={{ opacity: 0, y: -20, scale: 0.9 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -20, scale: 0.9 }}
+      className={`fixed top-4 right-4 z-50 p-6 rounded-2xl shadow-2xl border-2 ${bgGradient} max-w-md backdrop-blur-lg`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center">
-          <Bell size={18} className={`mr-2 ${textColor}`} />
-          <p className={`${textColor}`}>{message}</p>
+          <div className="w-8 h-8 bg-gradient-to-br from-electric-blue to-neon-pink rounded-full flex items-center justify-center mr-3">
+            <Bell size={16} className="text-primary-white" />
+          </div>
+          <p className={`${textColor} font-bold`}>{message}</p>
         </div>
         <button 
           onClick={onDismiss}
-          className="ml-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          className="ml-4 text-primary-white/60 hover:text-primary-white transition-colors"
         >
-          <X size={16} />
+          <X size={18} />
         </button>
       </div>
     </motion.div>
@@ -91,7 +116,7 @@ const DashboardVideoCard: React.FC<DashboardVideoCardProps> = ({ videoId }) => {
 
   if (loading) {
     return (
-      <div className="bg-gray-100 dark:bg-gray-700 rounded-lg overflow-hidden animate-pulse h-48"></div>
+      <div className="bg-gradient-to-br from-electric-blue/10 to-neon-pink/10 rounded-2xl overflow-hidden animate-pulse h-48 border border-electric-blue/20"></div>
     );
   }
 
@@ -103,7 +128,7 @@ const DashboardVideoCard: React.FC<DashboardVideoCardProps> = ({ videoId }) => {
 };
 
 const Dashboard: React.FC = () => {
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
   const location = useLocation();
   const { 
     currentThread, 
@@ -116,10 +141,7 @@ const Dashboard: React.FC = () => {
   } = useChatContext();
   
   const [searchParams] = useSearchParams();
-  const [notification, setNotification] = useState<{
-    message: string;
-    type: 'info' | 'success';
-  } | null>(null);
+  const [notification, setNotification] = useState<{ message: string; type: 'info' | 'success' | 'error' } | null>(null);
   
   const [loading, setLoading] = useState(false);
   const [recommendedVideos, setRecommendedVideos] = useState<string[]>([]);
@@ -132,6 +154,23 @@ const Dashboard: React.FC = () => {
   // New state for current conversation data
   const [currentCareerCards, setCurrentCareerCards] = useState<any[]>([]);
   const [dataRefreshKey, setDataRefreshKey] = useState(0); // Force refresh trigger
+  
+  // Cache for career card details to reduce API calls
+  const [careerCardCache, setCareerCardCache] = useState<Map<string, any>>(new Map());
+  
+  // Clear message after 5 seconds
+  useEffect(() => {
+    if (notification) {
+      const timer = setTimeout(() => {
+        setNotification(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [notification]);
+
+  const dismissNotification = () => {
+    setNotification(null);
+  };
 
   // Handle migration completion from router state
   useEffect(() => {
@@ -169,10 +208,6 @@ const Dashboard: React.FC = () => {
       }
     }
   }, [location.state]);
-
-  const dismissNotification = () => {
-    setNotification(null);
-  };
 
   // Fetch current career cards from conversations
   const fetchCurrentCareerCards = useCallback(async () => {
@@ -212,9 +247,18 @@ const Dashboard: React.FC = () => {
     }
   }, [currentUser, loading]); // Removed state dependencies that cause infinite loops
 
-  // Enhanced career card fetching for both current and migrated
+  // Enhanced career card fetching with caching
   const fetchCareerCardDetails = useCallback(async (threadId: string) => {
     if (!currentUser || loading) {
+      return;
+    }
+
+    // Check cache first
+    if (careerCardCache.has(threadId)) {
+      const cachedCard = careerCardCache.get(threadId);
+      setSelectedCareerCard(cachedCard);
+      setShowCareerCardModal(true);
+      console.log('✅ Loaded cached career card:', cachedCard);
       return;
     }
 
@@ -223,9 +267,11 @@ const Dashboard: React.FC = () => {
       if (threadId.includes('_card_')) {
         const careerCard = await careerPathwayService.getMigratedCareerCard(threadId);
         if (careerCard) {
+          // Cache the result
+          setCareerCardCache(prev => new Map(prev.set(threadId, careerCard)));
           setSelectedCareerCard(careerCard);
           setShowCareerCardModal(true);
-          console.log('✅ Loaded migrated career card:', careerCard);
+          console.log('✅ Loaded and cached migrated career card:', careerCard);
         } else {
           setNotification({
             message: 'Could not load career card details. This may be from an older migration.',
@@ -245,7 +291,44 @@ const Dashboard: React.FC = () => {
         type: 'info'
       });
     }
-  }, [currentUser, loading]); // Removed currentCareerCards dependency
+  }, [currentUser, loading, careerCardCache]); // Added careerCardCache dependency
+
+  // Delete career card function
+  const deleteCareerCard = useCallback(async (threadId: string) => {
+    if (!currentUser) return;
+
+    try {
+      // Remove from cache
+      setCareerCardCache(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(threadId);
+        return newMap;
+      });
+
+      // Remove from current career cards
+      setCurrentCareerCards(prev => prev.filter(card => card.threadId !== threadId));
+
+      // TODO: Also remove from Firebase if needed
+      // await careerPathwayService.deleteCareerCard(threadId);
+
+      setNotification({
+        message: 'Career card deleted successfully!',
+        type: 'success'
+      });
+
+      // Close modal if the deleted card was selected
+      if (selectedCareerCard?.threadId === threadId) {
+        setShowCareerCardModal(false);
+        setSelectedCareerCard(null);
+      }
+    } catch (error) {
+      console.error('Error deleting career card:', error);
+      setNotification({
+        message: 'Error deleting career card.',
+        type: 'error'
+      });
+    }
+  }, [currentUser, selectedCareerCard]);
 
   // Fetch video recommendations
   const fetchRecommendations = useCallback(async () => {
@@ -352,21 +435,29 @@ const Dashboard: React.FC = () => {
     }
   };
 
+  const refreshDashboard = () => {
+    setDataRefreshKey(prev => prev + 1);
+  };
+
   if (!currentUser) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary-black via-primary-black to-electric-blue/10 flex items-center justify-center">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-            Welcome to Your Career Dashboard
+          <div className="w-24 h-24 bg-gradient-to-br from-electric-blue to-neon-pink rounded-full flex items-center justify-center mx-auto mb-8 shadow-glow-blue">
+            <Crown className="w-12 h-12 text-primary-white" />
+          </div>
+          <h1 className="text-4xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow mb-6">
+            CAREER COMMAND CENTER*
           </h1>
-          <p className="text-gray-600 dark:text-gray-400 mb-8">
-            Please log in to access your personalized career guidance.
+          <p className="text-xl text-primary-white/70 mb-8 max-w-md mx-auto">
+            Access your personalized career intelligence dashboard
           </p>
           <Link 
-            to="/login" 
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
+            to="/auth/login" 
+            className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow rounded-xl text-primary-black font-black text-lg hover:scale-105 transition-transform duration-200 shadow-glow-blue"
           >
-            Log In
+            <Zap className="w-6 h-6" />
+            <span>ACCESS DASHBOARD</span>
           </Link>
         </div>
       </div>
@@ -374,8 +465,9 @@ const Dashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-4 md:p-6 lg:p-8">
-      <AnimatePresence>
+    <div className="min-h-screen bg-gradient-to-br from-primary-black via-primary-black to-electric-blue/10 pt-24 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        <AnimatePresence>
         {notification && (
           <Notification
             message={notification.message}
@@ -385,59 +477,68 @@ const Dashboard: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* Career Card Modal */}
+      {/* Career Card Modal with street-art styling */}
       <AnimatePresence>
         {showCareerCardModal && selectedCareerCard && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="fixed inset-0 bg-primary-black/80 backdrop-blur-lg flex items-center justify-center z-50 p-4">
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              initial={{ opacity: 0, scale: 0.8, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.8, y: 20 }}
+              className="bg-gradient-to-br from-primary-black to-electric-blue/20 rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto border border-electric-blue/30"
             >
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
+              <div className="p-8">
+                <div className="flex items-start justify-between mb-6">
                   <div>
-                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <h2 className="text-3xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-electric-blue to-neon-pink">
                       {selectedCareerCard.title}
                     </h2>
                     {selectedCareerCard.isMigrated && (
-                      <Badge variant="outline" className="mt-2">
-                        From Guest Session
+                      <Badge className="mt-3 bg-gradient-to-r from-cyber-yellow to-acid-green text-primary-black font-bold">
+                        FROM GUEST SESSION
                       </Badge>
                     )}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowCareerCardModal(false)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                  <div className="flex items-center space-x-3">
+                    <button
+                      onClick={() => deleteCareerCard(selectedCareerCard.threadId)}
+                      className="w-10 h-10 bg-gradient-to-br from-neon-pink to-sunset-orange rounded-xl flex items-center justify-center hover:scale-110 transition-transform duration-200"
+                      title="Delete Career Card"
+                    >
+                      <Trash2 className="h-5 w-5 text-primary-white" />
+                    </button>
+                    <button
+                      onClick={() => setShowCareerCardModal(false)}
+                      className="w-10 h-10 bg-gradient-to-br from-neon-pink to-electric-blue rounded-xl flex items-center justify-center hover:scale-110 transition-transform duration-200"
+                    >
+                      <X className="h-5 w-5 text-primary-white" />
+                    </button>
+                  </div>
                 </div>
                 
-                <div className="space-y-4">
-                  <p className="text-gray-600 dark:text-gray-300">
+                <div className="space-y-6">
+                  <p className="text-xl text-primary-white/90 leading-relaxed">
                     {selectedCareerCard.description}
                   </p>
                   
                   {selectedCareerCard.averageSalary && (
-                    <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                        Average Salary
+                    <div className="bg-gradient-to-r from-electric-blue/20 to-neon-pink/20 rounded-2xl p-6 border border-electric-blue/30">
+                      <h3 className="text-xl font-black text-acid-green mb-4 flex items-center">
+                        <PoundSterling className="w-6 h-6 mr-2" />
+                        SALARY BREAKDOWN
                       </h3>
-                      <div className="grid grid-cols-3 gap-4 text-sm">
-                        <div>
-                          <span className="text-gray-500">Entry:</span><br/>
-                          <span className="font-medium">{selectedCareerCard.averageSalary.entry}</span>
+                      <div className="grid grid-cols-3 gap-6">
+                        <div className="text-center">
+                          <div className="text-primary-white/60 font-bold mb-2">ENTRY</div>
+                          <div className="text-2xl font-black text-electric-blue">{selectedCareerCard.averageSalary.entry}</div>
                         </div>
-                        <div>
-                          <span className="text-gray-500">Experienced:</span><br/>
-                          <span className="font-medium">{selectedCareerCard.averageSalary.experienced}</span>
+                        <div className="text-center">
+                          <div className="text-primary-white/60 font-bold mb-2">EXPERIENCED</div>
+                          <div className="text-2xl font-black text-neon-pink">{selectedCareerCard.averageSalary.experienced}</div>
                         </div>
-                        <div>
-                          <span className="text-gray-500">Senior:</span><br/>
-                          <span className="font-medium">{selectedCareerCard.averageSalary.senior}</span>
+                        <div className="text-center">
+                          <div className="text-primary-white/60 font-bold mb-2">SENIOR</div>
+                          <div className="text-2xl font-black text-cyber-yellow">{selectedCareerCard.averageSalary.senior}</div>
                         </div>
                       </div>
                     </div>
@@ -445,14 +546,21 @@ const Dashboard: React.FC = () => {
                   
                   {selectedCareerCard.keySkills && selectedCareerCard.keySkills.length > 0 && (
                     <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                        Key Skills
+                      <h3 className="text-xl font-black text-neon-pink mb-4 flex items-center">
+                        <Star className="w-6 h-6 mr-2" />
+                        KEY SKILLS
                       </h3>
-                      <div className="flex flex-wrap gap-2">
+                      <div className="flex flex-wrap gap-3">
                         {selectedCareerCard.keySkills.map((skill: string, index: number) => (
-                          <Badge key={index} variant="secondary">
+                          <motion.span
+                            key={index}
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ delay: index * 0.1 }}
+                            className="px-4 py-2 bg-gradient-to-r from-electric-blue to-neon-pink rounded-full text-primary-white font-bold shadow-lg hover:scale-105 transition-transform duration-200"
+                          >
                             {skill}
-                          </Badge>
+                          </motion.span>
                         ))}
                       </div>
                     </div>
@@ -460,12 +568,16 @@ const Dashboard: React.FC = () => {
                   
                   {selectedCareerCard.trainingPathways && selectedCareerCard.trainingPathways.length > 0 && (
                     <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                        Training Pathways
+                      <h3 className="text-xl font-black text-cyber-yellow mb-4 flex items-center">
+                        <GraduationCap className="w-6 h-6 mr-2" />
+                        TRAINING PATHWAYS
                       </h3>
-                      <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300">
+                      <ul className="space-y-3">
                         {selectedCareerCard.trainingPathways.map((pathway: string, index: number) => (
-                          <li key={index}>{pathway}</li>
+                          <li key={index} className="flex items-start">
+                            <ArrowRight className="w-5 h-5 text-electric-blue mr-3 mt-1 flex-shrink-0" />
+                            <span className="text-primary-white/90">{pathway}</span>
+                          </li>
                         ))}
                       </ul>
                     </div>
@@ -473,25 +585,30 @@ const Dashboard: React.FC = () => {
                   
                   {selectedCareerCard.nextSteps && selectedCareerCard.nextSteps.length > 0 && (
                     <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
-                        Next Steps
+                      <h3 className="text-xl font-black text-acid-green mb-4 flex items-center">
+                        <Target className="w-6 h-6 mr-2" />
+                        NEXT STEPS
                       </h3>
-                      <ul className="list-disc list-inside space-y-1 text-gray-600 dark:text-gray-300">
+                      <ul className="space-y-3">
                         {selectedCareerCard.nextSteps.map((step: string, index: number) => (
-                          <li key={index}>{step}</li>
+                          <li key={index} className="flex items-start">
+                            <ArrowRight className="w-5 h-5 text-neon-pink mr-3 mt-1 flex-shrink-0" />
+                            <span className="text-primary-white/90">{step}</span>
+                          </li>
                         ))}
                       </ul>
                     </div>
                   )}
                 </div>
                 
-                <div className="mt-6 flex justify-end">
-                  <Button asChild>
-                    <Link to="/chat">
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Explore Further
-                    </Link>
-                  </Button>
+                <div className="mt-8 flex justify-center">
+                  <Link 
+                    to="/chat"
+                    className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow rounded-xl text-primary-black font-black text-lg hover:scale-105 transition-transform duration-200 shadow-glow-blue"
+                  >
+                    <MessageSquare className="w-6 h-6" />
+                    <span>EXPLORE FURTHER</span>
+                  </Link>
                 </div>
               </div>
             </motion.div>
@@ -499,92 +616,118 @@ const Dashboard: React.FC = () => {
         )}
       </AnimatePresence>
 
-      <div className="max-w-7xl mx-auto space-y-8">
-        {/* Welcome Section with Profile Link */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-        >
-          <Card className="shadow-lg bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200">
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                    Welcome back, {currentUser.displayName || currentUser.email?.split('@')[0] || 'User'}!
-                  </h2>
-                  <p className="text-gray-600">
-                    Continue your career exploration and discover new opportunities.
-                  </p>
-                </div>
-                <div className="flex space-x-3">
-                  <Link 
-                    to="/profile"
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                  >
-                    <GraduationCap className="h-4 w-4" />
-                    <span>View Profile</span>
-                  </Link>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+      {/* Welcome Header with street-art styling */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="text-center mb-12"
+      >
+        <h1 className="text-6xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow mb-4 animate-glow-pulse">
+          DASHBOARD
+        </h1>
+        <p className="text-xl text-primary-white/80 font-medium">
+          Welcome back, {currentUser.displayName || currentUser.email?.split('@')[0] || 'User'}!
+        </p>
+      </motion.div>
 
-        {/* Career Exploration Overview - Simplified */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-        >
-          <Card className="shadow-lg">
-            <CardHeader>
-              <div className="flex items-center space-x-3">
-                <div className="p-2 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg">
-                  <GraduationCap className="h-6 w-6 text-white" />
-                </div>
-                <div>
-                  <CardTitle className="text-xl">Your Career Discoveries</CardTitle>
-                  <CardDescription>
-                    Personalized career paths based on your conversations
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CareerExplorationOverview 
-                onSelectExploration={handleSelectExploration}
-                currentCareerCards={currentCareerCards}
-              />
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        {/* Continue Exploring CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="text-center"
-        >
-          <Card className="p-8 bg-gradient-to-br from-blue-50 to-purple-50 border-0 shadow-lg">
-            <div className="space-y-4">
-              <Sparkles className="h-12 w-12 text-blue-600 mx-auto" />
-              <h3 className="text-xl font-semibold text-gray-900">
-                Ready to explore more?
-              </h3>
-              <p className="text-gray-600 max-w-md mx-auto">
-                Continue your career conversation to discover more opportunities and get personalized guidance.
+      {/* Welcome Section with Profile Link */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1, duration: 0.6 }}
+        className="relative overflow-hidden rounded-2xl p-8 shadow-2xl border border-electric-blue/20 bg-gradient-to-br from-electric-blue/20 to-neon-pink/20 mb-8"
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-primary-black/90 to-primary-black/70 backdrop-blur-sm" />
+        <div className="relative">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-3xl font-street font-black text-primary-white mb-3">
+                CAREER COMMAND CENTER
+              </h2>
+              <p className="text-lg text-primary-white/80">
+                Continue your career exploration and discover new opportunities
               </p>
-              <Button size="lg" asChild className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
-                <Link to="/chat">
-                  <MessageSquare className="w-5 h-5 mr-2" />
-                  Continue Conversation
-                </Link>
-              </Button>
             </div>
-          </Card>
-        </motion.div>
+            <div className="flex space-x-4">
+              <button 
+                onClick={refreshDashboard}
+                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-cyber-yellow to-acid-green rounded-xl text-primary-black font-bold hover:scale-105 transition-transform duration-200"
+                disabled={loading}
+              >
+                <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+                <span>REFRESH</span>
+              </button>
+              <Link 
+                to="/profile"
+                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-electric-blue to-neon-pink rounded-xl text-primary-white font-bold hover:scale-105 transition-transform duration-200"
+              >
+                <Crown className="h-5 w-5" />
+                <span>VIEW PROFILE</span>
+              </Link>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Career Exploration Overview */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3, duration: 0.6 }}
+        className="relative overflow-hidden rounded-2xl p-8 shadow-2xl border border-electric-blue/20 bg-gradient-to-br from-neon-pink/20 to-cyber-yellow/20 mb-8"
+      >
+        <div className="absolute inset-0 bg-gradient-to-br from-primary-black/90 to-primary-black/70 backdrop-blur-sm" />
+        <div className="relative">
+          <div className="flex items-center space-x-4 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-electric-blue to-neon-pink rounded-xl flex items-center justify-center shadow-lg">
+              <GraduationCap className="h-6 w-6 text-primary-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-street font-black text-primary-white">
+                YOUR CAREER DISCOVERIES
+              </h2>
+              <p className="text-primary-white/70">
+                {currentCareerCards.length} {currentCareerCards.length === 1 ? 'path' : 'paths'} explored
+              </p>
+            </div>
+          </div>
+          <CareerExplorationOverview 
+            onSelectExploration={handleSelectExploration}
+            currentCareerCards={currentCareerCards}
+          />
+        </div>
+      </motion.div>
+
+      {/* Continue Exploring CTA */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.5, duration: 0.6 }}
+        className="text-center"
+      >
+        <div className="relative overflow-hidden rounded-2xl p-12 shadow-2xl border border-electric-blue/20 bg-gradient-to-br from-cyber-yellow/20 to-acid-green/20">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary-black/90 to-primary-black/70 backdrop-blur-sm" />
+          <div className="relative space-y-6">
+            <div className="w-16 h-16 bg-gradient-to-br from-electric-blue to-neon-pink rounded-full flex items-center justify-center mx-auto shadow-glow-blue">
+              <Sparkles className="h-8 w-8 text-primary-white" />
+            </div>
+            <h3 className="text-3xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-electric-blue to-neon-pink">
+              READY TO EXPLORE MORE?
+            </h3>
+            <p className="text-xl text-primary-white/80 max-w-2xl mx-auto">
+              Continue your career conversation to discover more opportunities and get personalized guidance
+            </p>
+            <Link 
+              to="/chat"
+              className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow rounded-xl text-primary-black font-black text-lg hover:scale-105 transition-transform duration-200 shadow-glow-blue"
+            >
+              <MessageSquare className="w-6 h-6" />
+              <span>CONTINUE CONVERSATION</span>
+            </Link>
+          </div>
+        </div>
+      </motion.div>
       </div>
     </div>
   );

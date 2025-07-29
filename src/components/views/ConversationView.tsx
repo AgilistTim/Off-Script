@@ -604,7 +604,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
                   ease: "easeInOut"
                 }}
               >
-                EXPLORATION*
+                EXPLORATION
               </motion.div>
               <motion.p 
                 className="text-xl text-electric-blue font-semibold tracking-wide"

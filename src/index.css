@@ -4,71 +4,26 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Off Script Design System - Base Layer */
+/* Off Script Street-Art Design System */
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 0 0% 3.9%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-  }
-  .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
-    --ring: 0 0% 83.1%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-  }
-
+  /* Reset and core styles */
   * {
     @apply border-border;
   }
 
-  /* Off Script Typography System */
+  /* Off Script Typography System - Priority over shadcn */
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
-    @apply bg-background text-foreground;
     font-family: 'Barlow Semi Condensed', 'Inter', system-ui, sans-serif;
-    color: #000000; /* Brand text color */
+    /* Remove conflicting bg-background and text-foreground */
+    background-color: #000000; /* Force dark background */
+    color: #ffffff; /* Force light text */
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
   }
 
   /* Typography scale matching design system */
@@ -93,11 +48,53 @@
   p {
     line-height: 1.5;
   }
+
+  /* Force input styling priority */
+  input, textarea, button {
+    font-family: inherit;
+  }
+
+  /* Override any conflicting component library styles */
+  input[type="email"],
+  input[type="password"], 
+  input[type="text"] {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+  }
 }
 
-/* Off Script Component System */
+/* Off Script Component System - Higher specificity */
 @layer components {
   
+  /* Force street-art form styles */
+  .street-form-input {
+    @apply bg-primary-white/10 border-2 border-electric-blue/30 rounded-xl text-primary-white placeholder-primary-white/50 focus:border-electric-blue focus:outline-none focus:ring-4 focus:ring-electric-blue/20 transition-all duration-200 font-medium;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+  }
+
+  .street-form-input:focus {
+    @apply border-electric-blue ring-4 ring-electric-blue/20;
+  }
+
+  /* Force street-art button styles */
+  .street-button {
+    @apply relative overflow-hidden rounded-xl bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow text-primary-black font-black shadow-glow-blue disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200;
+    appearance: none !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+  }
+
+  .street-button:hover {
+    transform: scale(1.02);
+  }
+
+  .street-button:active {
+    transform: scale(0.98);
+  }
+
   /* Container System */
   .container {
     width: 100%;
@@ -365,4 +362,67 @@
   .carousel-hide {
     opacity: 0;
   }
+
+  /* Force street-art background utilities */
+  .bg-street-dark {
+    background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%) !important;
+  }
+
+  .bg-street-gradient {
+    background: linear-gradient(135deg, #7209b7 0%, #f72585 50%, #ff006e 100%) !important;
+  }
+
+  /* Force visibility utilities */
+  .force-visible {
+    visibility: visible !important;
+    opacity: 1 !important;
+  }
+
+  /* Override any library button resets */
+  .override-button-reset {
+    all: unset;
+    box-sizing: border-box;
+    cursor: pointer;
+  }
+
+  /* Custom scale utilities */
+  .scale-102 {
+    transform: scale(1.02);
+  }
+
+  .scale-98 {
+    transform: scale(0.98);
+  }
+}
+
+/* Force high-specificity overrides for conflicting libraries */
+input.street-form-input,
+input.street-form-input:focus,
+input.street-form-input:active,
+input.street-form-input:hover {
+  background-color: rgba(255, 255, 255, 0.1) !important;
+  border: 2px solid rgba(0, 255, 255, 0.3) !important;
+  border-radius: 0.75rem !important;
+  color: #ffffff !important;
+  font-family: 'Barlow Semi Condensed', 'Inter', system-ui, sans-serif !important;
+}
+
+input.street-form-input:focus {
+  border-color: #00ffff !important;
+  outline: none !important;
+  box-shadow: 0 0 0 4px rgba(0, 255, 255, 0.2) !important;
+}
+
+button.street-button {
+  background: linear-gradient(to right, #00ffff, #ff006e, #ffbe0b) !important;
+  color: #000000 !important;
+  font-weight: 900 !important;
+  border: none !important;
+  border-radius: 0.75rem !important;
+}
+
+/* Override third-party toast libraries */
+.sonner-toast,
+.react-hot-toast {
+  font-family: 'Barlow Semi Condensed', 'Inter', system-ui, sans-serif !important;
 }

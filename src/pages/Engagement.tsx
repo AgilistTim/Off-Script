@@ -21,8 +21,9 @@ export const EngagementPage: React.FC<EngagementPageProps> = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-primary-white flex flex-col">
-      {/* Mobile Header */}
+    <div className="min-h-screen bg-gradient-to-br from-primary-black via-primary-black to-electric-blue/10 pt-24 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto">
+        {/* Header Section */}
       {isMobile && (
         <div className="bg-primary-white border-b border-border-neutral px-4 py-3 flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -40,6 +41,7 @@ export const EngagementPage: React.FC<EngagementPageProps> = () => {
       {/* Main Conversation Interface - Direct access without welcome screen */}
       <div className="flex-1">
         <ConversationView />
+      </div>
       </div>
     </div>
   );

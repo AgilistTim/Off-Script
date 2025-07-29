@@ -80,28 +80,28 @@ export const RegistrationPrompt: React.FC<RegistrationPromptProps> = ({
           {[
             {
               icon: TrendingUp,
-              title: "ADVANCED ANALYSIS*",
+              title: "ADVANCED ANALYSIS",
               description: "AI-powered career insights with 95% accuracy rate",
               color: "electric-blue",
               gradient: "from-electric-blue/20 to-electric-blue/5"
             },
             {
               icon: Target,
-              title: "PERSONALIZED ROADMAP*", 
+              title: "PERSONALIZED ROADMAP", 
               description: "Custom pathways based on UK market data",
               color: "neon-pink",
               gradient: "from-neon-pink/20 to-neon-pink/5"
             },
             {
               icon: BookOpen,
-              title: "EXCLUSIVE CONTENT*",
+              title: "EXCLUSIVE CONTENT",
               description: "Access to premium career resources & guides",
               color: "cyber-yellow",
               gradient: "from-cyber-yellow/20 to-cyber-yellow/5"
             },
             {
               icon: Zap,
-              title: "PRIORITY SUPPORT*",
+              title: "PRIORITY SUPPORT",
               description: "Direct access to career experts & mentors",
               color: "acid-green",
               gradient: "from-acid-green/20 to-acid-green/5"

@@ -615,8 +615,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   return (
     <div className={`flex flex-col items-center space-y-4 p-6 ${className}`}>
       <div className="text-center space-y-2">
-        <h3 className="text-lg font-semibold">AI Career Guide</h3>
-        <p className="text-gray-600 text-sm">
+        <h3 className="text-lg font-semibold text-primary-white">AI Career Guide</h3>
+        <p className="text-primary-white/70 text-sm">
           Voice-first career guidance with real-time insights
         </p>
       </div>
@@ -655,7 +655,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         )}
       </div>
 
-      <div className="text-xs text-gray-500 max-w-md text-center">
+      <div className="text-xs text-primary-white/60 max-w-md text-center">
         <p>✨ Career cards will appear automatically as you discuss your interests</p>
         <p>🔍 Analysis happens every few messages to generate personalized recommendations</p>
       </div>

@@ -63,7 +63,7 @@ const Header: React.FC = () => {
   }, []);
 
   return (
-    <header className="masthead" id="masthead">
+    <header className="masthead fixed top-0 left-0 right-0 bg-primary-black/90 backdrop-blur-sm border-b border-electric-blue/20 z-50" id="masthead">
       <div className="container">
         <div className="flex justify-between items-center py-4 lg:py-6">
           
@@ -119,8 +119,8 @@ const Header: React.FC = () => {
           <nav className="hidden lg:flex space-x-8">
             <Link 
               to="/chat"
-              className={`transition-colors duration-brand font-medium hover:text-primary-peach ${
-                isHomePage ? 'text-primary-white' : 'text-primary-black hover:text-primary-blue'
+              className={`transition-colors duration-brand font-medium hover:text-electric-blue ${
+                isHomePage ? 'text-primary-white' : 'text-primary-white hover:text-electric-blue'
               }`}
             >
               Chat
@@ -128,8 +128,8 @@ const Header: React.FC = () => {
             {currentUser && (
               <Link 
                 to="/dashboard"
-                className={`transition-colors duration-brand font-medium hover:text-primary-peach ${
-                  isHomePage ? 'text-primary-white' : 'text-primary-black hover:text-primary-blue'
+                className={`transition-colors duration-brand font-medium hover:text-electric-blue ${
+                  isHomePage ? 'text-primary-white' : 'text-primary-white hover:text-electric-blue'
                 }`}
               >
                 Dashboard
@@ -138,7 +138,7 @@ const Header: React.FC = () => {
             {isAdmin && (
               <Link 
                 to="/admin"
-                className="text-red-500 hover:text-red-700 transition-colors duration-brand flex items-center font-medium"
+                className="text-neon-pink hover:text-cyber-yellow transition-colors duration-brand flex items-center font-medium"
               >
                 <Shield className="h-4 w-4 mr-1" />
                 Admin
@@ -153,8 +153,8 @@ const Header: React.FC = () => {
                 <button 
                   ref={profileButtonRef}
                   onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                  className={`p-2 transition-colors duration-brand flex items-center rounded-full hover:bg-primary-black/10 ${
-                    isHomePage ? 'text-primary-white hover:text-primary-peach' : 'text-primary-black hover:text-primary-blue'
+                  className={`p-2 transition-colors duration-brand flex items-center rounded-full hover:bg-primary-white/10 ${
+                    isHomePage ? 'text-primary-white hover:text-electric-blue' : 'text-primary-white hover:text-electric-blue'
                   }`}
                 >
                   {currentUser.photoURL ? (
@@ -217,12 +217,12 @@ const Header: React.FC = () => {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="lg:hidden bg-primary-white/95 backdrop-blur-sm border-t border-gray-200">
+        <div className="lg:hidden bg-primary-black/95 backdrop-blur-sm border-t border-electric-blue/30">
           <div className="container">
             <div className="py-4 space-y-2">
               <Link 
                 to="/chat"
-                className="block w-full text-left px-4 py-3 text-primary-black hover:bg-primary-blue/10 hover:text-primary-blue rounded-xl transition-all duration-brand font-medium"
+                className="block w-full text-left px-4 py-3 text-primary-white hover:bg-electric-blue/10 hover:text-electric-blue rounded-xl transition-all duration-brand font-medium"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Chat
@@ -230,7 +230,7 @@ const Header: React.FC = () => {
               {currentUser && (
                 <Link 
                   to="/dashboard"
-                  className="block w-full text-left px-4 py-3 text-primary-black hover:bg-primary-blue/10 hover:text-primary-blue rounded-xl transition-all duration-brand font-medium"
+                  className="block w-full text-left px-4 py-3 text-primary-white hover:bg-electric-blue/10 hover:text-electric-blue rounded-xl transition-all duration-brand font-medium"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Dashboard
@@ -239,7 +239,7 @@ const Header: React.FC = () => {
               {isAdmin && (
                 <Link 
                   to="/admin"
-                  className="block w-full text-left px-4 py-3 text-red-600 hover:bg-red-50 rounded-xl flex items-center transition-all duration-brand font-medium"
+                  className="block w-full text-left px-4 py-3 text-neon-pink hover:bg-neon-pink/10 hover:text-cyber-yellow rounded-xl flex items-center transition-all duration-brand font-medium"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   <Shield className="h-4 w-4 mr-2" />
