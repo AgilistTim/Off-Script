@@ -232,10 +232,26 @@ class CareerPathwayService {
       const explorationRef = doc(collection(db, 'careerExplorations'));
       const threadId = `conversation_${Date.now()}`;
       
-      // Prepare career cards with timestamps and source
+      // Helper function to flatten nested arrays
+      const flattenArrayProperties = (obj: any): any => {
+        if (!obj || typeof obj !== 'object') return obj;
+        
+        const flattened = { ...obj };
+        
+        // Flatten specific array properties that might be nested
+        ['keySkills', 'nextSteps', 'requirements', 'responsibilities', 'trainingOptions', 'pathways'].forEach(prop => {
+          if (flattened[prop] && Array.isArray(flattened[prop])) {
+            flattened[prop] = flattened[prop].flat();
+          }
+        });
+        
+        return flattened;
+      };
+      
+      // Prepare career cards with timestamps, source, and flattened arrays
       const now = new Date();
       const processedCards = careerCards.map(card => ({
-        ...card,
+        ...flattenArrayProperties(card),
         discoveredAt: now.toISOString(),
         source: 'conversation_analysis'
       }));
@@ -1195,10 +1211,11 @@ class CareerPathwayService {
       return this.transformAIResponseToPathways(aiResponse.data);
       
     } catch (error) {
-      console.error('❌ AI pathway generation failed, using curated pathways:', error);
+      console.error('❌ AI pathway generation failed - no fallback to prevent irrelevant suggestions:', error);
       
-      // Return curated UK career pathways based on user profile as fallback
-      return this.getCuratedCareerPathways(userProfile);
+      // Don't use fallback career pathways to avoid irrelevant suggestions
+      // Return empty array instead of generic careers
+      return [];
     }
   }
 

@@ -3002,39 +3002,127 @@ EXPANDED LEARNING PATHS: Include diverse pathways beyond formal education:
 - Volunteer-to-paid pathways
 
 Focus on real UK opportunities with actionable next steps.`;
-        firebase_functions_1.logger.info('Making OpenAI API request', {
-            model: 'gpt-4o-mini',
-            messageLength: userPrompt.length
+        firebase_functions_1.logger.info('Making OpenAI Responses API request with web search', {
+            model: 'gpt-4o',
+            messageLength: userPrompt.length,
+            webSearchEnabled: true
         });
-        const completion = await openai.chat.completions.create({
-            model: "gpt-4o-mini",
-            messages: [
-                { role: "system", content: systemPrompt },
+        const completion = await openai.responses.create({
+            model: "gpt-4o",
+            input: [
+                { role: "system", content: systemPrompt + "\n\nIMPORTANT: Respond with valid JSON only." },
                 { role: "user", content: userPrompt }
             ],
-            temperature: 0.7,
-            max_tokens: 2000,
-            response_format: { type: "json_object" } // Ensure JSON response
+            tools: [
+                {
+                    "type": "web_search_preview"
+                }
+            ]
         });
-        const responseText = completion.choices[0]?.message?.content;
+        const responseText = completion.output_text;
         if (!responseText) {
             firebase_functions_1.logger.error('No response content from OpenAI');
             throw new Error('No response from OpenAI');
         }
-        firebase_functions_1.logger.info('OpenAI API response received', {
+        firebase_functions_1.logger.info('OpenAI Responses API response received', {
             responseLength: responseText.length,
-            tokensUsed: completion.usage?.total_tokens || 0
+            hasWebSearchResults: completion.output?.some(item => item.type === 'web_search_call') || false
         });
         let careerGuidance;
         try {
-            careerGuidance = JSON.parse(responseText);
+            // Clean the response text to handle markdown-wrapped JSON
+            let cleanResponseText = responseText.trim();
+            // Remove markdown code block formatting if present
+            if (cleanResponseText.startsWith('```json')) {
+                cleanResponseText = cleanResponseText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
+            }
+            else if (cleanResponseText.startsWith('```')) {
+                cleanResponseText = cleanResponseText.replace(/^```\s*/, '').replace(/\s*```$/, '');
+            }
+            careerGuidance = JSON.parse(cleanResponseText);
+            // Gambling and inappropriate domain blacklist
+            const BLACKLISTED_DOMAINS = [
+                'do-it.org',
+                'mega888',
+                '918kiss',
+                'pussy888',
+                'xe88',
+                'evo888',
+                'live22',
+                'joker123',
+                'play8oy2',
+                'rollex11',
+                'lpe88',
+                'ntc33',
+                'bitcoin888'
+            ];
+            // Enhanced URL validation function
+            const isValidUrl = (url) => {
+                if (!url || typeof url !== 'string')
+                    return false;
+                try {
+                    const urlObj = new URL(url);
+                    // Check protocol
+                    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
+                        return false;
+                    }
+                    // Check for blacklisted domains
+                    const hostname = urlObj.hostname.toLowerCase();
+                    const isBlacklisted = BLACKLISTED_DOMAINS.some(domain => hostname === domain || hostname.endsWith('.' + domain));
+                    if (isBlacklisted) {
+                        firebase_functions_1.logger.error('BLOCKED: Gambling/inappropriate domain detected', {
+                            url,
+                            hostname,
+                            blockedDomain: BLACKLISTED_DOMAINS.find(domain => hostname === domain || hostname.endsWith('.' + domain))
+                        });
+                        return false;
+                    }
+                    return true;
+                }
+                catch {
+                    return false;
+                }
+            };
+            // Validate and clean URLs in the response
+            const validateAndCleanLinks = (items) => {
+                return items?.map(item => {
+                    if (item.link) {
+                        if (isValidUrl(item.link)) {
+                            return item;
+                        }
+                        else {
+                            firebase_functions_1.logger.warn('Invalid URL detected and removed', {
+                                originalUrl: item.link,
+                                itemTitle: item.title
+                            });
+                            // Remove the invalid link
+                            const { link, ...itemWithoutLink } = item;
+                            return itemWithoutLink;
+                        }
+                    }
+                    return item;
+                }) || [];
+            };
+            // Apply validation to all sections with links
+            if (careerGuidance.training) {
+                careerGuidance.training = validateAndCleanLinks(careerGuidance.training);
+            }
+            if (careerGuidance.volunteering) {
+                careerGuidance.volunteering = validateAndCleanLinks(careerGuidance.volunteering);
+            }
+            if (careerGuidance.funding) {
+                careerGuidance.funding = validateAndCleanLinks(careerGuidance.funding);
+            }
+            if (careerGuidance.resources) {
+                careerGuidance.resources = validateAndCleanLinks(careerGuidance.resources);
+            }
         }
         catch (parseError) {
             firebase_functions_1.logger.error('Failed to parse OpenAI response as JSON', {
                 responseText: responseText.substring(0, 500) + '...',
                 parseError: parseError instanceof Error ? parseError.message : String(parseError)
             });
-            // Provide fallback structure
+            // Provide SAFE fallback structure without any gambling links
             careerGuidance = {
                 primaryPathway: {
                     title: "Career Exploration",
@@ -3054,12 +3142,12 @@ Focus on real UK opportunities with actionable next steps.`;
                     }],
                 volunteering: [{
                         title: "Community Volunteer",
-                        organization: "Local charity",
+                        organization: "Local Community Centre",
                         timeCommitment: "2-4 hours per week",
                         location: "Various locations",
                         description: "Gain valuable experience while helping the community",
-                        benefits: "Communication, teamwork, leadership skills",
-                        link: "https://do-it.org"
+                        benefits: "Communication, teamwork, leadership skills"
+                        // REMOVED MALICIOUS do-it.org LINK - NO LINK PROVIDED IF UNSAFE
                     }],
                 funding: [{
                         title: "Career Development Loan",

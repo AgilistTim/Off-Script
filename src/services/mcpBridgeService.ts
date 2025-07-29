@@ -259,72 +259,20 @@ class MCPBridgeService {
   // Fallback methods for when MCP server is not available
 
   private async fallbackAnalyzeConversation(messages: MCPMessage[], userId?: string): Promise<MCPAnalysisResult> {
-    console.log('🔄 Using fallback conversation analysis');
+    console.log('🔄 Fallback disabled to prevent irrelevant career suggestions');
     
-    // Simple keyword-based analysis as fallback
-    const allText = messages
-      .filter(msg => msg.role === 'user')
-      .map(msg => msg.content.toLowerCase())
-      .join(' ');
-
-    const interests = [];
-    const careerCards = [];
-
-    // Basic interest detection
-    if (allText.includes('ai') || allText.includes('artificial intelligence') || allText.includes('machine learning')) {
-      interests.push('AI/Machine Learning');
-      careerCards.push({
-        id: `fallback-ai-${Date.now()}`,
-        title: 'AI/Machine Learning Career Path',
-        description: 'Explore exciting opportunities in artificial intelligence and machine learning',
-        industry: 'Technology',
-        averageSalary: { entry: '£35,000', experienced: '£65,000', senior: '£100,000+' },
-        keySkills: ['Python', 'Machine Learning', 'Data Analysis'],
-        nextSteps: ['Learn Python', 'Take ML courses', 'Build portfolio projects'],
-        confidence: 0.7,
-        location: 'UK'
-      });
-    }
-
-    if (allText.includes('design') || allText.includes('creative') || allText.includes('art')) {
-      interests.push('Design');
-      careerCards.push({
-        id: `fallback-design-${Date.now()}`,
-        title: 'Creative Design Career Path',
-        description: 'Explore opportunities in design and creative industries',
-        industry: 'Creative',
-        averageSalary: { entry: '£28,000', experienced: '£50,000', senior: '£80,000+' },
-        keySkills: ['Creative Thinking', 'Design Software', 'User Research'],
-        nextSteps: ['Build portfolio', 'Learn design tools', 'Network with designers'],
-        confidence: 0.7,
-        location: 'UK'
-      });
-    }
-
-    if (allText.includes('business') || allText.includes('entrepreneur') || allText.includes('startup')) {
-      interests.push('Entrepreneurship');
-      careerCards.push({
-        id: `fallback-business-${Date.now()}`,
-        title: 'Business & Entrepreneurship Career Path',
-        description: 'Explore opportunities in business and entrepreneurship',
-        industry: 'Business',
-        averageSalary: { entry: '£30,000', experienced: '£60,000', senior: '£150,000+' },
-        keySkills: ['Leadership', 'Business Strategy', 'Finance'],
-        nextSteps: ['Develop business plan', 'Learn finance basics', 'Network with entrepreneurs'],
-        confidence: 0.7,
-        location: 'UK'
-      });
-    }
-
-    return {
-      success: true,
-      analysis: {
-        detectedInterests: interests,
-        confidence: interests.length > 0 ? 0.7 : 0.3,
-        careerCards,
-        timestamp: new Date().toISOString()
-      }
-    };
+         // Return empty analysis instead of hardcoded career cards
+     // This prevents wrong career suggestions when MCP server fails
+     return {
+       success: false,
+       analysis: {
+         detectedInterests: [],
+         confidence: 0,
+         careerCards: [],
+         timestamp: new Date().toISOString(),
+         error: 'Analysis temporarily unavailable - please try again'
+       }
+     };
   }
 
   private async fallbackGenerateInsights(interests: string[], experience: string, location: string): Promise<MCPInsightsResult> {
