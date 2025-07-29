@@ -263,9 +263,23 @@ class CareerPathwayService {
         userId,
         guidance: {
           userProfile: {
-            goals: careerCards.flatMap(card => card.nextSteps ? [card.nextSteps] : []).slice(0, 3),
+            goals: careerCards.flatMap(card => {
+              if (Array.isArray(card.nextSteps)) {
+                return card.nextSteps;
+              } else if (card.nextSteps) {
+                return [card.nextSteps];
+              }
+              return [];
+            }).slice(0, 3),
             interests: careerCards.flatMap(card => card.industry ? [card.industry] : []).slice(0, 3),
-            skills: careerCards.flatMap(card => card.keySkills || []).slice(0, 5),
+            skills: careerCards.flatMap(card => {
+              if (Array.isArray(card.keySkills)) {
+                return card.keySkills;
+              } else if (card.keySkills) {
+                return [card.keySkills];
+              }
+              return [];
+            }).slice(0, 5),
             careerStage: 'exploring' as const
           },
           primaryPathway: {
