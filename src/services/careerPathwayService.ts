@@ -1050,6 +1050,86 @@ class CareerPathwayService {
   }
 
   /**
+   * Delete a career exploration document or a single migrated career card.
+   *
+   * Handles both standard thread-level explorations (document id === threadId)
+   * and migrated guest-session cards whose ids follow the pattern
+   *   `${explorationDocId}_card_${index}`.
+   */
+  async deleteCareerExplorationOrCard(threadId: string, userId: string): Promise<void> {
+    try {
+      const { db } = await import('./firebase');
+      const { doc, deleteDoc, getDoc, updateDoc } = await import('firebase/firestore');
+
+      // If this is a migrated card we need to surgically remove the card from the
+      // parent exploration document (or delete the whole document if it was the
+      // last remaining card).
+      if (threadId.includes('_card_')) {
+        const [explorationDocId, cardSuffix] = threadId.split('_card_');
+        const cardIndex = Number.parseInt(cardSuffix, 10);
+
+        // Defensive check for NaN
+        if (Number.isNaN(cardIndex)) {
+          console.warn('⚠️ Unable to parse card index from threadId:', threadId);
+          return;
+        }
+
+        const explorationRef = doc(db, 'careerExplorations', explorationDocId);
+        const explorationSnap = await getDoc(explorationRef);
+
+        if (!explorationSnap.exists()) {
+          console.warn('⚠️ Exploration document does not exist for id:', explorationDocId);
+          return;
+        }
+
+        const explorationData = explorationSnap.data();
+        if (explorationData.userId !== userId) {
+          console.warn('⚠️ User does not own exploration, skipping delete');
+          return;
+        }
+
+        const cards: any[] = Array.isArray(explorationData.careerCards)
+          ? [...explorationData.careerCards]
+          : [];
+
+        // Remove requested card
+        if (cardIndex >= 0 && cardIndex < cards.length) {
+          cards.splice(cardIndex, 1);
+        } else {
+          console.warn('⚠️ Card index out of range for exploration', explorationDocId);
+          return;
+        }
+
+        if (cards.length === 0) {
+          // No cards left – delete entire document
+          await deleteDoc(explorationRef);
+          console.log('✅ Deleted empty careerExplorations doc:', explorationDocId);
+        } else {
+          // Update remaining cards and cardCount
+          await updateDoc(explorationRef, {
+            careerCards: cards,
+            cardCount: cards.length,
+            updatedAt: new Date()
+          });
+          console.log('✅ Removed card', cardIndex, 'from exploration', explorationDocId);
+        }
+      } else {
+        // Standard exploration document
+        const explorationRef = doc(db, 'careerExplorations', threadId);
+        const explorationSnap = await getDoc(explorationRef);
+
+        if (explorationSnap.exists() && explorationSnap.data().userId === userId) {
+          await deleteDoc(explorationRef);
+          console.log('✅ Deleted careerExplorations doc:', threadId);
+        }
+      }
+    } catch (error) {
+      console.error('Error deleting career exploration/card:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Determine if career guidance should be regenerated based on conversation changes
    */
   private shouldRegenerateGuidance(existingGuidance: ComprehensiveCareerGuidance, newSummary: ChatSummary): boolean {

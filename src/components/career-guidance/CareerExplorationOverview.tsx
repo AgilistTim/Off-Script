@@ -189,64 +189,26 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
     return 'text-primary-white/60';
   };
 
-  // Robust thread ID cleaning to handle nested corruption
+  // Simple thread ID cleaning - removes common prefixes/suffixes
   const cleanThreadId = (threadId: string): string => {
-    if (!threadId) return `fallback-${Math.random()}`;
+    if (!threadId) return `fallback-${Date.now()}`;
     
     let cleaned = threadId.trim();
     
-    // Step 1: Remove all "guidance-" prefixes (can be multiple)
-    cleaned = cleaned.replace(/^(guidance-)+/g, '');
+    // Remove common prefixes and suffixes
+    cleaned = cleaned.replace(/^guidance-/, '');      // Remove "guidance-" prefix
+    cleaned = cleaned.replace(/_guidance.*$/, '');    // Remove "_guidance..." suffix
+    cleaned = cleaned.replace(/-primary$/, '');       // Remove "-primary" suffix
+    cleaned = cleaned.replace(/_primary$/, '');       // Remove "_primary" suffix
     
-    // Step 2: Remove all "_guidance" suffixes and variations
-    cleaned = cleaned.replace(/(_guidance)+(-primary)*(_guidance)*(-primary)*(_guidance)*$/g, '');
+    // Clean up any remaining artifacts
+    cleaned = cleaned.replace(/[_-]+$/, '');          // Remove trailing separators
+    cleaned = cleaned.replace(/^[_-]+/, '');          // Remove leading separators
     
-    // Step 3: Handle remaining "_guidance-primary" patterns anywhere in the string
-    cleaned = cleaned.replace(/(_guidance-primary)+/g, '');
-    
-    // Step 4: Clean up any remaining "guidance-" in the middle
-    cleaned = cleaned.replace(/guidance-/g, '');
-    
-    // Step 5: Handle "-primary" suffixes that might be left
-    cleaned = cleaned.replace(/(-primary)+$/g, '');
-    
-    // Step 6: Handle "_primary" suffixes that might be left
-    cleaned = cleaned.replace(/(_primary)+$/g, '');
-    
-    // Step 7: Remove any remaining "_guidance" fragments
-    cleaned = cleaned.replace(/_guidance/g, '');
-    
-    // Step 8: Clean up double underscores or dashes
-    cleaned = cleaned.replace(/_{2,}/g, '_');
-    cleaned = cleaned.replace(/-{2,}/g, '-');
-    
-    // Step 9: Remove trailing underscores or dashes
-    cleaned = cleaned.replace(/[_-]+$/g, '');
-    
-    // Step 10: Remove leading underscores or dashes
-    cleaned = cleaned.replace(/^[_-]+/g, '');
-    
-    // Step 11: If we ended up with something too short or empty, create a fallback
-    if (!cleaned || cleaned.length < 5) {
-      // Try to extract the core ID from the original
-      const coreMatch = threadId.match(/([A-Za-z0-9]{15,})/);
-      if (coreMatch) {
-        cleaned = coreMatch[1];
-      } else {
-        cleaned = `fallback-${threadId.substring(0, 10).replace(/[^A-Za-z0-9]/g, '')}-${Date.now()}`;
-      }
+    // Ensure we have a valid ID
+    if (!cleaned || cleaned.length < 3) {
+      cleaned = threadId.replace(/[^A-Za-z0-9]/g, '') || `fallback-${Date.now()}`;
     }
-    
-    console.log('🧹 Cleaned thread ID:', { 
-      original: threadId, 
-      cleaned, 
-      steps: {
-        'original': threadId,
-        'after_guidance_prefix_removal': threadId.replace(/^(guidance-)+/g, ''),
-        'after_suffix_removal': threadId.replace(/^(guidance-)+/g, '').replace(/(_guidance)+(-primary)*(_guidance)*(-primary)*(_guidance)*$/g, ''),
-        'final': cleaned
-      }
-    });
     
     return cleaned;
   };
@@ -407,15 +369,12 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
     if (!confirmed) return;
 
     try {
-      // Clean the thread ID to match what's stored in the database
-      const cleanedId = cleanThreadId(threadId);
-      console.log('🗑️ Deleting career card with cleaned ID:', cleanedId, 'from original:', threadId);
+      console.log('🗑️ Deleting career card with threadId:', threadId);
 
-      // Remove from local state (check both original and cleaned IDs)
+      // Remove from local state immediately for responsive UI
       setCareerGuidanceData(prev => {
         const newMap = new Map(prev);
         newMap.delete(threadId);
-        newMap.delete(cleanedId);
         return newMap;
       });
 
@@ -423,45 +382,37 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
       setExpandedCards(prev => {
         const newSet = new Set(prev);
         newSet.delete(threadId);
-        newSet.delete(cleanedId);
         return newSet;
       });
 
-      // Delete all possible corrupted variations from database
-      const idVariations = [
-        cleanedId,
-        threadId,
-        `guidance-${cleanedId}`,
-        threadId.replace(/^guidance-/, ''),
-      ].filter((id, index, arr) => arr.indexOf(id) === index);
-
-      console.log('🗑️ Attempting to delete all ID variations:', idVariations);
-      
-      for (const idVariation of idVariations) {
-        try {
-          await careerPathwayService.deleteThreadCareerGuidance(idVariation, currentUser.uid);
-          console.log('✅ Deleted guidance for ID variation:', idVariation);
-        } catch (error) {
-          console.log('🔍 No guidance found to delete for:', idVariation);
-        }
-      }
-
-      // Remove from direct explorations if it exists there
+      // Remove from direct explorations immediately
       setDirectExplorations(prev => 
-        prev.filter(exploration => {
-          const explorationCleanedId = cleanThreadId(exploration.threadId);
-          return exploration.threadId !== threadId && 
-                 exploration.threadId !== cleanedId &&
-                 explorationCleanedId !== cleanedId;
-        })
+        prev.filter(exploration => exploration.threadId !== threadId)
       );
 
-      // Force a refresh to update the parent component
-      setRefreshCount(prev => prev + 1);
+      // Delete from database - try both collections
+      try {
+        await careerPathwayService.deleteCareerExplorationOrCard(threadId, currentUser.uid);
+        console.log('✅ Deleted exploration/card for threadId:', threadId);
+      } catch (error) {
+        console.log('🔍 No exploration found to delete for threadId:', threadId);
+      }
+
+      try {
+        await careerPathwayService.deleteThreadCareerGuidance(threadId, currentUser.uid);
+        console.log('✅ Deleted guidance for threadId:', threadId);
+      } catch (error) {
+        console.log('🔍 No guidance found to delete for threadId:', threadId);
+      }
+
+      console.log('✅ Career card deleted successfully');
       
     } catch (error) {
       console.error('❌ Error deleting career card:', error);
       alert('Failed to delete career card. Please try again.');
+      
+      // Reload data on error to restore consistent state
+      loadExplorations();
     }
   };
 
@@ -535,69 +486,24 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
     // Combine and sort by last updated
     const combined = [...explorations, ...currentCardExplorations];
     
-    // More aggressive deduplication by cleaned thread ID
-    const cleanedIdMap = new Map<string, any>(); // cleaned ID -> best exploration
-    
-    combined.forEach(exploration => {
-      const cleanedId = cleanThreadId(exploration.threadId || `fallback-${Math.random()}`);
-      
-      // If we already have an exploration for this cleaned ID, choose the best one
-      if (cleanedIdMap.has(cleanedId)) {
-        const existing = cleanedIdMap.get(cleanedId);
-        
-        // Prioritize by:
-        // 1. Shorter original thread ID (less corrupted)
-        // 2. More recent lastUpdated
-        // 3. Higher match score
-        const existingCorruption = (existing.threadId.match(/guidance/g) || []).length;
-        const newCorruption = (exploration.threadId.match(/guidance/g) || []).length;
-        
-        let shouldReplace = false;
-        
-        if (newCorruption < existingCorruption) {
-          shouldReplace = true; // Less corrupted
-        } else if (newCorruption === existingCorruption) {
-          if (exploration.lastUpdated > existing.lastUpdated) {
-            shouldReplace = true; // More recent
-          } else if (exploration.lastUpdated.getTime() === existing.lastUpdated.getTime()) {
-            if ((exploration.match || 0) > (existing.match || 0)) {
-              shouldReplace = true; // Higher match
-            }
-          }
-        }
-        
-        if (shouldReplace) {
-          console.log(`🔄 Replacing duplicate:`, {
-            cleanedId,
-            oldThreadId: existing.threadId,
-            newThreadId: exploration.threadId,
-            reason: newCorruption < existingCorruption ? 'less corrupted' : 
-                   exploration.lastUpdated > existing.lastUpdated ? 'more recent' : 'higher match'
-          });
-          cleanedIdMap.set(cleanedId, { ...exploration, threadId: cleanedId });
-        } else {
-          console.log(`🔍 Skipping duplicate (keeping existing):`, {
-            cleanedId,
-            existingThreadId: existing.threadId,
-            skippedThreadId: exploration.threadId
-          });
-        }
-      } else {
-        // First exploration for this cleaned ID
-        cleanedIdMap.set(cleanedId, { ...exploration, threadId: cleanedId });
+    // Simple deduplication by exact thread ID match - no complex cleaning
+    const seenIds = new Set<string>();
+    const filtered = combined.filter(exploration => {
+      if (seenIds.has(exploration.threadId)) {
+        console.log(`🔍 Skipping duplicate threadId:`, exploration.threadId);
+        return false;
       }
+      seenIds.add(exploration.threadId);
+      return true;
     });
     
-    const deduplicated = Array.from(cleanedIdMap.values());
-    
-    console.log('🔍 Advanced deduplication results:', {
+    console.log('🔍 Deduplication results:', {
       originalCount: combined.length,
-      duplicateGroups: combined.length - cleanedIdMap.size,
-      finalCount: deduplicated.length,
-      cleanedThreadIds: deduplicated.map(e => e.threadId)
+      filteredCount: filtered.length,
+      threadIds: filtered.map(e => e.threadId)
     });
     
-    return deduplicated.sort((a, b) => b.lastUpdated.getTime() - a.lastUpdated.getTime());
+    return filtered.sort((a, b) => b.lastUpdated.getTime() - a.lastUpdated.getTime());
   }, [directExplorations, careerExplorations, currentCareerCards]);
 
   const formatDate = (date: Date | any) => {
@@ -631,75 +537,13 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
     return 'text-neon-pink';
   };
 
-  // Comprehensive database cleanup function
-  const cleanupCorruptedEntries = useCallback(async () => {
-    if (!currentUser) return;
-    
-    console.log('🧹 Starting comprehensive database cleanup...');
-    
-    try {
-      // Get all current explorations to identify duplicates
-      const explorations = await careerPathwayService.getUserCareerExplorations(currentUser.uid);
-      const cleanedIdMap = new Map<string, string[]>(); // cleaned ID -> original IDs
-      
-      // Group explorations by their cleaned IDs
-      explorations.forEach(exploration => {
-        const cleanedId = cleanThreadId(exploration.threadId);
-        if (!cleanedIdMap.has(cleanedId)) {
-          cleanedIdMap.set(cleanedId, []);
-        }
-        cleanedIdMap.get(cleanedId)!.push(exploration.threadId);
-      });
-      
-      // Find groups with multiple variations (duplicates)
-      const duplicateGroups = Array.from(cleanedIdMap.entries()).filter(([_, originals]) => originals.length > 1);
-      
-      console.log('🔍 Found duplicate groups:', duplicateGroups.length);
-      duplicateGroups.forEach(([cleanedId, originals]) => {
-        console.log(`  - ${cleanedId}: ${originals.join(', ')}`);
-      });
-      
-      // For each duplicate group, keep the shortest/cleanest ID and remove others
-      for (const [cleanedId, originals] of duplicateGroups) {
-        // Sort by length and corruption level (prefer shorter, less corrupted IDs)
-        const sortedOriginals = originals.sort((a, b) => {
-          const aCorruption = (a.match(/guidance/g) || []).length + (a.match(/_guidance/g) || []).length;
-          const bCorruption = (b.match(/guidance/g) || []).length + (b.match(/_guidance/g) || []).length;
-          
-          if (aCorruption !== bCorruption) return aCorruption - bCorruption;
-          return a.length - b.length;
-        });
-        
-        const keepId = sortedOriginals[0];
-        const removeIds = sortedOriginals.slice(1);
-        
-        console.log(`🧹 For group ${cleanedId}: keeping "${keepId}", removing:`, removeIds);
-        
-        // Remove the corrupted variations from database
-        for (const removeId of removeIds) {
-          try {
-            await careerPathwayService.deleteThreadCareerGuidance(removeId, currentUser.uid);
-            console.log(`✅ Deleted corrupted guidance: ${removeId}`);
-          } catch (error) {
-            console.log(`🔍 No guidance found to delete: ${removeId}`);
-          }
-        }
-      }
-      
-      console.log('✅ Database cleanup completed');
-      
-    } catch (error) {
-      console.error('❌ Error during database cleanup:', error);
-    }
-  }, [currentUser]);
-
   // Add cleanup trigger on component mount
   useEffect(() => {
     if (currentUser && refreshCount === 0) {
-      // Run cleanup once on initial load
-      cleanupCorruptedEntries();
+      // Initial load - no cleanup needed with simplified system
+      console.log('🚀 Initial load completed');
     }
-  }, [currentUser, cleanupCorruptedEntries, refreshCount]);
+  }, [currentUser, refreshCount]);
 
   if (isLoading) {
     return (

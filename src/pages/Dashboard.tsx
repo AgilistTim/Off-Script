@@ -309,7 +309,12 @@ const Dashboard: React.FC = () => {
       setCurrentCareerCards(prev => prev.filter(card => card.threadId !== threadId));
 
       // TODO: Also remove from Firebase if needed
-      // await careerPathwayService.deleteCareerCard(threadId);
+      try {
+        await careerPathwayService.deleteCareerExplorationOrCard(threadId, currentUser.uid);
+        await careerPathwayService.deleteThreadCareerGuidance(threadId, currentUser.uid);
+      } catch (error) {
+        console.error('Error deleting guidance/exploration:', error);
+      }
 
       setNotification({
         message: 'Career card deleted successfully!',
