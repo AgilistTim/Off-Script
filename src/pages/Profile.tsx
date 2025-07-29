@@ -69,6 +69,7 @@ const Profile: React.FC = () => {
   
   // Load user data when component mounts
   useEffect(() => {
+    console.log("userData useEffect triggered, userData:", userData);
     if (userData) {
       console.log("Loading user data:", userData);
       // Load profile data
@@ -80,25 +81,18 @@ const Profile: React.FC = () => {
         const careerGoals = objectToArray(userData.profile.careerGoals);
         const skills = objectToArray(userData.profile.skills);
         
-        console.log("Converted arrays:", { interests, careerGoals, skills });
-        
-        setProfile({
+        const newProfileData = {
           bio: userData.profile.bio || '',
           school: userData.profile.school || '',
           grade: userData.profile.grade || '',
           interests,
           careerGoals,
           skills
-        });
+        };
         
-        console.log("Profile state after setting:", {
-          bio: userData.profile.bio || '',
-          school: userData.profile.school || '',
-          grade: userData.profile.grade || '',
-          interests,
-          careerGoals,
-          skills
-        });
+        setProfile(newProfileData);
+      } else {
+        console.log("No profile data in userData");
       }
       
       // Load preferences data
@@ -109,6 +103,8 @@ const Profile: React.FC = () => {
           emailUpdates: userData.preferences.emailUpdates !== undefined ? userData.preferences.emailUpdates : true
         });
       }
+    } else {
+      console.log("No userData available");
     }
   }, [userData]);
 
@@ -116,6 +112,18 @@ const Profile: React.FC = () => {
   useEffect(() => {
     const fetchCareerInsights = async () => {
       if (!currentUser) return;
+      
+      // Skip fetching if we already have comprehensive user profile data
+      const hasComprehensiveUserData = userData?.profile && (
+        (userData.profile.interests?.length || 0) + 
+        (userData.profile.careerGoals?.length || 0) + 
+        (userData.profile.skills?.length || 0)
+      ) >= 3; // At least 3 items across interests, goals, and skills
+      
+      if (hasComprehensiveUserData) {
+        console.log('Skipping career insights fetch - comprehensive user data already exists');
+        return;
+      }
       
       try {
         // Get migrated profile from career pathway service
@@ -128,6 +136,33 @@ const Profile: React.FC = () => {
         const combinedData = await careerPathwayService.getCombinedUserProfile(currentUser.uid);
         if (combinedData) {
           setCombinedProfile(combinedData);
+          
+          // Update profile state with combined data if user's profile is empty
+          setProfile(prev => {
+            const hasExistingData = prev.interests?.length || prev.careerGoals?.length || prev.skills?.length;
+            const hasUserDataProfile = userData?.profile && (
+              userData.profile.interests?.length || 
+              userData.profile.careerGoals?.length || 
+              userData.profile.skills?.length ||
+              userData.profile.school ||
+              userData.profile.grade ||
+              userData.profile.bio
+            );
+            
+            // Only use combined data if we have no existing data AND no userData profile
+            if (!hasExistingData && !hasUserDataProfile && (combinedData.interests?.length || combinedData.careerGoals?.length || combinedData.skills?.length)) {
+              console.log('Updating profile with combined data:', combinedData);
+              const newProfile = {
+                ...prev,
+                interests: combinedData.interests || prev.interests || [],
+                careerGoals: combinedData.careerGoals || prev.careerGoals || [],
+                skills: combinedData.skills || prev.skills || []
+              };
+              return newProfile;
+            }
+            
+            return prev;
+          });
         }
       } catch (error) {
         console.error('Error fetching career insights:', error);
@@ -135,7 +170,7 @@ const Profile: React.FC = () => {
     };
     
     fetchCareerInsights();
-  }, [currentUser]);
+  }, [currentUser, userData]);
   
   // Handle profile form submission
   const handleProfileSubmit = async (e: React.FormEvent) => {
@@ -324,43 +359,54 @@ const Profile: React.FC = () => {
           )}
         </AnimatePresence>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
-          {/* Generated Career Insights - Primary Display */}
-          {(migratedProfile || combinedProfile) && (
-            <motion.div
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.6 }}
-              className="xl:col-span-2"
+        {/* AI Career Insights - Full width section when available */}
+        {(migratedProfile || (combinedProfile && combinedProfile.hasCurrentData && (
+          (combinedProfile.interests?.length || 0) + 
+          (combinedProfile.careerGoals?.length || 0) + 
+          (combinedProfile.skills?.length || 0)
+        ) >= 3)) && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-8"
+          >
+            <ProfileSection
+              title={migratedProfile ? "AI CAREER INSIGHTS" : "YOUR CAREER PROFILE"}
+              icon={<Zap className="w-6 h-6 text-primary-white" />}
+              gradient="bg-gradient-to-br from-electric-blue/20 to-neon-pink/20"
             >
-              <ProfileSection
-                title="AI CAREER INSIGHTS"
-                icon={<Zap className="w-6 h-6 text-primary-white" />}
-                gradient="bg-gradient-to-br from-electric-blue/20 to-neon-pink/20"
-              >
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                  {/* Career Profile */}
-                  <div className="space-y-6">
-                    <h3 className="text-xl font-black text-electric-blue mb-4">
-                      CAREER PROFILE
-                    </h3>
-                    
-                    {migratedProfile && (
-                      <div className="space-y-4">
+              <div className="grid grid-cols-1 gap-8">
+                {/* Career Profile - Interests, Goals, Skills */}
+                <div className="space-y-6">
+                  <h3 className="text-xl font-black text-electric-blue mb-4">
+                    {migratedProfile ? "MIGRATED CAREER PROFILE" : "FROM YOUR CONVERSATIONS"}
+                  </h3>
+                  
+                  {migratedProfile ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      <div>
+                        <h4 className="text-lg font-black text-electric-blue mb-3">INTERESTS</h4>
                         <TagDisplay
                           items={migratedProfile.interests || []}
                           color="bg-gradient-to-r from-neon-pink to-cyber-yellow text-primary-black"
                           icon={<Heart className="w-4 h-4" />}
                           emptyMessage="No interests discovered yet"
                         />
-                        
+                      </div>
+                      
+                      <div>
+                        <h4 className="text-lg font-black text-neon-pink mb-3">CAREER GOALS</h4>
                         <TagDisplay
                           items={migratedProfile.goals || []}
                           color="bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white"
                           icon={<Target className="w-4 h-4" />}
                           emptyMessage="No career goals identified yet"
                         />
-                        
+                      </div>
+                      
+                      <div>
+                        <h4 className="text-lg font-black text-acid-green mb-3">SKILLS</h4>
                         <TagDisplay
                           items={migratedProfile.skills || []}
                           color="bg-gradient-to-r from-acid-green to-electric-blue text-primary-black"
@@ -368,57 +414,59 @@ const Profile: React.FC = () => {
                           emptyMessage="No skills assessed yet"
                         />
                       </div>
-                    )}
-                  </div>
-
-                  {/* Combined Profile */}
-                  <div className="space-y-6">
-                    <h3 className="text-xl font-black text-neon-pink mb-4">
-                      ENHANCED PROFILE
-                    </h3>
-                    
-                    {combinedProfile && (
-                      <div className="space-y-4">
+                    </div>
+                  ) : combinedProfile ? (
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                      <div>
+                        <h4 className="text-lg font-black text-electric-blue mb-3">INTERESTS</h4>
                         <TagDisplay
-                          items={combinedProfile.values || []}
-                          color="bg-gradient-to-r from-cyber-yellow to-acid-green text-primary-black"
-                          icon={<Crown className="w-4 h-4" />}
-                          emptyMessage="No values identified yet"
-                        />
-                        
-                        {combinedProfile.careerStage && (
-                          <div className="bg-gradient-to-r from-electric-blue/20 to-neon-pink/20 rounded-xl p-4 border border-electric-blue/30">
-                            <div className="flex items-center space-x-2 mb-2">
-                              <Rocket className="w-5 h-5 text-electric-blue" />
-                              <span className="font-black text-primary-white">CAREER STAGE</span>
-                            </div>
-                            <span className="text-lg font-bold text-cyber-yellow">
-                              {combinedProfile.careerStage}
-                            </span>
-                          </div>
-                        )}
-                        
-                        <TagDisplay
-                          items={combinedProfile.workStyle || []}
-                          color="bg-gradient-to-r from-neon-pink to-electric-blue text-primary-white"
-                          icon={<Briefcase className="w-4 h-4" />}
-                          emptyMessage="No work style preferences yet"
+                          items={combinedProfile.interests || []}
+                          color="bg-gradient-to-r from-neon-pink to-cyber-yellow text-primary-black"
+                          icon={<Heart className="w-4 h-4" />}
+                          emptyMessage="No interests identified yet"
                         />
                       </div>
-                    )}
-                  </div>
+                      
+                      <div>
+                        <h4 className="text-lg font-black text-neon-pink mb-3">CAREER GOALS</h4>
+                        <TagDisplay
+                          items={combinedProfile.careerGoals || []}
+                          color="bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white"
+                          icon={<Target className="w-4 h-4" />}
+                          emptyMessage="No career goals identified yet"
+                        />
+                      </div>
+                      
+                      <div>
+                        <h4 className="text-lg font-black text-acid-green mb-3">SKILLS</h4>
+                        <TagDisplay
+                          items={combinedProfile.skills || []}
+                          color="bg-gradient-to-r from-acid-green to-electric-blue text-primary-black"
+                          icon={<Star className="w-4 h-4" />}
+                          emptyMessage="No skills identified yet"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="text-primary-white/40 text-lg font-medium">
+                        No career profile data available yet
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </ProfileSection>
-            </motion.div>
-          )}
+              </div>
+            </ProfileSection>
+          </motion.div>
+        )}
 
-          {/* Basic Profile Information - Only show if no AI insights available */}
-          {!(migratedProfile || combinedProfile) && (
-            <ProfileSection
-              title="BASIC INFO"
-              icon={<User className="w-6 h-6 text-primary-white" />}
-              gradient="bg-gradient-to-br from-cyber-yellow/20 to-acid-green/20"
-            >
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+          {/* Basic Profile Information */}
+          <ProfileSection
+            title="BASIC INFO"
+            icon={<User className="w-6 h-6 text-primary-white" />}
+            gradient="bg-gradient-to-br from-cyber-yellow/20 to-acid-green/20"
+          >
             {!isEditingProfile ? (
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
@@ -449,29 +497,6 @@ const Profile: React.FC = () => {
                     <div className="text-primary-white">{profile.bio}</div>
                   </div>
                 )}
-                
-                <div className="space-y-4">
-                  <TagDisplay
-                    items={profile.interests || []}
-                    color="bg-gradient-to-r from-neon-pink to-cyber-yellow text-primary-black"
-                    icon={<Heart className="w-4 h-4" />}
-                    emptyMessage="No interests added yet"
-                  />
-                  
-                  <TagDisplay
-                    items={profile.careerGoals || []}
-                    color="bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white"
-                    icon={<Target className="w-4 h-4" />}
-                    emptyMessage="No career goals added yet"
-                  />
-                  
-                  <TagDisplay
-                    items={profile.skills || []}
-                    color="bg-gradient-to-r from-acid-green to-electric-blue text-primary-black"
-                    icon={<Star className="w-4 h-4" />}
-                    emptyMessage="No skills added yet"
-                  />
-                </div>
               </div>
             ) : (
               <form onSubmit={handleProfileSubmit} className="space-y-6">
@@ -528,7 +553,6 @@ const Profile: React.FC = () => {
               </form>
             )}
           </ProfileSection>
-          )}
 
           {/* Preferences */}
           <ProfileSection

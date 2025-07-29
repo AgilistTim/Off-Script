@@ -676,30 +676,75 @@ class CareerPathwayService {
       
       // Try multiple data sources for profile information
       
-      // 1. First try chat summaries (main source)
+      // 1. First try chat summaries (main source) - get ALL enriched summaries to combine
       try {
-        const summaryQuery = query(
+        // Get all enriched summaries for comprehensive profile
+        const enrichedSummariesQuery = query(
           collection(db, 'chatSummaries'),
           where('userId', '==', userId),
+          where('enriched', '==', true),
           orderBy('createdAt', 'desc'),
-          limit(1)
+          limit(5) // Get last 5 enriched summaries to combine
         );
         
-        const summarySnapshot = await getDocs(summaryQuery);
+        let summariesSnapshot = await getDocs(enrichedSummariesQuery);
+        console.log(`🔍 Found ${summariesSnapshot.size} enriched chat summaries for user ${userId}`);
         
-        if (!summarySnapshot.empty) {
-          const data = summarySnapshot.docs[0].data();
+        // If no enriched summaries, fall back to any summaries
+        if (summariesSnapshot.empty) {
+          const allSummariesQuery = query(
+            collection(db, 'chatSummaries'),
+            where('userId', '==', userId),
+            orderBy('createdAt', 'desc'),
+            limit(5)
+          );
+          summariesSnapshot = await getDocs(allSummariesQuery);
+          console.log(`🔍 Found ${summariesSnapshot.size} total chat summaries for user ${userId}`);
+        }
+        
+        if (!summariesSnapshot.empty) {
+          // Combine all summaries into comprehensive profile
+          let allInterests: string[] = [];
+          let allGoals: string[] = [];
+          let allSkills: string[] = [];
+          let latestSummary: any = null;
+          
+          summariesSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            allInterests = [...allInterests, ...(data.interests || [])];
+            allGoals = [...allGoals, ...(data.careerGoals || [])];
+            allSkills = [...allSkills, ...(data.skills || [])];
+            
+            if (!latestSummary) {
+              latestSummary = data;
+              console.log('🔍 Latest chat summary data:', {
+                threadId: data.threadId,
+                createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : data.createdAt,
+                interests: data.interests,
+                careerGoals: data.careerGoals,
+                skills: data.skills,
+                summary: data.summary?.substring(0, 100) + '...'
+              });
+            }
+          });
+          
           profileData = {
-            interests: data.interests || [],
-            goals: data.careerGoals || [],
-            skills: data.skills || [],
+            interests: [...new Set(allInterests)], // Remove duplicates
+            goals: [...new Set(allGoals)],
+            skills: [...new Set(allSkills)],
             values: [], // Not typically in chat summaries
             careerStage: 'exploring',
             workStyle: [], // Not typically in chat summaries
-            source: 'chat_summary',
-            lastUpdated: data.createdAt?.toDate ? data.createdAt.toDate() : new Date()
+            source: 'combined_chat_summaries',
+            lastUpdated: latestSummary?.createdAt?.toDate ? latestSummary.createdAt.toDate() : new Date()
           };
-          console.log('✅ Found current user profile from chat summary');
+          console.log('✅ Found combined user profile from chat summaries:', {
+            totalInterests: profileData.interests.length,
+            totalGoals: profileData.goals.length,
+            totalSkills: profileData.skills.length
+          });
+        } else {
+          console.log('❌ No chat summaries found for user');
         }
       } catch (summaryError: any) {
         if (summaryError?.code === 'permission-denied') {
@@ -811,7 +856,7 @@ class CareerPathwayService {
           ...(currentProfile?.interests || []),
           ...(migratedProfile?.interests || [])
         ])],
-        goals: [...new Set([
+        careerGoals: [...new Set([
           ...(currentProfile?.goals || []),
           ...(migratedProfile?.goals || [])
         ])],
@@ -838,7 +883,7 @@ class CareerPathwayService {
         currentData: !!currentProfile,
         migratedData: !!migratedProfile,
         totalInterests: combinedProfile.interests.length,
-        totalGoals: combinedProfile.goals.length,
+        totalGoals: combinedProfile.careerGoals.length,
         totalSkills: combinedProfile.skills.length
       });
       

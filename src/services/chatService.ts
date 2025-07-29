@@ -395,23 +395,10 @@ export const getVideoRecommendationsFromChat = async (
         summary = await generateChatSummary(firestoreThreadId, userId);
       } catch (summaryError) {
         console.error('Error generating chat summary:', summaryError);
-        // If we're using the emulator, we can't call the cloud function
-        // So we'll create a mock summary
-        if (window.location.hostname === 'localhost') {
-          console.log('Using mock summary for local development');
-          summary = {
-            id: 'mock-summary',
-            threadId: firestoreThreadId,
-            userId: userId,
-            summary: 'Mock summary for local development',
-            interests: ['artificial intelligence', 'chatbots', 'vector storage', 'software'],
-            careerGoals: ['build AI tools', 'create helpful AI assistants'],
-            skills: ['coding', 'using AI assistants'],
-            createdAt: new Date()
-          };
-        } else {
-          throw summaryError;
-        }
+        // Don't create mock summaries - use real Firebase data
+        // The mock data was causing incorrect profile information to appear
+        console.log('❌ Chat summary generation failed - will use existing Firebase data if available');
+        throw summaryError;
       }
     } else {
       const summaryData = querySnapshot.docs[0].data();
