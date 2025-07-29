@@ -913,18 +913,6 @@ class OffScriptMCPServer {
   }
 
   setupMiddleware() {
-    // Enable CORS
-    this.httpApp.use(cors({
-      origin: [
-        'http://localhost:5173', 
-        'http://localhost:5174', 
-        'http://localhost:3000',
-        'https://off-script.onrender.com',
-        'https://off-script-elevenlabs-preview.onrender.com'
-      ],
-      credentials: true
-    }));
-
     this.httpApp.use(express.json());
   }
 
@@ -948,11 +936,6 @@ class OffScriptMCPServer {
     // MCP endpoint - supports both GET (SSE) and POST (JSON-RPC)
     this.httpApp.all('/mcp', async (req, res) => {
       try {
-        // Set security headers
-        res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, Mcp-Session-Id, Last-Event-ID');
-        
         if (req.method === 'OPTIONS') {
           res.status(200).end();
           return;
@@ -969,7 +952,6 @@ class OffScriptMCPServer {
               'Content-Type': 'text/event-stream',
               'Cache-Control': 'no-cache',
               'Connection': 'keep-alive',
-              'Access-Control-Allow-Origin': req.headers.origin || '*',
             });
 
             // Send initial capabilities with tools list
