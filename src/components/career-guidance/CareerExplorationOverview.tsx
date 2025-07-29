@@ -112,7 +112,32 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
     }
   }, [expandedCards]);
   
-  const [careerGuidanceData, setCareerGuidanceData] = useState<Map<string, ComprehensiveCareerGuidance>>(new Map());
+  const [careerGuidanceData, setCareerGuidanceData] = useState<Map<string, ComprehensiveCareerGuidance>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = sessionStorage.getItem('careerGuidanceData');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          return new Map(Object.entries(parsed));
+        }
+      } catch (error) {
+        console.warn('Failed to load career guidance from sessionStorage:', error);
+      }
+    }
+    return new Map();
+  });
+  
+  // Save guidance data to sessionStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const dataObject = Object.fromEntries(careerGuidanceData.entries());
+        sessionStorage.setItem('careerGuidanceData', JSON.stringify(dataObject));
+      } catch (error) {
+        console.warn('Failed to save career guidance to sessionStorage:', error);
+      }
+    }
+  }, [careerGuidanceData]);
   const [loadingGuidance, setLoadingGuidance] = useState<Set<string>>(new Set());
 
   // Helper function to extract rich career data from different sources
@@ -1031,7 +1056,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                   )}
                                                 </div>
                                                 {opportunity.link && (
-                                                  <Button size="sm" asChild>
+                                                  <Button size="sm" variant="light" asChild>
                                                     <a href={opportunity.link} target="_blank" rel="noopener noreferrer">
                                                       <ExternalLink className="w-3 h-3 mr-1" />
                                                       Apply
@@ -1076,7 +1101,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                   </div>
                                                 </div>
                                                 {funding.link && (
-                                                  <Button size="sm" variant="outline" asChild>
+                                                  <Button size="sm" variant="light" asChild>
                                                     <a href={funding.link} target="_blank" rel="noopener noreferrer">
                                                       <ExternalLink className="w-3 h-3 mr-1" />
                                                       Apply
@@ -1105,7 +1130,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                   </div>
                                                 </div>
                                                 {funding.link && (
-                                                  <Button size="sm" variant="outline" asChild>
+                                                  <Button size="sm" variant="light" asChild>
                                                     <a href={funding.link} target="_blank" rel="noopener noreferrer">
                                                       <ExternalLink className="w-3 h-3 mr-1" />
                                                       Apply

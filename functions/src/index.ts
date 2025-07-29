@@ -3489,6 +3489,52 @@ Focus on real UK opportunities with actionable next steps.`;
       let careerGuidance;
       try {
         careerGuidance = JSON.parse(responseText);
+        
+        // URL validation function
+        const isValidUrl = (url: string): boolean => {
+          if (!url || typeof url !== 'string') return false;
+          try {
+            const urlObj = new URL(url);
+            return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+          } catch {
+            return false;
+          }
+        };
+        
+        // Validate and clean URLs in the response
+        const validateAndCleanLinks = (items: any[]) => {
+          return items?.map(item => {
+            if (item.link) {
+              if (isValidUrl(item.link)) {
+                return item;
+              } else {
+                logger.warn('Invalid URL detected and removed', { 
+                  originalUrl: item.link,
+                  itemTitle: item.title 
+                });
+                // Remove the invalid link
+                const { link, ...itemWithoutLink } = item;
+                return itemWithoutLink;
+              }
+            }
+            return item;
+          }) || [];
+        };
+        
+        // Apply validation to all sections with links
+        if (careerGuidance.training) {
+          careerGuidance.training = validateAndCleanLinks(careerGuidance.training);
+        }
+        if (careerGuidance.volunteering) {
+          careerGuidance.volunteering = validateAndCleanLinks(careerGuidance.volunteering);
+        }
+        if (careerGuidance.funding) {
+          careerGuidance.funding = validateAndCleanLinks(careerGuidance.funding);
+        }
+        if (careerGuidance.resources) {
+          careerGuidance.resources = validateAndCleanLinks(careerGuidance.resources);
+        }
+        
       } catch (parseError) {
         logger.error('Failed to parse OpenAI response as JSON', { 
           responseText: responseText.substring(0, 500) + '...',
