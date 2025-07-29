@@ -62,6 +62,7 @@ import {
   Lightbulb,
   PoundSterling,
   ChevronRight,
+  Trash2,
   Download,
   Calendar,
   Building,
@@ -837,7 +838,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                         className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-neon-pink/20 to-sunset-orange/20 border border-neon-pink/30 rounded-lg text-neon-pink hover:bg-gradient-to-r hover:from-neon-pink/30 hover:to-sunset-orange/30 transition-all duration-200"
                         title="Delete Career Card"
                       >
-                        <ChevronRight className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     )}
                   </div>
