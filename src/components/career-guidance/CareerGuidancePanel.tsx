@@ -393,7 +393,7 @@ const CareerGuidancePanel: React.FC<CareerGuidancePanelProps> = ({
                                   </div>
                                 </div>
                                 {opportunity.link && (
-                                  <Button size="sm" variant="outline" asChild>
+                                  <Button size="sm" variant="light" asChild>
                                     <a href={opportunity.link} target="_blank" rel="noopener noreferrer">
                                       <ExternalLink className="w-3 h-3 mr-1" />
                                       Apply
@@ -440,7 +440,7 @@ const CareerGuidancePanel: React.FC<CareerGuidancePanelProps> = ({
                                   </div>
                                 </div>
                                 {funding.link && (
-                                  <Button size="sm" variant="outline" asChild>
+                                  <Button size="sm" variant="light" asChild>
                                     <a href={funding.link} target="_blank" rel="noopener noreferrer">
                                       <ExternalLink className="w-3 h-3 mr-1" />
                                       Apply
@@ -469,7 +469,7 @@ const CareerGuidancePanel: React.FC<CareerGuidancePanelProps> = ({
                                   </div>
                                 </div>
                                 {funding.link && (
-                                  <Button size="sm" variant="outline" asChild>
+                                  <Button size="sm" variant="light" asChild>
                                     <a href={funding.link} target="_blank" rel="noopener noreferrer">
                                       <ExternalLink className="w-3 h-3 mr-1" />
                                       Apply
