@@ -3458,32 +3458,35 @@ EXPANDED LEARNING PATHS: Include diverse pathways beyond formal education:
 
 Focus on real UK opportunities with actionable next steps.`;
 
-      logger.info('Making OpenAI API request', {
-        model: 'gpt-4o-mini',
-        messageLength: userPrompt.length
+      logger.info('Making OpenAI Responses API request with web search', {
+        model: 'gpt-4o',
+        messageLength: userPrompt.length,
+        webSearchEnabled: true
       });
 
-      const completion = await openai.chat.completions.create({
-        model: "gpt-4o-mini", // Using more available model
-        messages: [
-          { role: "system", content: systemPrompt },
+      const completion = await openai.responses.create({
+        model: "gpt-4o", // Responses API requires gpt-4o or newer
+        input: [
+          { role: "system", content: systemPrompt + "\n\nIMPORTANT: Respond with valid JSON only." },
           { role: "user", content: userPrompt }
         ],
-        temperature: 0.7,
-        max_tokens: 2000,
-        response_format: { type: "json_object" } // Ensure JSON response
+        tools: [
+          {
+            "type": "web_search_preview"
+          }
+        ]
       });
 
-      const responseText = completion.choices[0]?.message?.content;
+      const responseText = completion.output_text;
       
       if (!responseText) {
         logger.error('No response content from OpenAI');
         throw new Error('No response from OpenAI');
       }
 
-      logger.info('OpenAI API response received', {
+      logger.info('OpenAI Responses API response received', {
         responseLength: responseText.length,
-        tokensUsed: completion.usage?.total_tokens || 0
+        hasWebSearchResults: completion.output?.some(item => item.type === 'web_search_call') || false
       });
 
       let careerGuidance;
