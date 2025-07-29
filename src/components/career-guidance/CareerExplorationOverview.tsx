@@ -86,7 +86,32 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [directExplorations, setDirectExplorations] = useState<CareerExplorationSummary[]>([]);
   const [refreshCount, setRefreshCount] = useState(0);
-  const [expandedCards, setExpandedCards] = useState<Set<string>>(new Set());
+  
+  // Persistent expanded cards state - survives page reloads
+  const [expandedCards, setExpandedCards] = useState<Set<string>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem('expandedCareerCards');
+        return saved ? new Set(JSON.parse(saved)) : new Set();
+      } catch (error) {
+        console.warn('Failed to load expanded cards from localStorage:', error);
+        return new Set();
+      }
+    }
+    return new Set();
+  });
+  
+  // Save expanded cards to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        localStorage.setItem('expandedCareerCards', JSON.stringify(Array.from(expandedCards)));
+      } catch (error) {
+        console.warn('Failed to save expanded cards to localStorage:', error);
+      }
+    }
+  }, [expandedCards]);
+  
   const [careerGuidanceData, setCareerGuidanceData] = useState<Map<string, ComprehensiveCareerGuidance>>(new Map());
   const [loadingGuidance, setLoadingGuidance] = useState<Set<string>>(new Set());
 
@@ -942,7 +967,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                   )}
                                                 </div>
                                                 {training.link && (
-                                                  <Button size="sm" variant="outline" asChild>
+                                                  <Button size="sm" variant="light" asChild>
                                                     <a href={training.link} target="_blank" rel="noopener noreferrer">
                                                       <ExternalLink className="w-3 h-3 mr-1" />
                                                       Learn More
