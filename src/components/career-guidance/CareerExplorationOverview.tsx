@@ -696,13 +696,46 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                   </div>
                   
                   {/* Match confidence badge */}
-                  <div className="flex flex-col items-end">
+                  <div className="flex flex-col items-end space-y-2">
                     <Badge 
                       variant={getMatchVariant(exploration.match)}
-                      className="mb-2 bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white border-0"
+                      className="bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white border-0"
                     >
                       {exploration.match}% match
                     </Badge>
+                    
+                    {/* Enhancement status indicators */}
+                    {(exploration as any).source && (
+                      <>
+                        {(exploration as any).source.isEnhanced || (exploration as any).source.webSearchVerified ? (
+                          <Badge className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black border-0 font-bold text-xs">
+                            <Lightbulb className="w-3 h-3 mr-1" />
+                            ENHANCED
+                          </Badge>
+                        ) : (exploration as any).source.enhancementStatus === 'failed' ? (
+                          <Badge className="bg-gradient-to-r from-sunset-orange to-neon-pink text-primary-white border-0 font-bold text-xs">
+                            <RefreshCw className="w-3 h-3 mr-1" />
+                            BASIC
+                          </Badge>
+                        ) : (exploration as any).source.enhancementStatus === 'pending' ? (
+                          <Badge className="bg-gradient-to-r from-electric-blue to-cyber-blue text-primary-white border-0 font-bold text-xs">
+                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                            ENHANCING
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-gradient-to-r from-primary-gray to-primary-white/20 text-primary-white/70 border-0 font-bold text-xs">
+                            <Star className="w-3 h-3 mr-1" />
+                            STANDARD
+                          </Badge>
+                        )}
+                        
+                        {(exploration as any).source.enhancedAt && (
+                          <div className="text-xs text-acid-green font-medium">
+                            Enhanced with real UK data
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
 

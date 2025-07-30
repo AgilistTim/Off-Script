@@ -22,7 +22,10 @@ import {
   PoundSterling,
   ArrowRight,
   RefreshCw,
-  Trash2
+  Trash2,
+  Loader2,
+  Heart,
+  Building
 } from 'lucide-react';
 import { getVideoById } from '../services/videoService';
 import VideoCard from '../components/video/VideoCard';
@@ -35,6 +38,7 @@ import { Badge } from '../components/ui/badge';
 import { db } from '../services/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import careerPathwayService from '../services/careerPathwayService';
+import { dashboardCareerEnhancementService, DashboardCareerCard } from '../services/dashboardCareerEnhancementService';
 
 // Notification component with street-art styling
 interface NotificationProps {
@@ -152,7 +156,7 @@ const Dashboard: React.FC = () => {
   const [showCareerCardModal, setShowCareerCardModal] = useState(false);
 
   // New state for current conversation data
-  const [currentCareerCards, setCurrentCareerCards] = useState<any[]>([]);
+  const [currentCareerCards, setCurrentCareerCards] = useState<DashboardCareerCard[]>([]);
   const [dataRefreshKey, setDataRefreshKey] = useState(0); // Force refresh trigger
   
   // Cache for career card details to reduce API calls
@@ -213,7 +217,7 @@ const Dashboard: React.FC = () => {
     }
   }, [location.state]);
 
-  // Fetch current career cards from conversations  
+  // Fetch current career cards from conversations with auto-enhancement
   const fetchCurrentCareerCards = useCallback(async () => {
     if (!currentUser || loading) return;
     
@@ -244,15 +248,35 @@ const Dashboard: React.FC = () => {
         });
       });
       
-      // Now get cards using the service
-      const cards = await careerPathwayService.getCurrentCareerCards(currentUser.uid);
-      console.log('🔍 DEBUG: Service returned cards:', cards.length);
-      console.log('🔍 DEBUG: First card:', cards[0]);
+      // Get basic cards using the service
+      const basicCards = await careerPathwayService.getCurrentCareerCards(currentUser.uid);
+      console.log('🔍 DEBUG: Service returned cards:', basicCards.length);
+      console.log('🔍 DEBUG: First card:', basicCards[0]);
       
-      setCurrentCareerCards(cards);
-      console.log('✅ Loaded current career cards:', cards.length);
+      // Enhance cards automatically for dashboard view
+      console.log('🚀 Starting auto-enhancement for dashboard cards...');
+      const enhancedCards = await dashboardCareerEnhancementService.enhanceCareerCards(basicCards);
+      
+      // Log enhancement results
+      const stats = dashboardCareerEnhancementService.getEnhancementStats(enhancedCards);
+      console.log('✅ Dashboard card enhancement completed:', stats);
+      
+      // Show enhancement notification if any cards were enhanced
+      if (stats.enhanced > 0) {
+        setNotification({
+          message: `Enhanced ${stats.enhanced} career card${stats.enhanced > 1 ? 's' : ''} with real UK data!`,
+          type: 'success'
+        });
+      }
+      
+      setCurrentCareerCards(enhancedCards);
+      console.log('✅ Loaded and enhanced current career cards:', enhancedCards.length);
     } catch (error) {
       console.error('Error loading current career cards:', error);
+      setNotification({
+        message: 'Error loading career cards. Please try refreshing.',
+        type: 'error'
+      });
     }
   }, [currentUser, loading]);
 
@@ -339,17 +363,17 @@ const Dashboard: React.FC = () => {
 
       console.log('🗑️ Deleting career card:', cardToDelete);
 
-      // Smart deletion based on card source
-      if (cardToDelete.firebaseDocId && cardToDelete.pathwayType) {
-        // Modern cards with Firebase metadata - use precise deletion
-        console.log('🎯 Using Firebase-based deletion for current card');
-        await careerPathwayService.deleteCareerCardByFirebaseId(
-          cardId,
-          cardToDelete.firebaseDocId,
-          cardToDelete.pathwayType,
-          cardToDelete.pathwayIndex,
-          currentUser.uid
-        );
+              // Smart deletion based on card source
+        if (cardToDelete.firebaseDocId && cardToDelete.pathwayType) {
+          // Modern cards with Firebase metadata - use precise deletion
+          console.log('🎯 Using Firebase-based deletion for current card');
+          await careerPathwayService.deleteCareerCardByFirebaseId(
+            cardId,
+            cardToDelete.firebaseDocId,
+            (cardToDelete.pathwayType as 'primary' | 'alternative') || 'primary',
+            cardToDelete.pathwayIndex,
+            currentUser.uid
+          );
       } else if (cardId.includes('_card_')) {
         // Migrated guest cards - delete from careerExplorations only
         console.log('🎯 Using legacy deletion methods for migrated card');
@@ -564,11 +588,36 @@ const Dashboard: React.FC = () => {
                     <h2 className="text-3xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-electric-blue to-neon-pink">
                       {selectedCareerCard.title}
                     </h2>
-                    {selectedCareerCard.isMigrated && (
-                      <Badge className="mt-3 bg-gradient-to-r from-cyber-yellow to-acid-green text-primary-black font-bold">
-                        FROM GUEST SESSION
-                      </Badge>
-                    )}
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      {selectedCareerCard.isMigrated && (
+                        <Badge className="bg-gradient-to-r from-cyber-yellow to-acid-green text-primary-black font-bold">
+                          FROM GUEST SESSION
+                        </Badge>
+                      )}
+                      
+                      {/* Enhancement status badges */}
+                      {selectedCareerCard.isEnhanced || selectedCareerCard.webSearchVerified ? (
+                        <Badge className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black font-bold">
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          ENHANCED WITH REAL UK DATA
+                        </Badge>
+                      ) : selectedCareerCard.enhancementStatus === 'failed' ? (
+                        <Badge className="bg-gradient-to-r from-sunset-orange to-neon-pink text-primary-white font-bold">
+                          <RefreshCw className="w-3 h-3 mr-1" />
+                          BASIC CARD
+                        </Badge>
+                      ) : selectedCareerCard.enhancementStatus === 'pending' ? (
+                        <Badge className="bg-gradient-to-r from-electric-blue to-cyber-blue text-primary-white font-bold">
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                          ENHANCING...
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-gradient-to-r from-primary-gray to-primary-white/20 text-primary-white/70 font-bold">
+                          <Star className="w-3 h-3 mr-1" />
+                          STANDARD CARD
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center space-x-3">
                     <button
@@ -652,6 +701,102 @@ const Dashboard: React.FC = () => {
                         ))}
                       </ul>
                     </div>
+                  )}
+                  
+                  {/* Enhanced sections - only show if card is enhanced */}
+                  {selectedCareerCard.isEnhanced && (
+                    <>
+                      {selectedCareerCard.careerProgression && selectedCareerCard.careerProgression.length > 0 && (
+                        <div className="bg-gradient-to-r from-neon-pink/20 to-cyber-yellow/20 rounded-2xl p-6 border border-neon-pink/30">
+                          <h3 className="text-xl font-black text-neon-pink mb-4 flex items-center">
+                            <TrendingUp className="w-6 h-6 mr-2" />
+                            CAREER PROGRESSION
+                          </h3>
+                          <div className="space-y-3">
+                            {selectedCareerCard.careerProgression.map((step: string, index: number) => (
+                              <div key={index} className="flex items-start">
+                                <div className="w-8 h-8 bg-gradient-to-br from-neon-pink to-cyber-yellow rounded-full flex items-center justify-center mr-3 mt-1 text-primary-black font-bold text-sm">
+                                  {index + 1}
+                                </div>
+                                <span className="text-primary-white/90">{step}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {selectedCareerCard.workLifeBalance && (
+                        <div className="bg-gradient-to-r from-electric-blue/20 to-acid-green/20 rounded-2xl p-6 border border-electric-blue/30">
+                          <h3 className="text-xl font-black text-electric-blue mb-4 flex items-center">
+                            <Heart className="w-6 h-6 mr-2" />
+                            WORK-LIFE BALANCE
+                          </h3>
+                          <div className="grid grid-cols-2 gap-4 text-sm">
+                            {selectedCareerCard.workLifeBalance.typical_hours && (
+                              <div>
+                                <span className="text-primary-white/60 font-bold">Hours:</span>
+                                <div className="text-primary-white/90">{selectedCareerCard.workLifeBalance.typical_hours}</div>
+                              </div>
+                            )}
+                            {selectedCareerCard.workLifeBalance.flexibility && (
+                              <div>
+                                <span className="text-primary-white/60 font-bold">Flexibility:</span>
+                                <div className="text-primary-white/90">{selectedCareerCard.workLifeBalance.flexibility}</div>
+                              </div>
+                            )}
+                            {selectedCareerCard.workLifeBalance.stress_level && (
+                              <div>
+                                <span className="text-primary-white/60 font-bold">Stress Level:</span>
+                                <div className="text-primary-white/90">{selectedCareerCard.workLifeBalance.stress_level}</div>
+                              </div>
+                            )}
+                            {selectedCareerCard.workLifeBalance.job_satisfaction && (
+                              <div>
+                                <span className="text-primary-white/60 font-bold">Satisfaction:</span>
+                                <div className="text-primary-white/90">{selectedCareerCard.workLifeBalance.job_satisfaction}</div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {selectedCareerCard.industryTrends && selectedCareerCard.industryTrends.length > 0 && (
+                        <div className="bg-gradient-to-r from-cyber-yellow/20 to-sunset-orange/20 rounded-2xl p-6 border border-cyber-yellow/30">
+                          <h3 className="text-xl font-black text-cyber-yellow mb-4 flex items-center">
+                            <TrendingUp className="w-6 h-6 mr-2" />
+                            INDUSTRY TRENDS
+                          </h3>
+                          <ul className="space-y-2">
+                            {selectedCareerCard.industryTrends.map((trend: string, index: number) => (
+                              <li key={index} className="flex items-start">
+                                <ArrowRight className="w-4 h-4 text-cyber-yellow mr-2 mt-1 flex-shrink-0" />
+                                <span className="text-primary-white/90 text-sm">{trend}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      
+                      {selectedCareerCard.topUKEmployers && selectedCareerCard.topUKEmployers.length > 0 && (
+                        <div className="bg-gradient-to-r from-acid-green/20 to-electric-blue/20 rounded-2xl p-6 border border-acid-green/30">
+                          <h3 className="text-xl font-black text-acid-green mb-4 flex items-center">
+                            <Building className="w-6 h-6 mr-2" />
+                            TOP UK EMPLOYERS
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {selectedCareerCard.topUKEmployers.map((employer: any, index: number) => (
+                              <div key={index} className="bg-primary-black/40 rounded-lg p-4">
+                                <h4 className="font-bold text-primary-white mb-2">{employer.name}</h4>
+                                <p className="text-primary-white/70 text-sm mb-2">{employer.knownFor}</p>
+                                {employer.typical_salary && (
+                                  <div className="text-acid-green font-medium text-sm">{employer.typical_salary}</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                   
                   {selectedCareerCard.nextSteps && selectedCareerCard.nextSteps.length > 0 && (
