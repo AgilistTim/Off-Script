@@ -486,7 +486,7 @@ class CareerPathwayService {
       
       const explorations: CareerExplorationSummary[] = [];
 
-      // 1. Get thread-based career guidance (existing logic)
+      // Get all career guidance from threadCareerGuidance (includes both live conversations and migrated data)
       try {
         const guidanceQuery = query(
           collection(db, 'threadCareerGuidance'),
@@ -519,104 +519,7 @@ class CareerPathwayService {
         console.warn('⚠️ Error fetching thread-based career guidance (non-critical):', threadError);
       }
 
-      // 2. Get migrated career explorations (from guest migration)
-      try {
-        let migratedSnapshot;
-        let retryCount = 0;
-        const maxRetries = 3;
-        
-        // First try with ordering (preferred)
-        while (retryCount < maxRetries) {
-          try {
-            const migratedQuery = query(
-              collection(db, 'careerExplorations'),
-              where('userId', '==', userId),
-              orderBy('createdAt', 'desc')
-            );
-            
-            migratedSnapshot = await getDocs(migratedQuery);
-            break; // Success, exit retry loop
-            
-          } catch (queryError: any) {
-            if (queryError?.code === 'failed-precondition' && retryCount < maxRetries - 1) {
-              console.log(`🔄 Retrying migrated career query (attempt ${retryCount + 1}/${maxRetries})...`);
-              retryCount++;
-              await new Promise(resolve => setTimeout(resolve, 1000 * retryCount)); // Exponential backoff
-              continue;
-            } else {
-              throw queryError; // Re-throw if not retryable or max retries reached
-            }
-          }
-        }
-        
-        // Fallback: Try without ordering if the ordered query failed
-        if (!migratedSnapshot && retryCount >= maxRetries) {
-          console.log('🔄 Trying fallback query without ordering...');
-          const fallbackQuery = query(
-            collection(db, 'careerExplorations'),
-            where('userId', '==', userId)
-          );
-          migratedSnapshot = await getDocs(fallbackQuery);
-        }
-        
-        if (migratedSnapshot) {
-          console.log('🔍 CareerPathwayService: Found', migratedSnapshot.size, 'migrated career exploration documents');
-          
-          // Process migrated explorations
-          const migratedDocs = migratedSnapshot.docs;
-          
-          // Sort manually if we used the fallback query
-          if (retryCount >= maxRetries) {
-            migratedDocs.sort((a, b) => {
-              const aTime = a.data().createdAt?.toDate?.() || new Date(0);
-              const bTime = b.data().createdAt?.toDate?.() || new Date(0);
-              return bTime.getTime() - aTime.getTime();
-            });
-          }
-          
-          for (const doc of migratedDocs) {
-            const data = doc.data();
-            console.log('🔍 CareerPathwayService: Processing migrated exploration:', data.title);
-            
-            // Create exploration summaries from migrated career cards
-            if (data.careerCards && Array.isArray(data.careerCards) && data.careerCards.length > 0) {
-              // For each career card, create a separate exploration entry
-              data.careerCards.forEach((card: any, index: number) => {
-                explorations.push({
-                  threadId: `${doc.id}_card_${index}`, // Create unique ID for each career card
-                  threadTitle: card.title, // Use actual career title instead of generic label
-                  primaryCareerPath: card.title,
-                  lastUpdated: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
-                  match: card.confidence || 85, // Use confidence as match score
-                  description: card.description || `${card.title} - Career path discovered during your exploration session`
-                });
-              });
-            } else {
-              // Fallback for explorations without career cards
-              explorations.push({
-                threadId: doc.id,
-                threadTitle: data.title || 'Career Exploration',
-                primaryCareerPath: 'Career Discovery',
-                lastUpdated: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
-                match: 75,
-                description: data.description || 'Career insights from your exploration'
-              });
-            }
-          }
-        }
-      } catch (migratedError: any) {
-        // Handle specific Firestore errors
-        if (migratedError?.code === 'failed-precondition') {
-          console.warn('⚠️ Firestore index still building for careerExplorations (this is normal for new deployments)');
-          console.warn('⚠️ Migration data will appear once indexes are ready (usually within a few minutes)');
-          console.warn('⚠️ Suggestion: Try refreshing the page in a few minutes to see migrated career cards');
-        } else if (migratedError?.code === 'permission-denied') {
-          console.warn('⚠️ Permission denied accessing careerExplorations (check Firestore rules)');
-        } else {
-          console.warn('⚠️ Error fetching migrated career explorations (non-critical):', migratedError);
-          console.warn('⚠️ If this persists, migrated career cards may not be visible until Firestore indexes are ready');
-        }
-      }
+      // Note: All career data (both live conversations and migrated) now stored in threadCareerGuidance
 
       // Sort all explorations by date (newest first)
       explorations.sort((a, b) => b.lastUpdated.getTime() - a.lastUpdated.getTime());
@@ -669,54 +572,7 @@ class CareerPathwayService {
     }
   }
 
-  /**
-   * Get full migrated career card details by compound thread ID
-   */
-  async getMigratedCareerCard(compoundThreadId: string): Promise<any | null> {
-    try {
-      console.log('🔍 CareerPathwayService: Getting migrated career card:', compoundThreadId);
-      
-      // Parse compound thread ID to get document ID and card index
-      const [docId, cardType, cardIndex] = compoundThreadId.split('_');
-      
-      if (cardType !== 'card' || !cardIndex) {
-        console.warn('Invalid compound thread ID format:', compoundThreadId);
-        return null;
-      }
-      
-      const { db } = await import('./firebase');
-      const { doc, getDoc } = await import('firebase/firestore');
-      
-      const explorationDoc = await getDoc(doc(db, 'careerExplorations', docId));
-      
-      if (!explorationDoc.exists()) {
-        console.warn('Migration document not found:', docId);
-        return null;
-      }
-      
-      const data = explorationDoc.data();
-      const cardIndexNum = parseInt(cardIndex, 10);
-      
-      if (!data.careerCards || !Array.isArray(data.careerCards) || cardIndexNum >= data.careerCards.length) {
-        console.warn('Career card not found at index:', cardIndexNum);
-        return null;
-      }
-      
-      const careerCard = data.careerCards[cardIndexNum];
-      console.log('✅ Found migrated career card:', careerCard.title);
-      
-      return {
-        ...careerCard,
-        isMigrated: true,
-        migrationSource: 'guest_session',
-        originalSessionId: data.migrationSource || 'unknown'
-      };
-      
-    } catch (error) {
-      console.error('Error getting migrated career card:', error);
-      return null;
-    }
-  }
+  // Note: getMigratedCareerCard removed - all cards now stored in threadCareerGuidance
 
   /**
    * Get migrated person profile for a user
@@ -1006,7 +862,7 @@ class CareerPathwayService {
   }
 
   /**
-   * Get current career cards from thread guidance and migrated career explorations
+   * Get current career cards from thread guidance (unified storage for all cards)
    */
   async getCurrentCareerCards(userId: string): Promise<any[]> {
     try {
@@ -1024,7 +880,7 @@ class CareerPathwayService {
       
       const careerCards: any[] = [];
       
-      // 1. Get career cards from thread guidance (live conversations)
+      // Get all career cards from threadCareerGuidance (both live conversations and migrated data)
       try {
         const guidanceQuery = query(
           collection(db, 'threadCareerGuidance'),
@@ -1125,75 +981,7 @@ class CareerPathwayService {
           console.warn('⚠️ Error accessing threadCareerGuidance:', guidanceError);
         }
       }
-
-      // 2. Get career cards from migrated guest data (careerExplorations)
-      try {
-        const explorationQuery = query(
-          collection(db, 'careerExplorations'),
-          where('userId', '==', userId),
-          orderBy('createdAt', 'desc')
-        );
-        
-        const explorationSnapshot = await getDocs(explorationQuery);
-        
-        for (const doc of explorationSnapshot.docs) {
-          const data = doc.data();
-          
-          if (data.careerCards && Array.isArray(data.careerCards)) {
-            data.careerCards.forEach((card: any, index: number) => {
-              careerCards.push({
-                id: `migrated-${doc.id}-card-${index}`,
-                title: card.title,
-                description: card.description,
-                industry: card.industry || 'Technology',
-                averageSalary: card.averageSalary || {
-                  entry: '£25,000',
-                  experienced: '£35,000',
-                  senior: '£50,000'
-                },
-                growthOutlook: card.growthOutlook || 'Growing demand',
-                keySkills: card.keySkills || [],
-                trainingPathways: card.trainingPathways || [],
-                trainingOptions: this.convertTrainingPathwaysToOptions(card.trainingPathways || []),
-                nextSteps: card.nextSteps || [],
-                confidence: card.confidence || 80,
-                workEnvironment: card.workEnvironment || 'Office-based',
-                entryRequirements: card.entryRequirements || [],
-                location: 'UK',
-                isCurrent: true,
-                source: 'migrated_guest_data',
-                threadId: `${doc.id}_card_${index}`,
-                isMigrated: true,
-                // Store actual Firebase document ID and card info for deletion
-                firebaseDocId: doc.id,
-                cardIndex: index,
-                migrationSource: data.migrationSource || 'guest_session',
-                // Debug info for troubleshooting
-                _debug: {
-                  docId: doc.id,
-                  totalCards: data.careerCards?.length || 0,
-                  cardTitle: card.title,
-                  discoveredAt: card.discoveredAt
-                }
-              });
-            });
-          }
-        }
-        
-        console.log('✅ Found migrated career cards from careerExplorations:', 
-          explorationSnapshot.docs.reduce((acc, doc) => acc + (doc.data().careerCards?.length || 0), 0));
-        
-      } catch (explorationError: any) {
-        if (explorationError?.code === 'permission-denied') {
-          console.warn('⚠️ Permission denied accessing careerExplorations (user may not have migrated data)');
-        } else if (explorationError?.code === 'failed-precondition') {
-          console.warn('⚠️ Firestore index still building for careerExplorations (this is normal for new deployments)');
-        } else {
-          console.warn('⚠️ Error accessing careerExplorations:', explorationError);
-        }
-      }
       
-      console.log('✅ Total current career cards found:', careerCards.length);
       return careerCards;
       
     } catch (error) {

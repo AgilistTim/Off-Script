@@ -239,7 +239,7 @@ export class GuestMigrationService {
   }
 
   /**
-   * Transfer career cards to career explorations collection
+   * Transfer career cards to threadCareerGuidance (same as live conversations)
    */
   private static async transferCareerCards(
     userId: string,
@@ -249,37 +249,14 @@ export class GuestMigrationService {
     if (careerCards.length === 0) return 0;
 
     try {
-      let transferredCount = 0;
-
-      // Create a career exploration document for the migrated cards
-      const explorationRef = doc(collection(db, 'careerExplorations'));
+      // Import the singleton instance of CareerPathwayService 
+      const careerPathwayService = (await import('./careerPathwayService')).default;
       
-      // Prepare career cards with regular timestamps (not serverTimestamp in arrays)
-      const now = new Date();
-      const processedCards = careerCards.map(card => ({
-        ...card,
-        discoveredAt: now.toISOString(),
-        source: 'guest_migration'
-      }));
+      // Use the same method that live conversations use
+      await careerPathwayService.saveCareerCardsFromConversation(userId, careerCards);
       
-      await setDoc(explorationRef, {
-        userId,
-        title: 'Guest Session Career Discoveries',
-        description: 'Career cards discovered during guest session',
-        createdAt: serverTimestamp(),
-        careerCards: processedCards,
-        cardCount: careerCards.length,
-        migrationSource: 'guest_session',
-        explorationComplete: true,
-        // Include person profile if available for dashboard display
-        personProfile: guestSession.personProfile || null,
-        // Include engagement metrics for context
-        engagementMetrics: guestSession.engagementMetrics || null
-      });
-
-      transferredCount = careerCards.length;
-      console.log(`✅ Transferred ${transferredCount} career cards`);
-      return transferredCount;
+      console.log(`✅ Transferred ${careerCards.length} career cards to threadCareerGuidance`);
+      return careerCards.length;
       
     } catch (error) {
       console.error('Error transferring career cards:', error);
