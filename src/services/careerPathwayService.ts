@@ -557,7 +557,7 @@ class CareerPathwayService {
       const { auth } = await import('./firebase');
       if (!auth.currentUser) {
         console.warn('❌ User not authenticated for chatThreads access');
-        return null;
+        return 'Career Exploration';
       }
       
       const { db } = await import('./firebase');
@@ -566,14 +566,29 @@ class CareerPathwayService {
       const threadDoc = await getDoc(doc(db, 'chatThreads', threadId));
       
       if (!threadDoc.exists()) {
-        return null;
+        return 'Career Exploration';
       }
       
-      return threadDoc.data().title || 'Career Exploration';
+      const threadData = threadDoc.data();
+      
+      // Verify user has access to this thread (security check)
+      if (threadData.userId !== auth.currentUser.uid) {
+        console.warn('❌ User does not have access to thread:', threadId);
+        return 'Career Exploration';
+      }
+      
+      return threadData.title || 'Career Exploration';
       
     } catch (error) {
+      // Handle permission errors gracefully - this is expected for threads that
+      // the user doesn't own or when Firebase rules restrict access
+      if (error?.code === 'permission-denied') {
+        console.warn('⚠️ Permission denied accessing thread title (expected for security):', threadId);
+        return 'Career Exploration';
+      }
+      
       console.error('Error getting thread title:', error);
-      return null;
+      return 'Career Exploration';
     }
   }
 
