@@ -122,6 +122,59 @@ interface ThreadCareerGuidance {
 class CareerPathwayService {
   
   /**
+   * Convert training pathway strings to structured TrainingOption objects
+   */
+  private convertTrainingPathwaysToOptions(trainingPathways: string[]): TrainingOption[] {
+    if (!trainingPathways || !Array.isArray(trainingPathways)) {
+      return [];
+    }
+    
+    return trainingPathways.map((pathway, index) => {
+      // Extract meaningful info from the pathway string or provide defaults
+      const title = pathway.trim();
+      
+      // Infer level and duration based on common training patterns
+      let level = 'Foundation';
+      let duration = '6-12 months';
+      let cost = 'Varies';
+      let provider = 'Various Institutions';
+      
+      if (title.toLowerCase().includes('university') || title.toLowerCase().includes('degree')) {
+        level = 'University Degree';
+        duration = '3-4 years';
+        cost = '£9,000-£27,000 per year';
+        provider = 'Universities';
+      } else if (title.toLowerCase().includes('apprentice')) {
+        level = 'Apprenticeship';
+        duration = '1-4 years';
+        cost = 'Employer funded';
+        provider = 'Approved Training Providers';
+      } else if (title.toLowerCase().includes('college') || title.toLowerCase().includes('btec')) {
+        level = 'Further Education';
+        duration = '1-2 years';
+        cost = '£1,000-£5,000';
+        provider = 'Colleges & Training Centers';
+      } else if (title.toLowerCase().includes('certificate') || title.toLowerCase().includes('course')) {
+        level = 'Professional Certificate';
+        duration = '3-12 months';
+        cost = '£500-£3,000';
+        provider = 'Professional Bodies';
+      }
+      
+      return {
+        title,
+        level,
+        duration,
+        cost,
+        provider,
+        description: `${title} - Gain the skills and qualifications needed for this career path.`,
+        fundingAvailable: level === 'Apprenticeship' ? 'Fully funded by employer' : 'Student finance available',
+        qualificationBody: provider
+      };
+    });
+  }
+  
+  /**
    * Generate comprehensive UK-specific career guidance based on user profile
    */
   async generateCareerGuidance(chatSummary: ChatSummary): Promise<ComprehensiveCareerGuidance> {
@@ -283,7 +336,7 @@ class CareerPathwayService {
             workEnvironment: careerCards[0]?.workEnvironment,
             entryRequirements: careerCards[0]?.entryRequirements || [],
             trainingPathways: careerCards[0]?.trainingPathways || [],
-            trainingOptions: careerCards[0]?.trainingPathways || [],
+            trainingOptions: this.convertTrainingPathwaysToOptions(careerCards[0]?.trainingPathways || []),
             volunteeringOpportunities: [],
             fundingOptions: [],
             nextSteps: {
@@ -324,7 +377,7 @@ class CareerPathwayService {
             workEnvironment: card.workEnvironment,
             entryRequirements: card.entryRequirements || [],
             trainingPathways: card.trainingPathways || [],
-            trainingOptions: card.trainingPathways || [],
+            trainingOptions: this.convertTrainingPathwaysToOptions(card.trainingPathways || []),
             volunteeringOpportunities: [],
             fundingOptions: [],
             nextSteps: {
@@ -999,6 +1052,7 @@ class CareerPathwayService {
                 growthOutlook: pathway.growthOutlook || 'Growing demand',
                 keySkills: pathway.requiredSkills || [],
                 trainingPathways: pathway.trainingPathways || [],
+                trainingOptions: this.convertTrainingPathwaysToOptions(pathway.trainingPathways || []),
                 nextSteps: pathway.nextSteps || [],
                 confidence: pathway.match || 80,
                 workEnvironment: pathway.workEnvironment || 'Office-based',
@@ -1037,6 +1091,7 @@ class CareerPathwayService {
               growthOutlook: primary.growthOutlook || 'Growing demand',
               keySkills: primary.requiredSkills || [],
               trainingPathways: primary.trainingPathways || [],
+              trainingOptions: this.convertTrainingPathwaysToOptions(primary.trainingPathways || []),
               nextSteps: primary.nextSteps || [],
               confidence: primary.match || 85,
               workEnvironment: primary.workEnvironment || 'Office-based',
@@ -1099,6 +1154,7 @@ class CareerPathwayService {
                 growthOutlook: card.growthOutlook || 'Growing demand',
                 keySkills: card.keySkills || [],
                 trainingPathways: card.trainingPathways || [],
+                trainingOptions: this.convertTrainingPathwaysToOptions(card.trainingPathways || []),
                 nextSteps: card.nextSteps || [],
                 confidence: card.confidence || 80,
                 workEnvironment: card.workEnvironment || 'Office-based',
