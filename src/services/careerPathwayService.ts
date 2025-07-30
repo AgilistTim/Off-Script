@@ -41,6 +41,19 @@ export interface CareerPathway {
   title: string;
   description: string;
   match: number; // 0-100 relevance score
+  // Career card specific fields
+  industry?: string;
+  averageSalary?: {
+    entry: string;
+    experienced: string;
+    senior: string;
+  };
+  growthOutlook?: string;
+  requiredSkills?: string[];
+  workEnvironment?: string;
+  entryRequirements?: string[];
+  trainingPathways?: string[];
+  // Original pathway fields
   trainingOptions: TrainingOption[];
   volunteeringOpportunities: VolunteeringOpportunity[];
   fundingOptions: FundingOption[];
@@ -262,11 +275,19 @@ class CareerPathwayService {
             title: careerCards[0]?.title || 'Career Exploration',
             description: careerCards[0]?.description || 'Explore career opportunities',
             match: careerCards[0]?.confidence || 85,
-            trainingOptions: [],
+            // Preserve original career card fields
+            industry: careerCards[0]?.industry,
+            averageSalary: careerCards[0]?.averageSalary,
+            growthOutlook: careerCards[0]?.growthOutlook,
+            requiredSkills: careerCards[0]?.keySkills || [],
+            workEnvironment: careerCards[0]?.workEnvironment,
+            entryRequirements: careerCards[0]?.entryRequirements || [],
+            trainingPathways: careerCards[0]?.trainingPathways || [],
+            trainingOptions: careerCards[0]?.trainingPathways || [],
             volunteeringOpportunities: [],
             fundingOptions: [],
             nextSteps: {
-              immediate: ['Research this career field', 'Identify key skills needed'],
+              immediate: Array.isArray(careerCards[0]?.nextSteps) ? careerCards[0].nextSteps.slice(0, 2) : ['Research this career field', 'Identify key skills needed'],
               shortTerm: ['Connect with professionals', 'Begin skill development'],
               longTerm: ['Gain relevant experience', 'Apply for opportunities']
             },
@@ -295,11 +316,19 @@ class CareerPathwayService {
             title: card.title,
             description: card.description,
             match: card.confidence || 80,
-            trainingOptions: [],
+            // Preserve original career card fields
+            industry: card.industry,
+            averageSalary: card.averageSalary,
+            growthOutlook: card.growthOutlook,
+            requiredSkills: card.keySkills || [],
+            workEnvironment: card.workEnvironment,
+            entryRequirements: card.entryRequirements || [],
+            trainingPathways: card.trainingPathways || [],
+            trainingOptions: card.trainingPathways || [],
             volunteeringOpportunities: [],
             fundingOptions: [],
             nextSteps: {
-              immediate: ['Research this alternative path'],
+              immediate: Array.isArray(card.nextSteps) ? card.nextSteps.slice(0, 2) : ['Research this alternative path'],
               shortTerm: ['Explore requirements'],
               longTerm: ['Consider as backup option']
             },
@@ -421,7 +450,7 @@ class CareerPathwayService {
           console.log('🔍 CareerPathwayService: Processing thread:', data.threadId);
           
           // Get thread title
-          const threadTitle = await this.getThreadTitle(data.threadId);
+          const threadTitle = await this.getThreadTitle(data.threadId, userId);
           console.log('🔍 CareerPathwayService: Thread title:', threadTitle);
           
           explorations.push({
@@ -551,7 +580,7 @@ class CareerPathwayService {
   /**
    * Get thread title from Firestore
    */
-  private async getThreadTitle(threadId: string): Promise<string | null> {
+  private async getThreadTitle(threadId: string, userId: string): Promise<string | null> {
     try {
       // Wait for authentication before making Firebase queries
       const { auth } = await import('./firebase');
@@ -561,14 +590,24 @@ class CareerPathwayService {
       }
       
       const { db } = await import('./firebase');
-      const { doc, getDoc } = await import('firebase/firestore');
+      const { collection, query, where, getDocs } = await import('firebase/firestore');
       
-      const threadDoc = await getDoc(doc(db, 'chatThreads', threadId));
+      // Query for the thread document where threadId field matches the OpenAI thread ID
+      // and userId matches the current user (for proper permissions)
+      const threadsQuery = query(
+        collection(db, 'chatThreads'),
+        where('threadId', '==', threadId),
+        where('userId', '==', userId)
+      );
       
-      if (!threadDoc.exists()) {
+      const querySnapshot = await getDocs(threadsQuery);
+      
+      if (querySnapshot.empty) {
         return null;
       }
       
+      // Get the first matching document
+      const threadDoc = querySnapshot.docs[0];
       return threadDoc.data().title || 'Career Exploration';
       
     } catch (error) {
