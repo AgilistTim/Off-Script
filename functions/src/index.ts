@@ -3622,3 +3622,124 @@ Focus on real UK opportunities with actionable next steps.`;
   }
 );
 
+/**
+ * Web search function for career research
+ * Returns real UK training and salary data for career card generation
+ */
+export const searchCareerData = onRequest(
+  {
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret]
+  },
+  async (request, response) => {
+    try {
+      // Validate request method
+      if (request.method !== 'POST') {
+        response.status(405).json({ 
+          success: false, 
+          error: 'Method not allowed. Use POST.' 
+        });
+        return;
+      }
+
+      // Extract parameters
+      const { searchTerm, searchType } = request.body;
+
+      if (!searchTerm || typeof searchTerm !== 'string') {
+        response.status(400).json({
+          success: false,
+          error: 'searchTerm is required and must be a string'
+        });
+        return;
+      }
+
+      const validSearchTypes = ['training', 'salary', 'general'];
+      if (searchType && !validSearchTypes.includes(searchType)) {
+        response.status(400).json({
+          success: false,
+          error: `searchType must be one of: ${validSearchTypes.join(', ')}`
+        });
+        return;
+      }
+
+      logger.info('Career data search request', {
+        searchTerm,
+        searchType: searchType || 'general'
+      });
+
+      // TODO: Implement actual web search
+      // This could use services like:
+      // - SerpAPI for Google search results
+      // - ScaleSerp for search API
+      // - Custom web scraping for specific UK education sites
+      
+      // For now, return a structured response indicating research is needed
+      const searchResults = await performCareerDataSearch(searchTerm, searchType);
+
+      response.status(200).json({
+        success: true,
+        searchTerm,
+        searchType: searchType || 'general',
+        results: searchResults,
+        timestamp: new Date().toISOString(),
+        note: 'This is a placeholder implementation. Real web search should be integrated.'
+      });
+
+    } catch (error: any) {
+      logger.error('Error in searchCareerData function', {
+        error: error.message,
+        stack: error.stack
+      });
+      
+      response.status(500).json({
+        success: false,
+        error: 'Failed to search career data',
+        message: error.message
+      });
+    }
+  }
+);
+
+/**
+ * Perform career data search (placeholder implementation)
+ */
+async function performCareerDataSearch(searchTerm: string, searchType?: string): Promise<any> {
+  // This is where actual web search would be implemented
+  // For now, return guidance on where to find real information
+  
+  const baseGuidance = {
+    searchTerm,
+    searchType,
+    guidance: `For current information about "${searchTerm}", please verify with official sources:`,
+    verificationSources: []
+  };
+
+  if (searchType === 'training' || !searchType) {
+    baseGuidance.verificationSources.push(
+      'Find an Apprenticeship - gov.uk/apply-apprenticeship',
+      'UCAS for university courses - ucas.com',
+      'Further Education courses - gov.uk/further-education-courses',
+      'Professional bodies and trade associations',
+      'Major training providers (City & Guilds, Pearson)',
+      'Local colleges and universities'
+    );
+  }
+
+  if (searchType === 'salary' || !searchType) {
+    baseGuidance.verificationSources.push(
+      'National Careers Service - nationalcareersservice.direct.gov.uk',
+      'ONS Average Weekly Earnings - ons.gov.uk',
+      'PayScale UK salary data - payscale.com/research/UK',
+      'Indeed UK salary insights - indeed.co.uk/salaries',
+      'Glassdoor UK salaries - glassdoor.co.uk/Salaries',
+      'Professional association salary surveys'
+    );
+  }
+
+  return {
+    ...baseGuidance,
+    implementationNote: 'To enable real-time search, integrate with search APIs like SerpAPI or implement web scraping for specific UK education and career sites.',
+    dataFreshness: 'Information should be verified as of ' + new Date().toLocaleDateString()
+  };
+}
+

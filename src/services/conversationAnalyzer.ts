@@ -279,47 +279,58 @@ export class ConversationAnalyzer {
     }));
   }
 
-  // Enhanced career card generation
+  // Enhanced career card generation with web search for real data
   async generateCareerCard(interest: string, context: string): Promise<CareerCardData | null> {
     try {
-      // Simple but effective prompt for career card generation
+      console.log('🔍 Researching real UK data for career:', interest);
+      
+      // Step 1: Search for real UK training courses and qualifications
+      const trainingSearchResults = await this.searchRealUKTraining(interest);
+      
+      // Step 2: Search for current UK salary and job market data
+      const salarySearchResults = await this.searchUKSalaryData(interest);
+      
+      // Step 3: Use real data in OpenAI prompt
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-2024-08-06',
         messages: [
           {
             role: 'system',
-            content: 'You are a UK career research specialist. Create comprehensive career information in JSON format.'
+            content: 'You are a UK career research specialist. Structure and organize real research data into comprehensive career information in JSON format. DO NOT invent or hallucinate information - only use the provided research data.'
           },
           {
             role: 'user',
-            content: `Create a comprehensive UK career card for interest: "${interest}" with context: "${context}".
+            content: `Create a comprehensive UK career card for: "${interest}" with context: "${context}".
 
-            Generate detailed, realistic UK-specific information. For training pathways, provide specific course names, institutions, and qualifications that actually exist in the UK.
+            REAL UK TRAINING DATA FOUND:
+            ${trainingSearchResults}
+            
+            REAL UK SALARY DATA FOUND:
+            ${salarySearchResults}
 
-            Return JSON with:
+            Using ONLY the real data above, structure this information into JSON format. If specific data is not available in the research, use general categories but clearly indicate limitations:
+
             {
               "title": "Specific Career Title",
-              "description": "Detailed 2-3 sentence overview of what this career involves",
-              "industry": "Specific industry sector",
-              "averageSalary": {"entry": "£XX,000", "experienced": "£XX,000", "senior": "£XX,000"},
-              "growthOutlook": "Specific UK market outlook with growth percentage if possible",
-              "entryRequirements": ["specific qualification", "years of experience", "essential skills"],
+              "description": "Detailed overview based on research findings",
+              "industry": "Industry sector from research",
+              "averageSalary": {"entry": "£XX,000 from research", "experienced": "£XX,000 from research", "senior": "£XX,000 from research"},
+              "growthOutlook": "Market outlook from research data or 'See current job market reports'",
+              "entryRequirements": ["requirements from research", "note: verify current requirements"],
               "trainingPathways": [
-                "Level 3 Diploma in [Specific Subject] - 1-2 years at UK colleges",
-                "BSc/BA in [Specific Subject] at UK universities - 3 years",
-                "[Specific] Apprenticeship - employer-funded, 2-4 years",
-                "Professional Certificate in [Specific Area] - 6-12 months",
-                "NVQ Level 2/3 in [Specific Subject] - workplace-based"
+                "Use EXACT course names and institutions from training research",
+                "Include specific qualification levels found",
+                "Add 'Contact institution for current details' where needed"
               ],
-              "keySkills": ["specific technical skill", "specific soft skill", "industry-specific knowledge"],
-              "workEnvironment": "Detailed description of typical work settings, hours, and conditions",
-              "nextSteps": ["immediate actionable step", "short-term goal", "long-term career milestone"]
+              "keySkills": ["skills mentioned in research", "industry-standard requirements"],
+              "workEnvironment": "Description based on research or 'Varies by employer - research specific roles'",
+              "nextSteps": ["Research current job openings", "Contact training providers listed above", "Speak with professionals in the field"]
             }
 
-            Make training pathways realistic and specific to UK education system. Include apprenticeships, university courses, professional certifications, and vocational qualifications where relevant.`
+            IMPORTANT: Only use information found in the research above. If research is limited, acknowledge this and direct users to verify current information.`
           }
         ],
-        temperature: 0.2,
+        temperature: 0.1, // Lower temperature for more factual responses
         max_tokens: 1500
       });
 
@@ -390,6 +401,104 @@ export class ConversationAnalyzer {
     } catch (error) {
       console.error('Error processing conversation:', error);
       return { interests: [], careerCards: [] };
+    }
+  }
+
+  /**
+   * Search for real UK training courses and qualifications
+   */
+  private async searchRealUKTraining(careerInterest: string): Promise<string> {
+    try {
+      const searchResult = await this.performWebSearch(careerInterest, 'training');
+      
+      if (searchResult) {
+        return `REAL UK TRAINING RESEARCH:\n${searchResult}`;
+      } else {
+        return `LIMITED TRAINING DATA: Web search for "${careerInterest}" training was unsuccessful. Recommend users research current courses directly with UK education providers.`;
+      }
+    } catch (error) {
+      console.warn('⚠️ Training search failed:', error);
+      return `TRAINING RESEARCH UNAVAILABLE: Unable to search current UK training options. Users should research directly with education providers.`;
+    }
+  }
+
+  /**
+   * Search for current UK salary and job market data
+   */
+  private async searchUKSalaryData(careerInterest: string): Promise<string> {
+    try {
+      const searchResult = await this.performWebSearch(careerInterest, 'salary');
+      
+      if (searchResult) {
+        return `REAL UK SALARY RESEARCH:\n${searchResult}`;
+      } else {
+        return `LIMITED SALARY DATA: Web search for "${careerInterest}" salaries was unsuccessful. Recommend checking current job boards and salary surveys.`;
+      }
+    } catch (error) {
+      console.warn('⚠️ Salary search failed:', error);
+      return `SALARY RESEARCH UNAVAILABLE: Unable to search current UK salary data. Users should check job boards and salary comparison sites.`;
+    }
+  }
+
+  /**
+   * Perform web search using Firebase function
+   */
+  private async performWebSearch(searchTerm: string, searchType: 'training' | 'salary' | 'general' = 'general'): Promise<string | null> {
+    try {
+      console.log('🔍 Calling server-side search for:', searchTerm);
+      
+      // Get Firebase configuration to build function URL
+      const { firebaseConfig } = await import('../config/environment');
+      const functionUrl = `https://us-central1-${firebaseConfig.projectId}.cloudfunctions.net/searchCareerData`;
+      
+      const response = await fetch(functionUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          searchTerm,
+          searchType
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Search API returned ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.results) {
+        // Format the search results for OpenAI prompt
+        const { results } = data;
+        let formattedResults = `${results.guidance}\n\nVERIFICATION SOURCES:\n`;
+        formattedResults += results.verificationSources.map((source: string) => `- ${source}`).join('\n');
+        formattedResults += `\n\n${results.implementationNote}`;
+        formattedResults += `\nData freshness: ${results.dataFreshness}`;
+        
+        return formattedResults;
+      } else {
+        throw new Error(data.error || 'Unknown search error');
+      }
+      
+    } catch (error) {
+      console.warn('⚠️ Server-side search failed, using fallback:', error);
+      
+      // Fallback to structured guidance
+      return `RESEARCH NEEDED: Please verify current UK information for "${searchTerm}".
+
+RECOMMENDED VERIFICATION SOURCES:
+- Official UK education providers (gov.uk)
+- UCAS for university courses  
+- Find an Apprenticeship (gov.uk/apply-apprenticeship)
+- Professional bodies and trade associations
+- Major training providers (City & Guilds, Pearson, etc.)
+- National Careers Service for salary data
+- ONS (Office for National Statistics) for earnings data
+
+Note: Career information should be verified with current providers as courses, costs, and requirements change frequently.
+
+Search service temporarily unavailable - please verify information independently.`;
     }
   }
 
