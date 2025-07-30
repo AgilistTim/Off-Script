@@ -227,6 +227,40 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
     setLoadingGuidance(prev => new Set([...prev, threadId]));
 
     try {
+      // FIRST: Check if this is a migrated career card (contains "_card_")
+      // Migrated cards should NEVER access threadCareerGuidance to avoid permission errors
+      if (threadId.includes('_card_')) {
+        console.log('🎯 Loading migrated career card data directly:', threadId);
+        console.log('📋 Migrated cards contain complete career information');
+        
+        // Set complete migrated card data to prevent Firebase lookups
+        setCareerGuidanceData(prev => new Map(prev.set(threadId, {
+          primaryPathway: {
+            id: threadId,
+            title: exploration.threadTitle || exploration.primaryCareerPath,
+            description: exploration.description,
+            match: exploration.match || 80,
+            trainingOptions: [],
+            volunteeringOpportunities: [],
+            fundingOptions: [],
+            nextSteps: { immediate: [], shortTerm: [], longTerm: [] },
+            reflectiveQuestions: [],
+            keyResources: [],
+            progressionPath: []
+          },
+          isMigratedCard: true
+        } as any)));
+        setLoadingGuidance(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(threadId);
+          return newSet;
+        });
+        return;
+      }
+
+      // ONLY for conversation-generated cards: Check threadCareerGuidance
+      console.log('🔍 Checking threadCareerGuidance for conversation card:', threadId);
+      
       // Check multiple possible ID variations due to historical corruption
       const idVariations = [
         cleanedId,
@@ -252,31 +286,11 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
       
       if (existingGuidance) {
         setCareerGuidanceData(prev => new Map(prev.set(threadId, existingGuidance)));
-        return;
-      }
-
-      // Check if this is a migrated career card (contains "_card_")
-      if (threadId.includes('_card_')) {
-        console.log('🎯 Skipping guidance generation for migrated career card:', threadId);
-        console.log('📋 Migrated cards already contain complete career information');
-        
-        // Set a placeholder to prevent re-attempts
-        setCareerGuidanceData(prev => new Map(prev.set(threadId, {
-          primaryPathway: {
-            id: threadId,
-            title: exploration.threadTitle || exploration.primaryCareerPath,
-            description: exploration.description,
-            match: exploration.match || 80,
-            trainingOptions: [],
-            volunteeringOpportunities: [],
-            fundingOptions: [],
-            nextSteps: { immediate: [], shortTerm: [], longTerm: [] },
-            reflectiveQuestions: [],
-            keyResources: [],
-            progressionPath: []
-          },
-          isMigratedCard: true
-        } as any)));
+        setLoadingGuidance(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(threadId);
+          return newSet;
+        });
         return;
       }
 

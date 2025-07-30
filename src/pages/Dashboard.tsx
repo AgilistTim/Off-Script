@@ -181,8 +181,12 @@ const Dashboard: React.FC = () => {
       // Clear location state to prevent repeated refreshes
       window.history.replaceState({}, document.title);
       
-      // Force refresh all data by incrementing the refresh key
-      setDataRefreshKey(prev => prev + 1);
+      // Add small delay to allow Firebase indexing to complete after migration
+      setTimeout(() => {
+        // Force refresh all data by incrementing the refresh key
+        setDataRefreshKey(prev => prev + 1);
+        console.log('🔄 Delayed dashboard refresh triggered after migration');
+      }, 1000); // 1 second delay for Firebase indexing
       
       // Show welcome notification
       if (locationState.showWelcome && locationState.migrationResult) {
