@@ -159,10 +159,104 @@ class CareerPathwayService {
   }
 
   /**
+   * Validate training pathways match the career title
+   */
+  private validateTrainingPathwayAlignment(careerTitle: string, trainingPathways: string[]): string[] {
+    if (!trainingPathways || !Array.isArray(trainingPathways)) {
+      return [];
+    }
+
+    const careerLower = careerTitle.toLowerCase();
+    const validatedPathways: string[] = [];
+
+    // Define career field keywords to training keywords mapping
+    const careerTrainingMap: Record<string, string[]> = {
+      // Tech/Software careers
+      'software|developer|programming|tech|digital|web|app|game': ['programming', 'software', 'computer', 'digital', 'web', 'app', 'game', 'technology'],
+      
+      // Creative/Content careers  
+      'content|writer|creative|design|media|fiction|storytelling': ['creative', 'writing', 'media', 'design', 'content', 'digital media', 'journalism', 'english'],
+      
+      // Food/Culinary careers
+      'culinary|chef|cook|food|restaurant|hospitality': ['culinary', 'food', 'cooking', 'hospitality', 'chef', 'restaurant', 'catering'],
+      
+      // Healthcare careers
+      'health|medical|nurse|care|therapy': ['health', 'medical', 'nursing', 'care', 'therapy', 'clinical'],
+      
+      // Business/Finance careers
+      'business|finance|management|marketing|sales': ['business', 'management', 'finance', 'marketing', 'sales', 'accounting']
+    };
+
+    // Check each training pathway for alignment
+    for (const pathway of trainingPathways) {
+      const pathwayLower = pathway.toLowerCase();
+      let isAligned = false;
+
+      // Check if this pathway aligns with the career
+      for (const [careerPattern, trainingKeywords] of Object.entries(careerTrainingMap)) {
+        const careerRegex = new RegExp(careerPattern, 'i');
+        
+        if (careerRegex.test(careerLower)) {
+          // Career matches this category, check if training pathway contains relevant keywords
+          isAligned = trainingKeywords.some(keyword => pathwayLower.includes(keyword));
+          if (isAligned) break;
+        }
+      }
+
+      if (isAligned) {
+        validatedPathways.push(pathway);
+      } else {
+        console.warn(`⚠️ Training pathway "${pathway}" doesn't align with career "${careerTitle}" - filtering out`);
+      }
+    }
+
+    // If no pathways align, return generic career-appropriate suggestions
+    if (validatedPathways.length === 0) {
+      console.warn(`⚠️ No training pathways aligned with "${careerTitle}" - generating generic suggestions`);
+      return this.generateGenericTrainingPathways(careerTitle);
+    }
+
+    return validatedPathways;
+  }
+
+  /**
+   * Generate generic but career-appropriate training pathways
+   */
+  private generateGenericTrainingPathways(careerTitle: string): string[] {
+    const careerLower = careerTitle.toLowerCase();
+    
+    if (careerLower.includes('software') || careerLower.includes('developer') || careerLower.includes('programming')) {
+      return [
+        'Computer Science degree from UK universities',
+        'Software Development bootcamps',
+        'Professional programming certifications'
+      ];
+    } else if (careerLower.includes('content') || careerLower.includes('writer') || careerLower.includes('creative')) {
+      return [
+        'Creative Writing or English Literature degree',
+        'Digital Media and Content Creation courses',
+        'Professional writing certifications'
+      ];
+    } else if (careerLower.includes('culinary') || careerLower.includes('chef') || careerLower.includes('food')) {
+      return [
+        'Professional Cookery apprenticeships',
+        'Culinary Arts diplomas',
+        'Food preparation certifications'
+      ];
+    } else {
+      return [
+        'Relevant degree programs (verify with UCAS)',
+        'Professional certifications in this field',
+        'Industry-specific training courses'
+      ];
+    }
+  }
+
+  /**
    * Convert training pathway strings to structured TrainingOption objects
    * Enhanced to preserve specific details from OpenAI-generated content
    */
-  private convertTrainingPathwaysToOptions(trainingPathways: string[]): TrainingOption[] {
+  private convertTrainingPathwaysToOptions(trainingPathways: string[], careerTitle?: string): TrainingOption[] {
     if (!trainingPathways || !Array.isArray(trainingPathways)) {
       return [];
     }
@@ -420,12 +514,15 @@ class CareerPathwayService {
             requiredSkills: careerCards[0]?.keySkills || [],
             workEnvironment: careerCards[0]?.workEnvironment,
             entryRequirements: careerCards[0]?.entryRequirements || [],
-            trainingPathways: careerCards[0]?.trainingPathways || [],
+            trainingPathways: this.validateTrainingPathwayAlignment(careerCards[0]?.title || '', careerCards[0]?.trainingPathways || []),
             // Preserve web search verification and citation data
             webSearchVerified: careerCards[0]?.webSearchVerified,
             requiresVerification: careerCards[0]?.requiresVerification,
             citations: careerCards[0]?.citations,
-            trainingOptions: this.convertTrainingPathwaysToOptions(careerCards[0]?.trainingPathways || []),
+            trainingOptions: this.convertTrainingPathwaysToOptions(
+              this.validateTrainingPathwayAlignment(careerCards[0]?.title || '', careerCards[0]?.trainingPathways || []),
+              careerCards[0]?.title
+            ),
             volunteeringOpportunities: [],
             fundingOptions: [],
             nextSteps: {
@@ -465,12 +562,15 @@ class CareerPathwayService {
             requiredSkills: card.keySkills || [],
             workEnvironment: card.workEnvironment,
             entryRequirements: card.entryRequirements || [],
-            trainingPathways: card.trainingPathways || [],
+            trainingPathways: this.validateTrainingPathwayAlignment(card.title || '', card.trainingPathways || []),
             // Preserve web search verification and citation data
             webSearchVerified: card.webSearchVerified,
             requiresVerification: card.requiresVerification,
             citations: card.citations,
-            trainingOptions: this.convertTrainingPathwaysToOptions(card.trainingPathways || []),
+            trainingOptions: this.convertTrainingPathwaysToOptions(
+              this.validateTrainingPathwayAlignment(card.title || '', card.trainingPathways || []),
+              card.title
+            ),
             volunteeringOpportunities: [],
             fundingOptions: [],
             nextSteps: {
@@ -1109,8 +1209,11 @@ class CareerPathwayService {
                 },
                 growthOutlook: pathway.growthOutlook || 'Growing demand',
                 keySkills: pathway.requiredSkills || [],
-                trainingPathways: pathway.trainingPathways || [],
-                trainingOptions: this.convertTrainingPathwaysToOptions(pathway.trainingPathways || []),
+                trainingPathways: this.validateTrainingPathwayAlignment(pathway.title || '', pathway.trainingPathways || []),
+                trainingOptions: this.convertTrainingPathwaysToOptions(
+                  this.validateTrainingPathwayAlignment(pathway.title || '', pathway.trainingPathways || []),
+                  pathway.title
+                ),
                 nextSteps: this.extractNextStepsArray(pathway.nextSteps) || [],
                 confidence: pathway.match || 80,
                 workEnvironment: pathway.workEnvironment || 'Office-based',
@@ -1152,8 +1255,11 @@ class CareerPathwayService {
               },
               growthOutlook: primary.growthOutlook || 'Growing demand',
               keySkills: primary.requiredSkills || [],
-              trainingPathways: primary.trainingPathways || [],
-              trainingOptions: this.convertTrainingPathwaysToOptions(primary.trainingPathways || []),
+              trainingPathways: this.validateTrainingPathwayAlignment(primary.title || '', primary.trainingPathways || []),
+              trainingOptions: this.convertTrainingPathwaysToOptions(
+                this.validateTrainingPathwayAlignment(primary.title || '', primary.trainingPathways || []),
+                primary.title
+              ),
               nextSteps: this.extractNextStepsArray(primary.nextSteps) || [],
               confidence: primary.match || 85,
               workEnvironment: primary.workEnvironment || 'Office-based',
