@@ -307,8 +307,10 @@ const Dashboard: React.FC = () => {
 
       console.log('🗑️ Deleting career card:', cardToDelete);
 
-      // Use the new deletion method if it has Firebase info
+      // Smart deletion based on card source
       if (cardToDelete.firebaseDocId && cardToDelete.pathwayType) {
+        // Modern cards with Firebase metadata - use precise deletion
+        console.log('🎯 Using Firebase-based deletion for current card');
         await careerPathwayService.deleteCareerCardByFirebaseId(
           cardId,
           cardToDelete.firebaseDocId,
@@ -316,14 +318,16 @@ const Dashboard: React.FC = () => {
           cardToDelete.pathwayIndex,
           currentUser.uid
         );
+      } else if (cardId.includes('_card_')) {
+        // Migrated guest cards - delete from careerExplorations only
+        console.log('🎯 Using legacy deletion methods for migrated card');
+        await careerPathwayService.deleteCareerExplorationOrCard(cardToDelete.threadId || cardId, currentUser.uid);
+        // NO threadCareerGuidance deletion for migrated cards
       } else {
-        // Fallback to old deletion methods for legacy cards
-        try {
-          await careerPathwayService.deleteCareerExplorationOrCard(cardToDelete.threadId || cardId, currentUser.uid);
-          await careerPathwayService.deleteThreadCareerGuidance(cardToDelete.threadId || cardId, currentUser.uid);
-        } catch (error) {
-          console.error('Error with fallback deletion methods:', error);
-        }
+        // Conversation-generated cards - delete from threadCareerGuidance only  
+        console.log('🎯 Using thread guidance deletion for conversation card');
+        await careerPathwayService.deleteThreadCareerGuidance(cardToDelete.threadId || cardId, currentUser.uid);
+        // NO careerExplorations deletion for conversation cards
       }
 
       // Remove from cache and current cards

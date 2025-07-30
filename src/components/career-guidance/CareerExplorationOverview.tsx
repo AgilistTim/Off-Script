@@ -411,22 +411,18 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
           isCurrentCard.pathwayIndex,
           currentUser.uid
         );
+      } else if (threadId.includes('_card_')) {
+        // Migrated guest cards - delete from careerExplorations only
+        console.log('🎯 Using legacy deletion methods for migrated card');
+        await careerPathwayService.deleteCareerExplorationOrCard(threadId, currentUser.uid);
+        console.log('✅ Deleted exploration/card for threadId:', threadId);
+        // NO threadCareerGuidance deletion for migrated cards
       } else {
-        // Use old deletion methods for legacy explorations
-        console.log('🎯 Using legacy deletion methods for exploration');
-        try {
-          await careerPathwayService.deleteCareerExplorationOrCard(threadId, currentUser.uid);
-          console.log('✅ Deleted exploration/card for threadId:', threadId);
-        } catch (error) {
-          console.log('🔍 No exploration found to delete for threadId:', threadId);
-        }
-
-        try {
-          await careerPathwayService.deleteThreadCareerGuidance(threadId, currentUser.uid);
-          console.log('✅ Deleted guidance for threadId:', threadId);
-        } catch (error) {
-          console.log('🔍 No guidance found to delete for threadId:', threadId);
-        }
+        // Conversation-generated cards - delete from threadCareerGuidance only
+        console.log('🎯 Using thread guidance deletion for conversation card');
+        await careerPathwayService.deleteThreadCareerGuidance(threadId, currentUser.uid);
+        console.log('✅ Deleted guidance for threadId:', threadId);
+        // NO careerExplorations deletion for conversation cards
       }
 
       // Remove from local state

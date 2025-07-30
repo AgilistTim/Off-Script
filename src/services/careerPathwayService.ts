@@ -226,53 +226,12 @@ class CareerPathwayService {
       console.log('💾 Saving career cards from conversation for user:', userId, 'Cards:', careerCards.length);
       
       const { db } = await import('./firebase');
-      const { collection, doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+      const { doc, setDoc } = await import('firebase/firestore');
       
-      // Create a career exploration document for the conversation-generated cards
-      const explorationRef = doc(collection(db, 'careerExplorations'));
       const threadId = `conversation_${Date.now()}`;
       
-      // Helper function to flatten nested arrays
-      const flattenArrayProperties = (obj: any): any => {
-        if (!obj || typeof obj !== 'object') return obj;
-        
-        const flattened = { ...obj };
-        
-        // Flatten specific array properties that might be nested
-        ['keySkills', 'nextSteps', 'requirements', 'responsibilities', 'trainingOptions', 'pathways'].forEach(prop => {
-          if (flattened[prop] && Array.isArray(flattened[prop])) {
-            flattened[prop] = flattened[prop].flat();
-          }
-        });
-        
-        return flattened;
-      };
-      
-      // Prepare career cards with timestamps, source, and flattened arrays
-      const now = new Date();
-      const processedCards = careerCards.map(card => ({
-        ...flattenArrayProperties(card),
-        discoveredAt: now.toISOString(),
-        source: 'conversation_analysis'
-      }));
-      
-      await setDoc(explorationRef, {
-        userId,
-        threadId,
-        title: `Career Insights from Conversation`,
-        description: 'Career recommendations generated during AI conversation',
-        createdAt: serverTimestamp(),
-        careerCards: processedCards,
-        cardCount: careerCards.length,
-        source: 'conversation',
-        explorationComplete: true,
-        // Store individual cards for dashboard access
-        primaryCareerPath: careerCards[0]?.title || 'Career Exploration',
-        match: careerCards[0]?.confidence || 85,
-        lastUpdated: new Date()
-      });
-
-      // Also store in thread guidance format for consistency
+      // Store ONLY in thread guidance format for live conversations
+      // careerExplorations is reserved for migrated guest data only
       const guidanceData: ThreadCareerGuidance = {
         id: `${threadId}_guidance`,
         threadId,
@@ -380,7 +339,8 @@ class CareerPathwayService {
       
       await setDoc(doc(db, 'threadCareerGuidance', guidanceData.id), guidanceData);
       
-      console.log('✅ Successfully saved conversation career cards to Firebase with ID:', guidanceData.id);
+      console.log('✅ Successfully saved conversation career cards to threadCareerGuidance:', guidanceData.id);
+      console.log('📊 Data flow: Live conversation → threadCareerGuidance (no dual storage)');
       
     } catch (error) {
       console.error('❌ Error saving conversation career cards:', error);
