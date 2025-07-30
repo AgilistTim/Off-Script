@@ -357,35 +357,34 @@ Be comprehensive - extract 3-8 interests, 2-6 skills, and 1-4 goals minimum from
 
 CRITICAL EXTRACTION RULES:
 1. INTERESTS: Only genuine interests, hobbies, subjects, technologies - NEVER job titles or career names
-   ✅ Good: "AI technology", "Healthcare", "Voice technology", "Problem solving"
-   ❌ Bad: "AI Developer", "Healthcare Specialist", "Voice Engineer"
+   ✅ Good: "Gaming", "Testing", "Problem solving", "Technology"
+   ❌ Bad: "Game Developer", "QA Tester", "Software Engineer"
 
 2. SKILLS: Extract demonstrated abilities from stories and examples
-   - "built a tool" → Programming, Problem-solving
-   - "helps granddad" → Empathy, Care, Communication
-   - "generates reports" → Analysis, Technical writing
+   - "built something" → Programming, Problem-solving
+   - "helps others" → Empathy, Care, Communication
+   - "analyzes patterns" → Analysis, Critical thinking
 
 3. GOALS: Career aspirations and professional motivations
    - "want to help people" → Make positive impact
-   - "solve real problems" → Apply technology meaningfully
+   - "solve real problems" → Apply skills meaningfully
    - "build solutions" → Create innovative products
 
 4. VALUES: What matters to them personally
-   - Helping family → Family care, Responsibility
+   - Helping others → Care, Responsibility
    - Solving problems → Innovation, Impact
-   - Real-world applications → Practical solutions
+   - Quality work → Excellence, Attention to detail
 
 5. WORK STYLE: Environmental and collaboration preferences
    - Independent projects → Solo work
    - Team collaboration → Team-oriented
    - Remote/flexible → Location flexibility
 
-STORY ANALYSIS EXAMPLES:
-"I built an AI tool that phones my granddad to check on his pills"
-→ Skills: Programming, Problem-solving, Empathy, Healthcare technology
-→ Interests: AI technology, Healthcare solutions, Elder care
-→ Values: Family care, Helping others, Technology for good
-→ Goals: Use technology to help people
+ANALYSIS APPROACH:
+- Extract interests and skills directly from what the person mentions
+- Don't make assumptions beyond what's clearly stated
+- Focus on the actual conversation content
+- Avoid inserting examples that aren't mentioned
 
 Extract 3-8 interests, 2-6 skills, 1-4 goals, 2-5 values minimum from meaningful conversations.`
           },
@@ -1407,20 +1406,30 @@ class OffScriptMCPServer {
     Logger.info('MCP: Analyzing conversation for careers:', args);
     
     try {
-      // Get conversation history from the global cache that should be set by the frontend
-      let conversationText = '';
-      
-      if (this.cachedConversationHistory && this.cachedConversationHistory.length > 0) {
-        conversationText = this.cachedConversationHistory
-          .map(msg => `${msg.role}: ${msg.content}`)
-          .join('\n');
-        Logger.info('Using cached conversation history', { messageCount: this.cachedConversationHistory.length });
-      } else {
-        Logger.warn('No conversation history available, using trigger reason as fallback');
-        conversationText = args.trigger_reason || 'Manual trigger';
+      // Require proper conversation history - no fallbacks to prevent misleading results
+      if (!this.cachedConversationHistory || this.cachedConversationHistory.length === 0) {
+        Logger.error('No conversation history available for analysis');
+        return {
+          success: false,
+          error: 'Conversation history not available. Please ensure the conversation is properly loaded before requesting analysis.',
+          analysis: {
+            detectedInterests: [],
+            confidence: 0,
+            careerCards: []
+          }
+        };
       }
 
-      // Use proper conversation analysis with the full conversation
+      const conversationText = this.cachedConversationHistory
+        .map(msg => `${msg.role}: ${msg.content}`)
+        .join('\n');
+      
+      Logger.info('Using cached conversation history', { 
+        messageCount: this.cachedConversationHistory.length,
+        contentLength: conversationText.length 
+      });
+
+      // Use proper conversation analysis with the full conversation only
       const analysisResult = await ConversationAnalysisService.analyzeWithOpenAI(conversationText);
 
       return {

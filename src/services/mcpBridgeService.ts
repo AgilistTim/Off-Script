@@ -259,20 +259,19 @@ class MCPBridgeService {
   // Fallback methods for when MCP server is not available
 
   private async fallbackAnalyzeConversation(messages: MCPMessage[], userId?: string): Promise<MCPAnalysisResult> {
-    console.log('🔄 Fallback disabled to prevent irrelevant career suggestions');
+    console.log('🔄 MCP server unavailable - returning clear error instead of misleading fallback data');
     
-         // Return empty analysis instead of hardcoded career cards
-     // This prevents wrong career suggestions when MCP server fails
-     return {
-       success: false,
-       analysis: {
-         detectedInterests: [],
-         confidence: 0,
-         careerCards: [],
-         timestamp: new Date().toISOString(),
-         error: 'Analysis temporarily unavailable - please try again'
-       }
-     };
+    // Return clear error instead of hardcoded career cards to prevent misleading information
+    return {
+      success: false,
+      analysis: {
+        detectedInterests: [],
+        confidence: 0,
+        careerCards: [],
+        timestamp: new Date().toISOString(),
+        error: 'Career analysis service is temporarily unavailable. Please try again in a few moments or check your connection.'
+      }
+    };
   }
 
   private async fallbackGenerateInsights(interests: string[], experience: string, location: string): Promise<MCPInsightsResult> {
