@@ -953,7 +953,7 @@ class CareerPathwayService {
   }
 
   /**
-   * Get current career cards from thread guidance 
+   * Get current career cards from thread guidance and migrated career explorations
    */
   async getCurrentCareerCards(userId: string): Promise<any[]> {
     try {
@@ -971,7 +971,7 @@ class CareerPathwayService {
       
       const careerCards: any[] = [];
       
-      // Get career cards from thread guidance
+      // 1. Get career cards from thread guidance (live conversations)
       try {
         const guidanceQuery = query(
           collection(db, 'threadCareerGuidance'),
@@ -1070,7 +1070,74 @@ class CareerPathwayService {
           console.warn('⚠️ Error accessing threadCareerGuidance:', guidanceError);
         }
       }
+
+      // 2. Get career cards from migrated guest data (careerExplorations)
+      try {
+        const explorationQuery = query(
+          collection(db, 'careerExplorations'),
+          where('userId', '==', userId),
+          orderBy('createdAt', 'desc')
+        );
+        
+        const explorationSnapshot = await getDocs(explorationQuery);
+        
+        for (const doc of explorationSnapshot.docs) {
+          const data = doc.data();
+          
+          if (data.careerCards && Array.isArray(data.careerCards)) {
+            data.careerCards.forEach((card: any, index: number) => {
+              careerCards.push({
+                id: `migrated-${doc.id}-card-${index}`,
+                title: card.title,
+                description: card.description,
+                industry: card.industry || 'Technology',
+                averageSalary: card.averageSalary || {
+                  entry: '£25,000',
+                  experienced: '£35,000',
+                  senior: '£50,000'
+                },
+                growthOutlook: card.growthOutlook || 'Growing demand',
+                keySkills: card.keySkills || [],
+                trainingPathways: card.trainingPathways || [],
+                nextSteps: card.nextSteps || [],
+                confidence: card.confidence || 80,
+                workEnvironment: card.workEnvironment || 'Office-based',
+                entryRequirements: card.entryRequirements || [],
+                location: 'UK',
+                isCurrent: true,
+                source: 'migrated_guest_data',
+                threadId: `${doc.id}_card_${index}`,
+                isMigrated: true,
+                // Store actual Firebase document ID and card info for deletion
+                firebaseDocId: doc.id,
+                cardIndex: index,
+                migrationSource: data.migrationSource || 'guest_session',
+                // Debug info for troubleshooting
+                _debug: {
+                  docId: doc.id,
+                  totalCards: data.careerCards?.length || 0,
+                  cardTitle: card.title,
+                  discoveredAt: card.discoveredAt
+                }
+              });
+            });
+          }
+        }
+        
+        console.log('✅ Found migrated career cards from careerExplorations:', 
+          explorationSnapshot.docs.reduce((acc, doc) => acc + (doc.data().careerCards?.length || 0), 0));
+        
+      } catch (explorationError: any) {
+        if (explorationError?.code === 'permission-denied') {
+          console.warn('⚠️ Permission denied accessing careerExplorations (user may not have migrated data)');
+        } else if (explorationError?.code === 'failed-precondition') {
+          console.warn('⚠️ Firestore index still building for careerExplorations (this is normal for new deployments)');
+        } else {
+          console.warn('⚠️ Error accessing careerExplorations:', explorationError);
+        }
+      }
       
+      console.log('✅ Total current career cards found:', careerCards.length);
       return careerCards;
       
     } catch (error) {
