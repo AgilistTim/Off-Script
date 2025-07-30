@@ -393,6 +393,13 @@ class CareerPathwayService {
    */
   async getThreadCareerGuidance(threadId: string, userId: string): Promise<ComprehensiveCareerGuidance | null> {
     try {
+      // Wait for authentication before making Firebase queries
+      const { auth } = await import('./firebase');
+      if (!auth.currentUser) {
+        console.warn('❌ User not authenticated for threadCareerGuidance access');
+        return null;
+      }
+      
       const { db } = await import('./firebase');
       const { doc, getDoc } = await import('firebase/firestore');
       
@@ -424,6 +431,13 @@ class CareerPathwayService {
   async getUserCareerExplorations(userId: string): Promise<CareerExplorationSummary[]> {
     try {
       console.log('🔍 CareerPathwayService: Getting career explorations for user:', userId);
+      
+      // Wait for authentication before making Firebase queries
+      const { auth } = await import('./firebase');
+      if (!auth.currentUser) {
+        console.warn('❌ User not authenticated for careerExplorations access');
+        return [];
+      }
       
       const { db } = await import('./firebase');
       const { collection, query, where, orderBy, getDocs } = await import('firebase/firestore');
@@ -579,6 +593,13 @@ class CareerPathwayService {
    */
   private async getThreadTitle(threadId: string): Promise<string | null> {
     try {
+      // Wait for authentication before making Firebase queries
+      const { auth } = await import('./firebase');
+      if (!auth.currentUser) {
+        console.warn('❌ User not authenticated for chatThreads access');
+        return null;
+      }
+      
       const { db } = await import('./firebase');
       const { doc, getDoc } = await import('firebase/firestore');
       
@@ -698,6 +719,13 @@ class CareerPathwayService {
   async getCurrentUserProfile(userId: string): Promise<any | null> {
     try {
       console.log('🔍 CareerPathwayService: Getting current user profile for user:', userId);
+      
+      // Wait for authentication before making Firebase queries
+      const { auth } = await import('./firebase');
+      if (!auth.currentUser) {
+        console.warn('❌ User not authenticated for getCurrentUserProfile access');
+        return null;
+      }
       
       const { db } = await import('./firebase');
       const { collection, query, where, orderBy, limit, getDocs, doc, getDoc } = await import('firebase/firestore');
@@ -931,6 +959,13 @@ class CareerPathwayService {
   async getCurrentCareerCards(userId: string): Promise<any[]> {
     try {
       console.log('🔍 CareerPathwayService: Getting current career cards for user:', userId);
+      
+      // Wait for authentication before making Firebase queries
+      const { auth } = await import('./firebase');
+      if (!auth.currentUser) {
+        console.warn('❌ User not authenticated for getCurrentCareerCards access');
+        return [];
+      }
       
       const { db } = await import('./firebase');
       const { collection, query, where, orderBy, getDocs } = await import('firebase/firestore');

@@ -509,14 +509,27 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
     // Combine and sort by last updated
     const combined = [...explorations, ...currentCardExplorations];
     
-    // Simple deduplication by exact thread ID match - no complex cleaning
-    const seenIds = new Set<string>();
+    // Enhanced deduplication to handle different thread ID formats
+    // Extract base thread ID from formats like:
+    // - "i0sW68HlPPKwJUN6hCwu_card_0" (migrated)
+    // - "guidance-i0sW68HlPPKwJUN6hCwu_card_0_guidance-primary" (generated)
+    const getBaseThreadId = (threadId: string): string => {
+      // Remove "guidance-" prefix and "_guidance*" suffix to extract core ID
+      return threadId
+        .replace(/^guidance-/, '')
+        .replace(/_guidance.*$/, '');
+    };
+    
+    const seenBaseIds = new Set<string>();
     const filtered = combined.filter(exploration => {
-      if (seenIds.has(exploration.threadId)) {
-        console.log(`🔍 Skipping duplicate threadId:`, exploration.threadId);
+      const baseId = getBaseThreadId(exploration.threadId);
+      
+      if (seenBaseIds.has(baseId)) {
+        console.log(`🔍 Skipping duplicate threadId:`, exploration.threadId, `(base: ${baseId})`);
         return false;
       }
-      seenIds.add(exploration.threadId);
+      
+      seenBaseIds.add(baseId);
       return true;
     });
     
