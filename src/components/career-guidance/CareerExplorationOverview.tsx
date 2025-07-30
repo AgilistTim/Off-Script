@@ -231,25 +231,107 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
       // Migrated cards should NEVER access threadCareerGuidance to avoid permission errors
       if (threadId.includes('_card_')) {
         console.log('🎯 Loading migrated career card data directly:', threadId);
-        console.log('📋 Migrated cards contain complete career information');
+        console.log('📋 Retrieving full migrated career card with rich training/education data');
         
-        // Set complete migrated card data to prevent Firebase lookups
-        setCareerGuidanceData(prev => new Map(prev.set(threadId, {
-          primaryPathway: {
-            id: threadId,
-            title: exploration.threadTitle || exploration.primaryCareerPath,
-            description: exploration.description,
-            match: exploration.match || 80,
-            trainingOptions: [],
-            volunteeringOpportunities: [],
-            fundingOptions: [],
-            nextSteps: { immediate: [], shortTerm: [], longTerm: [] },
-            reflectiveQuestions: [],
-            keyResources: [],
-            progressionPath: []
-          },
-          isMigratedCard: true
-        } as any)));
+        try {
+          // Get the FULL migrated career card data (not just summary)
+          const fullCareerCard = await careerPathwayService.getMigratedCareerCard(threadId);
+          
+          if (fullCareerCard) {
+            console.log('✅ Found full migrated career card data:', fullCareerCard.title);
+            console.log('📊 Training options available:', fullCareerCard.trainingOptions?.length || 0);
+            console.log('📊 Education paths available:', fullCareerCard.educationPaths?.length || 0);
+            
+            // Map the rich migrated data to the expected ComprehensiveCareerGuidance structure
+            const guidanceData = {
+              userProfile: {
+                goals: fullCareerCard.relatedGoals || ['Explore career options'],
+                interests: fullCareerCard.relatedInterests || [fullCareerCard.title],
+                skills: fullCareerCard.relatedSkills || [],
+                careerStage: 'exploring' as const
+              },
+              primaryPathway: {
+                id: threadId,
+                title: fullCareerCard.title || exploration.threadTitle || exploration.primaryCareerPath,
+                description: fullCareerCard.description || exploration.description,
+                match: fullCareerCard.confidence || exploration.match || 80,
+                // Use actual migrated training data
+                trainingOptions: fullCareerCard.trainingOptions || [],
+                volunteeringOpportunities: fullCareerCard.volunteeringOpportunities || [],
+                fundingOptions: fullCareerCard.fundingOptions || [],
+                nextSteps: fullCareerCard.nextSteps || {
+                  immediate: fullCareerCard.immediateSteps || [],
+                  shortTerm: fullCareerCard.shortTermSteps || [],
+                  longTerm: fullCareerCard.longTermSteps || []
+                },
+                reflectiveQuestions: fullCareerCard.reflectiveQuestions || [
+                  'What aspects of this career interest you most?',
+                  'How do your current skills align with this path?',
+                  'What training would help you most?'
+                ],
+                keyResources: fullCareerCard.keyResources || [],
+                progressionPath: fullCareerCard.progressionPath || fullCareerCard.careerProgression || []
+              },
+              alternativePathways: [],
+              crossCuttingResources: {
+                generalFunding: [],
+                careerSupport: []
+              },
+              generatedAt: new Date(),
+              actionPlan: {
+                thisWeek: fullCareerCard.immediateSteps || ['Research this career path'],
+                thisMonth: fullCareerCard.shortTermSteps || ['Connect with professionals'],
+                next3Months: fullCareerCard.longTermSteps || ['Begin skill development']
+              },
+              isMigratedCard: true,
+              migrationSource: fullCareerCard.migrationSource || 'guest_session'
+            };
+            
+            setCareerGuidanceData(prev => new Map(prev.set(threadId, guidanceData)));
+            console.log('✅ Mapped migrated career card to guidance structure');
+          } else {
+            console.warn('⚠️ Could not retrieve full migrated career card, using summary data');
+            // Fallback to summary data if full card not available
+            setCareerGuidanceData(prev => new Map(prev.set(threadId, {
+              primaryPathway: {
+                id: threadId,
+                title: exploration.threadTitle || exploration.primaryCareerPath,
+                description: exploration.description,
+                match: exploration.match || 80,
+                trainingOptions: [],
+                volunteeringOpportunities: [],
+                fundingOptions: [],
+                nextSteps: { immediate: [], shortTerm: [], longTerm: [] },
+                reflectiveQuestions: [],
+                keyResources: [],
+                progressionPath: []
+              },
+              isMigratedCard: true,
+              fallbackUsed: true
+            } as any)));
+          }
+        } catch (error) {
+          console.error('❌ Error loading migrated career card:', error);
+          // Use summary data as fallback
+          setCareerGuidanceData(prev => new Map(prev.set(threadId, {
+            primaryPathway: {
+              id: threadId,
+              title: exploration.threadTitle || exploration.primaryCareerPath,
+              description: exploration.description,
+              match: exploration.match || 80,
+              trainingOptions: [],
+              volunteeringOpportunities: [],
+              fundingOptions: [],
+              nextSteps: { immediate: [], shortTerm: [], longTerm: [] },
+              reflectiveQuestions: [],
+              keyResources: [],
+              progressionPath: []
+            },
+            isMigratedCard: true,
+            error: error.message
+          } as any)));
+        }
+        
         setLoadingGuidance(prev => {
           const newSet = new Set(prev);
           newSet.delete(threadId);

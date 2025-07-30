@@ -221,6 +221,14 @@ export class GuestMigrationService {
         }
       }
 
+      // Create a chat summary for the migrated conversation
+      try {
+        await this.createMigrationChatSummary(userId, migrationThreadRef.id, guestSession);
+        console.log('✅ Created chat summary for migrated conversation');
+      } catch (summaryError) {
+        console.warn('⚠️ Could not create chat summary for migration (non-critical):', summaryError);
+      }
+
       console.log(`✅ Transferred ${messageCount} conversation messages`);
       return messageCount;
       
@@ -276,6 +284,64 @@ export class GuestMigrationService {
     } catch (error) {
       console.error('Error transferring career cards:', error);
       return 0;
+    }
+  }
+
+  /**
+   * Create a chat summary for migrated conversation
+   */
+  private static async createMigrationChatSummary(
+    userId: string, 
+    threadId: string, 
+    guestSession: GuestSession
+  ): Promise<void> {
+    try {
+      const { db } = await import('./firebase');
+      const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+
+      // Extract key information from the conversation and guest session data
+      const conversationText = guestSession.conversationHistory
+        .map(msg => `${msg.role}: ${msg.content}`)
+        .join('\n');
+
+      // Create a comprehensive summary using available data
+      const summary = [
+        'Career exploration conversation from guest session.',
+        `Discussed ${guestSession.careerCards?.length || 0} career paths.`,
+        `User interests: ${guestSession.personProfile?.interests?.join(', ') || 'Not specified'}.`,
+        `Career goals: ${guestSession.personProfile?.careerGoals?.join(', ') || 'Not specified'}.`,
+        'Full conversation data has been preserved for detailed analysis.'
+      ].join(' ');
+
+      // Create chat summary document
+      const summaryDoc = {
+        id: `${threadId}_summary`,
+        threadId,
+        userId,
+        summary,
+        interests: guestSession.personProfile?.interests || [],
+        careerGoals: guestSession.personProfile?.careerGoals || [],
+        skills: guestSession.personProfile?.skills || [],
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        messageCount: guestSession.conversationHistory.length,
+        isMigrated: true,
+        migrationSource: 'guest_session',
+        guestSessionId: guestSession.sessionId,
+        // Include additional context for career guidance generation
+        conversationContext: {
+          careerCardsGenerated: guestSession.careerCards?.length || 0,
+          userEngagement: guestSession.engagementMetrics || {},
+          sessionDuration: 'guest_session'
+        }
+      };
+
+      await setDoc(doc(db, 'chatSummaries', summaryDoc.id), summaryDoc);
+      console.log('✅ Chat summary created for migrated conversation:', summaryDoc.id);
+      
+    } catch (error) {
+      console.error('Error creating migration chat summary:', error);
+      throw error;
     }
   }
 
