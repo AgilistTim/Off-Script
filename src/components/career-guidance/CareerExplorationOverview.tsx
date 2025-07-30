@@ -626,27 +626,18 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
     // Combine and sort by last updated
     const combined = [...explorations, ...currentCardExplorations];
     
-    // Enhanced deduplication to handle different thread ID formats
-    // Extract base thread ID from formats like:
-    // - "i0sW68HlPPKwJUN6hCwu_card_0" (migrated)
-    // - "guidance-i0sW68HlPPKwJUN6hCwu_card_0_guidance-primary" (generated)
-    const getBaseThreadId = (threadId: string): string => {
-      // Remove "guidance-" prefix and "_guidance*" suffix to extract core ID
-      return threadId
-        .replace(/^guidance-/, '')
-        .replace(/_guidance.*$/, '');
-    };
-    
-    const seenBaseIds = new Set<string>();
+    // Deduplicate by career card title/content, not by threadId
+    // Multiple different career cards can come from the same conversation
+    const seenTitles = new Set<string>();
     const filtered = combined.filter(exploration => {
-      const baseId = getBaseThreadId(exploration.threadId);
+      const normalizedTitle = exploration.primaryCareerPath?.toLowerCase().trim() || exploration.threadTitle?.toLowerCase().trim() || '';
       
-      if (seenBaseIds.has(baseId)) {
-        console.log(`🔍 Skipping duplicate threadId:`, exploration.threadId, `(base: ${baseId})`);
+      if (seenTitles.has(normalizedTitle)) {
+        console.log(`🔍 Skipping duplicate career card:`, exploration.primaryCareerPath || exploration.threadTitle, `(threadId: ${exploration.threadId})`);
         return false;
       }
       
-      seenBaseIds.add(baseId);
+      seenTitles.add(normalizedTitle);
       return true;
     });
     
