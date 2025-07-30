@@ -488,8 +488,8 @@ class CareerPathwayService {
       const { ConversationAnalyzer } = await import('./conversationAnalyzer');
       const analyzer = new ConversationAnalyzer();
       
-      // Generate enhanced career card data using OpenAI
-      const enhancedCard = await analyzer.generateCareerCard(careerTitle, `Detailed analysis for ${careerTitle} career path`);
+      // Generate enhanced career card data using OpenAI with web search
+      const enhancedCard = await analyzer.generateCareerCard(careerTitle, `Detailed enhancement with current UK data for ${careerTitle} career path`);
       
       if (!enhancedCard) {
         console.warn('⚠️ Could not generate enhanced career details');

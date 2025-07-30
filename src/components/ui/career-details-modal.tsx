@@ -26,6 +26,7 @@ interface CareerCardData {
   confidence?: number;
   webSearchVerified?: boolean; // Indicates if data was verified via web search
   requiresVerification?: boolean; // Indicates if data needs manual verification
+  citations?: string[]; // Web search citations if available
 }
 
 interface CareerDetailsModalProps {
@@ -270,6 +271,27 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                         </ol>
                       </div>
                     </section>
+
+                    {/* Citations - only show if web search verified */}
+                    {careerCard.webSearchVerified && careerCard.citations && careerCard.citations.length > 0 && (
+                      <section>
+                        <h3 className="text-lg font-semibold mb-3 text-gray-900 flex items-center gap-2">
+                          <CheckCircle className="h-5 w-5 text-blue-600" />
+                          Sources
+                        </h3>
+                        <div className="bg-blue-50 p-4 rounded-lg">
+                          <p className="text-sm text-blue-700 mb-2">Information verified via web search:</p>
+                          <ul className="space-y-1">
+                            {careerCard.citations.map((citation, index) => (
+                              <li key={index} className="text-sm text-blue-600">
+                                <span className="mr-2">•</span>
+                                {citation}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </section>
+                    )}
                   </div>
                 </div>
               </div>
