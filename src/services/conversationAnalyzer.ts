@@ -292,25 +292,35 @@ export class ConversationAnalyzer {
           },
           {
             role: 'user',
-            content: `Create a UK career card for interest: "${interest}" with context: "${context}".
-            
+            content: `Create a comprehensive UK career card for interest: "${interest}" with context: "${context}".
+
+            Generate detailed, realistic UK-specific information. For training pathways, provide specific course names, institutions, and qualifications that actually exist in the UK.
+
             Return JSON with:
             {
-              "title": "Career Title",
-              "description": "Brief overview",
-              "industry": "Industry sector",
-              "averageSalary": {"entry": "£20,000", "experienced": "£30,000", "senior": "£45,000"},
-              "growthOutlook": "Growth description",
-              "entryRequirements": ["requirement1", "requirement2"],
-              "trainingPathways": ["pathway1", "pathway2"],
-              "keySkills": ["skill1", "skill2", "skill3"],
-              "workEnvironment": "Work environment description",
-              "nextSteps": ["step1", "step2", "step3"]
-            }`
+              "title": "Specific Career Title",
+              "description": "Detailed 2-3 sentence overview of what this career involves",
+              "industry": "Specific industry sector",
+              "averageSalary": {"entry": "£XX,000", "experienced": "£XX,000", "senior": "£XX,000"},
+              "growthOutlook": "Specific UK market outlook with growth percentage if possible",
+              "entryRequirements": ["specific qualification", "years of experience", "essential skills"],
+              "trainingPathways": [
+                "Level 3 Diploma in [Specific Subject] - 1-2 years at UK colleges",
+                "BSc/BA in [Specific Subject] at UK universities - 3 years",
+                "[Specific] Apprenticeship - employer-funded, 2-4 years",
+                "Professional Certificate in [Specific Area] - 6-12 months",
+                "NVQ Level 2/3 in [Specific Subject] - workplace-based"
+              ],
+              "keySkills": ["specific technical skill", "specific soft skill", "industry-specific knowledge"],
+              "workEnvironment": "Detailed description of typical work settings, hours, and conditions",
+              "nextSteps": ["immediate actionable step", "short-term goal", "long-term career milestone"]
+            }
+
+            Make training pathways realistic and specific to UK education system. Include apprenticeships, university courses, professional certifications, and vocational qualifications where relevant.`
           }
         ],
         temperature: 0.2,
-        max_tokens: 1000
+        max_tokens: 1500
       });
 
       const content = completion.choices[0]?.message?.content;

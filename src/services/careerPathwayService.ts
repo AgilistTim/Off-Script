@@ -123,6 +123,7 @@ class CareerPathwayService {
   
   /**
    * Convert training pathway strings to structured TrainingOption objects
+   * Enhanced to preserve specific details from OpenAI-generated content
    */
   private convertTrainingPathwaysToOptions(trainingPathways: string[]): TrainingOption[] {
     if (!trainingPathways || !Array.isArray(trainingPathways)) {
@@ -130,45 +131,92 @@ class CareerPathwayService {
     }
     
     return trainingPathways.map((pathway, index) => {
-      // Extract meaningful info from the pathway string or provide defaults
       const title = pathway.trim();
+      const lowerTitle = title.toLowerCase();
       
-      // Infer level and duration based on common training patterns
-      let level = 'Foundation';
+      // More sophisticated parsing to preserve OpenAI-generated details
+      let level = 'Professional Training';
       let duration = '6-12 months';
       let cost = 'Varies';
       let provider = 'Various Institutions';
+      let description = title;
+      let fundingInfo = 'Various funding options available';
       
-      if (title.toLowerCase().includes('university') || title.toLowerCase().includes('degree')) {
-        level = 'University Degree';
-        duration = '3-4 years';
+      // Advanced pattern matching for specific qualifications
+      if (lowerTitle.includes('degree') || lowerTitle.includes('bachelor') || lowerTitle.includes('master')) {
+        level = lowerTitle.includes('master') ? 'Masters Degree' : 'University Degree';
+        duration = lowerTitle.includes('master') ? '1-2 years' : '3-4 years';
         cost = '£9,000-£27,000 per year';
-        provider = 'Universities';
-      } else if (title.toLowerCase().includes('apprentice')) {
+        provider = 'UK Universities';
+        fundingInfo = 'Student finance, scholarships, and grants available';
+        if (!description.includes('skills') && !description.includes('qualifications')) {
+          description = `${title} - Comprehensive university education providing theoretical knowledge and practical skills for career advancement.`;
+        }
+      } else if (lowerTitle.includes('apprentice')) {
         level = 'Apprenticeship';
-        duration = '1-4 years';
+        duration = lowerTitle.includes('higher') || lowerTitle.includes('degree') ? '3-4 years' : '1-3 years';
         cost = 'Employer funded';
         provider = 'Approved Training Providers';
-      } else if (title.toLowerCase().includes('college') || title.toLowerCase().includes('btec')) {
-        level = 'Further Education';
-        duration = '1-2 years';
-        cost = '£1,000-£5,000';
+        fundingInfo = 'Fully funded by employer';
+        if (!description.includes('skills') && !description.includes('work-based')) {
+          description = `${title} - Work-based learning combining practical experience with formal training.`;
+        }
+      } else if (lowerTitle.includes('nvq') || lowerTitle.includes('level 2') || lowerTitle.includes('level 3')) {
+        level = lowerTitle.includes('level 3') ? 'Advanced Vocational' : 'Foundation Vocational';
+        duration = '6-18 months';
+        cost = '£1,000-£4,000';
         provider = 'Colleges & Training Centers';
-      } else if (title.toLowerCase().includes('certificate') || title.toLowerCase().includes('course')) {
+        fundingInfo = 'Adult education funding available';
+        if (!description.includes('skills') && !description.includes('workplace')) {
+          description = `${title} - Practical vocational qualification demonstrating work-ready skills.`;
+        }
+      } else if (lowerTitle.includes('diploma') || lowerTitle.includes('btec') || lowerTitle.includes('hnd')) {
+        level = lowerTitle.includes('higher') || lowerTitle.includes('hnd') ? 'Higher Diploma' : 'Diploma';
+        duration = lowerTitle.includes('higher') ? '2-3 years' : '1-2 years';
+        cost = '£2,000-£8,000';
+        provider = 'Colleges & Universities';
+        fundingInfo = 'Student finance and employer sponsorship available';
+        if (!description.includes('skills') && !description.includes('industry')) {
+          description = `${title} - Industry-focused qualification providing specialized knowledge and practical skills.`;
+        }
+      } else if (lowerTitle.includes('certificate') || lowerTitle.includes('course') || lowerTitle.includes('training')) {
         level = 'Professional Certificate';
-        duration = '3-12 months';
+        duration = lowerTitle.includes('short') ? '1-6 months' : '3-12 months';
         cost = '£500-£3,000';
-        provider = 'Professional Bodies';
+        provider = 'Professional Bodies & Training Organizations';
+        fundingInfo = 'Employer funding and professional development budgets';
+        if (!description.includes('skills') && !description.includes('professional')) {
+          description = `${title} - Professional development training to enhance specific career skills.`;
+        }
+      } else if (lowerTitle.includes('online') || lowerTitle.includes('distance')) {
+        level = 'Online Learning';
+        duration = '3-12 months';
+        cost = '£200-£2,000';
+        provider = 'Online Education Providers';
+        fundingInfo = 'Flexible payment options available';
+        if (!description.includes('skills') && !description.includes('flexible')) {
+          description = `${title} - Flexible online learning designed for working professionals.`;
+        }
+      }
+      
+      // If OpenAI provided a detailed description, preserve it
+      const originalDescription = description;
+      if (title.length > 50 && title.includes(' - ')) {
+        // Likely contains detailed info from OpenAI
+        description = title;
+      } else if (originalDescription === title) {
+        // Add context if we only have a basic title
+        description = `${title} - Gain the skills and qualifications needed for this career path.`;
       }
       
       return {
-        title,
+        title: title.split(' - ')[0].trim(), // Clean title without description
         level,
         duration,
         cost,
         provider,
-        description: `${title} - Gain the skills and qualifications needed for this career path.`,
-        fundingAvailable: level === 'Apprenticeship' ? 'Fully funded by employer' : 'Student finance available',
+        description,
+        fundingAvailable: fundingInfo,
         qualificationBody: provider
       };
     });
