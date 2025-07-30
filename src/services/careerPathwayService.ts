@@ -172,10 +172,13 @@ class CareerPathwayService {
     // Define career field keywords to training keywords mapping
     const careerTrainingMap: Record<string, string[]> = {
       // Tech/Software careers
-      'software|developer|programming|tech|digital|web|app|game': ['programming', 'software', 'computer', 'digital', 'web', 'app', 'game', 'technology'],
+      'software|developer|programming|tech|digital|web|app|game': ['programming', 'software', 'computer', 'digital', 'web', 'app', 'game', 'technology', 'computing'],
+      
+      // Engineering careers (FIXED - was missing!)
+      'engineer|engineering|automotive|marine|mechanical|electrical': ['engineering', 'engineer', 'automotive', 'marine', 'mechanical', 'electrical', 'technical', 'beng', 'hnd', 'degree'],
       
       // Creative/Content careers  
-      'content|writer|creative|design|media|fiction|storytelling': ['creative', 'writing', 'media', 'design', 'content', 'digital media', 'journalism', 'english'],
+      'content|writer|creative|design|media|fiction|storytelling': ['creative', 'writing', 'media', 'design', 'content', 'digital media', 'journalism', 'english', 'fiction'],
       
       // Food/Culinary careers
       'culinary|chef|cook|food|restaurant|hospitality': ['culinary', 'food', 'cooking', 'hospitality', 'chef', 'restaurant', 'catering'],
@@ -184,7 +187,13 @@ class CareerPathwayService {
       'health|medical|nurse|care|therapy': ['health', 'medical', 'nursing', 'care', 'therapy', 'clinical'],
       
       // Business/Finance careers
-      'business|finance|management|marketing|sales': ['business', 'management', 'finance', 'marketing', 'sales', 'accounting']
+      'business|finance|management|marketing|sales': ['business', 'management', 'finance', 'marketing', 'sales', 'accounting'],
+      
+      // Marine/Maritime careers
+      'marine|maritime|sailing|naval|boat|ship': ['marine', 'maritime', 'sailing', 'naval', 'boat', 'ship', 'engineering'],
+      
+      // Gaming careers
+      'game|gaming|video': ['game', 'gaming', 'video', 'development', 'programming', 'design']
     };
 
     // Check each training pathway for alignment
@@ -231,11 +240,35 @@ class CareerPathwayService {
         'Software Development bootcamps',
         'Professional programming certifications'
       ];
+    } else if (careerLower.includes('engineer') || careerLower.includes('engineering')) {
+      return [
+        'BEng or MEng degree in relevant engineering field',
+        'Engineering apprenticeships with major employers',
+        'Professional engineering qualifications (IET, IMechE)'
+      ];
+    } else if (careerLower.includes('automotive')) {
+      return [
+        'BEng in Automotive Engineering',
+        'Automotive apprenticeships with car manufacturers',
+        'HND in Automotive Engineering'
+      ];
+    } else if (careerLower.includes('marine') || careerLower.includes('maritime')) {
+      return [
+        'BEng in Marine Engineering',
+        'Maritime apprenticeships',
+        'Professional maritime qualifications'
+      ];
     } else if (careerLower.includes('content') || careerLower.includes('writer') || careerLower.includes('creative')) {
       return [
         'Creative Writing or English Literature degree',
         'Digital Media and Content Creation courses',
         'Professional writing certifications'
+      ];
+    } else if (careerLower.includes('game') || careerLower.includes('gaming')) {
+      return [
+        'Computer Science or Game Development degree',
+        'Game Design courses',
+        'Programming bootcamps focusing on game development'
       ];
     } else if (careerLower.includes('culinary') || careerLower.includes('chef') || careerLower.includes('food')) {
       return [
@@ -469,6 +502,12 @@ class CareerPathwayService {
   async saveCareerCardsFromConversation(userId: string, careerCards: any[]): Promise<void> {
     try {
       console.log('💾 Saving career cards from conversation for user:', userId, 'Cards:', careerCards.length);
+      console.log('🔍 DEBUG saveCareerCards: First card web search data:', {
+        webSearchVerified: careerCards[0]?.webSearchVerified,
+        requiresVerification: careerCards[0]?.requiresVerification,
+        citations: careerCards[0]?.citations,
+        title: careerCards[0]?.title
+      });
       
       const { db } = await import('./firebase');
       const { doc, setDoc } = await import('firebase/firestore');
