@@ -267,24 +267,22 @@ const Dashboard: React.FC = () => {
     }
 
     try {
-      // Check if this is a migrated career card
-      if (threadId.includes('_card_')) {
-        const careerCard = await careerPathwayService.getMigratedCareerCard(threadId);
-        if (careerCard) {
-          // Cache the result
-          setCareerCardCache(prev => new Map(prev.set(threadId, careerCard)));
-          setSelectedCareerCard(careerCard);
-          setShowCareerCardModal(true);
-          console.log('✅ Loaded and cached migrated career card:', careerCard);
-        } else {
-          setNotification({
-            message: 'Could not load career card details. This may be from an older migration.',
-            type: 'info'
-          });
-        }
+      // All career cards are now stored in threadCareerGuidance with full details
+      // Try to get the career guidance data which contains the detailed information
+      const careerGuidance = await careerPathwayService.getThreadCareerGuidance(threadId, currentUser.uid);
+      
+      if (careerGuidance?.primaryPathway) {
+        // Use the primary pathway as the career card data
+        const careerCard = careerGuidance.primaryPathway;
+        
+        // Cache the result
+        setCareerCardCache(prev => new Map(prev.set(threadId, careerCard)));
+        setSelectedCareerCard(careerCard);
+        setShowCareerCardModal(true);
+        console.log('✅ Loaded and cached career card details:', careerCard);
       } else {
         setNotification({
-          message: 'This career discovery was from your conversation. Start a new conversation to explore it further!',
+          message: 'Could not load career card details. The data may still be processing.',
           type: 'info'
         });
       }
