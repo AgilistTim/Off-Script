@@ -13,6 +13,7 @@ window.ENV = {
   // API Keys (client-safe only)
   VITE_YOUTUBE_API_KEY: '__YOUTUBE_API_KEY__',
   VITE_RECAPTCHA_SITE_KEY: '__RECAPTCHA_SITE_KEY__',
+  VITE_OPENAI_API_KEY: '__OPENAI_API_KEY__',
   
   // ElevenLabs configuration
   VITE_ELEVENLABS_API_KEY: '__ELEVENLABS_API_KEY__',
