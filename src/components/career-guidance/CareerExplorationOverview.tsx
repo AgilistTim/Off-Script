@@ -255,6 +255,31 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
         return;
       }
 
+      // Check if this is a migrated career card (contains "_card_")
+      if (threadId.includes('_card_')) {
+        console.log('🎯 Skipping guidance generation for migrated career card:', threadId);
+        console.log('📋 Migrated cards already contain complete career information');
+        
+        // Set a placeholder to prevent re-attempts
+        setCareerGuidanceData(prev => new Map(prev.set(threadId, {
+          primaryPathway: {
+            id: threadId,
+            title: exploration.threadTitle || exploration.primaryCareerPath,
+            description: exploration.description,
+            match: exploration.match || 80,
+            trainingOptions: [],
+            volunteeringOpportunities: [],
+            fundingOptions: [],
+            nextSteps: { immediate: [], shortTerm: [], longTerm: [] },
+            reflectiveQuestions: [],
+            keyResources: [],
+            progressionPath: []
+          },
+          isMigratedCard: true
+        } as any)));
+        return;
+      }
+
       console.log('📝 No cached guidance found in any variation, generating new guidance for:', cleanedId);
 
       // Create a proper ChatSummary object from the exploration data

@@ -1085,6 +1085,13 @@ class CareerPathwayService {
    */
   async deleteThreadCareerGuidance(threadId: string, userId: string): Promise<void> {
     try {
+      // Wait for authentication before making Firebase queries
+      const { auth } = await import('./firebase');
+      if (!auth.currentUser) {
+        console.warn('❌ User not authenticated for deleteThreadCareerGuidance access');
+        return;
+      }
+      
       const { db } = await import('./firebase');
       const { doc, deleteDoc, getDoc } = await import('firebase/firestore');
       
