@@ -136,6 +136,13 @@ service cloud.firestore {
       allow update, delete: if isAuthenticated() && 
         (resource.data.userId == request.auth.uid || isAdmin());
     }
+
+    // Allow authenticated users to create migration records for their own user ID
+    match /userMigrations/{migrationId} {
+      allow create: if isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid;
+      allow read: if isAuthenticated() && isAdmin();
+    }
     
     // Default deny
     match /{document=**} {

@@ -53,6 +53,10 @@ export interface CareerPathway {
   workEnvironment?: string;
   entryRequirements?: string[];
   trainingPathways?: string[];
+  // Web search verification fields
+  webSearchVerified?: boolean;
+  requiresVerification?: boolean;
+  citations?: string[];
   // Original pathway fields
   trainingOptions: TrainingOption[];
   volunteeringOpportunities: VolunteeringOpportunity[];
@@ -121,6 +125,39 @@ interface ThreadCareerGuidance {
 
 class CareerPathwayService {
   
+  /**
+   * Extract next steps array from either array or object format
+   * Handles data structure changes during migration
+   */
+  private extractNextStepsArray(nextSteps: any): string[] {
+    if (!nextSteps) return [];
+    
+    // If it's already an array, return it
+    if (Array.isArray(nextSteps)) {
+      return nextSteps;
+    }
+    
+    // If it's an object with immediate/shortTerm/longTerm, combine them
+    if (typeof nextSteps === 'object' && !Array.isArray(nextSteps)) {
+      const combined: string[] = [];
+      
+      if (Array.isArray(nextSteps.immediate)) {
+        combined.push(...nextSteps.immediate);
+      }
+      if (Array.isArray(nextSteps.shortTerm)) {
+        combined.push(...nextSteps.shortTerm);
+      }
+      if (Array.isArray(nextSteps.longTerm)) {
+        combined.push(...nextSteps.longTerm);
+      }
+      
+      return combined;
+    }
+    
+    // Fallback
+    return [];
+  }
+
   /**
    * Convert training pathway strings to structured TrainingOption objects
    * Enhanced to preserve specific details from OpenAI-generated content
@@ -376,7 +413,7 @@ class CareerPathwayService {
             title: careerCards[0]?.title || 'Career Exploration',
             description: careerCards[0]?.description || 'Explore career opportunities',
             match: careerCards[0]?.confidence || 85,
-            // Preserve original career card fields
+            // Preserve original career card fields INCLUDING OpenAI web search data
             industry: careerCards[0]?.industry,
             averageSalary: careerCards[0]?.averageSalary,
             growthOutlook: careerCards[0]?.growthOutlook,
@@ -384,6 +421,10 @@ class CareerPathwayService {
             workEnvironment: careerCards[0]?.workEnvironment,
             entryRequirements: careerCards[0]?.entryRequirements || [],
             trainingPathways: careerCards[0]?.trainingPathways || [],
+            // Preserve web search verification and citation data
+            webSearchVerified: careerCards[0]?.webSearchVerified,
+            requiresVerification: careerCards[0]?.requiresVerification,
+            citations: careerCards[0]?.citations,
             trainingOptions: this.convertTrainingPathwaysToOptions(careerCards[0]?.trainingPathways || []),
             volunteeringOpportunities: [],
             fundingOptions: [],
@@ -417,7 +458,7 @@ class CareerPathwayService {
             title: card.title,
             description: card.description,
             match: card.confidence || 80,
-            // Preserve original career card fields
+            // Preserve original career card fields INCLUDING OpenAI web search data
             industry: card.industry,
             averageSalary: card.averageSalary,
             growthOutlook: card.growthOutlook,
@@ -425,6 +466,10 @@ class CareerPathwayService {
             workEnvironment: card.workEnvironment,
             entryRequirements: card.entryRequirements || [],
             trainingPathways: card.trainingPathways || [],
+            // Preserve web search verification and citation data
+            webSearchVerified: card.webSearchVerified,
+            requiresVerification: card.requiresVerification,
+            citations: card.citations,
             trainingOptions: this.convertTrainingPathwaysToOptions(card.trainingPathways || []),
             volunteeringOpportunities: [],
             fundingOptions: [],
@@ -1066,7 +1111,7 @@ class CareerPathwayService {
                 keySkills: pathway.requiredSkills || [],
                 trainingPathways: pathway.trainingPathways || [],
                 trainingOptions: this.convertTrainingPathwaysToOptions(pathway.trainingPathways || []),
-                nextSteps: pathway.nextSteps || [],
+                nextSteps: this.extractNextStepsArray(pathway.nextSteps) || [],
                 confidence: pathway.match || 80,
                 workEnvironment: pathway.workEnvironment || 'Office-based',
                 entryRequirements: pathway.entryRequirements || [],
@@ -1074,6 +1119,10 @@ class CareerPathwayService {
                 isCurrent: true,
                 source: 'conversation_guidance',
                 threadId: data.threadId,
+                // Preserve web search verification and citation data
+                webSearchVerified: pathway.webSearchVerified,
+                requiresVerification: pathway.requiresVerification,
+                citations: pathway.citations,
                 // Store actual Firebase document ID and pathway info for deletion
                 firebaseDocId: doc.id,
                 pathwayType: 'alternative',
@@ -1105,7 +1154,7 @@ class CareerPathwayService {
               keySkills: primary.requiredSkills || [],
               trainingPathways: primary.trainingPathways || [],
               trainingOptions: this.convertTrainingPathwaysToOptions(primary.trainingPathways || []),
-              nextSteps: primary.nextSteps || [],
+              nextSteps: this.extractNextStepsArray(primary.nextSteps) || [],
               confidence: primary.match || 85,
               workEnvironment: primary.workEnvironment || 'Office-based',
               entryRequirements: primary.entryRequirements || [],
@@ -1114,6 +1163,10 @@ class CareerPathwayService {
               source: 'conversation_guidance',
               threadId: data.threadId,
               isPrimary: true,
+              // Preserve web search verification and citation data
+              webSearchVerified: primary.webSearchVerified,
+              requiresVerification: primary.requiresVerification,
+              citations: primary.citations,
               // Store actual Firebase document ID and pathway info for deletion
               firebaseDocId: doc.id,
               pathwayType: 'primary',
