@@ -274,7 +274,7 @@ class CareerPathwayService {
 
       // Also store in thread guidance format for consistency
       const guidanceData: ThreadCareerGuidance = {
-        id: `${threadId}_guidance-primary`,
+        id: `${threadId}_guidance`,
         threadId,
         userId,
         guidance: {
@@ -380,7 +380,7 @@ class CareerPathwayService {
       
       await setDoc(doc(db, 'threadCareerGuidance', guidanceData.id), guidanceData);
       
-      console.log('✅ Successfully saved conversation career cards to Firebase');
+      console.log('✅ Successfully saved conversation career cards to Firebase with ID:', guidanceData.id);
       
     } catch (error) {
       console.error('❌ Error saving conversation career cards:', error);
