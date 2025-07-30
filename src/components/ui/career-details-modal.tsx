@@ -24,6 +24,8 @@ interface CareerCardData {
   nextSteps?: string[];
   location?: string;
   confidence?: number;
+  webSearchVerified?: boolean; // Indicates if data was verified via web search
+  requiresVerification?: boolean; // Indicates if data needs manual verification
 }
 
 interface CareerDetailsModalProps {
@@ -98,7 +100,7 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                 
                 <div className="pr-12">
                   <h2 className="text-2xl md:text-3xl font-bold mb-2">{careerCard.title}</h2>
-                  <div className="flex items-center gap-4 text-blue-100">
+                  <div className="flex items-center gap-4 text-blue-100 mb-2">
                     <div className="flex items-center gap-1">
                       <Briefcase className="h-4 w-4" />
                       <span>{careerCard.industry || 'Various Industries'}</span>
@@ -107,10 +109,30 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                       <MapPin className="h-4 w-4" />
                       <span>{careerCard.location || 'Various Locations'}</span>
                     </div>
-                                         <div className="flex items-center gap-1">
-                       <CheckCircle className="h-4 w-4" />
-                       <span>{Math.round((careerCard.confidence || 0.85) * 100)}% match</span>
-                     </div>
+                    <div className="flex items-center gap-1">
+                      <CheckCircle className="h-4 w-4" />
+                      <span>{Math.round((careerCard.confidence || 0.85) * 100)}% match</span>
+                    </div>
+                  </div>
+                  
+                  {/* Data verification status */}
+                  <div className="flex items-center gap-2 text-sm">
+                    {careerCard.webSearchVerified ? (
+                      <div className="flex items-center gap-1 bg-green-500/20 px-2 py-1 rounded text-green-100">
+                        <CheckCircle className="h-3 w-3" />
+                        <span>Web-verified data</span>
+                      </div>
+                    ) : careerCard.requiresVerification ? (
+                      <div className="flex items-center gap-1 bg-amber-500/20 px-2 py-1 rounded text-amber-100">
+                        <Clock className="h-3 w-3" />
+                        <span>Verify with official sources</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1 bg-blue-500/20 px-2 py-1 rounded text-blue-100">
+                        <CheckCircle className="h-3 w-3" />
+                        <span>AI-generated guidance</span>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

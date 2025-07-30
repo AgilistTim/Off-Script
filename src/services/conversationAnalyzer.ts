@@ -91,6 +91,8 @@ export interface CareerCardData {
   location: string;
   confidence: number;
   sourceData: string;
+  webSearchVerified?: boolean; // Indicates if data was verified via web search
+  requiresVerification?: boolean; // Indicates if data needs manual verification
 }
 
 export class ConversationAnalyzer {
@@ -279,65 +281,151 @@ export class ConversationAnalyzer {
     }));
   }
 
-  // Enhanced career card generation with web search for real data
+  // Enhanced career card generation with verification guidance
+  // Note: Future implementation can use OpenAI's web search tool when available
   async generateCareerCard(interest: string, context: string): Promise<CareerCardData | null> {
     try {
-      console.log('🔍 Researching real UK data for career:', interest);
+      console.log('🔍 Generating UK career guidance with verification instructions:', interest);
       
-      // Step 1: Search for real UK training courses and qualifications
-      const trainingSearchResults = await this.searchRealUKTraining(interest);
+      // Use OpenAI with specific instruction to search for current data
+      // Note: Direct web search tool integration may vary by OpenAI plan
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a UK-based career research assistant. Create comprehensive career information using your training data and general knowledge of UK careers.
+
+Focus on providing accurate, UK-specific career guidance. When salary or training information is provided, clearly indicate the need for verification with current sources:
+- gov.uk (official government careers advice)
+- National Careers Service 
+- ONS (Office for National Statistics) salary data
+- UCAS for university courses
+- Find an Apprenticeship (gov.uk) 
+- Indeed UK, Glassdoor UK for current salary insights
+- Professional bodies and trade associations
+
+Be transparent about information that should be verified and provide clear guidance on where to find current data.`
+          },
+          {
+            role: 'user',
+            content: `Create a comprehensive UK career profile for: "${interest}" with context: "${context}".
+
+Provide realistic career guidance while being transparent about what information should be verified with current sources.
+
+Structure your output as strict JSON only:
+
+{
+  "title": "Career Title",
+  "description": "Clear, UK-focused overview based on knowledge of this field",
+  "industry": "UK industry category",
+  "averageSalary": {
+    "entry": "£XX,000 (verify with current job boards)",
+    "experienced": "£XX,000 (verify with salary surveys)", 
+    "senior": "£XX,000 (verify with industry reports)"
+  },
+  "growthOutlook": "General market outlook - verify with National Careers Service",
+  "entryRequirements": ["Typical UK requirements", "Verify with current course providers"],
+  "trainingPathways": [
+    "University degree options (verify with UCAS)",
+    "Apprenticeship programs (check gov.uk/apprenticeships)",
+    "Professional qualifications (verify with relevant bodies)"
+  ],
+  "keySkills": ["Essential skills for this field", "Industry-standard requirements"],
+  "workEnvironment": "Typical UK work environment for this role",
+  "nextSteps": ["Research current job openings on UK job boards", "Check gov.uk careers advice", "Contact training providers for current information", "Connect with professionals via LinkedIn UK"]
+}
+
+Include clear guidance about verifying information with current, official UK sources.`
+          }
+        ],
+        temperature: 0.1,
+        max_tokens: 1500
+      });
+
+      const content = completion.choices[0]?.message?.content;
+
+      if (!content) {
+        console.warn('⚠️ No content received from OpenAI');
+        return null;
+      }
+
+      console.log('✅ Career card generation completed');
+      console.log('📊 Generated career card with verification guidance');
+
+      // Clean the response by removing markdown code blocks if present
+      const cleanedContent = content
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*$/gi, '')
+        .trim();
+
+      try {
+        const cardData = JSON.parse(cleanedContent);
+        
+        return {
+          id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          ...cardData,
+          location: 'UK',
+          confidence: 0.8, // Good confidence with clear verification guidance
+          sourceData: interest,
+          webSearchVerified: false, // Not using real-time web search
+          requiresVerification: true // Clearly indicates verification needed
+        };
+      } catch (parseError) {
+        console.error('❌ Failed to parse career card JSON:', parseError);
+        console.error('Raw content:', content);
+        return null;
+      }
+
+    } catch (error) {
+      console.error('❌ Error generating enhanced career card:', error);
       
-      // Step 2: Search for current UK salary and job market data
-      const salarySearchResults = await this.searchUKSalaryData(interest);
-      
-      // Step 3: Use real data in OpenAI prompt
+      // Fallback to basic generation
+      console.log('🔄 Attempting fallback generation...');
+      return await this.generateBasicCareerCard(interest, context);
+    }
+  }
+
+  /**
+   * Fallback career card generation without web search
+   */
+  private async generateBasicCareerCard(interest: string, context: string): Promise<CareerCardData | null> {
+    try {
       const completion = await openai.chat.completions.create({
         model: 'gpt-4o-2024-08-06',
         messages: [
           {
             role: 'system',
-            content: 'You are a UK career research specialist. Structure and organize real research data into comprehensive career information in JSON format. DO NOT invent or hallucinate information - only use the provided research data.'
+            content: 'You are a UK career guidance specialist. Provide general career information with clear disclaimers about verification needs.'
           },
           {
             role: 'user',
-            content: `Create a comprehensive UK career card for: "${interest}" with context: "${context}".
+            content: `Create a basic UK career overview for "${interest}" with context "${context}".
 
-            REAL UK TRAINING DATA FOUND:
-            ${trainingSearchResults}
+            Important: Mark all information as "requires verification" and direct users to official UK sources.
             
-            REAL UK SALARY DATA FOUND:
-            ${salarySearchResults}
-
-            Using ONLY the real data above, structure this information into JSON format. If specific data is not available in the research, use general categories but clearly indicate limitations:
-
+            Return JSON format:
             {
-              "title": "Specific Career Title",
-              "description": "Detailed overview based on research findings",
-              "industry": "Industry sector from research",
-              "averageSalary": {"entry": "£XX,000 from research", "experienced": "£XX,000 from research", "senior": "£XX,000 from research"},
-              "growthOutlook": "Market outlook from research data or 'See current job market reports'",
-              "entryRequirements": ["requirements from research", "note: verify current requirements"],
-              "trainingPathways": [
-                "Use EXACT course names and institutions from training research",
-                "Include specific qualification levels found",
-                "Add 'Contact institution for current details' where needed"
-              ],
-              "keySkills": ["skills mentioned in research", "industry-standard requirements"],
-              "workEnvironment": "Description based on research or 'Varies by employer - research specific roles'",
-              "nextSteps": ["Research current job openings", "Contact training providers listed above", "Speak with professionals in the field"]
-            }
-
-            IMPORTANT: Only use information found in the research above. If research is limited, acknowledge this and direct users to verify current information.`
+              "title": "Career Title",
+              "description": "General overview - verify with official sources",
+              "industry": "General industry category",
+              "averageSalary": {"entry": "Verify with ONS/job boards", "experienced": "Verify with salary surveys", "senior": "Verify with industry reports"},
+              "growthOutlook": "Check National Careers Service for current outlook",
+              "entryRequirements": ["Verify with UCAS/course providers"],
+              "trainingPathways": ["Check gov.uk for current training options"],
+              "keySkills": ["General skills - verify with job postings"],
+              "workEnvironment": "Varies - research specific employers",
+              "nextSteps": ["Research official UK sources", "Check gov.uk careers advice", "Contact training providers directly"]
+            }`
           }
         ],
-        temperature: 0.1, // Lower temperature for more factual responses
-        max_tokens: 1500
+        temperature: 0.1,
+        max_tokens: 1000
       });
 
       const content = completion.choices[0]?.message?.content;
       if (!content) return null;
 
-      // Clean the response by removing markdown code blocks if present
       const cleanedContent = content
         .replace(/```json\s*/gi, '')
         .replace(/```\s*$/gi, '')
@@ -349,12 +437,14 @@ export class ConversationAnalyzer {
         id: `card-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         ...cardData,
         location: 'UK',
-        confidence: 0.85,
-        sourceData: interest
+        confidence: 0.6, // Lower confidence for unverified data
+        sourceData: interest,
+        webSearchVerified: false,
+        requiresVerification: true
       };
 
     } catch (error) {
-      console.error('Error generating career card:', error);
+      console.error('❌ Fallback career card generation failed:', error);
       return null;
     }
   }
@@ -401,104 +491,6 @@ export class ConversationAnalyzer {
     } catch (error) {
       console.error('Error processing conversation:', error);
       return { interests: [], careerCards: [] };
-    }
-  }
-
-  /**
-   * Search for real UK training courses and qualifications
-   */
-  private async searchRealUKTraining(careerInterest: string): Promise<string> {
-    try {
-      const searchResult = await this.performWebSearch(careerInterest, 'training');
-      
-      if (searchResult) {
-        return `REAL UK TRAINING RESEARCH:\n${searchResult}`;
-      } else {
-        return `LIMITED TRAINING DATA: Web search for "${careerInterest}" training was unsuccessful. Recommend users research current courses directly with UK education providers.`;
-      }
-    } catch (error) {
-      console.warn('⚠️ Training search failed:', error);
-      return `TRAINING RESEARCH UNAVAILABLE: Unable to search current UK training options. Users should research directly with education providers.`;
-    }
-  }
-
-  /**
-   * Search for current UK salary and job market data
-   */
-  private async searchUKSalaryData(careerInterest: string): Promise<string> {
-    try {
-      const searchResult = await this.performWebSearch(careerInterest, 'salary');
-      
-      if (searchResult) {
-        return `REAL UK SALARY RESEARCH:\n${searchResult}`;
-      } else {
-        return `LIMITED SALARY DATA: Web search for "${careerInterest}" salaries was unsuccessful. Recommend checking current job boards and salary surveys.`;
-      }
-    } catch (error) {
-      console.warn('⚠️ Salary search failed:', error);
-      return `SALARY RESEARCH UNAVAILABLE: Unable to search current UK salary data. Users should check job boards and salary comparison sites.`;
-    }
-  }
-
-  /**
-   * Perform web search using Firebase function
-   */
-  private async performWebSearch(searchTerm: string, searchType: 'training' | 'salary' | 'general' = 'general'): Promise<string | null> {
-    try {
-      console.log('🔍 Calling server-side search for:', searchTerm);
-      
-      // Get Firebase configuration to build function URL
-      const { firebaseConfig } = await import('../config/environment');
-      const functionUrl = `https://us-central1-${firebaseConfig.projectId}.cloudfunctions.net/searchCareerData`;
-      
-      const response = await fetch(functionUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          searchTerm,
-          searchType
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Search API returned ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      if (data.success && data.results) {
-        // Format the search results for OpenAI prompt
-        const { results } = data;
-        let formattedResults = `${results.guidance}\n\nVERIFICATION SOURCES:\n`;
-        formattedResults += results.verificationSources.map((source: string) => `- ${source}`).join('\n');
-        formattedResults += `\n\n${results.implementationNote}`;
-        formattedResults += `\nData freshness: ${results.dataFreshness}`;
-        
-        return formattedResults;
-      } else {
-        throw new Error(data.error || 'Unknown search error');
-      }
-      
-    } catch (error) {
-      console.warn('⚠️ Server-side search failed, using fallback:', error);
-      
-      // Fallback to structured guidance
-      return `RESEARCH NEEDED: Please verify current UK information for "${searchTerm}".
-
-RECOMMENDED VERIFICATION SOURCES:
-- Official UK education providers (gov.uk)
-- UCAS for university courses  
-- Find an Apprenticeship (gov.uk/apply-apprenticeship)
-- Professional bodies and trade associations
-- Major training providers (City & Guilds, Pearson, etc.)
-- National Careers Service for salary data
-- ONS (Office for National Statistics) for earnings data
-
-Note: Career information should be verified with current providers as courses, costs, and requirements change frequently.
-
-Search service temporarily unavailable - please verify information independently.`;
     }
   }
 
