@@ -159,131 +159,54 @@ class CareerPathwayService {
   }
 
   /**
-   * Validate training pathways match the career title
+   * TRUST OpenAI - only filter out completely absurd mismatches
+   * OpenAI with web search knows better than hardcoded rules!
    */
   private validateTrainingPathwayAlignment(careerTitle: string, trainingPathways: string[]): string[] {
     if (!trainingPathways || !Array.isArray(trainingPathways)) {
       return [];
     }
 
+    // Only filter out OBVIOUS mismatches (like cooking courses for software developers)
+    // Trust OpenAI's analysis for everything else!
     const careerLower = careerTitle.toLowerCase();
     const validatedPathways: string[] = [];
 
-    // Define career field keywords to training keywords mapping
-    const careerTrainingMap: Record<string, string[]> = {
-      // Tech/Software careers
-      'software|developer|programming|tech|digital|web|app|game': ['programming', 'software', 'computer', 'digital', 'web', 'app', 'game', 'technology', 'computing'],
-      
-      // Engineering careers (FIXED - was missing!)
-      'engineer|engineering|automotive|marine|mechanical|electrical': ['engineering', 'engineer', 'automotive', 'marine', 'mechanical', 'electrical', 'technical', 'beng', 'hnd', 'degree'],
-      
-      // Creative/Content careers  
-      'content|writer|creative|design|media|fiction|storytelling': ['creative', 'writing', 'media', 'design', 'content', 'digital media', 'journalism', 'english', 'fiction'],
-      
-      // Food/Culinary careers
-      'culinary|chef|cook|food|restaurant|hospitality': ['culinary', 'food', 'cooking', 'hospitality', 'chef', 'restaurant', 'catering'],
-      
-      // Healthcare careers
-      'health|medical|nurse|care|therapy': ['health', 'medical', 'nursing', 'care', 'therapy', 'clinical'],
-      
-      // Business/Finance careers
-      'business|finance|management|marketing|sales': ['business', 'management', 'finance', 'marketing', 'sales', 'accounting'],
-      
-      // Marine/Maritime careers
-      'marine|maritime|sailing|naval|boat|ship': ['marine', 'maritime', 'sailing', 'naval', 'boat', 'ship', 'engineering'],
-      
-      // Gaming careers
-      'game|gaming|video': ['game', 'gaming', 'video', 'development', 'programming', 'design']
-    };
+    const obviousMismatches = [
+      // Only catch completely absurd combinations
+      { career: ['software', 'developer', 'programming'], badTraining: ['cooking', 'culinary', 'chef', 'food preparation'] },
+      { career: ['culinary', 'chef', 'cooking'], badTraining: ['software', 'programming', 'computer science'] },
+      { career: ['medical', 'doctor', 'healthcare'], badTraining: ['automotive', 'engineering'] },
+      { career: ['engineer'], badTraining: ['cooking', 'culinary', 'chef'] }
+    ];
 
-    // Check each training pathway for alignment
     for (const pathway of trainingPathways) {
       const pathwayLower = pathway.toLowerCase();
-      let isAligned = false;
+      let isObviousMismatch = false;
 
-      // Check if this pathway aligns with the career
-      for (const [careerPattern, trainingKeywords] of Object.entries(careerTrainingMap)) {
-        const careerRegex = new RegExp(careerPattern, 'i');
+      // Check for obvious mismatches only
+      for (const mismatch of obviousMismatches) {
+        const hasCareerKeyword = mismatch.career.some(keyword => careerLower.includes(keyword));
+        const hasBadTraining = mismatch.badTraining.some(keyword => pathwayLower.includes(keyword));
         
-        if (careerRegex.test(careerLower)) {
-          // Career matches this category, check if training pathway contains relevant keywords
-          isAligned = trainingKeywords.some(keyword => pathwayLower.includes(keyword));
-          if (isAligned) break;
+        if (hasCareerKeyword && hasBadTraining) {
+          console.warn(`⚠️ OBVIOUS mismatch: "${pathway}" filtered from "${careerTitle}"`);
+          isObviousMismatch = true;
+          break;
         }
       }
 
-      if (isAligned) {
+      if (!isObviousMismatch) {
         validatedPathways.push(pathway);
-      } else {
-        console.warn(`⚠️ Training pathway "${pathway}" doesn't align with career "${careerTitle}" - filtering out`);
       }
     }
 
-    // If no pathways align, return generic career-appropriate suggestions
-    if (validatedPathways.length === 0) {
-      console.warn(`⚠️ No training pathways aligned with "${careerTitle}" - generating generic suggestions`);
-      return this.generateGenericTrainingPathways(careerTitle);
-    }
-
-    return validatedPathways;
+    console.log(`✅ Training validation: Kept ${validatedPathways.length}/${trainingPathways.length} pathways for "${careerTitle}"`);
+    return validatedPathways.length > 0 ? validatedPathways : trainingPathways; // Fallback to original if too aggressive
   }
 
-  /**
-   * Generate generic but career-appropriate training pathways
-   */
-  private generateGenericTrainingPathways(careerTitle: string): string[] {
-    const careerLower = careerTitle.toLowerCase();
-    
-    if (careerLower.includes('software') || careerLower.includes('developer') || careerLower.includes('programming')) {
-      return [
-        'Computer Science degree from UK universities',
-        'Software Development bootcamps',
-        'Professional programming certifications'
-      ];
-    } else if (careerLower.includes('engineer') || careerLower.includes('engineering')) {
-      return [
-        'BEng or MEng degree in relevant engineering field',
-        'Engineering apprenticeships with major employers',
-        'Professional engineering qualifications (IET, IMechE)'
-      ];
-    } else if (careerLower.includes('automotive')) {
-      return [
-        'BEng in Automotive Engineering',
-        'Automotive apprenticeships with car manufacturers',
-        'HND in Automotive Engineering'
-      ];
-    } else if (careerLower.includes('marine') || careerLower.includes('maritime')) {
-      return [
-        'BEng in Marine Engineering',
-        'Maritime apprenticeships',
-        'Professional maritime qualifications'
-      ];
-    } else if (careerLower.includes('content') || careerLower.includes('writer') || careerLower.includes('creative')) {
-      return [
-        'Creative Writing or English Literature degree',
-        'Digital Media and Content Creation courses',
-        'Professional writing certifications'
-      ];
-    } else if (careerLower.includes('game') || careerLower.includes('gaming')) {
-      return [
-        'Computer Science or Game Development degree',
-        'Game Design courses',
-        'Programming bootcamps focusing on game development'
-      ];
-    } else if (careerLower.includes('culinary') || careerLower.includes('chef') || careerLower.includes('food')) {
-      return [
-        'Professional Cookery apprenticeships',
-        'Culinary Arts diplomas',
-        'Food preparation certifications'
-      ];
-    } else {
-      return [
-        'Relevant degree programs (verify with UCAS)',
-        'Professional certifications in this field',
-        'Industry-specific training courses'
-      ];
-    }
-  }
+  // REMOVED: No more hardcoded training pathways!
+  // OpenAI web search should provide all training data dynamically
 
   /**
    * Convert training pathway strings to structured TrainingOption objects

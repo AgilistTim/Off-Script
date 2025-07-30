@@ -375,7 +375,7 @@ Use web search to validate ALL critical information before including it. Priorit
       console.error('❌ Error generating web search-enhanced career card:', error);
       
       // Fallback to basic generation without web search
-      console.log('🔄 Attempting fallback generation without web search...');
+      console.log('🔄 Web search failed, generating basic card with verification requirements');
       return await this.generateBasicCareerCard(interest, context);
     }
   }
@@ -434,7 +434,8 @@ Use web search to validate ALL critical information before including it. Priorit
         confidence: 0.6, // Lower confidence for unverified data
         sourceData: interest,
         webSearchVerified: false,
-        requiresVerification: true
+        requiresVerification: true,
+        citations: ['Verify information with official UK sources: gov.uk, UCAS, National Careers Service']
       };
 
     } catch (error) {
@@ -607,54 +608,26 @@ Use web search to validate ALL critical information before including it. Priorit
   }
 
   /**
-   * Enhanced career card generation using MCP if available
+   * Generate career cards using OpenAI web search (prioritized over MCP)
    */
   async generateCareerCardsWithMCP(interests: ConversationInterest[], userId?: string): Promise<CareerCardData[]> {
-    if (this.useMCPEnhancement && mcpBridgeService.isServerConnected() && interests.length > 0) {
-      try {
-        console.log('🎯 Using MCP-enhanced career insights generation');
-        
-        const interestNames = interests.map(i => i.interest);
-        const mcpResult = await mcpBridgeService.generateCareerInsights(interestNames);
-        
-        if (mcpResult.success && mcpResult.insights) {
-          // Convert MCP insights to CareerCardData format
-          const careerCards: CareerCardData[] = mcpResult.insights.map((insight, index) => ({
-            id: `mcp-card-${Date.now()}-${index}`,
-            title: `${insight.field} Career Path`,
-            description: `Explore opportunities in ${insight.field}`,
-            industry: insight.field,
-            averageSalary: insight.salaryData,
-            growthOutlook: insight.marketOutlook.growth,
-            entryRequirements: insight.pathways.slice(0, 3),
-            trainingPathways: insight.pathways,
-            keySkills: insight.skills,
-            workEnvironment: `${insight.marketOutlook.demand} with ${insight.marketOutlook.competition}`,
-            nextSteps: insight.nextSteps,
-            location: 'UK',
-            confidence: 0.9, // High confidence from MCP server
-            sourceData: insight.field
-          }));
-
-          console.log('✅ MCP career cards generated', { cardsCreated: careerCards.length });
-          return careerCards;
-        }
-      } catch (error) {
-        console.warn('⚠️ MCP career cards generation failed, using fallback:', error);
-      }
-    }
-
-    // Fallback to standard generation
-    console.log('🎯 Using standard career card generation');
+    console.log('🎯 Using OpenAI web search for career card generation (skipping MCP)');
+    
     const careerCards: CareerCardData[] = [];
     
+    // Use direct OpenAI web search for ALL career cards to ensure rich data
     for (const interest of interests) {
       if (interest.confidence > 0.7) {
+        console.log(`🔍 Generating web search-enhanced card for: ${interest.interest}`);
         const card = await this.generateCareerCard(interest.interest, interest.context);
-        if (card) careerCards.push(card);
+        if (card) {
+          console.log(`✅ Generated web search card: ${card.title} (webSearchVerified: ${card.webSearchVerified})`);
+          careerCards.push(card);
+        }
       }
     }
     
+    console.log(`✅ Generated ${careerCards.length} web search-enhanced career cards`);
     return careerCards;
   }
 
