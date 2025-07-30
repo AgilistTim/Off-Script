@@ -18,8 +18,6 @@ export default defineConfig(({ mode }) => {
       // Add process.env for Node.js libraries compatibility
       global: 'globalThis',
       'process.env': JSON.stringify({}),
-      // Explicitly define environment variables for build-time access
-      __VITE_OPENAI_API_KEY__: JSON.stringify(env.VITE_OPENAI_API_KEY || ''),
     },
     resolve: {
       alias: {

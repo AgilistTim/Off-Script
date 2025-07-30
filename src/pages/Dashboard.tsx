@@ -251,7 +251,27 @@ const Dashboard: React.FC = () => {
       // Get basic cards using the service
       const basicCards = await careerPathwayService.getCurrentCareerCards(currentUser.uid);
       console.log('🔍 DEBUG: Service returned cards:', basicCards.length);
-      console.log('🔍 DEBUG: First card:', basicCards[0]);
+      console.log('🔍 DEBUG: First card full details:', {
+        id: basicCards[0]?.id,
+        title: basicCards[0]?.title,
+        description: basicCards[0]?.description?.substring(0, 100) + '...',
+        industry: basicCards[0]?.industry,
+        trainingPathways: basicCards[0]?.trainingPathways,
+        isEnhanced: basicCards[0]?.isEnhanced,
+        webSearchVerified: basicCards[0]?.webSearchVerified,
+        enhancementStatus: basicCards[0]?.enhancementStatus
+      });
+      
+      // Check if any cards need enhancement
+      const cardsNeedingEnhancement = basicCards.filter(card => 
+        !card.enhancedSalary && 
+        !card.careerProgression && 
+        !card.enhancedSources && 
+        !card.isEnhanced &&
+        card.title && 
+        card.description
+      );
+      console.log(`🔍 DEBUG: ${cardsNeedingEnhancement.length}/${basicCards.length} cards need enhancement`);
       
       // Enhance cards automatically for dashboard view
       console.log('🚀 Starting auto-enhancement for dashboard cards...');

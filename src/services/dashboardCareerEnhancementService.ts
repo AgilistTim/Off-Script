@@ -5,6 +5,7 @@
 import { conversationAnalyzer } from './conversationAnalyzer';
 import { db } from './firebase';
 import { doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { getEnvironmentConfig } from '../config/environment';
 
 export interface CareerCardEnhancementStatus {
   id: string;
@@ -81,13 +82,27 @@ class DashboardCareerEnhancementService {
     }
     
     // Check if it's a basic card (likely from ElevenLabs/MCP)
-    const isBasicCard = !card.webSearchVerified && 
-                       !card.enhancedSources && 
-                       !card.isEnhanced &&
-                       card.title && 
-                       card.description;
+    const hasWebSearchVerified = !!card.webSearchVerified;
+    const hasEnhancedSources = !!card.enhancedSources;
+    const isAlreadyEnhanced = !!card.isEnhanced;
+    const hasTitle = !!card.title;
+    const hasDescription = !!card.description;
     
-    console.log(`🔍 Card "${card.title}" needs enhancement:`, isBasicCard);
+    const isBasicCard = !hasWebSearchVerified && 
+                       !hasEnhancedSources && 
+                       !isAlreadyEnhanced &&
+                       hasTitle && 
+                       hasDescription;
+    
+    console.log(`🔍 Card "${card.title}" enhancement eligibility:`, {
+      hasWebSearchVerified,
+      hasEnhancedSources,
+      isAlreadyEnhanced,
+      hasTitle,
+      hasDescription,
+      needsEnhancement: isBasicCard
+    });
+    
     return isBasicCard;
   }
   
@@ -244,6 +259,31 @@ class DashboardCareerEnhancementService {
   async enhanceCareerCards(cards: any[]): Promise<DashboardCareerCard[]> {
     console.log(`🚀 Starting batch enhancement for ${cards.length} cards`);
     
+    // Check environment configuration first
+    try {
+      const env = getEnvironmentConfig();
+      const hasOpenAI = !!env.apiKeys?.openai;
+      console.log(`🔍 Environment check - OpenAI API available: ${hasOpenAI}`);
+      
+      if (!hasOpenAI) {
+        console.warn('⚠️ OpenAI API key not available - enhancement will be skipped');
+        return cards.map(card => ({
+          ...card,
+          enhancementStatus: 'skipped' as const,
+          enhancementSource: 'no_api_key' as any,
+          errorMessage: 'OpenAI API key not configured'
+        }));
+      }
+    } catch (envError) {
+      console.error('❌ Environment configuration error:', envError);
+      return cards.map(card => ({
+        ...card,
+        enhancementStatus: 'failed' as const,
+        enhancementSource: 'basic' as any,
+        errorMessage: 'Environment configuration error'
+      }));
+    }
+    
     const results: DashboardCareerCard[] = [];
     
     for (const card of cards) {
@@ -256,6 +296,7 @@ class DashboardCareerEnhancementService {
           // Rate limiting to avoid API throttling
           await new Promise(resolve => setTimeout(resolve, 200));
         } else {
+          console.log(`⏭️ Skipping enhancement for: ${card.title} (already enhanced or not eligible)`);
           // Card doesn't need enhancement, return as-is
           results.push({
             ...card,
