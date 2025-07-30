@@ -371,7 +371,40 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
     try {
       console.log('🗑️ Deleting career card with threadId:', threadId);
 
-      // Remove from local state immediately for responsive UI
+      // Check if this is a current career card (from threadCareerGuidance)
+      const isCurrentCard = currentCareerCards.find(card => 
+        card.threadId === threadId || card.id === threadId
+      );
+
+      if (isCurrentCard?.firebaseDocId && isCurrentCard?.pathwayType) {
+        // Use new deletion method for cards with Firebase info
+        console.log('🎯 Using Firebase-based deletion for current card');
+        await careerPathwayService.deleteCareerCardByFirebaseId(
+          isCurrentCard.id,
+          isCurrentCard.firebaseDocId,
+          isCurrentCard.pathwayType,
+          isCurrentCard.pathwayIndex,
+          currentUser.uid
+        );
+      } else {
+        // Use old deletion methods for legacy explorations
+        console.log('🎯 Using legacy deletion methods for exploration');
+        try {
+          await careerPathwayService.deleteCareerExplorationOrCard(threadId, currentUser.uid);
+          console.log('✅ Deleted exploration/card for threadId:', threadId);
+        } catch (error) {
+          console.log('🔍 No exploration found to delete for threadId:', threadId);
+        }
+
+        try {
+          await careerPathwayService.deleteThreadCareerGuidance(threadId, currentUser.uid);
+          console.log('✅ Deleted guidance for threadId:', threadId);
+        } catch (error) {
+          console.log('🔍 No guidance found to delete for threadId:', threadId);
+        }
+      }
+
+      // Remove from local state
       setCareerGuidanceData(prev => {
         const newMap = new Map(prev);
         newMap.delete(threadId);
@@ -385,27 +418,17 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
         return newSet;
       });
 
-      // Remove from direct explorations immediately
+      // Remove from direct explorations
       setDirectExplorations(prev => 
         prev.filter(exploration => exploration.threadId !== threadId)
       );
 
-      // Delete from database - try both collections
-      try {
-        await careerPathwayService.deleteCareerExplorationOrCard(threadId, currentUser.uid);
-        console.log('✅ Deleted exploration/card for threadId:', threadId);
-      } catch (error) {
-        console.log('🔍 No exploration found to delete for threadId:', threadId);
-      }
-
-      try {
-        await careerPathwayService.deleteThreadCareerGuidance(threadId, currentUser.uid);
-        console.log('✅ Deleted guidance for threadId:', threadId);
-      } catch (error) {
-        console.log('🔍 No guidance found to delete for threadId:', threadId);
-      }
-
       console.log('✅ Career card deleted successfully');
+      
+      // Refresh the data to reflect Firebase changes
+      setTimeout(() => {
+        loadExplorations();
+      }, 500);
       
     } catch (error) {
       console.error('❌ Error deleting career card:', error);

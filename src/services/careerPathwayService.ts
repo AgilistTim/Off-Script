@@ -951,9 +951,9 @@ class CareerPathwayService {
           const data = doc.data();
           
           if (data.guidance?.alternativePathways) {
-            data.guidance.alternativePathways.forEach((pathway: any) => {
+            data.guidance.alternativePathways.forEach((pathway: any, index: number) => {
               careerCards.push({
-                id: `guidance-${doc.id}-${pathway.title.toLowerCase().replace(/\s/g, '-')}`,
+                id: `guidance-${doc.id}-alt-${index}`,
                 title: pathway.title,
                 description: pathway.description,
                 industry: pathway.industry || 'Technology',
@@ -972,7 +972,11 @@ class CareerPathwayService {
                 location: 'UK',
                 isCurrent: true,
                 source: 'conversation_guidance',
-                threadId: data.threadId
+                threadId: data.threadId,
+                // Store actual Firebase document ID and pathway info for deletion
+                firebaseDocId: doc.id,
+                pathwayType: 'alternative',
+                pathwayIndex: index
               });
             });
           }
@@ -1001,7 +1005,10 @@ class CareerPathwayService {
               isCurrent: true,
               source: 'conversation_guidance',
               threadId: data.threadId,
-              isPrimary: true
+              isPrimary: true,
+              // Store actual Firebase document ID and pathway info for deletion
+              firebaseDocId: doc.id,
+              pathwayType: 'primary'
             });
           }
         }
@@ -1045,6 +1052,77 @@ class CareerPathwayService {
       
     } catch (error) {
       console.error('Error deleting thread career guidance:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a career card by its actual Firebase document ID and pathway info
+   */
+  async deleteCareerCardByFirebaseId(
+    cardId: string, 
+    firebaseDocId: string, 
+    pathwayType: 'primary' | 'alternative', 
+    pathwayIndex?: number,
+    userId?: string
+  ): Promise<void> {
+    try {
+      console.log('🗑️ Deleting career card:', { cardId, firebaseDocId, pathwayType, pathwayIndex });
+      
+      const { db } = await import('./firebase');
+      const { doc, getDoc, updateDoc, deleteDoc } = await import('firebase/firestore');
+
+      // Get the guidance document
+      const guidanceRef = doc(db, 'threadCareerGuidance', firebaseDocId);
+      const guidanceSnap = await getDoc(guidanceRef);
+
+      if (!guidanceSnap.exists()) {
+        console.warn('⚠️ Career guidance document not found:', firebaseDocId);
+        return;
+      }
+
+      const guidanceData = guidanceSnap.data();
+      if (userId && guidanceData.userId !== userId) {
+        console.warn('⚠️ User does not own this career guidance');
+        return;
+      }
+
+      if (pathwayType === 'primary') {
+        // If deleting primary pathway, check if there are alternatives to promote
+        if (guidanceData.guidance?.alternativePathways?.length > 0) {
+          // Promote first alternative to primary
+          const newPrimary = guidanceData.guidance.alternativePathways[0];
+          const remainingAlternatives = guidanceData.guidance.alternativePathways.slice(1);
+          
+          await updateDoc(guidanceRef, {
+            'guidance.primaryPathway': newPrimary,
+            'guidance.alternativePathways': remainingAlternatives,
+            updatedAt: new Date()
+          });
+          console.log('✅ Promoted alternative to primary and removed original primary');
+        } else {
+          // No alternatives left, delete entire document
+          await deleteDoc(guidanceRef);
+          console.log('✅ Deleted entire guidance document (no alternatives left)');
+        }
+      } else if (pathwayType === 'alternative' && typeof pathwayIndex === 'number') {
+        // Remove specific alternative pathway
+        const alternatives = guidanceData.guidance?.alternativePathways || [];
+        if (pathwayIndex >= 0 && pathwayIndex < alternatives.length) {
+          alternatives.splice(pathwayIndex, 1);
+          
+          await updateDoc(guidanceRef, {
+            'guidance.alternativePathways': alternatives,
+            updatedAt: new Date()
+          });
+          console.log('✅ Removed alternative pathway at index:', pathwayIndex);
+        } else {
+          console.warn('⚠️ Alternative pathway index out of range:', pathwayIndex);
+        }
+      }
+
+    } catch (error) {
+      console.error('Error deleting career card by Firebase ID:', error);
       throw error;
     }
   }

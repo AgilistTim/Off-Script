@@ -294,27 +294,46 @@ const Dashboard: React.FC = () => {
   }, [currentUser, loading, careerCardCache]); // Added careerCardCache dependency
 
   // Delete career card function
-  const deleteCareerCard = useCallback(async (threadId: string) => {
+  const deleteCareerCard = useCallback(async (cardId: string) => {
     if (!currentUser) return;
 
     try {
-      // Remove from cache
+      // Find the career card to get its Firebase info
+      const cardToDelete = currentCareerCards.find(card => card.id === cardId);
+      if (!cardToDelete) {
+        console.error('Career card not found for deletion:', cardId);
+        return;
+      }
+
+      console.log('🗑️ Deleting career card:', cardToDelete);
+
+      // Use the new deletion method if it has Firebase info
+      if (cardToDelete.firebaseDocId && cardToDelete.pathwayType) {
+        await careerPathwayService.deleteCareerCardByFirebaseId(
+          cardId,
+          cardToDelete.firebaseDocId,
+          cardToDelete.pathwayType,
+          cardToDelete.pathwayIndex,
+          currentUser.uid
+        );
+      } else {
+        // Fallback to old deletion methods for legacy cards
+        try {
+          await careerPathwayService.deleteCareerExplorationOrCard(cardToDelete.threadId || cardId, currentUser.uid);
+          await careerPathwayService.deleteThreadCareerGuidance(cardToDelete.threadId || cardId, currentUser.uid);
+        } catch (error) {
+          console.error('Error with fallback deletion methods:', error);
+        }
+      }
+
+      // Remove from cache and current cards
       setCareerCardCache(prev => {
         const newMap = new Map(prev);
-        newMap.delete(threadId);
+        newMap.delete(cardId);
         return newMap;
       });
 
-      // Remove from current career cards
-      setCurrentCareerCards(prev => prev.filter(card => card.threadId !== threadId));
-
-      // TODO: Also remove from Firebase if needed
-      try {
-        await careerPathwayService.deleteCareerExplorationOrCard(threadId, currentUser.uid);
-        await careerPathwayService.deleteThreadCareerGuidance(threadId, currentUser.uid);
-      } catch (error) {
-        console.error('Error deleting guidance/exploration:', error);
-      }
+      setCurrentCareerCards(prev => prev.filter(card => card.id !== cardId));
 
       setNotification({
         message: 'Career card deleted successfully!',
@@ -322,18 +341,29 @@ const Dashboard: React.FC = () => {
       });
 
       // Close modal if the deleted card was selected
-      if (selectedCareerCard?.threadId === threadId) {
+      if (selectedCareerCard?.id === cardId) {
         setShowCareerCardModal(false);
         setSelectedCareerCard(null);
       }
+
+      // Refresh the career cards to reflect Firebase changes
+      setTimeout(async () => {
+        try {
+          const updatedCards = await careerPathwayService.getCurrentCareerCards(currentUser.uid);
+          setCurrentCareerCards(updatedCards);
+        } catch (error) {
+          console.error('Error refreshing career cards after deletion:', error);
+        }
+      }, 500);
+
     } catch (error) {
       console.error('Error deleting career card:', error);
       setNotification({
-        message: 'Error deleting career card.',
+        message: 'Error deleting career card. Please try again.',
         type: 'error'
       });
     }
-  }, [currentUser, selectedCareerCard]);
+  }, [currentUser, selectedCareerCard, currentCareerCards]);
 
   // Fetch video recommendations
   const fetchRecommendations = useCallback(async () => {
@@ -506,7 +536,7 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div className="flex items-center space-x-3">
                     <button
-                      onClick={() => deleteCareerCard(selectedCareerCard.threadId)}
+                      onClick={() => deleteCareerCard(selectedCareerCard.id)}
                       className="w-10 h-10 bg-gradient-to-br from-neon-pink to-sunset-orange rounded-xl flex items-center justify-center hover:scale-110 transition-transform duration-200"
                       title="Delete Career Card"
                     >
