@@ -309,7 +309,7 @@ export class GuestMigrationService {
         'Career exploration conversation from guest session.',
         `Discussed ${guestSession.careerCards?.length || 0} career paths.`,
         `User interests: ${guestSession.personProfile?.interests?.join(', ') || 'Not specified'}.`,
-        `Career goals: ${guestSession.personProfile?.careerGoals?.join(', ') || 'Not specified'}.`,
+        `Career goals: ${guestSession.personProfile?.goals?.join(', ') || 'Not specified'}.`,
         'Full conversation data has been preserved for detailed analysis.'
       ].join(' ');
 
@@ -320,7 +320,7 @@ export class GuestMigrationService {
         userId,
         summary,
         interests: guestSession.personProfile?.interests || [],
-        careerGoals: guestSession.personProfile?.careerGoals || [],
+        careerGoals: guestSession.personProfile?.goals || [],
         skills: guestSession.personProfile?.skills || [],
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
