@@ -28,7 +28,8 @@ export interface EnvironmentConfig {
     youtube?: string;
     recaptcha?: string;
     bumpups?: string;
-    // SECURITY NOTE: Sensitive API keys (bumpups, openai, webshare) are NOT exposed client-side
+    openai?: string; // SECURITY WARNING: Exposed client-side for dashboard enhancement - consider server-side alternative
+    // SECURITY NOTE: Sensitive API keys (bumpups, webshare) are NOT exposed client-side
     // These are handled securely in Firebase Functions server-side
   };
   
@@ -92,8 +93,9 @@ const getViteEnvironment = (): Partial<EnvironmentConfig> => {
     apiKeys: {
       youtube: import.meta.env.VITE_YOUTUBE_API_KEY as string,
       recaptcha: import.meta.env.VITE_RECAPTCHA_SITE_KEY as string,
-      // SECURITY: bumpups API key excluded from client-side for security
-      // bumpups, openai, and webshare keys are handled server-side in Firebase Functions
+      openai: import.meta.env.VITE_OPENAI_API_KEY as string,
+      // SECURITY: bumpups and webshare API keys excluded from client-side for security
+      // bumpups and webshare keys are handled server-side in Firebase Functions
     },
     elevenLabs: {
       apiKey: import.meta.env.VITE_ELEVENLABS_API_KEY as string,
@@ -128,6 +130,7 @@ const getWindowEnvironment = (): Partial<EnvironmentConfig> => {
     apiKeys: {
       youtube: (window as any).ENV.VITE_YOUTUBE_API_KEY,
       recaptcha: (window as any).ENV.VITE_RECAPTCHA_SITE_KEY,
+      openai: (window as any).ENV.VITE_OPENAI_API_KEY,
       // SECURITY: bumpups API key excluded from client-side runtime config
     },
     elevenLabs: {
@@ -278,7 +281,8 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
     apiKeys: {
       youtube: fallbackConfig.apiKeys?.youtube,
       recaptcha: fallbackConfig.apiKeys?.recaptcha,
-      // SECURITY: Sensitive API keys not included in fallback config
+      openai: fallbackConfig.apiKeys?.openai,
+      // SECURITY: Other sensitive API keys not included in fallback config
     },
     elevenLabs: {
       apiKey: fallbackConfig.elevenLabs?.apiKey,
