@@ -1191,13 +1191,23 @@ class CareerPathwayService {
         );
         
         const guidanceSnapshot = await getDocs(guidanceQuery);
+        console.log('🔍 DEBUG getCurrentCareerCards: Found documents:', guidanceSnapshot.docs.length);
         
         for (const doc of guidanceSnapshot.docs) {
           const data = doc.data();
+          console.log('🔍 DEBUG getCurrentCareerCards: Processing doc:', {
+            id: doc.id,
+            threadId: data.threadId,
+            hasGuidance: !!data.guidance,
+            hasPrimary: !!data.guidance?.primaryPathway,
+            hasAlternatives: !!(data.guidance?.alternativePathways?.length),
+            alternativeCount: data.guidance?.alternativePathways?.length || 0
+          });
           
           if (data.guidance?.alternativePathways) {
+            console.log('🔍 DEBUG: Processing', data.guidance.alternativePathways.length, 'alternative pathways');
             data.guidance.alternativePathways.forEach((pathway: any, index: number) => {
-              careerCards.push({
+              const cardData = {
                 id: `guidance-${doc.id}-alt-${index}`,
                 title: pathway.title,
                 description: pathway.description,
@@ -1236,14 +1246,17 @@ class CareerPathwayService {
                   totalAlternatives: data.guidance?.alternativePathways?.length || 0,
                   pathwayTitle: pathway.title
                 }
-              });
+              };
+              console.log('🔍 DEBUG: Adding alternative card:', cardData.title, 'with web search:', cardData.webSearchVerified);
+              careerCards.push(cardData);
             });
           }
           
           // Also include primary pathway
           if (data.guidance?.primaryPathway) {
+            console.log('🔍 DEBUG: Processing primary pathway');
             const primary = data.guidance.primaryPathway;
-            careerCards.push({
+            const primaryCardData = {
               id: `guidance-${doc.id}-primary`,
               title: primary.title,
               description: primary.description,
@@ -1282,11 +1295,17 @@ class CareerPathwayService {
                 totalAlternatives: data.guidance?.alternativePathways?.length || 0,
                 pathwayTitle: primary.title
               }
-            });
+            };
+            console.log('🔍 DEBUG: Adding primary card:', primaryCardData.title, 'with web search:', primaryCardData.webSearchVerified);
+            careerCards.push(primaryCardData);
           }
         }
         
         console.log('✅ Found current career cards from thread guidance:', careerCards.length);
+        if (careerCards.length > 0) {
+          console.log('🔍 DEBUG: Career card titles:', careerCards.map(c => c.title));
+          console.log('🔍 DEBUG: First card full data:', careerCards[0]);
+        }
         
       } catch (guidanceError: any) {
         if (guidanceError?.code === 'permission-denied') {
@@ -1298,6 +1317,7 @@ class CareerPathwayService {
         }
       }
       
+      console.log('🔍 DEBUG: Final return - career cards:', careerCards.length);
       return careerCards;
       
     } catch (error) {

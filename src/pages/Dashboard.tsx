@@ -213,12 +213,42 @@ const Dashboard: React.FC = () => {
     }
   }, [location.state]);
 
-  // Fetch current career cards from conversations
+  // Fetch current career cards from conversations  
   const fetchCurrentCareerCards = useCallback(async () => {
     if (!currentUser || loading) return;
     
     try {
+      console.log('🔍 DEBUG: Starting career card fetch for user:', currentUser.uid);
+      
+      // DEBUG: Check what's in the database directly
+      const { db } = await import('../services/firebase');
+      const { collection, query, where, getDocs } = await import('firebase/firestore');
+      
+      const guidanceQuery = query(
+        collection(db, 'threadCareerGuidance'),
+        where('userId', '==', currentUser.uid)
+      );
+      const guidanceSnapshot = await getDocs(guidanceQuery);
+      
+      console.log('🔍 DEBUG: Found threadCareerGuidance documents:', guidanceSnapshot.docs.length);
+      
+      guidanceSnapshot.docs.forEach((doc, index) => {
+        const data = doc.data();
+        console.log(`🔍 DEBUG: Document ${index + 1}:`, {
+          id: doc.id,
+          threadId: data.threadId,
+          primaryTitle: data.guidance?.primaryPathway?.title,
+          alternativeCount: data.guidance?.alternativePathways?.length || 0,
+          hasWebSearchData: !!data.guidance?.primaryPathway?.webSearchVerified,
+          rawData: data.guidance?.primaryPathway
+        });
+      });
+      
+      // Now get cards using the service
       const cards = await careerPathwayService.getCurrentCareerCards(currentUser.uid);
+      console.log('🔍 DEBUG: Service returned cards:', cards.length);
+      console.log('🔍 DEBUG: First card:', cards[0]);
+      
       setCurrentCareerCards(cards);
       console.log('✅ Loaded current career cards:', cards.length);
     } catch (error) {

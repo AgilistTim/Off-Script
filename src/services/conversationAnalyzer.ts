@@ -658,6 +658,151 @@ Use web search to validate ALL critical information before including it. Priorit
     return careerCards;
   }
 
+  /**
+   * Enhance existing career card with additional rich data using OpenAI web search
+   */
+  async enhanceCareerCardWithWebSearch(careerCard: any): Promise<any | null> {
+    try {
+      console.log('🔍 Enhancing career card with additional web search data:', careerCard.title);
+      
+      const response = await openai.responses.create({
+        model: 'gpt-4o',
+        tools: [{ 
+          type: 'web_search_preview',
+          search_context_size: 'high', // Use high for more detailed enhancement
+          user_location: {
+            type: 'approximate',
+            country: 'GB',
+            city: 'London',
+            region: 'England'
+          }
+        }],
+        input: `Enhance this existing UK career profile with additional detailed research: "${careerCard.title}"
+
+CURRENT DATA:
+- Industry: ${careerCard.industry || 'Not specified'}
+- Current salary info: ${JSON.stringify(careerCard.averageSalary || {})}
+- Description: ${careerCard.description || 'Not specified'}
+- Entry requirements: ${JSON.stringify(careerCard.entryRequirements || [])}
+
+Use web search to find ADDITIONAL comprehensive UK data:
+- More detailed salary breakdown by location and specialization from UK job boards
+- Specific career progression paths and promotional opportunities
+- Day-in-the-life details from professional interviews/blogs
+- Latest industry trends and future outlook from UK industry reports
+- Specific UK employers and their requirements from company websites
+- Real testimonials from professionals in this field
+- Additional qualifications that boost earning potential
+- Work-life balance insights from Glassdoor UK reviews
+- Skills in highest demand from recent UK job postings
+- Professional associations and networking opportunities in UK
+
+Structure as strict JSON with ENHANCED details:
+
+{
+  "enhancedSalary": {
+    "entry": "£XX,000 (source: [specific UK source])",
+    "experienced": "£XX,000 (source: [specific UK source])", 
+    "senior": "£XX,000 (source: [specific UK source])",
+    "byLocation": {
+      "london": "£XX,000 - £XX,000",
+      "manchester": "£XX,000 - £XX,000", 
+      "birmingham": "£XX,000 - £XX,000"
+    },
+    "bySpecialization": {
+      "specialized_area_1": "£XX,000 - £XX,000",
+      "specialized_area_2": "£XX,000 - £XX,000"
+    }
+  },
+  "careerProgression": [
+    "Entry level position → Mid-level role (timeframe and requirements)",
+    "Mid-level → Senior role progression path",
+    "Senior → Leadership advancement opportunities"
+  ],
+  "dayInTheLife": "Detailed description of typical daily activities based on professional accounts",
+  "industryTrends": ["Latest trend 1 with source", "Industry development 2 with source"],
+  "topUKEmployers": [
+    {"name": "Company Name", "knownFor": "What they're known for", "typical_salary": "£XX,000"},
+    {"name": "Company 2", "knownFor": "Their specialty", "typical_salary": "£XX,000"}
+  ],
+  "professionalTestimonials": [
+    {"quote": "Real quote from professional", "source": "Name/Platform where found"},
+    {"quote": "Another testimonial", "source": "Source attribution"}
+  ],
+  "additionalQualifications": [
+    {"qualification": "Specific cert/course name", "benefit": "How it helps career/salary", "provider": "UK institution"}
+  ],
+  "workLifeBalance": {
+    "typical_hours": "XX hours per week",
+    "flexibility": "Remote/hybrid options description",
+    "stress_level": "Low/Medium/High with explanation",
+    "job_satisfaction": "Rating and reasons from reviews"
+  },
+  "inDemandSkills": ["Skill 1 from recent job postings", "Hot skill 2", "Emerging skill 3"],
+  "professionalAssociations": [
+    {"name": "Association name", "benefits": "What members get", "cost": "£XX annual"}
+  ],
+  "enhancedSources": ["Specific URL 1", "Industry report 2", "Professional platform 3"]
+}
+
+CRITICAL: Only include information found through current web search. Use specific UK sources and include attribution for all data points.`
+      });
+
+      const content = response.output_text;
+
+      if (!content) {
+        console.warn('⚠️ No enhanced content received from OpenAI');
+        return careerCard; // Return original if enhancement fails
+      }
+
+      console.log('✅ Career card enhancement completed with additional web search data');
+
+      const cleanedContent = content
+        .replace(/```json\s*/gi, '')
+        .replace(/```\s*$/gi, '')
+        .trim();
+
+      try {
+        const enhancedData = JSON.parse(cleanedContent);
+        
+        // Merge enhanced data with original career card
+        return {
+          ...careerCard,
+          // Keep original data but add enhanced fields
+          enhancedSalary: enhancedData.enhancedSalary,
+          careerProgression: enhancedData.careerProgression,
+          dayInTheLife: enhancedData.dayInTheLife,
+          industryTrends: enhancedData.industryTrends,
+          topUKEmployers: enhancedData.topUKEmployers,
+          professionalTestimonials: enhancedData.professionalTestimonials,
+          additionalQualifications: enhancedData.additionalQualifications,
+          workLifeBalance: enhancedData.workLifeBalance,
+          inDemandSkills: enhancedData.inDemandSkills,
+          professionalAssociations: enhancedData.professionalAssociations,
+          enhancedSources: enhancedData.enhancedSources,
+          
+          // Update metadata
+          isEnhanced: true,
+          enhancedAt: new Date().toISOString(),
+          enhancementSource: 'openai_web_search',
+          citations: [
+            ...(careerCard.citations || []),
+            ...(enhancedData.enhancedSources || [])
+          ]
+        };
+        
+      } catch (parseError) {
+        console.error('❌ Failed to parse enhanced career card JSON:', parseError);
+        console.error('Raw enhanced content:', content);
+        return careerCard; // Return original if parsing fails
+      }
+
+    } catch (error) {
+      console.error('❌ Error enhancing career card with web search:', error);
+      return careerCard; // Return original if enhancement fails
+    }
+  }
+
   reset(): void {
     this.profile = this.createProfile();
   }
