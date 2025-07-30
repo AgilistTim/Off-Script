@@ -976,7 +976,13 @@ class CareerPathwayService {
                 // Store actual Firebase document ID and pathway info for deletion
                 firebaseDocId: doc.id,
                 pathwayType: 'alternative',
-                pathwayIndex: index
+                pathwayIndex: index,
+                // Debug info for troubleshooting
+                _debug: {
+                  docId: doc.id,
+                  totalAlternatives: data.guidance?.alternativePathways?.length || 0,
+                  pathwayTitle: pathway.title
+                }
               });
             });
           }
@@ -1008,7 +1014,13 @@ class CareerPathwayService {
               isPrimary: true,
               // Store actual Firebase document ID and pathway info for deletion
               firebaseDocId: doc.id,
-              pathwayType: 'primary'
+              pathwayType: 'primary',
+              // Debug info for troubleshooting
+              _debug: {
+                docId: doc.id,
+                totalAlternatives: data.guidance?.alternativePathways?.length || 0,
+                pathwayTitle: primary.title
+              }
             });
           }
         }
@@ -1108,16 +1120,52 @@ class CareerPathwayService {
       } else if (pathwayType === 'alternative' && typeof pathwayIndex === 'number') {
         // Remove specific alternative pathway
         const alternatives = guidanceData.guidance?.alternativePathways || [];
+        
+        console.log('🔍 Deletion Debug:', {
+          requestedIndex: pathwayIndex,
+          totalAlternatives: alternatives.length,
+          alternativeTitles: alternatives.map((alt, idx) => `${idx}: ${alt.title || 'Untitled'}`),
+          firebaseDocId
+        });
+        
         if (pathwayIndex >= 0 && pathwayIndex < alternatives.length) {
+          const removedPathway = alternatives[pathwayIndex];
           alternatives.splice(pathwayIndex, 1);
           
           await updateDoc(guidanceRef, {
             'guidance.alternativePathways': alternatives,
             updatedAt: new Date()
           });
-          console.log('✅ Removed alternative pathway at index:', pathwayIndex);
+          console.log('✅ Removed alternative pathway:', removedPathway.title, 'at index:', pathwayIndex);
         } else {
-          console.warn('⚠️ Alternative pathway index out of range:', pathwayIndex);
+          console.error('❌ Alternative pathway index out of range!', {
+            requestedIndex: pathwayIndex,
+            availableRange: `0-${alternatives.length - 1}`,
+            totalAlternatives: alternatives.length,
+            cardId,
+            firebaseDocId
+          });
+          
+          // Try to find the pathway by title instead
+          const cardTitle = cardId.split('-').slice(-1)[0]; // Extract title from card ID
+          const alternativeIndex = alternatives.findIndex(alt => 
+            alt.title?.toLowerCase().includes('community') && 
+            alt.title?.toLowerCase().includes('manager')
+          );
+          
+          if (alternativeIndex >= 0) {
+            console.log('🔄 Found pathway by title match, removing at index:', alternativeIndex);
+            const removedPathway = alternatives[alternativeIndex];
+            alternatives.splice(alternativeIndex, 1);
+            
+            await updateDoc(guidanceRef, {
+              'guidance.alternativePathways': alternatives,
+              updatedAt: new Date()
+            });
+            console.log('✅ Removed alternative pathway by title match:', removedPathway.title);
+          } else {
+            throw new Error(`Cannot find pathway to delete. Index ${pathwayIndex} out of range (0-${alternatives.length - 1})`);
+          }
         }
       }
 
