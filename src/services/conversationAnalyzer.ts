@@ -4,11 +4,22 @@ import { zodResponseFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
 import { mcpBridgeService, MCPMessage, MCPAnalysisResult } from './mcpBridgeService';
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: import.meta.env.VITE_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true // Note: In production, this should be server-side
-});
+// Initialize OpenAI client lazily to avoid build issues
+let openaiClient: OpenAI | null = null;
+
+const getOpenAIClient = (): OpenAI => {
+  if (!openaiClient) {
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error('OpenAI API key not found. Please set VITE_OPENAI_API_KEY environment variable.');
+    }
+    openaiClient = new OpenAI({
+      apiKey,
+      dangerouslyAllowBrowser: true // Note: In production, this should be server-side
+    });
+  }
+  return openaiClient;
+};
 
 // Zod schemas for structured responses (Context7 best practice)
 const CareerInterestSchema = z.object({
@@ -129,7 +140,7 @@ export class ConversationAnalyzer {
 
       // Use structured output with Zod for reliable parsing
       // @ts-ignore - parse() is available at runtime but not yet in typings
-      const completion = await (openai as any).chat.completions.parse({
+      const completion = await (getOpenAIClient() as any).chat.completions.parse({
         model: 'gpt-4o-2024-08-06', // Latest model as recommended by Context7
         messages: [
           {
@@ -194,7 +205,7 @@ export class ConversationAnalyzer {
 
       // Use structured output with Zod for reliable parsing
       // @ts-ignore - parse() is available at runtime but not yet in typings
-      const completion = await (openai as any).chat.completions.parse({
+      const completion = await (getOpenAIClient() as any).chat.completions.parse({
         model: 'gpt-4o-2024-08-06',
         messages: [
           {
@@ -288,7 +299,7 @@ export class ConversationAnalyzer {
       console.log('🔍 Using OpenAI Responses API with web search for real UK career data:', interest);
       
       // Use OpenAI's Responses API with web search preview tool
-      const response = await openai.responses.create({
+      const response = await getOpenAIClient().responses.create({
         model: 'gpt-4o',
         tools: [{ 
           type: 'web_search_preview',
@@ -385,7 +396,7 @@ Use web search to validate ALL critical information before including it. Priorit
    */
   private async generateBasicCareerCard(interest: string, context: string): Promise<CareerCardData | null> {
     try {
-      const completion = await openai.chat.completions.create({
+      const completion = await getOpenAIClient().chat.completions.create({
         model: 'gpt-4o-2024-08-06',
         messages: [
           {
@@ -500,7 +511,7 @@ Use web search to validate ALL critical information before including it. Priorit
       extractedAt: new Date(),
       relatedTerms: card.keySkills.slice(0, 3),
       metadata: {
-        source: 'openai_research',
+        source: 'getOpenAIClient()_research',
         location: card.location,
         conversationContext: card.sourceData
       }
@@ -638,7 +649,7 @@ Use web search to validate ALL critical information before including it. Priorit
     try {
       console.log('🔍 Enhancing career card with additional web search data:', careerCard.title);
       
-      const response = await openai.responses.create({
+      const response = await getOpenAIClient().responses.create({
         model: 'gpt-4o',
         tools: [{ 
           type: 'web_search_preview',
@@ -757,7 +768,7 @@ CRITICAL: Only include information found through current web search. Use specifi
           // Update metadata
           isEnhanced: true,
           enhancedAt: new Date().toISOString(),
-          enhancementSource: 'openai_web_search',
+          enhancementSource: 'getOpenAIClient()_web_search',
           citations: [
             ...(careerCard.citations || []),
             ...(enhancedData.enhancedSources || [])
