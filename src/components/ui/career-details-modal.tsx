@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, TrendingUp, Clock, CheckCircle, ArrowRight, Briefcase, GraduationCap, Users } from 'lucide-react';
+import { X, MapPin, TrendingUp, Clock, CheckCircle, ArrowRight, Briefcase, GraduationCap, Users, RefreshCw } from 'lucide-react';
 
 interface CareerCardData {
   id: string;
@@ -30,13 +30,28 @@ interface CareerDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
   careerCard: CareerCardData | null;
+  onRefreshDetails?: (cardId: string) => void;
 }
 
 export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
   isOpen,
   onClose,
-  careerCard
+  careerCard,
+  onRefreshDetails
 }) => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefreshDetails = async () => {
+    if (!careerCard || !onRefreshDetails) return;
+    
+    setIsRefreshing(true);
+    try {
+      await onRefreshDetails(careerCard.id);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   if (!careerCard) return null;
 
   return (
@@ -62,12 +77,24 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
             <div className="h-full flex flex-col">
               {/* Header */}
               <div className="bg-gradient-to-r from-blue-600 to-purple-600 text-white p-6 relative">
-                <button
-                  onClick={onClose}
-                  className="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-full transition-colors"
-                >
-                  <X className="h-5 w-5" />
-                </button>
+                <div className="absolute top-4 right-4 flex gap-2">
+                  {onRefreshDetails && (
+                    <button
+                      onClick={handleRefreshDetails}
+                      disabled={isRefreshing}
+                      className="p-2 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"
+                      title="Refresh career details with enhanced AI information"
+                    >
+                      <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    </button>
+                  )}
+                  <button
+                    onClick={onClose}
+                    className="p-2 hover:bg-white/20 rounded-full transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
                 
                 <div className="pr-12">
                   <h2 className="text-2xl md:text-3xl font-bold mb-2">{careerCard.title}</h2>

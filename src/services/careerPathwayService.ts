@@ -431,6 +431,115 @@ class CareerPathwayService {
   }
 
   /**
+   * Enhance an existing career card with detailed OpenAI analysis
+   */
+  async enhanceCareerCardDetails(userId: string, cardId: string, careerTitle: string): Promise<boolean> {
+    try {
+      console.log('🔄 Enhancing career card details for:', careerTitle);
+      
+      const { ConversationAnalyzer } = await import('./conversationAnalyzer');
+      const analyzer = new ConversationAnalyzer();
+      
+      // Generate enhanced career card data using OpenAI
+      const enhancedCard = await analyzer.generateCareerCard(careerTitle, `Detailed analysis for ${careerTitle} career path`);
+      
+      if (!enhancedCard) {
+        console.warn('⚠️ Could not generate enhanced career details');
+        return false;
+      }
+      
+      console.log('✅ Generated enhanced career card:', enhancedCard.title);
+      console.log('📊 Enhanced data includes:', {
+        industry: !!enhancedCard.industry,
+        salary: !!enhancedCard.averageSalary,
+        skills: enhancedCard.keySkills?.length || 0,
+        training: enhancedCard.trainingPathways?.length || 0,
+        requirements: enhancedCard.entryRequirements?.length || 0
+      });
+      
+      // Find and update the existing career guidance data
+      const { db } = await import('./firebase');
+      const { collection, query, where, getDocs, doc, updateDoc } = await import('firebase/firestore');
+      
+      // Query threadCareerGuidance to find documents containing this career card
+      const guidanceQuery = query(
+        collection(db, 'threadCareerGuidance'),
+        where('userId', '==', userId)
+      );
+      
+      const querySnapshot = await getDocs(guidanceQuery);
+      let updated = false;
+      
+      for (const docSnap of querySnapshot.docs) {
+        const data = docSnap.data();
+        let needsUpdate = false;
+        
+        // Check and update primary pathway
+        if (data.guidance?.primaryPathway?.title === careerTitle) {
+          data.guidance.primaryPathway = {
+            ...data.guidance.primaryPathway,
+            industry: enhancedCard.industry,
+            averageSalary: enhancedCard.averageSalary,
+            growthOutlook: enhancedCard.growthOutlook,
+            requiredSkills: enhancedCard.keySkills || [],
+            workEnvironment: enhancedCard.workEnvironment,
+            entryRequirements: enhancedCard.entryRequirements || [],
+            trainingPathways: enhancedCard.trainingPathways || [],
+            trainingOptions: this.convertTrainingPathwaysToOptions(enhancedCard.trainingPathways || []),
+            description: enhancedCard.description || data.guidance.primaryPathway.description,
+            nextSteps: {
+              ...data.guidance.primaryPathway.nextSteps,
+              immediate: enhancedCard.nextSteps?.slice(0, 2) || data.guidance.primaryPathway.nextSteps.immediate
+            }
+          };
+          needsUpdate = true;
+        }
+        
+        // Check and update alternative pathways
+        if (data.guidance?.alternativePathways) {
+          data.guidance.alternativePathways = data.guidance.alternativePathways.map((pathway: any) => {
+            if (pathway.title === careerTitle) {
+              return {
+                ...pathway,
+                industry: enhancedCard.industry,
+                averageSalary: enhancedCard.averageSalary,
+                growthOutlook: enhancedCard.growthOutlook,
+                requiredSkills: enhancedCard.keySkills || [],
+                workEnvironment: enhancedCard.workEnvironment,
+                entryRequirements: enhancedCard.entryRequirements || [],
+                trainingPathways: enhancedCard.trainingPathways || [],
+                trainingOptions: this.convertTrainingPathwaysToOptions(enhancedCard.trainingPathways || []),
+                description: enhancedCard.description || pathway.description
+              };
+            }
+            return pathway;
+          });
+          needsUpdate = true;
+        }
+        
+        if (needsUpdate) {
+          data.updatedAt = new Date();
+          await updateDoc(doc(db, 'threadCareerGuidance', docSnap.id), data);
+          updated = true;
+          console.log('✅ Updated career guidance document:', docSnap.id);
+        }
+      }
+      
+      if (updated) {
+        console.log('🎉 Successfully enhanced career card details');
+        return true;
+      } else {
+        console.warn('⚠️ No matching career card found to update');
+        return false;
+      }
+      
+    } catch (error) {
+      console.error('❌ Error enhancing career card details:', error);
+      return false;
+    }
+  }
+
+  /**
    * Retrieve career guidance for a specific thread
    */
   async getThreadCareerGuidance(threadId: string, userId: string): Promise<ComprehensiveCareerGuidance | null> {

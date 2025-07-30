@@ -1,6 +1,8 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CareerDetailsModal } from '../ui/career-details-modal';
+import { useAuth } from '../../context/AuthContext';
+import careerPathwayService from '../../services/careerPathwayService';
 
 // Use the same interface as CareerDetailsModal for consistency
 interface CareerCard {
@@ -36,8 +38,33 @@ export const CareerCardsPanel: React.FC<CareerCardsPanelProps> = ({
   cards,
   className = ''
 }) => {
+  const { currentUser } = useAuth();
   const [selectedCard, setSelectedCard] = useState<CareerCard | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Handle refreshing career card details with OpenAI enhancement
+  const handleRefreshDetails = async (cardId: string) => {
+    if (!currentUser || !selectedCard) return;
+    
+    try {
+      console.log('🔄 Refreshing career card details:', selectedCard.title);
+      const success = await careerPathwayService.enhanceCareerCardDetails(
+        currentUser.uid, 
+        cardId, 
+        selectedCard.title
+      );
+      
+      if (success) {
+        console.log('✅ Career card details enhanced successfully');
+        // The modal will automatically refresh when the data updates
+        // You could add a toast notification here if desired
+      } else {
+        console.warn('⚠️ Failed to enhance career card details');
+      }
+    } catch (error) {
+      console.error('❌ Error refreshing career card details:', error);
+    }
+  };
 
   // Helper function to generate truly unique ID only when needed
   const generateUniqueId = (card: CareerCard, index: number): string => {
@@ -272,6 +299,7 @@ export const CareerCardsPanel: React.FC<CareerCardsPanelProps> = ({
         isOpen={isModalOpen}
         onClose={handleCloseModal}
         careerCard={selectedCard}
+        onRefreshDetails={currentUser ? handleRefreshDetails : undefined}
       />
     </div>
   );
