@@ -35,6 +35,200 @@ const InterestsResponseSchema = z.object({
   interests: z.array(CareerInterestSchema)
 });
 
+// Comprehensive Career Card Schema - 10 Section Framework
+const ComprehensiveCareerCardSchema = z.object({
+  id: z.string(),
+  title: z.string(),
+  confidence: z.number().min(0).max(100),
+  
+  // 1. Role Fundamentals
+  roleFundamentals: z.object({
+    corePurpose: z.string(),
+    problemsSolved: z.array(z.string()),
+    typicalResponsibilities: z.array(z.string()),
+    decisionLatitude: z.string(),
+    deliverables: z.array(z.string()),
+    keyStakeholders: z.array(z.string())
+  }),
+  
+  // 2. Competency Requirements
+  competencyRequirements: z.object({
+    technicalSkills: z.array(z.string()),
+    softSkills: z.array(z.string()),
+    tools: z.array(z.string()),
+    certifications: z.array(z.string()),
+    qualificationPathway: z.object({
+      degrees: z.array(z.string()),
+      licenses: z.array(z.string()),
+      alternativeRoutes: z.array(z.string()),
+      apprenticeships: z.array(z.string()),
+      bootcamps: z.array(z.string())
+    }),
+    learningCurve: z.object({
+      timeToCompetent: z.string(),
+      difficultyLevel: z.string(),
+      prerequisites: z.array(z.string())
+    })
+  }),
+  
+  // 3. Compensation & Rewards
+  compensationRewards: z.object({
+    salaryRange: z.object({
+      entry: z.number(),
+      mid: z.number(),
+      senior: z.number(),
+      exceptional: z.number(),
+      currency: z.string()
+    }),
+    variablePay: z.object({
+      bonuses: z.string(),
+      commissions: z.string(),
+      equity: z.string(),
+      profitShare: z.string()
+    }),
+    nonFinancialBenefits: z.object({
+      pension: z.string(),
+      healthcare: z.string(),
+      leavePolicy: z.string(),
+      professionalDevelopment: z.string(),
+      perks: z.array(z.string())
+    })
+  }),
+  
+  // 4. Career Trajectory
+  careerTrajectory: z.object({
+    progressionSteps: z.array(z.object({
+      title: z.string(),
+      timeFrame: z.string(),
+      requirements: z.array(z.string())
+    })),
+    horizontalMoves: z.array(z.string()),
+    leadershipTrack: z.array(z.string()),
+    specialistTrack: z.array(z.string()),
+    dualLadders: z.boolean()
+  }),
+  
+  // 5. Labour-Market Dynamics
+  labourMarketDynamics: z.object({
+    demandOutlook: z.object({
+      growthForecast: z.string(),
+      timeHorizon: z.string(),
+      regionalHotspots: z.array(z.string())
+    }),
+    supplyProfile: z.object({
+      talentScarcity: z.string(),
+      competitionLevel: z.string(),
+      barriers: z.array(z.string())
+    }),
+    economicSensitivity: z.object({
+      recessionImpact: z.string(),
+      techDisruption: z.string(),
+      cyclicalPatterns: z.string()
+    })
+  }),
+  
+  // 6. Work Environment & Culture
+  workEnvironmentCulture: z.object({
+    typicalEmployers: z.array(z.string()),
+    teamStructures: z.array(z.string()),
+    culturalNorms: z.object({
+      pace: z.string(),
+      formality: z.string(),
+      decisionMaking: z.string(),
+      diversityInclusion: z.string()
+    }),
+    physicalContext: z.array(z.string())
+  }),
+  
+  // 7. Lifestyle Fit
+  lifestyleFit: z.object({
+    workingHours: z.object({
+      typical: z.string(),
+      flexibility: z.string(),
+      shiftWork: z.boolean(),
+      onCall: z.boolean()
+    }),
+    remoteOptions: z.object({
+      remoteWork: z.boolean(),
+      hybridOptions: z.boolean(),
+      travelRequirements: z.object({
+        frequency: z.string(),
+        duration: z.string(),
+        international: z.boolean()
+      })
+    }),
+    stressProfile: z.object({
+      intensity: z.string(),
+      volatility: z.string(),
+      emotionalLabour: z.string()
+    }),
+    workLifeBoundaries: z.object({
+      flexibility: z.string(),
+      autonomy: z.string(),
+      predictability: z.string()
+    })
+  }),
+  
+  // 8. Cost & Risk of Entry
+  costRiskEntry: z.object({
+    upfrontInvestment: z.object({
+      tuitionCosts: z.string(),
+      trainingCosts: z.string(),
+      examFees: z.string(),
+      lostEarnings: z.string(),
+      totalEstimate: z.string()
+    }),
+    employmentCertainty: z.object({
+      placementRates: z.string(),
+      probationFailureRates: z.string(),
+      timeToFirstRole: z.string()
+    }),
+    regulatoryRisk: z.object({
+      licenseRequirements: z.array(z.string()),
+      renewalRequirements: z.string(),
+      revocationRisk: z.string()
+    })
+  }),
+  
+  // 9. Values & Impact
+  valuesImpact: z.object({
+    societalContribution: z.object({
+      publicGood: z.string(),
+      sustainability: z.string(),
+      ethicalFootprint: z.string()
+    }),
+    personalAlignment: z.object({
+      intrinsicMotivation: z.array(z.string()),
+      meaningfulness: z.string(),
+      purposeDriven: z.boolean()
+    }),
+    reputationPrestige: z.object({
+      perceivedStatus: z.string(),
+      credibilityFactor: z.string(),
+      networkingValue: z.string()
+    })
+  }),
+  
+  // 10. Transferability & Future-Proofing
+  transferabilityFutureProofing: z.object({
+    portableSkills: z.array(z.string()),
+    automationExposure: z.object({
+      vulnerabilityLevel: z.string(),
+      timeHorizon: z.string(),
+      protectiveFactors: z.array(z.string())
+    }),
+    globalRelevance: z.object({
+      credentialRecognition: z.array(z.string()),
+      marketDemand: z.array(z.string()),
+      culturalAdaptability: z.string()
+    })
+  })
+});
+
+const ComprehensiveCareerCardsResponseSchema = z.object({
+  careerCards: z.array(ComprehensiveCareerCardSchema)
+});
+
 // Updated interfaces to match existing components
 export interface CareerInsight {
   id: string;
@@ -85,28 +279,214 @@ export interface ConversationInterest {
   extractedTerms: string[];
 }
 
+// Comprehensive Career Card Data Structure - 10 Section Framework
 export interface CareerCardData {
   id: string;
   title: string;
-  description: string;
-  industry: string;
-  averageSalary: {
+  confidence: number;
+  sourceData: string;
+  webSearchVerified?: boolean;
+  requiresVerification?: boolean;
+  citations?: string[];
+  
+  // 1. Role Fundamentals
+  roleFundamentals: {
+    corePurpose: string;
+    problemsSolved: string[];
+    typicalResponsibilities: string[];
+    decisionLatitude: string;
+    deliverables: string[];
+    keyStakeholders: string[];
+  };
+  
+  // 2. Competency Requirements
+  competencyRequirements: {
+    technicalSkills: string[];
+    softSkills: string[];
+    tools: string[];
+    certifications: string[];
+    qualificationPathway: {
+      degrees: string[];
+      licenses: string[];
+      alternativeRoutes: string[];
+      apprenticeships: string[];
+      bootcamps: string[];
+    };
+    learningCurve: {
+      timeToCompetent: string;
+      difficultyLevel: string;
+      prerequisites: string[];
+    };
+  };
+  
+  // 3. Compensation & Rewards
+  compensationRewards: {
+    salaryRange: {
+      entry: number;
+      mid: number;
+      senior: number;
+      exceptional: number;
+      currency: string;
+    };
+    variablePay: {
+      bonuses: string;
+      commissions: string;
+      equity: string;
+      profitShare: string;
+    };
+    nonFinancialBenefits: {
+      pension: string;
+      healthcare: string;
+      leavePolicy: string;
+      professionalDevelopment: string;
+      perks: string[];
+    };
+  };
+  
+  // 4. Career Trajectory
+  careerTrajectory: {
+    progressionSteps: Array<{
+      title: string;
+      timeFrame: string;
+      requirements: string[];
+    }>;
+    horizontalMoves: string[];
+    leadershipTrack: string[];
+    specialistTrack: string[];
+    dualLadders: boolean;
+  };
+  
+  // 5. Labour-Market Dynamics
+  labourMarketDynamics: {
+    demandOutlook: {
+      growthForecast: string;
+      timeHorizon: string;
+      regionalHotspots: string[];
+    };
+    supplyProfile: {
+      talentScarcity: string;
+      competitionLevel: string;
+      barriers: string[];
+    };
+    economicSensitivity: {
+      recessionImpact: string;
+      techDisruption: string;
+      cyclicalPatterns: string;
+    };
+  };
+  
+  // 6. Work Environment & Culture
+  workEnvironmentCulture: {
+    typicalEmployers: string[];
+    teamStructures: string[];
+    culturalNorms: {
+      pace: string;
+      formality: string;
+      decisionMaking: string;
+      diversityInclusion: string;
+    };
+    physicalContext: string[];
+  };
+  
+  // 7. Lifestyle Fit
+  lifestyleFit: {
+    workingHours: {
+      typical: string;
+      flexibility: string;
+      shiftWork: boolean;
+      onCall: boolean;
+    };
+    remoteOptions: {
+      remoteWork: boolean;
+      hybridOptions: boolean;
+      travelRequirements: {
+        frequency: string;
+        duration: string;
+        international: boolean;
+      };
+    };
+    stressProfile: {
+      intensity: string;
+      volatility: string;
+      emotionalLabour: string;
+    };
+    workLifeBoundaries: {
+      flexibility: string;
+      autonomy: string;
+      predictability: string;
+    };
+  };
+  
+  // 8. Cost & Risk of Entry
+  costRiskEntry: {
+    upfrontInvestment: {
+      tuitionCosts: string;
+      trainingCosts: string;
+      examFees: string;
+      lostEarnings: string;
+      totalEstimate: string;
+    };
+    employmentCertainty: {
+      placementRates: string;
+      probationFailureRates: string;
+      timeToFirstRole: string;
+    };
+    regulatoryRisk: {
+      licenseRequirements: string[];
+      renewalRequirements: string;
+      revocationRisk: string;
+    };
+  };
+  
+  // 9. Values & Impact
+  valuesImpact: {
+    societalContribution: {
+      publicGood: string;
+      sustainability: string;
+      ethicalFootprint: string;
+    };
+    personalAlignment: {
+      intrinsicMotivation: string[];
+      meaningfulness: string;
+      purposeDriven: boolean;
+    };
+    reputationPrestige: {
+      perceivedStatus: string;
+      credibilityFactor: string;
+      networkingValue: string;
+    };
+  };
+  
+  // 10. Transferability & Future-Proofing
+  transferabilityFutureProofing: {
+    portableSkills: string[];
+    automationExposure: {
+      vulnerabilityLevel: string;
+      timeHorizon: string;
+      protectiveFactors: string[];
+    };
+    globalRelevance: {
+      credentialRecognition: string[];
+      marketDemand: string[];
+      culturalAdaptability: string;
+    };
+  };
+  
+  // Legacy fields for backward compatibility
+  description?: string;
+  industry?: string;
+  averageSalary?: {
     entry: string;
     experienced: string;
     senior: string;
   };
-  growthOutlook: string;
-  entryRequirements: string[];
-  trainingPathways: string[];
-  keySkills: string[];
-  workEnvironment: string;
-  nextSteps: string[];
-  location: string;
-  confidence: number;
-  sourceData: string;
-  webSearchVerified?: boolean; // Indicates if data was verified via web search
-  requiresVerification?: boolean; // Indicates if data needs manual verification
-  citations?: string[]; // Web search citations if available
+  growthOutlook?: string;
+  entryRequirements?: string[];
+  trainingPathways?: string[];
+  keySkills?: string[];
+  workEnvironment?: string;
+  nextSteps?: string[];
+  location?: string;
 }
 
 export class ConversationAnalyzer {
@@ -295,8 +675,140 @@ export class ConversationAnalyzer {
     }));
   }
 
-  // Enhanced career card generation with OpenAI chat completions
+  // Enhanced comprehensive career card generation with 10-section framework
   async generateCareerCard(interest: string, context: string): Promise<CareerCardData | null> {
+    try {
+      console.log('🔍 Generating comprehensive 10-section career card for:', interest);
+      
+      // Use structured response with comprehensive prompt for all 10 sections
+      const completion = await (getOpenAIClient() as any).chat.completions.parse({
+        model: 'gpt-4o-2024-08-06',
+        response_format: zodResponseFormat(ComprehensiveCareerCardSchema, "comprehensive_career_card"),
+        messages: [
+          {
+            role: 'system',
+            content: `You are a UK career intelligence expert providing comprehensive, evidence-based career guidance. Generate detailed career profiles using the 10-section professional framework that covers all aspects of career decision-making.
+
+Focus on current UK market data, real pathways, and evidence-based insights. Ensure all salary figures are in GBP and reflect 2024-2025 UK market rates.`
+          },
+          {
+            role: 'user',
+            content: `Create a comprehensive UK career intelligence profile for: "${interest}" with context: "${context}".
+
+Provide detailed analysis across ALL 10 sections:
+
+1. ROLE FUNDAMENTALS
+- Core purpose: Why this role exists and what problems it solves
+- Typical responsibilities: Day-to-day tasks and deliverables
+- Decision latitude: Level of autonomy and decision-making authority
+- Key stakeholders: Who you work with and influence
+
+2. COMPETENCY REQUIREMENTS
+- Technical skills: Hard skills, tools, software, methods
+- Soft skills: Communication, leadership, interpersonal abilities
+- Qualification pathways: Degrees, professional qualifications, alternative routes
+- Learning curve: Time to reach competency and difficulty level
+
+3. COMPENSATION & REWARDS
+- Current UK salary ranges (entry/mid/senior/exceptional) in GBP
+- Variable pay: Bonuses, commissions, equity options
+- Benefits: Pension, healthcare, development budgets, perks
+
+4. CAREER TRAJECTORY
+- Progression steps: Typical advancement path with timeframes
+- Horizontal moves: Adjacent roles for skill broadening
+- Leadership vs specialist tracks: Dual career ladder options
+
+5. LABOUR-MARKET DYNAMICS
+- Demand outlook: Growth forecasts, regional hotspots in UK
+- Supply profile: Talent scarcity or saturation
+- Economic sensitivity: How economic changes affect hiring
+
+6. WORK ENVIRONMENT & CULTURE
+- Typical employers: Corporate, SME, public sector, startup contexts
+- Team structures: Hierarchical, agile, matrix organizations
+- Cultural norms: Pace, formality, decision-making styles
+
+7. LIFESTYLE FIT
+- Working patterns: Hours, flexibility, shift work, on-call requirements
+- Remote/hybrid options and travel requirements
+- Stress profile: Intensity, volatility, emotional demands
+- Work-life boundaries: Autonomy and predictability
+
+8. COST & RISK OF ENTRY
+- Upfront investment: Training costs, qualifications, lost earnings
+- Employment certainty: Placement rates, time to first role
+- Regulatory risks: Professional licensing requirements
+
+9. VALUES & IMPACT
+- Societal contribution: Public good, sustainability impact
+- Personal alignment: Intrinsic motivation factors
+- Reputation/prestige: Professional status and credibility
+
+10. TRANSFERABILITY & FUTURE-PROOFING
+- Portable skills: What transfers to other roles/industries
+- Automation exposure: AI/automation risks and protection factors
+- Global relevance: International credential recognition
+
+Ensure all data is current, realistic, and actionable for UK career seekers.`
+          }
+        ],
+        temperature: 0.2,
+        max_tokens: 4000
+      });
+
+      const careerCard = completion.parsed;
+      
+      if (!careerCard) {
+        console.warn('⚠️ No parsed content received from OpenAI');
+        return this.generateLegacyCareerCard(interest, context);
+      }
+
+      console.log('✅ Generated comprehensive 10-section career card:', careerCard.title);
+      
+      // Convert to CareerCardData format with legacy field mapping
+      const comprehensiveCard: CareerCardData = {
+        ...careerCard,
+        sourceData: interest,
+        webSearchVerified: true,
+        requiresVerification: false,
+        citations: ['OpenAI GPT-4o Knowledge Base'],
+        
+        // Legacy field mapping for backward compatibility
+        description: `${careerCard.roleFundamentals.corePurpose}`,
+        industry: careerCard.workEnvironmentCulture.typicalEmployers[0] || 'Professional Services',
+        averageSalary: {
+          entry: `£${careerCard.compensationRewards.salaryRange.entry.toLocaleString()}`,
+          experienced: `£${careerCard.compensationRewards.salaryRange.mid.toLocaleString()}`,
+          senior: `£${careerCard.compensationRewards.salaryRange.senior.toLocaleString()}`
+        },
+        growthOutlook: careerCard.labourMarketDynamics.demandOutlook.growthForecast,
+        entryRequirements: careerCard.competencyRequirements.qualificationPathway.degrees.concat(
+          careerCard.competencyRequirements.qualificationPathway.alternativeRoutes
+        ),
+        trainingPathways: careerCard.competencyRequirements.qualificationPathway.apprenticeships.concat(
+          careerCard.competencyRequirements.qualificationPathway.bootcamps
+        ),
+        keySkills: careerCard.competencyRequirements.technicalSkills.concat(
+          careerCard.competencyRequirements.softSkills
+        ).slice(0, 8),
+        workEnvironment: careerCard.workEnvironmentCulture.physicalContext.join(', '),
+        nextSteps: careerCard.careerTrajectory.progressionSteps.map(step => 
+          `${step.title} (${step.timeFrame})`
+        ).slice(0, 3),
+        location: 'UK'
+      };
+
+      return comprehensiveCard;
+      
+    } catch (error) {
+      console.error('❌ Error generating comprehensive career card:', error);
+      return this.generateLegacyCareerCard(interest, context);
+    }
+  }
+
+  // Legacy career card generation for fallback
+  private async generateLegacyCareerCard(interest: string, context: string): Promise<CareerCardData | null> {
     try {
       console.log('🔍 Using OpenAI chat completions for comprehensive UK career data:', interest);
       

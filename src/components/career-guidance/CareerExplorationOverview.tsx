@@ -140,13 +140,69 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
   }, [careerGuidanceData]);
   const [loadingGuidance, setLoadingGuidance] = useState<Set<string>>(new Set());
 
-  // Helper function to extract rich career data from different sources
+  // Helper function to extract comprehensive career data from 10-section framework
   const extractCareerData = (exploration: any) => {
-    // For current career cards (from conversation) - check for enhanced data first
+    // For current career cards (from conversation) - check for comprehensive 10-section data
     if (exploration.isCurrent && exploration.source) {
       const source = exploration.source;
       
-      // Extract enhanced data if available, fallback to original data
+      // Check if this is a comprehensive 10-section card
+      const isComprehensive = source.roleFundamentals || source.compensationRewards || source.careerTrajectory;
+      
+      if (isComprehensive) {
+        return {
+          // Extract from comprehensive 10-section structure
+          averageSalary: source.compensationRewards?.salaryRange || source.enhancedSalary || source.averageSalary,
+          keySkills: [
+            ...(source.competencyRequirements?.technicalSkills || []),
+            ...(source.competencyRequirements?.softSkills || [])
+          ].slice(0, 8),
+          trainingPathways: [
+            ...(source.competencyRequirements?.qualificationPathway?.degrees || []),
+            ...(source.competencyRequirements?.qualificationPathway?.apprenticeships || []),
+            ...(source.competencyRequirements?.qualificationPathway?.bootcamps || [])
+          ],
+          entryRequirements: [
+            ...(source.competencyRequirements?.qualificationPathway?.degrees || []),
+            ...(source.competencyRequirements?.learningCurve?.prerequisites || [])
+          ],
+          workEnvironment: source.workEnvironmentCulture?.physicalContext?.join(', ') || source.workEnvironment,
+          nextSteps: source.careerTrajectory?.progressionSteps?.map((step: any) => 
+            `${step.title} (${step.timeFrame})`
+          ) || source.nextSteps || [],
+          growthOutlook: source.labourMarketDynamics?.demandOutlook?.growthForecast || source.growthOutlook,
+          industry: source.workEnvironmentCulture?.typicalEmployers?.[0] || source.industry,
+          confidence: source.confidence,
+          
+          // 10-section comprehensive data
+          roleFundamentals: source.roleFundamentals,
+          competencyRequirements: source.competencyRequirements,
+          compensationRewards: source.compensationRewards,
+          careerTrajectory: source.careerTrajectory,
+          labourMarketDynamics: source.labourMarketDynamics,
+          workEnvironmentCulture: source.workEnvironmentCulture,
+          lifestyleFit: source.lifestyleFit,
+          costRiskEntry: source.costRiskEntry,
+          valuesImpact: source.valuesImpact,
+          transferabilityFutureProofing: source.transferabilityFutureProofing,
+          
+          // Enhanced properties (fallback for older cards)
+          careerProgression: source.careerProgression || source.careerTrajectory?.progressionSteps || [],
+          dayInTheLife: source.dayInTheLife || source.roleFundamentals?.typicalResponsibilities?.join('. '),
+          industryTrends: source.industryTrends || source.labourMarketDynamics?.demandOutlook?.regionalHotspots || [],
+          topUKEmployers: source.topUKEmployers || source.workEnvironmentCulture?.typicalEmployers || [],
+          professionalTestimonials: source.professionalTestimonials || [],
+          additionalQualifications: source.additionalQualifications || source.competencyRequirements?.certifications || [],
+          workLifeBalance: source.workLifeBalance || source.lifestyleFit?.workLifeBoundaries,
+          professionalAssociations: source.professionalAssociations || [],
+          enhancedSources: source.enhancedSources || source.citations || [],
+          isEnhanced: source.isEnhanced || source.webSearchVerified || isComprehensive,
+          enhancementStatus: source.enhancementStatus || (isComprehensive ? 'enhanced' : 'basic'),
+          isComprehensive: isComprehensive
+        };
+      }
+      
+      // Fallback for legacy enhanced cards
       return {
         averageSalary: source.enhancedSalary || source.averageSalary || source.salaryRange,
         keySkills: source.inDemandSkills || source.keySkills || source.skillsRequired || [],
@@ -157,7 +213,6 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
         growthOutlook: source.growthOutlook || source.marketOutlook,
         industry: source.industry,
         confidence: source.confidence,
-        // Enhanced properties
         careerProgression: source.careerProgression || [],
         dayInTheLife: source.dayInTheLife,
         industryTrends: source.industryTrends || [],
@@ -168,7 +223,8 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
         professionalAssociations: source.professionalAssociations || [],
         enhancedSources: source.enhancedSources || [],
         isEnhanced: source.isEnhanced || source.webSearchVerified || false,
-        enhancementStatus: source.enhancementStatus
+        enhancementStatus: source.enhancementStatus,
+        isComprehensive: false
       };
     }
     
@@ -193,7 +249,8 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
       professionalAssociations: [],
       enhancedSources: [],
       isEnhanced: false,
-      enhancementStatus: null
+      enhancementStatus: null,
+      isComprehensive: false
     };
   };
 
@@ -202,15 +259,31 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
     if (!salary) return '';
     if (typeof salary === 'string') return salary;
     
+    // Handle comprehensive compensation format (10-section framework)
+    if (salary.entry && salary.senior && typeof salary.entry === 'number') {
+      return `£${salary.entry.toLocaleString()} - £${salary.senior.toLocaleString()}`;
+    }
+    if (salary.entry && salary.mid && typeof salary.entry === 'number') {
+      return `£${salary.entry.toLocaleString()} - £${salary.mid.toLocaleString()}`;
+    }
+    
     // Handle enhanced salary format
     if (salary.entryLevel && salary.senior) {
       return `£${salary.entryLevel.toLocaleString()} - £${salary.senior.toLocaleString()}`;
     }
-    if (salary.entry && salary.senior) {
-      return `£${salary.entry.toLocaleString()} - £${salary.senior.toLocaleString()}`;
+    if (salary.entry && salary.senior && typeof salary.entry === 'string') {
+      // Try to parse numeric values from string format
+      const entryMatch = salary.entry.match(/[\d,]+/);
+      const seniorMatch = salary.senior.match(/[\d,]+/);
+      if (entryMatch && seniorMatch) {
+        return `£${entryMatch[0]} - £${seniorMatch[0]}`;
+      }
+      return `${salary.entry} - ${salary.senior}`;
     }
     if (salary.entry && salary.experienced) {
-      return `£${salary.entry.toLocaleString()} - £${salary.experienced.toLocaleString()}`;
+      const entryMatch = salary.entry.match?.(/[\d,]+/) || [salary.entry];
+      const expMatch = salary.experienced.match?.(/[\d,]+/) || [salary.experienced];
+      return `£${entryMatch[0]} - £${expMatch[0]}`;
     }
     
     // Handle basic format
@@ -747,33 +820,69 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                     {/* Enhancement status indicators */}
                     {(exploration as any).source && (
                       <>
-                        {(exploration as any).source.isEnhanced || (exploration as any).source.webSearchVerified || (exploration as any).source.enhancedSalary ? (
-                          <Badge className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black border-0 font-bold text-xs">
-                            <Lightbulb className="w-3 h-3 mr-1" />
-                            ENHANCED
-                          </Badge>
-                        ) : (exploration as any).source.enhancementStatus === 'failed' ? (
-                          <Badge className="bg-gradient-to-r from-sunset-orange to-neon-pink text-primary-white border-0 font-bold text-xs">
-                            <RefreshCw className="w-3 h-3 mr-1" />
-                            BASIC
-                          </Badge>
-                        ) : (exploration as any).source.enhancementStatus === 'pending' ? (
-                          <Badge className="bg-gradient-to-r from-electric-blue to-cyber-blue text-primary-white border-0 font-bold text-xs">
-                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                            ENHANCING
-                          </Badge>
-                        ) : (
-                          <Badge className="bg-gradient-to-r from-primary-gray to-primary-white/20 text-primary-white/70 border-0 font-bold text-xs">
-                            <Star className="w-3 h-3 mr-1" />
-                            STANDARD
-                          </Badge>
-                        )}
+                        {(() => {
+                          const source = (exploration as any).source;
+                          const isComprehensive = source?.roleFundamentals || source?.compensationRewards || source?.careerTrajectory;
+                          const isEnhanced = source?.isEnhanced || source?.webSearchVerified || source?.enhancedSalary || isComprehensive;
+                          
+                          if (isComprehensive) {
+                            return (
+                              <Badge className="bg-gradient-to-r from-cyber-blue to-electric-blue text-primary-white border-0 font-bold text-xs">
+                                <Brain className="w-3 h-3 mr-1" />
+                                COMPREHENSIVE
+                              </Badge>
+                            );
+                          } else if (isEnhanced) {
+                            return (
+                              <Badge className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black border-0 font-bold text-xs">
+                                <Lightbulb className="w-3 h-3 mr-1" />
+                                ENHANCED
+                              </Badge>
+                            );
+                          } else if (source?.enhancementStatus === 'failed') {
+                            return (
+                              <Badge className="bg-gradient-to-r from-sunset-orange to-neon-pink text-primary-white border-0 font-bold text-xs">
+                                <RefreshCw className="w-3 h-3 mr-1" />
+                                BASIC
+                              </Badge>
+                            );
+                          } else if (source?.enhancementStatus === 'pending') {
+                            return (
+                              <Badge className="bg-gradient-to-r from-electric-blue to-cyber-blue text-primary-white border-0 font-bold text-xs">
+                                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                ENHANCING
+                              </Badge>
+                            );
+                          } else {
+                            return (
+                              <Badge className="bg-gradient-to-r from-primary-gray to-primary-white/20 text-primary-white/70 border-0 font-bold text-xs">
+                                <Star className="w-3 h-3 mr-1" />
+                                STANDARD
+                              </Badge>
+                            );
+                          }
+                        })()}
                         
-                        {((exploration as any).source.isEnhanced || (exploration as any).source.webSearchVerified || (exploration as any).source.enhancedSalary || (exploration as any).source.enhancedAt) && (
-                          <div className="text-xs text-acid-green font-medium">
-                            Enhanced with real UK data
-                          </div>
-                        )}
+                        {(() => {
+                          const source = (exploration as any).source;
+                          const isComprehensive = source?.roleFundamentals || source?.compensationRewards || source?.careerTrajectory;
+                          const isEnhanced = source?.isEnhanced || source?.webSearchVerified || source?.enhancedSalary || isComprehensive;
+                          
+                          if (isComprehensive) {
+                            return (
+                              <div className="text-xs text-cyber-blue font-medium">
+                                Professional career intelligence
+                              </div>
+                            );
+                          } else if (isEnhanced) {
+                            return (
+                              <div className="text-xs text-acid-green font-medium">
+                                Enhanced with real UK data
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
                       </>
                     )}
                   </div>
