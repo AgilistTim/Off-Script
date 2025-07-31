@@ -1258,7 +1258,7 @@ class CareerPathwayService {
                 throw new Error(`Alternative pathway ${index} in document ${doc.id} has no title`);
               }
               
-              // ✅ FIXED: Map comprehensive data fields correctly
+              // ✅ FIXED: Map comprehensive data fields correctly AND preserve full comprehensive structure
               const cardData = {
                 id: `guidance-${doc.id}-alt-${index}`,
                 title: pathway.title,
@@ -1304,6 +1304,30 @@ class CareerPathwayService {
                 firebaseDocId: doc.id,
                 pathwayType: 'alternative',
                 pathwayIndex: index,
+                // ✅ CRITICAL FIX: Preserve full comprehensive 10-section data structure
+                roleFundamentals: pathway.roleFundamentals,
+                competencyRequirements: pathway.competencyRequirements,
+                compensationRewards: pathway.compensationRewards,
+                careerTrajectory: pathway.careerTrajectory,
+                labourMarketDynamics: pathway.labourMarketDynamics,
+                workEnvironmentCulture: pathway.workEnvironmentCulture,
+                lifestyleFit: pathway.lifestyleFit,
+                costRiskEntry: pathway.costRiskEntry,
+                valuesImpact: pathway.valuesImpact,
+                transferabilityFutureProofing: pathway.transferabilityFutureProofing,
+                // Enhanced properties for backward compatibility
+                enhancedSalary: pathway.enhancedSalary,
+                careerProgression: pathway.careerProgression,
+                dayInTheLife: pathway.dayInTheLife,
+                industryTrends: pathway.industryTrends,
+                topUKEmployers: pathway.topUKEmployers,
+                professionalTestimonials: pathway.professionalTestimonials,
+                additionalQualifications: pathway.additionalQualifications,
+                workLifeBalance: pathway.workLifeBalance,
+                professionalAssociations: pathway.professionalAssociations,
+                enhancedSources: pathway.enhancedSources,
+                isEnhanced: pathway.isEnhanced,
+                enhancementStatus: pathway.enhancementStatus,
                 // Debug info for troubleshooting
                 _debug: {
                   docId: doc.id,
@@ -1323,7 +1347,7 @@ class CareerPathwayService {
               throw new Error(`Primary pathway in document ${doc.id} has no title`);
             }
             
-            // ✅ FIXED: Map comprehensive data fields correctly for primary pathway
+            // ✅ FIXED: Map comprehensive data fields correctly for primary pathway AND preserve full comprehensive structure
             const primaryCardData = {
               id: `guidance-${doc.id}-primary`,
               title: primary.title,
@@ -1369,6 +1393,30 @@ class CareerPathwayService {
               // Store actual Firebase document ID and pathway info for deletion
               firebaseDocId: doc.id,
               pathwayType: 'primary',
+              // ✅ CRITICAL FIX: Preserve full comprehensive 10-section data structure
+              roleFundamentals: primary.roleFundamentals,
+              competencyRequirements: primary.competencyRequirements,
+              compensationRewards: primary.compensationRewards,
+              careerTrajectory: primary.careerTrajectory,
+              labourMarketDynamics: primary.labourMarketDynamics,
+              workEnvironmentCulture: primary.workEnvironmentCulture,
+              lifestyleFit: primary.lifestyleFit,
+              costRiskEntry: primary.costRiskEntry,
+              valuesImpact: primary.valuesImpact,
+              transferabilityFutureProofing: primary.transferabilityFutureProofing,
+              // Enhanced properties for backward compatibility
+              enhancedSalary: primary.enhancedSalary,
+              careerProgression: primary.careerProgression,
+              dayInTheLife: primary.dayInTheLife,
+              industryTrends: primary.industryTrends,
+              topUKEmployers: primary.topUKEmployers,
+              professionalTestimonials: primary.professionalTestimonials,
+              additionalQualifications: primary.additionalQualifications,
+              workLifeBalance: primary.workLifeBalance,
+              professionalAssociations: primary.professionalAssociations,
+              enhancedSources: primary.enhancedSources,
+              isEnhanced: primary.isEnhanced,
+              enhancementStatus: primary.enhancementStatus,
               // Debug info for troubleshooting
               _debug: {
                 docId: doc.id,
@@ -1412,7 +1460,16 @@ class CareerPathwayService {
             compensationRewards: careerCards[0].compensationRewards,
             labourMarketDynamics: careerCards[0].labourMarketDynamics,
             workEnvironmentCulture: careerCards[0].workEnvironmentCulture,
-            competencyRequirements: careerCards[0].competencyRequirements
+            competencyRequirements: careerCards[0].competencyRequirements,
+            
+            // ✅ ADDED: Check enhanced properties
+            hasEnhancedSalary: !!careerCards[0].enhancedSalary,
+            hasCareerProgression: !!careerCards[0].careerProgression,
+            hasDayInTheLife: !!careerCards[0].dayInTheLife,
+            hasIndustryTrends: !!careerCards[0].industryTrends,
+            hasTopUKEmployers: !!careerCards[0].topUKEmployers,
+            isEnhanced: careerCards[0].isEnhanced,
+            enhancementStatus: careerCards[0].enhancementStatus
           });
         }
         
