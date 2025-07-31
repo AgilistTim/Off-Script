@@ -213,37 +213,88 @@ class DashboardCareerEnhancementService {
       const currentData = docSnapshot.data();
       
       // Update the specific pathway that was enhanced
-      const pathwayType = originalCard.pathwayType || 'primaryPathway';
-      const updatePath = `guidance.${pathwayType}`;
+      // Map pathwayType correctly: 'primary' -> 'primaryPathway', 'alternative' -> 'alternativePathways'
+      const cardPathwayType = originalCard.pathwayType || 'primary';
+      const pathwayIndex = originalCard.pathwayIndex;
       
-      const enhancementData = {
-        // Preserve all original data
-        ...currentData.guidance?.[pathwayType],
-        
-        // Add enhanced fields
-        enhancedSalary: enhancedCard.enhancedSalary,
-        careerProgression: enhancedCard.careerProgression,
-        dayInTheLife: enhancedCard.dayInTheLife,
-        industryTrends: enhancedCard.industryTrends,
-        topUKEmployers: enhancedCard.topUKEmployers,
-        professionalTestimonials: enhancedCard.professionalTestimonials,
-        additionalQualifications: enhancedCard.additionalQualifications,
-        workLifeBalance: enhancedCard.workLifeBalance,
-        inDemandSkills: enhancedCard.inDemandSkills,
-        professionalAssociations: enhancedCard.professionalAssociations,
-        enhancedSources: enhancedCard.enhancedSources,
-        
-        // Enhancement metadata
-        isEnhanced: true,
-        enhancedAt: serverTimestamp(),
-        enhancementSource: 'openai_web_search',
-        enhancementStatus: 'enhanced'
-      };
-      
-      await updateDoc(docRef, {
-        [`guidance.${pathwayType}`]: enhancementData,
-        lastEnhanced: serverTimestamp()
+      console.log(`🔍 Saving enhancement for ${cardPathwayType} pathway`, {
+        cardPathwayType,
+        pathwayIndex,
+        hasIndex: typeof pathwayIndex === 'number'
       });
+      
+      if (cardPathwayType === 'primary') {
+        // Update primary pathway
+        const enhancementData = {
+          // Preserve all original data from primaryPathway
+          ...currentData.guidance?.primaryPathway,
+          
+          // Add enhanced fields
+          enhancedSalary: enhancedCard.enhancedSalary,
+          careerProgression: enhancedCard.careerProgression,
+          dayInTheLife: enhancedCard.dayInTheLife,
+          industryTrends: enhancedCard.industryTrends,
+          topUKEmployers: enhancedCard.topUKEmployers,
+          professionalTestimonials: enhancedCard.professionalTestimonials,
+          additionalQualifications: enhancedCard.additionalQualifications,
+          workLifeBalance: enhancedCard.workLifeBalance,
+          inDemandSkills: enhancedCard.inDemandSkills,
+          professionalAssociations: enhancedCard.professionalAssociations,
+          enhancedSources: enhancedCard.enhancedSources,
+          
+          // Enhancement metadata
+          isEnhanced: true,
+          enhancedAt: serverTimestamp(),
+          enhancementSource: 'openai_web_search',
+          enhancementStatus: 'enhanced'
+        };
+        
+        await updateDoc(docRef, {
+          'guidance.primaryPathway': enhancementData,
+          lastEnhanced: serverTimestamp()
+        });
+        
+      } else if (cardPathwayType === 'alternative' && typeof pathwayIndex === 'number') {
+        // Update specific alternative pathway by index
+        const alternativePathways = currentData.guidance?.alternativePathways || [];
+        
+        if (pathwayIndex >= 0 && pathwayIndex < alternativePathways.length) {
+          const updatedAlternatives = [...alternativePathways];
+          
+          updatedAlternatives[pathwayIndex] = {
+            // Preserve all original data from this alternative pathway
+            ...alternativePathways[pathwayIndex],
+            
+            // Add enhanced fields
+            enhancedSalary: enhancedCard.enhancedSalary,
+            careerProgression: enhancedCard.careerProgression,
+            dayInTheLife: enhancedCard.dayInTheLife,
+            industryTrends: enhancedCard.industryTrends,
+            topUKEmployers: enhancedCard.topUKEmployers,
+            professionalTestimonials: enhancedCard.professionalTestimonials,
+            additionalQualifications: enhancedCard.additionalQualifications,
+            workLifeBalance: enhancedCard.workLifeBalance,
+            inDemandSkills: enhancedCard.inDemandSkills,
+            professionalAssociations: enhancedCard.professionalAssociations,
+            enhancedSources: enhancedCard.enhancedSources,
+            
+            // Enhancement metadata
+            isEnhanced: true,
+            enhancedAt: serverTimestamp(),
+            enhancementSource: 'openai_web_search',
+            enhancementStatus: 'enhanced'
+          };
+          
+          await updateDoc(docRef, {
+            'guidance.alternativePathways': updatedAlternatives,
+            lastEnhanced: serverTimestamp()
+          });
+        } else {
+          console.warn(`⚠️ Invalid pathway index ${pathwayIndex} for alternatives array length ${alternativePathways.length}`);
+        }
+      } else {
+        console.warn(`⚠️ Unknown pathway type: ${cardPathwayType}`);
+      }
       
       console.log(`✅ Saved enhancement for: ${originalCard.title}`);
       
