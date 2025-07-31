@@ -138,20 +138,40 @@ export const CareerCardsPanel: React.FC<CareerCardsPanelProps> = ({
     setSelectedCard(null);
   };
 
-  // Helper function to get salary display
+  // Helper function to get salary display from comprehensive data
   const getSalaryDisplay = (card: CareerCard): string => {
+    // Try comprehensive schema first
+    const salary = card.compensationRewards?.salaryRange;
+    if (salary?.entry && salary?.mid) {
+      return `£${salary.entry.toLocaleString()} - £${salary.mid.toLocaleString()}`;
+    }
+    
+    // Fallback to legacy fields
     if (card.salaryRange) return card.salaryRange;
     if (card.averageSalary?.entry) return card.averageSalary.entry;
     return 'Competitive salary';
   };
 
-  // Helper function to get skills array
+  // Helper function to get skills from comprehensive data
   const getSkills = (card: CareerCard): string[] => {
+    // Try comprehensive schema first
+    const technical = card.competencyRequirements?.technicalSkills || [];
+    const soft = card.competencyRequirements?.softSkills || [];
+    const combined = [...technical, ...soft];
+    
+    if (combined.length > 0) return combined;
+    
+    // Fallback to legacy fields
     return card.keySkills || card.skillsRequired || [];
   };
 
-  // Helper function to get growth outlook  
+  // Helper function to get growth outlook from comprehensive data
   const getGrowthOutlook = (card: CareerCard): string => {
+    // Try comprehensive schema first
+    const outlook = card.labourMarketDynamics?.demandOutlook?.growthForecast;
+    if (outlook) return outlook;
+    
+    // Fallback to legacy fields
     return card.growthOutlook || card.marketOutlook || 'Good prospects';
   };
 
@@ -217,7 +237,9 @@ export const CareerCardsPanel: React.FC<CareerCardsPanelProps> = ({
                         {card.title}
                       </h3>
                       <p className="text-sm text-gray-600 mt-1">
-                        {card.industry}
+                        {card.workEnvironmentCulture?.typicalEmployers?.[0] || 
+                         card.industry || 
+                         'Technology'}
                       </p>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -227,9 +249,11 @@ export const CareerCardsPanel: React.FC<CareerCardsPanelProps> = ({
                     </div>
                   </div>
 
-                  {/* Card Content */}
+                  {/* Card Content - Simplified display from comprehensive data */}
                   <p className="text-gray-700 text-sm mb-3 line-clamp-2">
-                    {card.description}
+                    {card.roleFundamentals?.corePurpose || 
+                     card.description || 
+                     'Explore this career opportunity and its requirements.'}
                   </p>
 
                   {/* Salary Range */}
