@@ -38,6 +38,7 @@ import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../ui/collapsible';
 import { 
   Loader2, 
   MessageSquare, 
@@ -1337,48 +1338,25 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                             </div>
                           )}
 
-                          <TabsList className="grid w-full grid-cols-5 mb-6">
-                            <TabsTrigger value="role" className="flex items-center space-x-2">
-                              <Briefcase className="w-4 h-4" />
-                              <span>Role</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="skills" className="flex items-center space-x-2">
-                              <GraduationCap className="w-4 h-4" />
-                              <span>Skills</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="rewards" className="flex items-center space-x-2">
-                              <PoundSterling className="w-4 h-4" />
-                              <span>Rewards</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="market" className="flex items-center space-x-2">
-                              <TrendingUp className="w-4 h-4" />
-                              <span>Market</span>
-                            </TabsTrigger>
-                            <TabsTrigger value="lifestyle" className="flex items-center space-x-2">
-                              <Heart className="w-4 h-4" />
-                              <span>Lifestyle</span>
-                            </TabsTrigger>
-                          </TabsList>
+                          <div className="mb-6">
+                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                              <Briefcase className="w-5 h-5 mr-2 text-blue-600" />
+                              Career Overview
+                            </h3>
+                          </div>
 
-                          <TabsContent value="role" className="space-y-6">
+                          <div className="space-y-6">
                             {careerGuidanceData.has(exploration.threadId) ? (
                               (() => {
                                 const guidance = careerGuidanceData.get(exploration.threadId)!;
                                 // Determine which pathway this card represents
                                 let primaryPathway: any = guidance.primaryPathway;
-                                if (exploration.threadId.includes('-alt-')) {
-                                  const idx = parseInt(exploration.threadId.split('-alt-')[1]);
+                                if (exploration.threadId.includes('_alt-')) {
+                                  const idx = parseInt(exploration.threadId.split('_alt-')[1]);
                                   if (!isNaN(idx) && guidance.alternativePathways && guidance.alternativePathways[idx]) {
                                     primaryPathway = guidance.alternativePathways[idx];
                                   }
                                 }
-                                console.log('🪛 Pathway debug', {
-                                  threadId: exploration.threadId,
-                                  isAlt: exploration.threadId.includes('-alt-'),
-                                  altIndex: exploration.threadId.includes('-alt-') ? parseInt(exploration.threadId.split('-alt-')[1]) : null,
-                                  pathwayTitle: primaryPathway?.title,
-                                  altCount: guidance.alternativePathways?.length
-                                });
                                 const roleFundamentals = primaryPathway.roleFundamentals;
                                 
                                 return (
@@ -1442,9 +1420,15 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                         </div>
                                       )}
                                     </div>
-                                    
-                                    {/* Skills Tab Content */}
-                                    <TabsContent value="skills" className="space-y-6">
+
+                                    {/* Additional Sections */}
+                                    <div className="mt-6 space-y-4">
+                                      <Collapsible>
+                                        <CollapsibleTrigger className="flex items-center justify-between w-full p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg">
+                                          <span className="text-lg font-semibold text-gray-900">Skills</span>
+                                          <ArrowRight className="w-5 h-5 text-gray-500" />
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent className="p-4 border border-gray-200 rounded-b-lg border-t-0">
                                       {(() => {
                                         const competencyReqs = primaryPathway.competencyRequirements;
                                         
@@ -1542,10 +1526,15 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                           </>
                                         );
                                       })()}
-                                    </TabsContent>
+                                        </CollapsibleContent>
+                                      </Collapsible>
 
-                                    {/* Rewards Tab Content */}
-                                    <TabsContent value="rewards" className="space-y-6">
+                                      <Collapsible>
+                                        <CollapsibleTrigger className="flex items-center justify-between w-full p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg">
+                                          <span className="text-lg font-semibold text-gray-900">Rewards</span>
+                                          <ArrowRight className="w-5 h-5 text-gray-500" />
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent className="p-4 border border-gray-200 rounded-b-lg border-t-0">
                                       {(() => {
                                         const rewards = primaryPathway.compensationRewards;
                                         
@@ -1668,10 +1657,15 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                           </>
                                         );
                                       })()}
-                                    </TabsContent>
-                                    
-                                    {/* Market Tab Content */}
-                                    <TabsContent value="market" className="space-y-6">
+                                        </CollapsibleContent>
+                                      </Collapsible>
+
+                                      <Collapsible>
+                                        <CollapsibleTrigger className="flex items-center justify-between w-full p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg">
+                                          <span className="text-lg font-semibold text-gray-900">Market</span>
+                                          <ArrowRight className="w-5 h-5 text-gray-500" />
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent className="p-4 border border-gray-200 rounded-b-lg border-t-0">
                                       {(() => {
                                         const market = primaryPathway.labourMarketDynamics;
                                         
@@ -1768,10 +1762,15 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                           </>
                                         );
                                       })()}
-                                    </TabsContent>
-                                    
-                                    {/* Lifestyle Tab Content */}
-                                    <TabsContent value="lifestyle" className="space-y-6">
+                                        </CollapsibleContent>
+                                      </Collapsible>
+
+                                      <Collapsible>
+                                        <CollapsibleTrigger className="flex items-center justify-between w-full p-4 text-left bg-gray-50 hover:bg-gray-100 rounded-lg">
+                                          <span className="text-lg font-semibold text-gray-900">Lifestyle</span>
+                                          <ArrowRight className="w-5 h-5 text-gray-500" />
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent className="p-4 border border-gray-200 rounded-b-lg border-t-0">
                                       {(() => {
                                         const lifestyle = primaryPathway.lifestyleFit;
                                         const environment = primaryPathway.workEnvironmentCulture;
@@ -1951,8 +1950,10 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                           </>
                                         );
                                       })()}
-                                    </TabsContent>
-                                    
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    </div>
+
                                     {/* Gain Experience Section */}
                                     {primaryPathway.volunteeringOpportunities && primaryPathway.volunteeringOpportunities.length > 0 && (
                                       <div>
@@ -2094,7 +2095,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                 <p>Loading learning resources...</p>
                               </div>
                             )}
-                          </TabsContent>
+                          </div>
 
                           <TabsContent value="action" className="space-y-6">
                             {careerGuidanceData.has(exploration.threadId) ? (
