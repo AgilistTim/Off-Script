@@ -1228,10 +1228,27 @@ CRITICAL: Only include information found through current web search. Use specifi
 
       console.log('✅ Career card enhancement completed with additional web search data');
 
-      const cleanedContent = content
+      // Clean the content and extract JSON
+      let cleanedContent = content
         .replace(/```json\s*/gi, '')
         .replace(/```\s*$/gi, '')
         .trim();
+
+      // Handle cases where the response starts with explanatory text
+      if (cleanedContent.startsWith('Based on') || cleanedContent.startsWith('I found') || cleanedContent.startsWith('Here')) {
+        console.warn('⚠️ Response contains explanatory text, attempting to extract JSON');
+        
+        // Try to find JSON object in the response
+        const jsonMatch = cleanedContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          cleanedContent = jsonMatch[0];
+          console.log('✅ Extracted JSON from explanatory response');
+        } else {
+          console.error('❌ Could not extract JSON from explanatory response');
+          console.error('Raw content:', content);
+          return careerCard; // Return original if no JSON found
+        }
+      }
 
       try {
         const enhancedData = JSON.parse(cleanedContent);

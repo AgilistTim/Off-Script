@@ -242,9 +242,9 @@ class DashboardCareerEnhancementService {
           professionalAssociations: enhancedCard.professionalAssociations,
           enhancedSources: enhancedCard.enhancedSources,
           
-          // Enhancement metadata
+          // Enhancement metadata (use Date.now() instead of serverTimestamp() for arrays)
           isEnhanced: true,
-          enhancedAt: serverTimestamp(),
+          enhancedAt: new Date(),
           enhancementSource: 'openai_web_search',
           enhancementStatus: 'enhanced'
         };
@@ -278,9 +278,9 @@ class DashboardCareerEnhancementService {
             professionalAssociations: enhancedCard.professionalAssociations,
             enhancedSources: enhancedCard.enhancedSources,
             
-            // Enhancement metadata
+            // Enhancement metadata (use Date.now() instead of serverTimestamp() for arrays)
             isEnhanced: true,
-            enhancedAt: serverTimestamp(),
+            enhancedAt: new Date(),
             enhancementSource: 'openai_web_search',
             enhancementStatus: 'enhanced'
           };
