@@ -217,88 +217,7 @@ const Dashboard: React.FC = () => {
     }
   }, [location.state]);
 
-  // Fetch current career cards from conversations with auto-enhancement
-  const fetchCurrentCareerCards = useCallback(async () => {
-    if (!currentUser || loading) return;
-    
-    try {
-      console.log('🔍 DEBUG: Starting career card fetch for user:', currentUser.uid);
-      
-      // DEBUG: Check what's in the database directly
-      const { db } = await import('../services/firebase');
-      const { collection, query, where, getDocs } = await import('firebase/firestore');
-      
-      const guidanceQuery = query(
-        collection(db, 'threadCareerGuidance'),
-        where('userId', '==', currentUser.uid)
-      );
-      const guidanceSnapshot = await getDocs(guidanceQuery);
-      
-      console.log('🔍 DEBUG: Found threadCareerGuidance documents:', guidanceSnapshot.docs.length);
-      
-      guidanceSnapshot.docs.forEach((doc, index) => {
-        const data = doc.data();
-        console.log(`🔍 DEBUG: Document ${index + 1}:`, {
-          id: doc.id,
-          threadId: data.threadId,
-          primaryTitle: data.guidance?.primaryPathway?.title,
-          alternativeCount: data.guidance?.alternativePathways?.length || 0,
-          hasWebSearchData: !!data.guidance?.primaryPathway?.webSearchVerified,
-          rawData: data.guidance?.primaryPathway
-        });
-      });
-      
-      // Get basic cards using the service
-      const basicCards = await careerPathwayService.getCurrentCareerCards(currentUser.uid);
-      console.log('🔍 DEBUG: Service returned cards:', basicCards.length);
-      console.log('🔍 DEBUG: First card full details:', {
-        id: basicCards[0]?.id,
-        title: basicCards[0]?.title,
-        description: basicCards[0]?.description?.substring(0, 100) + '...',
-        industry: basicCards[0]?.industry,
-        trainingPathways: basicCards[0]?.trainingPathways,
-        isEnhanced: basicCards[0]?.isEnhanced,
-        webSearchVerified: basicCards[0]?.webSearchVerified,
-        enhancementStatus: basicCards[0]?.enhancementStatus
-      });
-      
-      // Check if any cards need enhancement
-      const cardsNeedingEnhancement = basicCards.filter(card => 
-        !card.enhancedSalary && 
-        !card.careerProgression && 
-        !card.enhancedSources && 
-        !card.isEnhanced &&
-        card.title && 
-        card.description
-      );
-      console.log(`🔍 DEBUG: ${cardsNeedingEnhancement.length}/${basicCards.length} cards need enhancement`);
-      
-      // Enhance cards automatically for dashboard view
-      console.log('🚀 Starting auto-enhancement for dashboard cards...');
-      const enhancedCards = await dashboardCareerEnhancementService.enhanceCareerCards(basicCards);
-      
-      // Log enhancement results
-      const stats = dashboardCareerEnhancementService.getEnhancementStats(enhancedCards);
-      console.log('✅ Dashboard card enhancement completed:', stats);
-      
-      // Show enhancement notification if any cards were enhanced
-      if (stats.enhanced > 0) {
-        setNotification({
-          message: `Enhanced ${stats.enhanced} career card${stats.enhanced > 1 ? 's' : ''} with real UK data!`,
-          type: 'success'
-        });
-      }
-      
-      setCurrentCareerCards(enhancedCards);
-      console.log('✅ Loaded and enhanced current career cards:', enhancedCards.length);
-    } catch (error) {
-      console.error('Error loading current career cards:', error);
-      setNotification({
-        message: 'Error loading career cards. Please try refreshing.',
-        type: 'error'
-      });
-    }
-  }, [currentUser, loading]);
+
 
   // Enhanced method to check for migration completion and show appropriate notifications
   const checkForMigrationData = useCallback(async () => {
@@ -483,7 +402,7 @@ const Dashboard: React.FC = () => {
         // Fetch all data in parallel
         const [
           videosResult,
-          currentCards
+          currentCardsResult
         ] = await Promise.allSettled([
           // Fetch video recommendations
           (async () => {
@@ -493,8 +412,29 @@ const Dashboard: React.FC = () => {
             return videosSnapshot.docs.map(doc => doc.id);
           })(),
           
-          // Fetch current career cards
-          careerPathwayService.getCurrentCareerCards(currentUser.uid)
+          // Fetch and enhance current career cards
+          (async () => {
+            console.log('🔍 DEBUG: Starting enhanced career card fetch for user:', currentUser.uid);
+            
+            // Get basic cards using the service
+            const basicCards = await careerPathwayService.getCurrentCareerCards(currentUser.uid);
+            console.log('🔍 DEBUG: Service returned cards:', basicCards.length);
+            
+            if (basicCards.length === 0) {
+              console.log('🔄 No migrated career cards found on first load - they may still be processing');
+              return [];
+            }
+            
+            // Enhance cards automatically for dashboard view
+            console.log('🚀 Starting auto-enhancement for dashboard cards...');
+            const enhancedCards = await dashboardCareerEnhancementService.enhanceCareerCards(basicCards);
+            
+            // Log enhancement results
+            const stats = dashboardCareerEnhancementService.getEnhancementStats(enhancedCards);
+            console.log('✅ Dashboard card enhancement completed:', stats);
+            
+            return enhancedCards;
+          })()
         ]);
         
         // Only update state if component is still mounted
@@ -506,9 +446,25 @@ const Dashboard: React.FC = () => {
         }
         
         // Process current career cards
-        if (currentCards.status === 'fulfilled') {
-          setCurrentCareerCards(currentCards.value);
-          console.log('✅ Loaded current career cards:', currentCards.value.length);
+        if (currentCardsResult.status === 'fulfilled') {
+          const enhancedCards = currentCardsResult.value;
+          setCurrentCareerCards(enhancedCards);
+          console.log('✅ Loaded current career cards:', enhancedCards.length);
+          
+          // Show enhancement notification if any cards were enhanced
+          const stats = dashboardCareerEnhancementService.getEnhancementStats(enhancedCards);
+          if (stats.enhanced > 0) {
+            setNotification({
+              message: `Enhanced ${stats.enhanced} career card${stats.enhanced > 1 ? 's' : ''} with real UK data!`,
+              type: 'success'
+            });
+          }
+        } else if (currentCardsResult.status === 'rejected') {
+          console.error('❌ Failed to load career cards:', currentCardsResult.reason);
+          setNotification({
+            message: 'Error loading career cards. Please try refreshing.',
+            type: 'error'
+          });
         }
         
         console.log('✅ Dashboard: All data fetched successfully');
