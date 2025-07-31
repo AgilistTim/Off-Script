@@ -147,6 +147,14 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
 
   // Helper function to extract comprehensive career data from 10-section framework
   const extractCareerData = (exploration: any) => {
+    console.log('🔍 extractCareerData called for:', {
+      threadId: exploration.threadId,
+      title: exploration.primaryCareerPath || exploration.threadTitle,
+      isCurrent: exploration.isCurrent,
+      hasSource: !!exploration.source,
+      sourceKeys: exploration.source ? Object.keys(exploration.source) : []
+    });
+    
     // For current career cards (from conversation) - check for comprehensive 10-section data
     if (exploration.isCurrent && exploration.source) {
       const source = exploration.source;
@@ -154,8 +162,20 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
       // Check if this is a comprehensive 10-section card
       const isComprehensive = source.roleFundamentals || source.compensationRewards || source.careerTrajectory;
       
+      console.log('🔍 Processing current card:', {
+        title: source.title,
+        isComprehensive,
+        hasRoleFundamentals: !!source.roleFundamentals,
+        hasCompensationRewards: !!source.compensationRewards,
+        hasCareerTrajectory: !!source.careerTrajectory
+      });
+      
       if (isComprehensive) {
-        return {
+        const extractedData = {
+          // Basic display fields
+          description: source.description || source.roleFundamentals?.corePurpose || 'Career path with comprehensive data',
+          industry: source.workEnvironmentCulture?.typicalEmployers?.[0] || source.industry || 'Technology',
+          
           // Extract from comprehensive 10-section structure
           averageSalary: source.compensationRewards?.salaryRange || source.enhancedSalary || source.averageSalary,
           keySkills: [
@@ -176,7 +196,6 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
             `${step.title} (${step.timeFrame})`
           ) || source.nextSteps || [],
           growthOutlook: source.labourMarketDynamics?.demandOutlook?.growthForecast || source.growthOutlook,
-          industry: source.workEnvironmentCulture?.typicalEmployers?.[0] || source.industry,
           confidence: source.confidence,
           
           // 10-section comprehensive data
@@ -205,10 +224,24 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
           enhancementStatus: source.enhancementStatus || (isComprehensive ? 'enhanced' : 'basic'),
           isComprehensive: isComprehensive
         };
+        
+        console.log('✅ Extracted comprehensive data:', {
+          title: source.title,
+          keySkillsCount: extractedData.keySkills.length,
+          hasAverageSalary: !!extractedData.averageSalary,
+          hasGrowthOutlook: !!extractedData.growthOutlook,
+          hasIndustry: !!extractedData.industry
+        });
+        
+        return extractedData;
       }
       
       // Fallback for legacy enhanced cards
-      return {
+      const legacyData = {
+        // Basic display fields
+        description: source.description || 'Career path with enhanced data',
+        industry: source.industry || 'Technology',
+        
         averageSalary: source.enhancedSalary || source.averageSalary || source.salaryRange,
         keySkills: source.inDemandSkills || source.keySkills || source.skillsRequired || [],
         trainingPathways: source.trainingPathways || [source.trainingPathway].filter(Boolean) || [],
@@ -216,7 +249,6 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
         workEnvironment: source.workEnvironment,
         nextSteps: source.nextSteps || [],
         growthOutlook: source.growthOutlook || source.marketOutlook,
-        industry: source.industry,
         confidence: source.confidence,
         careerProgression: source.careerProgression || [],
         dayInTheLife: source.dayInTheLife,
@@ -231,32 +263,130 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
         enhancementStatus: source.enhancementStatus,
         isComprehensive: false
       };
+      
+      console.log('⚠️ Using legacy fallback data:', {
+        title: source.title,
+        keySkillsCount: legacyData.keySkills.length,
+        hasAverageSalary: !!legacyData.averageSalary
+      });
+      
+      return legacyData;
     }
     
-    // For migrated career cards (try to extract from description/stored data)
-    return {
-      averageSalary: null,
-      keySkills: [],
-      trainingPathways: [],
-      entryRequirements: [],
-      workEnvironment: null,
-      nextSteps: [],
-      growthOutlook: null,
-      industry: null,
-      confidence: exploration.match,
-      careerProgression: [],
-      dayInTheLife: null,
-      industryTrends: [],
-      topUKEmployers: [],
-      professionalTestimonials: [],
-      additionalQualifications: [],
-      workLifeBalance: null,
-      professionalAssociations: [],
-      enhancedSources: [],
-      isEnhanced: false,
-      enhancementStatus: null,
+    // For migrated career cards - extract from the comprehensive data structure
+    // These cards are stored in Firebase and have the full 10-section data
+    const source = exploration.source || exploration;
+    
+    // Check if this is a comprehensive 10-section card (migrated from conversation)
+    const isComprehensive = source.roleFundamentals || source.compensationRewards || source.careerTrajectory;
+    
+    console.log('🔍 Processing migrated card:', {
+      title: source.title || exploration.primaryCareerPath,
+      isComprehensive,
+      hasRoleFundamentals: !!source.roleFundamentals,
+      hasCompensationRewards: !!source.compensationRewards,
+      hasCareerTrajectory: !!source.careerTrajectory
+    });
+    
+    if (isComprehensive) {
+      console.log('🔍 Extracting comprehensive data from migrated card:', source.title);
+      const migratedData = {
+        // Basic display fields
+        description: source.description || source.roleFundamentals?.corePurpose || 'Career path with comprehensive data',
+        industry: source.workEnvironmentCulture?.typicalEmployers?.[0] || source.industry || 'Technology',
+        
+        // Extract from comprehensive 10-section structure
+        averageSalary: source.compensationRewards?.salaryRange || source.enhancedSalary || source.averageSalary,
+        keySkills: [
+          ...(source.competencyRequirements?.technicalSkills || []),
+          ...(source.competencyRequirements?.softSkills || [])
+        ].slice(0, 8),
+        trainingPathways: [
+          ...(source.competencyRequirements?.qualificationPathway?.degrees || []),
+          ...(source.competencyRequirements?.qualificationPathway?.apprenticeships || []),
+          ...(source.competencyRequirements?.qualificationPathway?.bootcamps || [])
+        ],
+        entryRequirements: [
+          ...(source.competencyRequirements?.qualificationPathway?.degrees || []),
+          ...(source.competencyRequirements?.learningCurve?.prerequisites || [])
+        ],
+        workEnvironment: source.workEnvironmentCulture?.physicalContext?.join(', ') || source.workEnvironment,
+        nextSteps: source.careerTrajectory?.progressionSteps?.map((step: any) => 
+          `${step.title} (${step.timeFrame})`
+        ) || source.nextSteps || [],
+        growthOutlook: source.labourMarketDynamics?.demandOutlook?.growthForecast || source.growthOutlook,
+        confidence: source.confidence || exploration.match,
+        
+        // 10-section comprehensive data
+        roleFundamentals: source.roleFundamentals,
+        competencyRequirements: source.competencyRequirements,
+        compensationRewards: source.compensationRewards,
+        careerTrajectory: source.careerTrajectory,
+        labourMarketDynamics: source.labourMarketDynamics,
+        workEnvironmentCulture: source.workEnvironmentCulture,
+        lifestyleFit: source.lifestyleFit,
+        costRiskEntry: source.costRiskEntry,
+        valuesImpact: source.valuesImpact,
+        transferabilityFutureProofing: source.transferabilityFutureProofing,
+        
+        // Enhanced properties (fallback for older cards)
+        careerProgression: source.careerProgression || source.careerTrajectory?.progressionSteps || [],
+        dayInTheLife: source.dayInTheLife || source.roleFundamentals?.typicalResponsibilities?.join('. '),
+        industryTrends: source.industryTrends || source.labourMarketDynamics?.demandOutlook?.regionalHotspots || [],
+        topUKEmployers: source.topUKEmployers || source.workEnvironmentCulture?.typicalEmployers || [],
+        professionalTestimonials: source.professionalTestimonials || [],
+        additionalQualifications: source.additionalQualifications || source.competencyRequirements?.certifications || [],
+        workLifeBalance: source.workLifeBalance || source.lifestyleFit?.workLifeBoundaries,
+        professionalAssociations: source.professionalAssociations || [],
+        enhancedSources: source.enhancedSources || source.citations || [],
+        isEnhanced: source.isEnhanced || source.webSearchVerified || isComprehensive,
+        enhancementStatus: source.enhancementStatus || (isComprehensive ? 'enhanced' : 'basic'),
+        isComprehensive: isComprehensive
+      };
+      
+      console.log('✅ Extracted comprehensive migrated data:', {
+        title: source.title,
+        keySkillsCount: migratedData.keySkills.length,
+        hasAverageSalary: !!migratedData.averageSalary,
+        hasGrowthOutlook: !!migratedData.growthOutlook,
+        hasIndustry: !!migratedData.industry
+      });
+      
+      return migratedData;
+    }
+    
+    // Fallback for legacy migrated cards
+    const legacyMigratedData = {
+      averageSalary: source.enhancedSalary || source.averageSalary || source.salaryRange,
+      keySkills: source.inDemandSkills || source.keySkills || source.skillsRequired || [],
+      trainingPathways: source.trainingPathways || [source.trainingPathway].filter(Boolean) || [],
+      entryRequirements: source.entryRequirements || [],
+      workEnvironment: source.workEnvironment,
+      nextSteps: source.nextSteps || [],
+      growthOutlook: source.growthOutlook || source.marketOutlook,
+      industry: source.industry,
+      confidence: source.confidence || exploration.match,
+      careerProgression: source.careerProgression || [],
+      dayInTheLife: source.dayInTheLife,
+      industryTrends: source.industryTrends || [],
+      topUKEmployers: source.topUKEmployers || [],
+      professionalTestimonials: source.professionalTestimonials || [],
+      additionalQualifications: source.additionalQualifications || [],
+      workLifeBalance: source.workLifeBalance,
+      professionalAssociations: source.professionalAssociations || [],
+      enhancedSources: source.enhancedSources || [],
+      isEnhanced: source.isEnhanced || source.webSearchVerified || false,
+      enhancementStatus: source.enhancementStatus,
       isComprehensive: false
     };
+    
+    console.log('⚠️ Using legacy migrated fallback data:', {
+      title: source.title || exploration.primaryCareerPath,
+      keySkillsCount: legacyMigratedData.keySkills.length,
+      hasAverageSalary: !!legacyMigratedData.averageSalary
+    });
+    
+    return legacyMigratedData;
   };
 
   // Helper function to format salary display
@@ -825,6 +955,19 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
     
     // Combine and sort by last updated
     const combined = [...explorations, ...currentCardExplorations];
+    
+    // Log what we're processing
+    console.log('🔍 CareerExplorationOverview processing:', {
+      directExplorationsCount: directExplorations.length,
+      currentCareerCardsCount: currentCareerCards.length,
+      currentCardExplorationsCount: currentCardExplorations.length,
+      combinedCount: combined.length,
+      currentCardData: currentCareerCards.length > 0 ? {
+        firstCardTitle: currentCareerCards[0].title,
+        firstCardKeys: Object.keys(currentCareerCards[0]),
+        hasComprehensiveData: !!(currentCareerCards[0].roleFundamentals || currentCareerCards[0].compensationRewards || currentCareerCards[0].careerTrajectory)
+      } : null
+    });
     
     // Deduplicate by career card title/content, not by threadId
     // Multiple different career cards can come from the same conversation
