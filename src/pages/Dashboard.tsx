@@ -420,6 +420,40 @@ const Dashboard: React.FC = () => {
             const basicCards = await careerPathwayService.getCurrentCareerCards(currentUser.uid);
             console.log('🔍 DEBUG: Service returned cards:', basicCards.length);
             
+            // ✅ ADDED: Detailed logging of what the dashboard receives
+            if (basicCards.length > 0) {
+              console.log('🔍 DEBUG: Dashboard received career cards:', {
+                count: basicCards.length,
+                titles: basicCards.map(c => c.title),
+                firstCardKeys: Object.keys(basicCards[0]),
+                firstCardData: {
+                  title: basicCards[0].title,
+                  description: basicCards[0].description,
+                  industry: basicCards[0].industry,
+                  averageSalary: basicCards[0].averageSalary,
+                  growthOutlook: basicCards[0].growthOutlook,
+                  keySkills: basicCards[0].keySkills,
+                  workEnvironment: basicCards[0].workEnvironment,
+                  confidence: basicCards[0].confidence,
+                  
+                  // Check comprehensive data
+                  hasRoleFundamentals: !!basicCards[0].roleFundamentals,
+                  hasCompensationRewards: !!basicCards[0].compensationRewards,
+                  hasCareerTrajectory: !!basicCards[0].careerTrajectory,
+                  hasLabourMarketDynamics: !!basicCards[0].labourMarketDynamics,
+                  hasWorkEnvironmentCulture: !!basicCards[0].workEnvironmentCulture,
+                  hasCompetencyRequirements: !!basicCards[0].competencyRequirements,
+                  
+                  // Check if comprehensive data is accessible
+                  roleFundamentals: basicCards[0].roleFundamentals,
+                  compensationRewards: basicCards[0].compensationRewards,
+                  labourMarketDynamics: basicCards[0].labourMarketDynamics,
+                  workEnvironmentCulture: basicCards[0].workEnvironmentCulture,
+                  competencyRequirements: basicCards[0].competencyRequirements
+                }
+              });
+            }
+            
             if (basicCards.length === 0) {
               console.log('🔄 No migrated career cards found on first load - they may still be processing');
               return [];
