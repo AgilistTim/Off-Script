@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "offscript-8f6eb"
-  }
-} 
+    "default": "offscript-8f6eb",
+    "staging": "offscript-8f6eb"
+  },
+  "targets": {},
+  "etags": {}
+}

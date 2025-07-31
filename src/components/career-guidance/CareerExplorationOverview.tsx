@@ -1131,7 +1131,23 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <h3 className="text-xl font-street font-black text-primary-white mb-2">
-                      {exploration.primaryCareerPath}
+                      {(() => {
+                        if (careerGuidanceData.has(exploration.threadId)) {
+                          const guidance = careerGuidanceData.get(exploration.threadId)!;
+                          // Get the correct pathway title based on whether this is primary or alternative
+                          if (exploration.threadId.includes('_alt-')) {
+                            const idx = parseInt(exploration.threadId.split('_alt-')[1]);
+                            if (!isNaN(idx) && guidance.alternativePathways && guidance.alternativePathways[idx]) {
+                              return guidance.alternativePathways[idx].title;
+                            }
+                          } else if (exploration.threadId.includes('_primary')) {
+                            return guidance.primaryPathway?.title;
+                          }
+                          // Default to primary pathway title if no specific designation
+                          return guidance.primaryPathway?.title || exploration.primaryCareerPath;
+                        }
+                        return exploration.primaryCareerPath;
+                      })()}
                     </h3>
                     <div className="flex items-center space-x-4 text-sm text-primary-white/60 mb-3">
                       {careerData.industry && (
