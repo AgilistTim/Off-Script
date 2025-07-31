@@ -238,6 +238,7 @@ export interface CareerPathway {
     description: string;
     link?: string;
   }[];
+  reflectiveQuestions?: string[];
 
   // Legacy fields for backward compatibility
   description?: string;
@@ -252,7 +253,11 @@ export interface CareerPathway {
   trainingPathways?: string[];
   keySkills?: string[];
   workEnvironment?: string;
-  nextSteps?: string[];
+  nextSteps?: {
+    immediate: string[];
+    shortTerm: string[];
+    longTerm: string[];
+  };
   location?: string;
   progressionPath?: Array<{
     stage: string;
@@ -833,53 +838,9 @@ class CareerPathwayService {
               }
             ]
           },
-          alternativePathways: careerCards.slice(1).map((card, index) => ({
-            id: card.id || `alt-${Date.now()}`,
-            title: card.title,
-            description: card.description,
-            match: card.confidence || 80,
-            // Preserve original career card fields INCLUDING OpenAI web search data
-            industry: card.industry,
-            averageSalary: card.averageSalary,
-            growthOutlook: card.growthOutlook,
-            requiredSkills: card.keySkills || [],
-            workEnvironment: card.workEnvironment,
-            entryRequirements: card.entryRequirements || [],
-            trainingPathways: this.validateTrainingPathwayAlignment(card.title || '', card.trainingPathways || []),
-            // Preserve web search verification and citation data
-            webSearchVerified: card.webSearchVerified,
-            requiresVerification: card.requiresVerification,
-            citations: card.citations,
-            trainingOptions: this.convertTrainingPathwaysToOptions(
-              this.validateTrainingPathwayAlignment(card.title || '', card.trainingPathways || []),
-              card.title
-            ),
-            volunteeringOpportunities: [],
-            fundingOptions: [],
-            nextSteps: {
-              immediate: Array.isArray(card.nextSteps) ? card.nextSteps.slice(0, 2) : ['Research this alternative path'],
-              shortTerm: ['Explore requirements'],
-              longTerm: ['Consider as backup option']
-            },
-            reflectiveQuestions: [
-              'How does this compare to your primary choice?',
-              'What unique opportunities does this offer?'
-            ],
-            keyResources: [
-              {
-                title: 'Alternative Career Path',
-                description: 'Explore this as an alternative option'
-              }
-            ],
-            progressionPath: [
-              {
-                stage: 'Consideration',
-                description: 'Evaluate as alternative option',
-                timeframe: '1-2 months',
-                requirements: ['Research', 'Comparison with primary choice']
-              }
-            ]
-          })),
+          alternativePathways: careerCards.slice(1).map((card, index) => 
+            this.enhanceWithUKResources(card, {}, false)
+          ),
           crossCuttingResources: {
             generalFunding: [],
             careerSupport: []
@@ -2489,8 +2450,8 @@ class CareerPathwayService {
     const skills = userProfile.skills || [];
     const goals = userProfile.goals || [];
     
-    // Define curated career pathways for common UK career areas
-    const curatedPathways: CareerPathway[] = [
+    // Define basic career pathway data
+    const basicPathwayData = [
       {
         id: 'curated-digital-tech',
         title: 'Digital Technology & Software Development',
@@ -2678,8 +2639,12 @@ class CareerPathwayService {
         ]
       }
     ];
-
-    // Return pathways sorted by match score
+    
+    // Transform basic data into proper CareerPathway objects using enhancement
+    const curatedPathways = basicPathwayData.map(data => 
+      this.enhanceWithUKResources(data, userProfile, false)
+    );
+    
     return curatedPathways.sort((a, b) => b.match - a.match);
   }
 

@@ -67,7 +67,12 @@ import {
   Calendar,
   Building,
   ArrowRight as ArrowRightIcon,
-  Brain
+  Brain,
+  Code,
+  Wrench,
+  Gift,
+  LineChart,
+  Globe
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -418,22 +423,216 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
         primaryPathway: {
           id: 'fallback',
           title: exploration.primaryCareerPath || 'Career Path',
-          description: exploration.description || 'Career guidance temporarily unavailable. Please try again later.',
           match: 75,
+          
+          // 1. Role Fundamentals
+          roleFundamentals: {
+            corePurpose: exploration.description || 'Career guidance temporarily unavailable. Please try again later.',
+            problemsSolved: [],
+            typicalResponsibilities: [],
+            decisionLatitude: '',
+            deliverables: [],
+            keyStakeholders: []
+          },
+          
+          // 2. Competency Requirements
+          competencyRequirements: {
+            technicalSkills: [],
+            softSkills: [],
+            tools: [],
+            certifications: [],
+            qualificationPathway: {
+              degrees: [],
+              licenses: [],
+              alternativeRoutes: [],
+              apprenticeships: [],
+              bootcamps: []
+            },
+            learningCurve: {
+              timeToCompetent: '',
+              difficultyLevel: '',
+              prerequisites: []
+            }
+          },
+          
+          // 3. Compensation & Rewards
+          compensationRewards: {
+            salaryRange: {
+              entry: 0,
+              mid: 0,
+              senior: 0,
+              exceptional: 0,
+              currency: 'GBP'
+            },
+            variablePay: {
+              bonuses: '',
+              commissions: '',
+              equity: '',
+              profitShare: ''
+            },
+            nonFinancialBenefits: {
+              pension: '',
+              healthcare: '',
+              leavePolicy: '',
+              professionalDevelopment: '',
+              perks: []
+            }
+          },
+          
+          // 4. Career Trajectory
+          careerTrajectory: {
+            progressionSteps: [
+              {
+                title: 'Exploration',
+                timeFrame: '1-3 months',
+                requirements: ['Research career requirements', 'Assess current skills']
+              },
+              {
+                title: 'Preparation',
+                timeFrame: '6-12 months',
+                requirements: ['Complete relevant training', 'Build experience through projects or volunteering']
+              },
+              {
+                title: 'Entry',
+                timeFrame: '12+ months',
+                requirements: ['Apply for positions', 'Network with professionals', 'Continue learning']
+              }
+            ],
+            horizontalMoves: [],
+            leadershipTrack: [],
+            specialistTrack: [],
+            dualLadders: false
+          },
+          
+          // 5. Labour-Market Dynamics
+          labourMarketDynamics: {
+            demandOutlook: {
+              growthForecast: '',
+              timeHorizon: '',
+              regionalHotspots: []
+            },
+            supplyProfile: {
+              talentScarcity: '',
+              competitionLevel: '',
+              barriers: []
+            },
+            economicSensitivity: {
+              recessionImpact: '',
+              techDisruption: '',
+              cyclicalPatterns: ''
+            }
+          },
+          
+          // 6. Work Environment & Culture
+          workEnvironmentCulture: {
+            typicalEmployers: [],
+            teamStructures: [],
+            culturalNorms: {
+              pace: '',
+              formality: '',
+              decisionMaking: '',
+              diversityInclusion: ''
+            },
+            physicalContext: []
+          },
+          
+          // 7. Lifestyle Fit
+          lifestyleFit: {
+            workingHours: {
+              typical: '',
+              flexibility: '',
+              shiftWork: false,
+              onCall: false
+            },
+            remoteOptions: {
+              remoteWork: false,
+              hybridOptions: false,
+              travelRequirements: {
+                frequency: '',
+                duration: '',
+                international: false
+              }
+            },
+            stressProfile: {
+              intensity: '',
+              volatility: '',
+              emotionalLabour: ''
+            },
+            workLifeBoundaries: {
+              flexibility: '',
+              autonomy: '',
+              predictability: ''
+            }
+          },
+          
+          // 8. Cost & Risk of Entry
+          costRiskEntry: {
+            upfrontInvestment: {
+              tuitionCosts: '',
+              trainingCosts: '',
+              examFees: '',
+              lostEarnings: '',
+              totalEstimate: ''
+            },
+            employmentCertainty: {
+              placementRates: '',
+              probationFailureRates: '',
+              timeToFirstRole: ''
+            },
+            regulatoryRisk: {
+              licenseRequirements: [],
+              renewalRequirements: '',
+              revocationRisk: ''
+            }
+          },
+          
+          // 9. Values & Impact
+          valuesImpact: {
+            societalContribution: {
+              publicGood: '',
+              sustainability: '',
+              ethicalFootprint: ''
+            },
+            personalAlignment: {
+              intrinsicMotivation: [],
+              meaningfulness: '',
+              purposeDriven: false
+            },
+            reputationPrestige: {
+              perceivedStatus: '',
+              credibilityFactor: '',
+              networkingValue: ''
+            }
+          },
+          
+          // 10. Transferability & Future-Proofing
+          transferabilityFutureProofing: {
+            portableSkills: [],
+            automationExposure: {
+              vulnerabilityLevel: '',
+              timeHorizon: '',
+              protectiveFactors: []
+            },
+            globalRelevance: {
+              credentialRecognition: [],
+              marketDemand: [],
+              culturalAdaptability: ''
+            }
+          },
+          
+          // Support Resources
           trainingOptions: [],
           volunteeringOpportunities: [],
           fundingOptions: [],
+          keyResources: [],
+          
+          // Legacy fields for backward compatibility
+          description: exploration.description || 'Career guidance temporarily unavailable. Please try again later.',
           nextSteps: {
             immediate: ['Research career options', 'Identify your skills and interests'],
             shortTerm: ['Explore training opportunities', 'Network with professionals'],
             longTerm: ['Develop career plan', 'Gain relevant experience']
           },
-          reflectiveQuestions: [
-            'What aspects of this career interest you most?',
-            'What skills do you already have that apply?',
-            'What would you like to learn more about?'
-          ],
-          keyResources: [],
           progressionPath: [
             {
               stage: 'Exploration',
@@ -995,80 +1194,608 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                             </div>
                           )}
 
-                          <TabsList className="grid w-full grid-cols-2 mb-6">
-                            <TabsTrigger value="learning" className="flex items-center space-x-2">
-                              <BookOpen className="w-4 h-4" />
-                              <span>Learning</span>
+                          <TabsList className="grid w-full grid-cols-5 mb-6">
+                            <TabsTrigger value="role" className="flex items-center space-x-2">
+                              <Briefcase className="w-4 h-4" />
+                              <span>Role</span>
                             </TabsTrigger>
-                            <TabsTrigger value="action" className="flex items-center space-x-2">
-                              <Play className="w-4 h-4" />
-                              <span>Take Action</span>
+                            <TabsTrigger value="skills" className="flex items-center space-x-2">
+                              <GraduationCap className="w-4 h-4" />
+                              <span>Skills</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="rewards" className="flex items-center space-x-2">
+                              <PoundSterling className="w-4 h-4" />
+                              <span>Rewards</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="market" className="flex items-center space-x-2">
+                              <TrendingUp className="w-4 h-4" />
+                              <span>Market</span>
+                            </TabsTrigger>
+                            <TabsTrigger value="lifestyle" className="flex items-center space-x-2">
+                              <Heart className="w-4 h-4" />
+                              <span>Lifestyle</span>
                             </TabsTrigger>
                           </TabsList>
 
-                          <TabsContent value="learning" className="space-y-6">
+                          <TabsContent value="role" className="space-y-6">
                             {careerGuidanceData.has(exploration.threadId) ? (
                               (() => {
                                 const guidance = careerGuidanceData.get(exploration.threadId)!;
                                 const primaryPathway = guidance.primaryPathway;
+                                const roleFundamentals = primaryPathway.roleFundamentals;
                                 
                                 return (
                                   <>
-                                    {/* Training & Education Options */}
+                                    {/* Core Purpose */}
                                     <div>
                                       <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                        <GraduationCap className="w-5 h-5 mr-2 text-blue-600" />
-                                        Training & Education Options
+                                        <Target className="w-5 h-5 mr-2 text-blue-600" />
+                                        Core Purpose
                                       </h4>
                                       <p className="text-sm text-gray-600 mb-4">
-                                        Courses and qualifications to build your skills
+                                        {roleFundamentals?.corePurpose || primaryPathway.description}
                                       </p>
                                       
-                                      {primaryPathway.trainingOptions && primaryPathway.trainingOptions.length > 0 ? (
-                                        <div className="grid gap-4">
-                                          {primaryPathway.trainingOptions.map((training, index) => (
-                                            <div key={index} className="border border-gray-200 rounded-lg p-4 bg-white">
-                                              <div className="flex justify-between items-start">
-                                                <div className="flex-1">
-                                                  <h5 className="font-semibold text-gray-900">{training.title}</h5>
-                                                  <p className="text-sm text-gray-600 mt-1">{training.description}</p>
-                                                  <div className="flex items-center mt-3 space-x-4 text-sm text-gray-500">
-                                                    <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">{training.level}</span>
-                                                    <span className="flex items-center">
-                                                      <Clock className="w-3 h-3 mr-1" />
-                                                      {training.duration}
-                                                    </span>
-                                                    <span className="font-medium text-green-600">{training.cost}</span>
-                                                  </div>
-                                                  <div className="text-sm text-gray-600 mt-2">
-                                                    <strong>Provider:</strong> {training.provider}
-                                                  </div>
-                                                  {training.fundingAvailable && (
-                                                    <div className="text-sm text-green-600 font-medium mt-1">
-                                                      💰 {training.fundingAvailable}
-                                                    </div>
-                                                  )}
-                                                </div>
-                                                {training.link && (
-                                                  <Button size="sm" variant="light" asChild>
-                                                    <a href={training.link} target="_blank" rel="noopener noreferrer">
-                                                      <ExternalLink className="w-3 h-3 mr-1" />
-                                                      Learn More
-                                                    </a>
-                                                  </Button>
-                                                )}
-                                              </div>
-                                            </div>
-                                          ))}
+                                      {/* Problems Solved */}
+                                      {roleFundamentals?.problemsSolved?.length > 0 && (
+                                        <div className="mt-4">
+                                          <h5 className="font-medium text-gray-900 mb-2">Key Problems Solved</h5>
+                                          <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+                                            {roleFundamentals.problemsSolved.map((problem, index) => (
+                                              <li key={index}>{problem}</li>
+                                            ))}
+                                          </ul>
                                         </div>
-                                      ) : (
-                                        <div className="text-center py-6 text-gray-500">
-                                          <BookOpen className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                                          <p>Training options are being researched for this career path.</p>
+                                      )}
+                                      
+                                      {/* Responsibilities */}
+                                      {roleFundamentals?.typicalResponsibilities?.length > 0 && (
+                                        <div className="mt-4">
+                                          <h5 className="font-medium text-gray-900 mb-2">Day-to-Day Responsibilities</h5>
+                                          <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+                                            {roleFundamentals.typicalResponsibilities.map((resp, index) => (
+                                              <li key={index}>{resp}</li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Decision Making */}
+                                      {roleFundamentals?.decisionLatitude && (
+                                        <div className="mt-4">
+                                          <h5 className="font-medium text-gray-900 mb-2">Decision Making Authority</h5>
+                                          <p className="text-sm text-gray-600">{roleFundamentals.decisionLatitude}</p>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Key Stakeholders */}
+                                      {roleFundamentals?.keyStakeholders?.length > 0 && (
+                                        <div className="mt-4">
+                                          <h5 className="font-medium text-gray-900 mb-2">Key Stakeholders</h5>
+                                          <div className="flex flex-wrap gap-2">
+                                            {roleFundamentals.keyStakeholders.map((stakeholder, index) => (
+                                              <span
+                                                key={index}
+                                                className="px-3 py-1 bg-gradient-to-r from-cyber-blue/20 to-electric-blue/20 border border-cyber-blue/30 rounded-full text-xs text-primary-white font-medium"
+                                              >
+                                                {stakeholder}
+                                              </span>
+                                            ))}
+                                          </div>
                                         </div>
                                       )}
                                     </div>
+                                    
+                                    {/* Skills Tab Content */}
+                                    <TabsContent value="skills" className="space-y-6">
+                                      {(() => {
+                                        const competencyReqs = primaryPathway.competencyRequirements;
+                                        
+                                        return (
+                                          <>
+                                            {/* Technical Skills */}
+                                            {competencyReqs?.technicalSkills?.length > 0 && (
+                                              <div>
+                                                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                  <Code className="w-5 h-5 mr-2 text-blue-600" />
+                                                  Technical Skills
+                                                </h4>
+                                                <div className="flex flex-wrap gap-2">
+                                                  {competencyReqs.technicalSkills.map((skill, index) => (
+                                                    <span
+                                                      key={index}
+                                                      className="px-3 py-1 bg-gradient-to-r from-electric-blue/20 to-neon-pink/20 border border-electric-blue/30 rounded-full text-xs text-primary-white font-medium"
+                                                    >
+                                                      {skill}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Soft Skills */}
+                                            {competencyReqs?.softSkills?.length > 0 && (
+                                              <div className="mt-6">
+                                                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                  <Users className="w-5 h-5 mr-2 text-purple-600" />
+                                                  Soft Skills
+                                                </h4>
+                                                <div className="flex flex-wrap gap-2">
+                                                  {competencyReqs.softSkills.map((skill, index) => (
+                                                    <span
+                                                      key={index}
+                                                      className="px-3 py-1 bg-gradient-to-r from-cyber-purple/20 to-neon-pink/20 border border-cyber-purple/30 rounded-full text-xs text-primary-white font-medium"
+                                                    >
+                                                      {skill}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Tools & Technologies */}
+                                            {competencyReqs?.tools?.length > 0 && (
+                                              <div className="mt-6">
+                                                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                  <Wrench className="w-5 h-5 mr-2 text-green-600" />
+                                                  Tools & Technologies
+                                                </h4>
+                                                <div className="flex flex-wrap gap-2">
+                                                  {competencyReqs.tools.map((tool, index) => (
+                                                    <span
+                                                      key={index}
+                                                      className="px-3 py-1 bg-gradient-to-r from-acid-green/20 to-cyber-yellow/20 border border-acid-green/30 rounded-full text-xs text-primary-white font-medium"
+                                                    >
+                                                      {tool}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Learning Curve */}
+                                            {competencyReqs?.learningCurve && (
+                                              <div className="mt-6">
+                                                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                  <TrendingUp className="w-5 h-5 mr-2 text-orange-600" />
+                                                  Learning Journey
+                                                </h4>
+                                                <div className="space-y-4">
+                                                  <div>
+                                                    <h5 className="font-medium text-gray-900 mb-2">Time to Competency</h5>
+                                                    <p className="text-sm text-gray-600">{competencyReqs.learningCurve.timeToCompetent}</p>
+                                                  </div>
+                                                  <div>
+                                                    <h5 className="font-medium text-gray-900 mb-2">Difficulty Level</h5>
+                                                    <p className="text-sm text-gray-600">{competencyReqs.learningCurve.difficultyLevel}</p>
+                                                  </div>
+                                                  {competencyReqs.learningCurve.prerequisites?.length > 0 && (
+                                                    <div>
+                                                      <h5 className="font-medium text-gray-900 mb-2">Prerequisites</h5>
+                                                      <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+                                                        {competencyReqs.learningCurve.prerequisites.map((prereq, index) => (
+                                                          <li key={index}>{prereq}</li>
+                                                        ))}
+                                                      </ul>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </>
+                                        );
+                                      })()}
+                                    </TabsContent>
 
+                                    {/* Rewards Tab Content */}
+                                    <TabsContent value="rewards" className="space-y-6">
+                                      {(() => {
+                                        const rewards = primaryPathway.compensationRewards;
+                                        
+                                        return (
+                                          <>
+                                            {/* Salary Ranges */}
+                                            {rewards?.salaryRange && (
+                                              <div>
+                                                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                  <PoundSterling className="w-5 h-5 mr-2 text-green-600" />
+                                                  Salary Ranges
+                                                </h4>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                                  <div className="p-4 bg-gradient-to-r from-acid-green/10 to-cyber-yellow/10 border border-acid-green/30 rounded-lg">
+                                                    <div className="text-xs text-acid-green font-medium mb-1">Entry Level</div>
+                                                    <div className="text-lg font-bold text-primary-white">£{rewards.salaryRange.entry.toLocaleString()}</div>
+                                                  </div>
+                                                  <div className="p-4 bg-gradient-to-r from-electric-blue/10 to-cyber-blue/10 border border-electric-blue/30 rounded-lg">
+                                                    <div className="text-xs text-electric-blue font-medium mb-1">Mid Level</div>
+                                                    <div className="text-lg font-bold text-primary-white">£{rewards.salaryRange.mid.toLocaleString()}</div>
+                                                  </div>
+                                                  <div className="p-4 bg-gradient-to-r from-cyber-purple/10 to-neon-pink/10 border border-cyber-purple/30 rounded-lg">
+                                                    <div className="text-xs text-cyber-purple font-medium mb-1">Senior Level</div>
+                                                    <div className="text-lg font-bold text-primary-white">£{rewards.salaryRange.senior.toLocaleString()}</div>
+                                                  </div>
+                                                  <div className="p-4 bg-gradient-to-r from-sunset-orange/10 to-cyber-yellow/10 border border-sunset-orange/30 rounded-lg">
+                                                    <div className="text-xs text-sunset-orange font-medium mb-1">Exceptional</div>
+                                                    <div className="text-lg font-bold text-primary-white">£{rewards.salaryRange.exceptional.toLocaleString()}</div>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Variable Pay */}
+                                            {rewards?.variablePay && (
+                                              <div className="mt-6">
+                                                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                  <TrendingUp className="w-5 h-5 mr-2 text-blue-600" />
+                                                  Variable Pay
+                                                </h4>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                  {rewards.variablePay.bonuses && (
+                                                    <div className="p-4 bg-gradient-to-r from-electric-blue/10 to-neon-pink/10 border border-electric-blue/30 rounded-lg">
+                                                      <h5 className="font-medium text-electric-blue mb-2">Bonuses</h5>
+                                                      <p className="text-sm text-primary-white">{rewards.variablePay.bonuses}</p>
+                                                    </div>
+                                                  )}
+                                                  {rewards.variablePay.commissions && (
+                                                    <div className="p-4 bg-gradient-to-r from-cyber-purple/10 to-neon-pink/10 border border-cyber-purple/30 rounded-lg">
+                                                      <h5 className="font-medium text-cyber-purple mb-2">Commissions</h5>
+                                                      <p className="text-sm text-primary-white">{rewards.variablePay.commissions}</p>
+                                                    </div>
+                                                  )}
+                                                  {rewards.variablePay.equity && (
+                                                    <div className="p-4 bg-gradient-to-r from-acid-green/10 to-cyber-yellow/10 border border-acid-green/30 rounded-lg">
+                                                      <h5 className="font-medium text-acid-green mb-2">Equity</h5>
+                                                      <p className="text-sm text-primary-white">{rewards.variablePay.equity}</p>
+                                                    </div>
+                                                  )}
+                                                  {rewards.variablePay.profitShare && (
+                                                    <div className="p-4 bg-gradient-to-r from-sunset-orange/10 to-cyber-yellow/10 border border-sunset-orange/30 rounded-lg">
+                                                      <h5 className="font-medium text-sunset-orange mb-2">Profit Share</h5>
+                                                      <p className="text-sm text-primary-white">{rewards.variablePay.profitShare}</p>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Benefits */}
+                                            {rewards?.nonFinancialBenefits && (
+                                              <div className="mt-6">
+                                                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                  <Gift className="w-5 h-5 mr-2 text-purple-600" />
+                                                  Benefits Package
+                                                </h4>
+                                                <div className="space-y-4">
+                                                  {rewards.nonFinancialBenefits.pension && (
+                                                    <div>
+                                                      <h5 className="font-medium text-gray-900 mb-2">Pension</h5>
+                                                      <p className="text-sm text-gray-600">{rewards.nonFinancialBenefits.pension}</p>
+                                                    </div>
+                                                  )}
+                                                  {rewards.nonFinancialBenefits.healthcare && (
+                                                    <div>
+                                                      <h5 className="font-medium text-gray-900 mb-2">Healthcare</h5>
+                                                      <p className="text-sm text-gray-600">{rewards.nonFinancialBenefits.healthcare}</p>
+                                                    </div>
+                                                  )}
+                                                  {rewards.nonFinancialBenefits.leavePolicy && (
+                                                    <div>
+                                                      <h5 className="font-medium text-gray-900 mb-2">Leave Policy</h5>
+                                                      <p className="text-sm text-gray-600">{rewards.nonFinancialBenefits.leavePolicy}</p>
+                                                    </div>
+                                                  )}
+                                                  {rewards.nonFinancialBenefits.professionalDevelopment && (
+                                                    <div>
+                                                      <h5 className="font-medium text-gray-900 mb-2">Professional Development</h5>
+                                                      <p className="text-sm text-gray-600">{rewards.nonFinancialBenefits.professionalDevelopment}</p>
+                                                    </div>
+                                                  )}
+                                                  {rewards.nonFinancialBenefits.perks?.length > 0 && (
+                                                    <div>
+                                                      <h5 className="font-medium text-gray-900 mb-2">Additional Perks</h5>
+                                                      <div className="flex flex-wrap gap-2">
+                                                        {rewards.nonFinancialBenefits.perks.map((perk, index) => (
+                                                          <span
+                                                            key={index}
+                                                            className="px-3 py-1 bg-gradient-to-r from-cyber-purple/20 to-neon-pink/20 border border-cyber-purple/30 rounded-full text-xs text-primary-white font-medium"
+                                                          >
+                                                            {perk}
+                                                          </span>
+                                                        ))}
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )}
+                                          </>
+                                        );
+                                      })()}
+                                    </TabsContent>
+                                    
+                                    {/* Market Tab Content */}
+                                    <TabsContent value="market" className="space-y-6">
+                                      {(() => {
+                                        const market = primaryPathway.labourMarketDynamics;
+                                        
+                                        return (
+                                          <>
+                                            {/* Demand Outlook */}
+                                            {market?.demandOutlook && (
+                                              <div>
+                                                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                  <TrendingUp className="w-5 h-5 mr-2 text-green-600" />
+                                                  Demand Outlook
+                                                </h4>
+                                                <div className="space-y-4">
+                                                  <div>
+                                                    <h5 className="font-medium text-gray-900 mb-2">Growth Forecast</h5>
+                                                    <p className="text-sm text-gray-600">{market.demandOutlook.growthForecast}</p>
+                                                  </div>
+                                                  <div>
+                                                    <h5 className="font-medium text-gray-900 mb-2">Time Horizon</h5>
+                                                    <p className="text-sm text-gray-600">{market.demandOutlook.timeHorizon}</p>
+                                                  </div>
+                                                  {market.demandOutlook.regionalHotspots?.length > 0 && (
+                                                    <div>
+                                                      <h5 className="font-medium text-gray-900 mb-2">Regional Hotspots</h5>
+                                                      <div className="flex flex-wrap gap-2">
+                                                        {market.demandOutlook.regionalHotspots.map((region, index) => (
+                                                          <span
+                                                            key={index}
+                                                            className="px-3 py-1 bg-gradient-to-r from-acid-green/20 to-cyber-yellow/20 border border-acid-green/30 rounded-full text-xs text-primary-white font-medium"
+                                                          >
+                                                            {region}
+                                                          </span>
+                                                        ))}
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Supply Profile */}
+                                            {market?.supplyProfile && (
+                                              <div className="mt-6">
+                                                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                  <Users className="w-5 h-5 mr-2 text-blue-600" />
+                                                  Talent Supply
+                                                </h4>
+                                                <div className="space-y-4">
+                                                  <div>
+                                                    <h5 className="font-medium text-gray-900 mb-2">Talent Scarcity</h5>
+                                                    <p className="text-sm text-gray-600">{market.supplyProfile.talentScarcity}</p>
+                                                  </div>
+                                                  <div>
+                                                    <h5 className="font-medium text-gray-900 mb-2">Competition Level</h5>
+                                                    <p className="text-sm text-gray-600">{market.supplyProfile.competitionLevel}</p>
+                                                  </div>
+                                                  {market.supplyProfile.barriers?.length > 0 && (
+                                                    <div>
+                                                      <h5 className="font-medium text-gray-900 mb-2">Entry Barriers</h5>
+                                                      <ul className="list-disc list-inside space-y-1 text-sm text-gray-600">
+                                                        {market.supplyProfile.barriers.map((barrier, index) => (
+                                                          <li key={index}>{barrier}</li>
+                                                        ))}
+                                                      </ul>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Economic Sensitivity */}
+                                            {market?.economicSensitivity && (
+                                              <div className="mt-6">
+                                                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                  <LineChart className="w-5 h-5 mr-2 text-purple-600" />
+                                                  Economic Impact
+                                                </h4>
+                                                <div className="space-y-4">
+                                                  <div>
+                                                    <h5 className="font-medium text-gray-900 mb-2">Recession Impact</h5>
+                                                    <p className="text-sm text-gray-600">{market.economicSensitivity.recessionImpact}</p>
+                                                  </div>
+                                                  <div>
+                                                    <h5 className="font-medium text-gray-900 mb-2">Technology Disruption</h5>
+                                                    <p className="text-sm text-gray-600">{market.economicSensitivity.techDisruption}</p>
+                                                  </div>
+                                                  <div>
+                                                    <h5 className="font-medium text-gray-900 mb-2">Cyclical Patterns</h5>
+                                                    <p className="text-sm text-gray-600">{market.economicSensitivity.cyclicalPatterns}</p>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            )}
+                                          </>
+                                        );
+                                      })()}
+                                    </TabsContent>
+                                    
+                                    {/* Lifestyle Tab Content */}
+                                    <TabsContent value="lifestyle" className="space-y-6">
+                                      {(() => {
+                                        const lifestyle = primaryPathway.lifestyleFit;
+                                        const environment = primaryPathway.workEnvironmentCulture;
+                                        
+                                        return (
+                                          <>
+                                            {/* Working Hours & Patterns */}
+                                            {lifestyle?.workingHours && (
+                                              <div>
+                                                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                  <Clock className="w-5 h-5 mr-2 text-blue-600" />
+                                                  Working Hours & Patterns
+                                                </h4>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                  <div className="p-4 bg-gradient-to-r from-electric-blue/10 to-neon-pink/10 border border-electric-blue/30 rounded-lg">
+                                                    <h5 className="font-medium text-electric-blue mb-2">Typical Hours</h5>
+                                                    <p className="text-sm text-primary-white">{lifestyle.workingHours.typical}</p>
+                                                  </div>
+                                                  <div className="p-4 bg-gradient-to-r from-cyber-purple/10 to-neon-pink/10 border border-cyber-purple/30 rounded-lg">
+                                                    <h5 className="font-medium text-cyber-purple mb-2">Flexibility</h5>
+                                                    <p className="text-sm text-primary-white">{lifestyle.workingHours.flexibility}</p>
+                                                  </div>
+                                                  {lifestyle.workingHours.shiftWork && (
+                                                    <div className="p-4 bg-gradient-to-r from-sunset-orange/10 to-cyber-yellow/10 border border-sunset-orange/30 rounded-lg">
+                                                      <h5 className="font-medium text-sunset-orange mb-2">Shift Work</h5>
+                                                      <p className="text-sm text-primary-white">This role involves shift work</p>
+                                                    </div>
+                                                  )}
+                                                  {lifestyle.workingHours.onCall && (
+                                                    <div className="p-4 bg-gradient-to-r from-acid-green/10 to-cyber-yellow/10 border border-acid-green/30 rounded-lg">
+                                                      <h5 className="font-medium text-acid-green mb-2">On-Call</h5>
+                                                      <p className="text-sm text-primary-white">This role has on-call responsibilities</p>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Remote Work & Travel */}
+                                            {lifestyle?.remoteOptions && (
+                                              <div className="mt-6">
+                                                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                  <Globe className="w-5 h-5 mr-2 text-green-600" />
+                                                  Remote Work & Travel
+                                                </h4>
+                                                <div className="space-y-4">
+                                                  <div className="flex gap-4">
+                                                    {lifestyle.remoteOptions.remoteWork && (
+                                                      <div className="flex-1 p-4 bg-gradient-to-r from-acid-green/10 to-cyber-yellow/10 border border-acid-green/30 rounded-lg">
+                                                        <h5 className="font-medium text-acid-green mb-2">Remote Work</h5>
+                                                        <p className="text-sm text-primary-white">Full remote work available</p>
+                                                      </div>
+                                                    )}
+                                                    {lifestyle.remoteOptions.hybridOptions && (
+                                                      <div className="flex-1 p-4 bg-gradient-to-r from-electric-blue/10 to-cyber-blue/10 border border-electric-blue/30 rounded-lg">
+                                                        <h5 className="font-medium text-electric-blue mb-2">Hybrid Options</h5>
+                                                        <p className="text-sm text-primary-white">Hybrid work arrangements available</p>
+                                                      </div>
+                                                    )}
+                                                  </div>
+                                                  {lifestyle.remoteOptions.travelRequirements && (
+                                                    <div className="p-4 bg-gradient-to-r from-cyber-purple/10 to-neon-pink/10 border border-cyber-purple/30 rounded-lg">
+                                                      <h5 className="font-medium text-cyber-purple mb-2">Travel Requirements</h5>
+                                                      <div className="space-y-2">
+                                                        <p className="text-sm text-primary-white">
+                                                          <strong>Frequency:</strong> {lifestyle.remoteOptions.travelRequirements.frequency}
+                                                        </p>
+                                                        <p className="text-sm text-primary-white">
+                                                          <strong>Duration:</strong> {lifestyle.remoteOptions.travelRequirements.duration}
+                                                        </p>
+                                                        {lifestyle.remoteOptions.travelRequirements.international && (
+                                                          <p className="text-sm text-primary-white">Includes international travel</p>
+                                                        )}
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Work Environment */}
+                                            {environment && (
+                                              <div className="mt-6">
+                                                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                  <Building className="w-5 h-5 mr-2 text-purple-600" />
+                                                  Work Environment
+                                                </h4>
+                                                <div className="space-y-4">
+                                                  {environment.typicalEmployers?.length > 0 && (
+                                                    <div>
+                                                      <h5 className="font-medium text-gray-900 mb-2">Typical Employers</h5>
+                                                      <div className="flex flex-wrap gap-2">
+                                                        {environment.typicalEmployers.map((employer, index) => (
+                                                          <span
+                                                            key={index}
+                                                            className="px-3 py-1 bg-gradient-to-r from-cyber-purple/20 to-neon-pink/20 border border-cyber-purple/30 rounded-full text-xs text-primary-white font-medium"
+                                                          >
+                                                            {employer}
+                                                          </span>
+                                                        ))}
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                  {environment.teamStructures?.length > 0 && (
+                                                    <div>
+                                                      <h5 className="font-medium text-gray-900 mb-2">Team Structures</h5>
+                                                      <div className="flex flex-wrap gap-2">
+                                                        {environment.teamStructures.map((structure, index) => (
+                                                          <span
+                                                            key={index}
+                                                            className="px-3 py-1 bg-gradient-to-r from-electric-blue/20 to-neon-pink/20 border border-electric-blue/30 rounded-full text-xs text-primary-white font-medium"
+                                                          >
+                                                            {structure}
+                                                          </span>
+                                                        ))}
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                  {environment.culturalNorms && (
+                                                    <div>
+                                                      <h5 className="font-medium text-gray-900 mb-2">Cultural Norms</h5>
+                                                      <div className="grid grid-cols-2 gap-4">
+                                                        <div className="p-4 bg-gradient-to-r from-electric-blue/10 to-neon-pink/10 border border-electric-blue/30 rounded-lg">
+                                                          <h6 className="font-medium text-electric-blue mb-1">Work Pace</h6>
+                                                          <p className="text-sm text-primary-white">{environment.culturalNorms.pace}</p>
+                                                        </div>
+                                                        <div className="p-4 bg-gradient-to-r from-cyber-purple/10 to-neon-pink/10 border border-cyber-purple/30 rounded-lg">
+                                                          <h6 className="font-medium text-cyber-purple mb-1">Formality</h6>
+                                                          <p className="text-sm text-primary-white">{environment.culturalNorms.formality}</p>
+                                                        </div>
+                                                        <div className="p-4 bg-gradient-to-r from-acid-green/10 to-cyber-yellow/10 border border-acid-green/30 rounded-lg">
+                                                          <h6 className="font-medium text-acid-green mb-1">Decision Making</h6>
+                                                          <p className="text-sm text-primary-white">{environment.culturalNorms.decisionMaking}</p>
+                                                        </div>
+                                                        <div className="p-4 bg-gradient-to-r from-sunset-orange/10 to-cyber-yellow/10 border border-sunset-orange/30 rounded-lg">
+                                                          <h6 className="font-medium text-sunset-orange mb-1">Diversity & Inclusion</h6>
+                                                          <p className="text-sm text-primary-white">{environment.culturalNorms.diversityInclusion}</p>
+                                                        </div>
+                                                      </div>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            )}
+                                            
+                                            {/* Stress & Work-Life Balance */}
+                                            {lifestyle?.stressProfile && lifestyle?.workLifeBoundaries && (
+                                              <div className="mt-6">
+                                                <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                                                  <Heart className="w-5 h-5 mr-2 text-red-600" />
+                                                  Stress & Work-Life Balance
+                                                </h4>
+                                                <div className="space-y-4">
+                                                  <div className="grid grid-cols-2 gap-4">
+                                                    <div className="p-4 bg-gradient-to-r from-electric-blue/10 to-neon-pink/10 border border-electric-blue/30 rounded-lg">
+                                                      <h5 className="font-medium text-electric-blue mb-2">Stress Intensity</h5>
+                                                      <p className="text-sm text-primary-white">{lifestyle.stressProfile.intensity}</p>
+                                                    </div>
+                                                    <div className="p-4 bg-gradient-to-r from-cyber-purple/10 to-neon-pink/10 border border-cyber-purple/30 rounded-lg">
+                                                      <h5 className="font-medium text-cyber-purple mb-2">Volatility</h5>
+                                                      <p className="text-sm text-primary-white">{lifestyle.stressProfile.volatility}</p>
+                                                    </div>
+                                                  </div>
+                                                  <div className="grid grid-cols-2 gap-4">
+                                                    <div className="p-4 bg-gradient-to-r from-acid-green/10 to-cyber-yellow/10 border border-acid-green/30 rounded-lg">
+                                                      <h5 className="font-medium text-acid-green mb-2">Work-Life Flexibility</h5>
+                                                      <p className="text-sm text-primary-white">{lifestyle.workLifeBoundaries.flexibility}</p>
+                                                    </div>
+                                                    <div className="p-4 bg-gradient-to-r from-sunset-orange/10 to-cyber-yellow/10 border border-sunset-orange/30 rounded-lg">
+                                                      <h5 className="font-medium text-sunset-orange mb-2">Autonomy</h5>
+                                                      <p className="text-sm text-primary-white">{lifestyle.workLifeBoundaries.autonomy}</p>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            )}
+                                          </>
+                                        );
+                                      })()}
+                                    </TabsContent>
+                                    
                                     {/* Gain Experience Section */}
                                     {primaryPathway.volunteeringOpportunities && primaryPathway.volunteeringOpportunities.length > 0 && (
                                       <div>

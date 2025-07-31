@@ -766,36 +766,15 @@ Ensure all data is current, realistic, and actionable for UK career seekers.`
 
       console.log('✅ Generated comprehensive 10-section career card:', careerCard.title);
       
-      // Convert to CareerCardData format with legacy field mapping
+      // Use comprehensive career card data directly without legacy mapping
       const comprehensiveCard: CareerCardData = {
-        ...careerCard,
+        ...careerCard, // Keep all 10 sections intact
+        id: `career-${Date.now()}-${interest.toLowerCase().replace(/[^a-z0-9]/g, '-')}`,
         sourceData: interest,
         webSearchVerified: true,
         requiresVerification: false,
         citations: ['OpenAI GPT-4o Knowledge Base'],
-        
-        // Legacy field mapping for backward compatibility
-        description: `${careerCard.roleFundamentals.corePurpose}`,
-        industry: careerCard.workEnvironmentCulture.typicalEmployers[0] || 'Professional Services',
-        averageSalary: {
-          entry: `£${careerCard.compensationRewards.salaryRange.entry.toLocaleString()}`,
-          experienced: `£${careerCard.compensationRewards.salaryRange.mid.toLocaleString()}`,
-          senior: `£${careerCard.compensationRewards.salaryRange.senior.toLocaleString()}`
-        },
-        growthOutlook: careerCard.labourMarketDynamics.demandOutlook.growthForecast,
-        entryRequirements: careerCard.competencyRequirements.qualificationPathway.degrees.concat(
-          careerCard.competencyRequirements.qualificationPathway.alternativeRoutes
-        ),
-        trainingPathways: careerCard.competencyRequirements.qualificationPathway.apprenticeships.concat(
-          careerCard.competencyRequirements.qualificationPathway.bootcamps
-        ),
-        keySkills: careerCard.competencyRequirements.technicalSkills.concat(
-          careerCard.competencyRequirements.softSkills
-        ).slice(0, 8),
-        workEnvironment: careerCard.workEnvironmentCulture.physicalContext.join(', '),
-        nextSteps: careerCard.careerTrajectory.progressionSteps.map(step => 
-          `${step.title} (${step.timeFrame})`
-        ).slice(0, 3),
+        confidence: 95,
         location: 'UK'
       };
 
