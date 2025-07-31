@@ -1385,8 +1385,35 @@ class CareerPathwayService {
         if (careerCards.length > 0) {
           console.log('🔍 DEBUG: Career card titles:', careerCards.map(c => c.title));
           console.log('🔍 DEBUG: First card full data:', careerCards[0]);
-        } else {
-          throw new Error(`No career cards found in ${guidanceSnapshot.docs.length} documents for user ${userId}`);
+          
+          // ✅ ADDED: Detailed logging of comprehensive data mapping
+          console.log('🔍 DEBUG: Comprehensive data check for first card:', {
+            hasRoleFundamentals: !!careerCards[0].roleFundamentals,
+            hasCompensationRewards: !!careerCards[0].compensationRewards,
+            hasCareerTrajectory: !!careerCards[0].careerTrajectory,
+            hasLabourMarketDynamics: !!careerCards[0].labourMarketDynamics,
+            hasWorkEnvironmentCulture: !!careerCards[0].workEnvironmentCulture,
+            hasCompetencyRequirements: !!careerCards[0].competencyRequirements,
+            hasLifestyleFit: !!careerCards[0].lifestyleFit,
+            hasCostRiskEntry: !!careerCards[0].costRiskEntry,
+            hasValuesImpact: !!careerCards[0].valuesImpact,
+            hasTransferabilityFutureProofing: !!careerCards[0].transferabilityFutureProofing,
+            
+            // Check mapped fields
+            description: careerCards[0].description,
+            industry: careerCards[0].industry,
+            averageSalary: careerCards[0].averageSalary,
+            growthOutlook: careerCards[0].growthOutlook,
+            keySkills: careerCards[0].keySkills,
+            workEnvironment: careerCards[0].workEnvironment,
+            
+            // Check if comprehensive data is preserved
+            roleFundamentals: careerCards[0].roleFundamentals,
+            compensationRewards: careerCards[0].compensationRewards,
+            labourMarketDynamics: careerCards[0].labourMarketDynamics,
+            workEnvironmentCulture: careerCards[0].workEnvironmentCulture,
+            competencyRequirements: careerCards[0].competencyRequirements
+          });
         }
         
       } catch (guidanceError: any) {
