@@ -431,7 +431,7 @@ class ConversationAnalysisService {
       });
 
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4o-2024-08-06',
         messages: [
           {
             role: 'system',
@@ -520,7 +520,7 @@ Be comprehensive - extract 3-8 interests, 2-6 skills, and 1-4 goals minimum from
       });
 
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4o-2024-08-06',
         messages: [
           {
             role: 'system',
@@ -632,7 +632,7 @@ PERSON PROFILE CONTEXT:
 ` : '';
 
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4o-2024-08-06',
         messages: [
           {
             role: 'system',
@@ -681,7 +681,7 @@ Focus on creating varied, actionable career paths that match their demonstrated 
         ],
         response_format: zodResponseFormat(CareerRecommendationAnalysis, 'career_recommendations'),
         temperature: 0.4,
-        max_tokens: 2000
+        max_tokens: 16000
       });
 
       const message = completion.choices[0]?.message;
@@ -797,7 +797,7 @@ Ensure all data is current, realistic, and actionable for UK career seekers.`
         ],
         response_format: zodResponseFormat(CareerCard, 'career_card'),
         temperature: 0.2,
-        max_tokens: 4000
+        max_tokens: 8000
       });
 
       const message = completion.choices[0]?.message;
@@ -892,7 +892,7 @@ class CareerInsightsService {
       Logger.debug(`Generating insight for field: ${interest}`);
 
       const completion = await openai.chat.completions.create({
-        model: 'gpt-4o',
+        model: 'gpt-4o-2024-08-06',
         messages: [
           {
             role: 'system',
