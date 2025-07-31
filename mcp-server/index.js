@@ -238,22 +238,7 @@ const CareerCard = z.object({
       marketDemand: z.array(z.string()),
       culturalAdaptability: z.string()
     })
-  }),
-  
-  // Legacy fields for backward compatibility
-  description: z.string().optional(),
-  industry: z.string().optional(),
-  averageSalary: z.object({
-    entry: z.string(),
-    experienced: z.string(),
-    senior: z.string()
-  }).optional(),
-  growthOutlook: z.string().optional(),
-  entryRequirements: z.array(z.string()).optional(),
-  trainingPathways: z.array(z.string()).optional(),
-  keySkills: z.array(z.string()).optional(),
-  workEnvironment: z.string().optional(),
-  nextSteps: z.array(z.string()).optional()
+  })
 });
 
 const Interest = z.object({
@@ -840,22 +825,7 @@ Ensure all data is current, realistic, and actionable for UK career seekers.`
         generatedAt: new Date().toISOString(),
         webSearchVerified: true,
         requiresVerification: false,
-        citations: ['OpenAI GPT-4o Knowledge Base'],
-        
-        // Add legacy fields for backward compatibility
-        description: cardData.roleFundamentals?.corePurpose || '',
-        industry: cardData.workEnvironmentCulture?.typicalEmployers?.[0] || '',
-        averageSalary: {
-          entry: cardData.compensationRewards?.salaryRange?.entry ? `£${cardData.compensationRewards.salaryRange.entry.toLocaleString()}` : '',
-          experienced: cardData.compensationRewards?.salaryRange?.mid ? `£${cardData.compensationRewards.salaryRange.mid.toLocaleString()}` : '',
-          senior: cardData.compensationRewards?.salaryRange?.senior ? `£${cardData.compensationRewards.salaryRange.senior.toLocaleString()}` : ''
-        },
-        growthOutlook: cardData.labourMarketDynamics?.demandOutlook?.growthForecast || '',
-        entryRequirements: cardData.competencyRequirements?.qualificationPathway?.degrees || [],
-        trainingPathways: cardData.competencyRequirements?.qualificationPathway?.apprenticeships || [],
-        keySkills: cardData.competencyRequirements?.technicalSkills || [],
-        workEnvironment: cardData.workEnvironmentCulture?.physicalContext?.[0] || '',
-        nextSteps: cardData.careerTrajectory?.progressionSteps?.map(step => step.title) || []
+        citations: ['OpenAI GPT-4o Knowledge Base']
       };
 
       Logger.debug(`Career card generated successfully for: ${interest.interest}`);
