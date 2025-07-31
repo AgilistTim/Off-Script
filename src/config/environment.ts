@@ -162,6 +162,8 @@ const validateFirebaseConfig = (config: EnvironmentConfig['firebase']): boolean 
   // Measurement ID is optional - just warn if it's missing or a placeholder
   if (!config.measurementId || isPlaceholder(config.measurementId)) {
     console.warn(`⚠️ Firebase Analytics measurement ID is missing or invalid - analytics will be disabled`);
+  } else {
+    console.log(`📊 Firebase Analytics configured with measurement ID: ${config.measurementId}`);
   }
   
   return true;
