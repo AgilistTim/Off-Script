@@ -953,8 +953,8 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
       source: card // Pass the full card data as source
     }));
     
-    // Combine and sort by last updated
-    const combined = [...explorations, ...currentCardExplorations];
+    // Combine with current conversation cards first so comprehensive versions win during dedup
+    const combined = [...currentCardExplorations, ...explorations];
     
     // Log what we're processing
     console.log('🔍 CareerExplorationOverview processing:', {
