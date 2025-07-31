@@ -1366,16 +1366,16 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                 const guidance = careerGuidanceData.get(exploration.threadId)!;
                                 // Determine which pathway this card represents
                                 let primaryPathway: any = guidance.primaryPathway;
-                                if (exploration.threadId.includes('_alt-')) {
-                                  const idx = parseInt(exploration.threadId.split('_alt-')[1]);
+                                if (exploration.threadId.includes('-alt-')) {
+                                  const idx = parseInt(exploration.threadId.split('-alt-')[1]);
                                   if (!isNaN(idx) && guidance.alternativePathways && guidance.alternativePathways[idx]) {
                                     primaryPathway = guidance.alternativePathways[idx];
                                   }
                                 }
                                 console.log('🪛 Pathway debug', {
                                   threadId: exploration.threadId,
-                                  isAlt: exploration.threadId.includes('_alt-'),
-                                  altIndex: exploration.threadId.includes('_alt-') ? parseInt(exploration.threadId.split('_alt-')[1]) : null,
+                                  isAlt: exploration.threadId.includes('-alt-'),
+                                  altIndex: exploration.threadId.includes('-alt-') ? parseInt(exploration.threadId.split('-alt-')[1]) : null,
                                   pathwayTitle: primaryPathway?.title,
                                   altCount: guidance.alternativePathways?.length
                                 });
