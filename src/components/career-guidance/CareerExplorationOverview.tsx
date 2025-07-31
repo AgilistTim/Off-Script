@@ -1364,7 +1364,14 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                             {careerGuidanceData.has(exploration.threadId) ? (
                               (() => {
                                 const guidance = careerGuidanceData.get(exploration.threadId)!;
-                                const primaryPathway = guidance.primaryPathway;
+                                // Determine which pathway this card represents
+                                let primaryPathway: any = guidance.primaryPathway;
+                                if (exploration.threadId.includes('_alt-')) {
+                                  const idx = parseInt(exploration.threadId.split('_alt-')[1]);
+                                  if (!isNaN(idx) && guidance.alternativePathways && guidance.alternativePathways[idx]) {
+                                    primaryPathway = guidance.alternativePathways[idx];
+                                  }
+                                }
                                 const roleFundamentals = primaryPathway.roleFundamentals;
                                 
                                 return (
