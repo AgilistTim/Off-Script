@@ -142,18 +142,33 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
 
   // Helper function to extract rich career data from different sources
   const extractCareerData = (exploration: any) => {
-    // For current career cards (from conversation)
+    // For current career cards (from conversation) - check for enhanced data first
     if (exploration.isCurrent && exploration.source) {
+      const source = exploration.source;
+      
+      // Extract enhanced data if available, fallback to original data
       return {
-        averageSalary: exploration.source.averageSalary || exploration.source.salaryRange,
-        keySkills: exploration.source.keySkills || exploration.source.skillsRequired || [],
-        trainingPathways: exploration.source.trainingPathways || [exploration.source.trainingPathway].filter(Boolean) || [],
-        entryRequirements: exploration.source.entryRequirements || [],
-        workEnvironment: exploration.source.workEnvironment,
-        nextSteps: exploration.source.nextSteps || [],
-        growthOutlook: exploration.source.growthOutlook || exploration.source.marketOutlook,
-        industry: exploration.source.industry,
-        confidence: exploration.source.confidence
+        averageSalary: source.enhancedSalary || source.averageSalary || source.salaryRange,
+        keySkills: source.inDemandSkills || source.keySkills || source.skillsRequired || [],
+        trainingPathways: source.trainingPathways || [source.trainingPathway].filter(Boolean) || [],
+        entryRequirements: source.entryRequirements || [],
+        workEnvironment: source.workEnvironment,
+        nextSteps: source.nextSteps || [],
+        growthOutlook: source.growthOutlook || source.marketOutlook,
+        industry: source.industry,
+        confidence: source.confidence,
+        // Enhanced properties
+        careerProgression: source.careerProgression || [],
+        dayInTheLife: source.dayInTheLife,
+        industryTrends: source.industryTrends || [],
+        topUKEmployers: source.topUKEmployers || [],
+        professionalTestimonials: source.professionalTestimonials || [],
+        additionalQualifications: source.additionalQualifications || [],
+        workLifeBalance: source.workLifeBalance,
+        professionalAssociations: source.professionalAssociations || [],
+        enhancedSources: source.enhancedSources || [],
+        isEnhanced: source.isEnhanced || source.webSearchVerified || false,
+        enhancementStatus: source.enhancementStatus
       };
     }
     
@@ -167,7 +182,18 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
       nextSteps: [],
       growthOutlook: null,
       industry: null,
-      confidence: exploration.match
+      confidence: exploration.match,
+      careerProgression: [],
+      dayInTheLife: null,
+      industryTrends: [],
+      topUKEmployers: [],
+      professionalTestimonials: [],
+      additionalQualifications: [],
+      workLifeBalance: null,
+      professionalAssociations: [],
+      enhancedSources: [],
+      isEnhanced: false,
+      enhancementStatus: null
     };
   };
 
@@ -175,7 +201,21 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
   const formatSalaryDisplay = (salary: any): string => {
     if (!salary) return '';
     if (typeof salary === 'string') return salary;
+    
+    // Handle enhanced salary format
+    if (salary.entryLevel && salary.senior) {
+      return `£${salary.entryLevel.toLocaleString()} - £${salary.senior.toLocaleString()}`;
+    }
+    if (salary.entry && salary.senior) {
+      return `£${salary.entry.toLocaleString()} - £${salary.senior.toLocaleString()}`;
+    }
+    if (salary.entry && salary.experienced) {
+      return `£${salary.entry.toLocaleString()} - £${salary.experienced.toLocaleString()}`;
+    }
+    
+    // Handle basic format
     if (salary.entry) return `${salary.entry} - ${salary.senior || salary.experienced}`;
+    
     return '';
   };
 
@@ -707,7 +747,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                     {/* Enhancement status indicators */}
                     {(exploration as any).source && (
                       <>
-                        {(exploration as any).source.isEnhanced || (exploration as any).source.webSearchVerified ? (
+                        {(exploration as any).source.isEnhanced || (exploration as any).source.webSearchVerified || (exploration as any).source.enhancedSalary ? (
                           <Badge className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black border-0 font-bold text-xs">
                             <Lightbulb className="w-3 h-3 mr-1" />
                             ENHANCED
@@ -729,7 +769,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                           </Badge>
                         )}
                         
-                        {(exploration as any).source.enhancedAt && (
+                        {((exploration as any).source.isEnhanced || (exploration as any).source.webSearchVerified || (exploration as any).source.enhancedSalary || (exploration as any).source.enhancedAt) && (
                           <div className="text-xs text-acid-green font-medium">
                             Enhanced with real UK data
                           </div>
