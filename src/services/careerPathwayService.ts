@@ -1213,8 +1213,7 @@ class CareerPathwayService {
       // Wait for authentication before making Firebase queries
       const { auth } = await import('./firebase');
       if (!auth.currentUser) {
-        console.warn('❌ User not authenticated for getCurrentCareerCards access');
-        return [];
+        throw new Error('User not authenticated for getCurrentCareerCards access');
       }
       
       const { db } = await import('./firebase');
@@ -1233,6 +1232,10 @@ class CareerPathwayService {
         const guidanceSnapshot = await getDocs(guidanceQuery);
         console.log('🔍 DEBUG getCurrentCareerCards: Found documents:', guidanceSnapshot.docs.length);
         
+        if (guidanceSnapshot.docs.length === 0) {
+          throw new Error(`No threadCareerGuidance documents found for user ${userId}`);
+        }
+        
         for (const doc of guidanceSnapshot.docs) {
           const data = doc.data();
           console.log('🔍 DEBUG getCurrentCareerCards: Processing doc:', {
@@ -1244,9 +1247,17 @@ class CareerPathwayService {
             alternativeCount: data.guidance?.alternativePathways?.length || 0
           });
           
+          if (!data.guidance) {
+            throw new Error(`Document ${doc.id} has no guidance data`);
+          }
+          
           if (data.guidance?.alternativePathways) {
             console.log('🔍 DEBUG: Processing', data.guidance.alternativePathways.length, 'alternative pathways');
             data.guidance.alternativePathways.forEach((pathway: any, index: number) => {
+              if (!pathway.title) {
+                throw new Error(`Alternative pathway ${index} in document ${doc.id} has no title`);
+              }
+              
               // ✅ FIXED: Map comprehensive data fields correctly
               const cardData = {
                 id: `guidance-${doc.id}-alt-${index}`,
@@ -1308,6 +1319,10 @@ class CareerPathwayService {
           // Also include primary pathway
           if (data.guidance?.primaryPathway) {
             const primary = data.guidance.primaryPathway;
+            if (!primary.title) {
+              throw new Error(`Primary pathway in document ${doc.id} has no title`);
+            }
+            
             // ✅ FIXED: Map comprehensive data fields correctly for primary pathway
             const primaryCardData = {
               id: `guidance-${doc.id}-primary`,
@@ -1370,15 +1385,17 @@ class CareerPathwayService {
         if (careerCards.length > 0) {
           console.log('🔍 DEBUG: Career card titles:', careerCards.map(c => c.title));
           console.log('🔍 DEBUG: First card full data:', careerCards[0]);
+        } else {
+          throw new Error(`No career cards found in ${guidanceSnapshot.docs.length} documents for user ${userId}`);
         }
         
       } catch (guidanceError: any) {
         if (guidanceError?.code === 'permission-denied') {
-          console.warn('⚠️ Permission denied accessing threadCareerGuidance (user may not have any career guidance yet)');
+          throw new Error(`Permission denied accessing threadCareerGuidance for user ${userId}`);
         } else if (guidanceError?.code === 'failed-precondition') {
-          console.warn('⚠️ Firestore index still building for threadCareerGuidance (this is normal for new deployments)');
+          throw new Error(`Firestore index still building for threadCareerGuidance - deployment issue`);
         } else {
-          console.warn('⚠️ Error accessing threadCareerGuidance:', guidanceError);
+          throw new Error(`Error accessing threadCareerGuidance: ${guidanceError.message}`);
         }
       }
       
@@ -1386,8 +1403,8 @@ class CareerPathwayService {
       return careerCards;
       
     } catch (error) {
-      console.error('Error getting current career cards:', error);
-      return [];
+      console.error('❌ CRITICAL ERROR in getCurrentCareerCards:', error);
+      throw error; // Re-throw to surface the error
     }
   }
 
