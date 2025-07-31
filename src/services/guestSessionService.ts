@@ -2,34 +2,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 
 // Import types from their actual locations
-interface CareerCard {
-  id: string;
-  title: string;
-  description: string;
-  industry: string;
-  averageSalary: {
-    entry: string;
-    experienced: string;
-    senior: string;
-  };
-  growthOutlook: string;
-  entryRequirements: string[];
-  trainingPathways: string[];
-  keySkills: string[];
-  workEnvironment: string;
-  nextSteps: string[];
-  confidence: number;
-}
-
-interface PersonProfile {
-  interests: string[];
-  goals: string[];
-  skills: string[];
-  values: string[];
-  careerStage: "exploring" | "deciding" | "transitioning" | "advancing";
-  workStyle: string[];
-  lastUpdated: string;
-}
+import { CareerCard, PersonProfile } from '../types/careerCard';
 
 interface UserPersona {
   type: string;

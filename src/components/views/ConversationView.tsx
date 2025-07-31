@@ -23,38 +23,7 @@ import { PersonCard } from '../conversation/PersonCard';
 
 // Import guest session service
 import { guestSessionService } from '../../services/guestSessionService';
-
-interface PersonProfile {
-  interests: string[];
-  goals: string[];
-  skills: string[];
-  values: string[];
-  careerStage: string;
-  workStyle: string[];
-  lastUpdated: string;
-}
-
-interface CareerCard {
-  id: string;
-  title: string;
-  description: string;
-  industry: string;
-  averageSalary: {
-    entry: string;
-    experienced: string;
-    senior: string;
-  };
-  growthOutlook: string;
-  entryRequirements: string[];
-  trainingPathways: string[];
-  keySkills: string[];
-  workEnvironment: string;
-  nextSteps: string[];
-  confidence: number;
-  sourceData: string;
-  location: string;
-  generatedAt: string;
-}
+import { CareerCard, PersonProfile } from '../../types/careerCard';
 
 interface ConversationViewProps {
   className?: string;

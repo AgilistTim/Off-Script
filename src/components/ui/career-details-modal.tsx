@@ -1,38 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MapPin, TrendingUp, Clock, CheckCircle, ArrowRight, Briefcase, GraduationCap, Users, RefreshCw } from 'lucide-react';
-
-interface CareerCardData {
-  id: string;
-  title: string;
-  description: string;
-  industry?: string;
-  averageSalary?: {
-    entry: string;
-    experienced: string;
-    senior: string;
-  };
-  salaryRange?: string; // MCP server format
-  growthOutlook?: string;
-  marketOutlook?: string; // MCP server format
-  entryRequirements?: string[];
-  trainingPathways?: string[];
-  trainingPathway?: string; // MCP server format (singular)
-  keySkills?: string[];
-  skillsRequired?: string[]; // MCP server format
-  workEnvironment?: string;
-  nextSteps?: string[];
-  location?: string;
-  confidence?: number;
-  webSearchVerified?: boolean; // Indicates if data was verified via web search
-  requiresVerification?: boolean; // Indicates if data needs manual verification
-  citations?: string[]; // Web search citations if available
-}
+import { CareerCard } from '../../types/careerCard';
 
 interface CareerDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  careerCard: CareerCardData | null;
+  careerCard: CareerCard | null;
   onRefreshDetails?: (cardId: string) => void;
 }
 

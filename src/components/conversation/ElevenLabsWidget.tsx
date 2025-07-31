@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import { useAuth } from '../../context/AuthContext';
 import { guestSessionService } from '../../services/guestSessionService';
+import { CareerCard, PersonProfile } from '../../types/careerCard';
 
 // Helper function to get environment variables from both sources (dev + production)
 const getEnvVar = (key: string): string | undefined => {
@@ -19,27 +20,6 @@ const getEnvVar = (key: string): string | undefined => {
   
   return undefined;
 };
-
-interface CareerCard {
-  id: string;
-  title: string;
-  description: string;
-  salaryRange: string;
-  skillsRequired: string[];
-  trainingPathway: string;
-  nextSteps: string;
-  confidence: number;
-}
-
-interface PersonProfile {
-  interests: string[];
-  goals: string[];
-  skills: string[];
-  values: string[];
-  careerStage: string;
-  workStyle: string[];
-  lastUpdated: string;
-}
 
 interface ElevenLabsWidgetProps {
   onCareerCardsGenerated?: (cards: any[]) => void;

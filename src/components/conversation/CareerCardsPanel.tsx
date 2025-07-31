@@ -3,31 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CareerDetailsModal } from '../ui/career-details-modal';
 import { useAuth } from '../../context/AuthContext';
 import careerPathwayService from '../../services/careerPathwayService';
-
-// Use the same interface as CareerDetailsModal for consistency
-interface CareerCard {
-  id: string;
-  title: string;
-  description: string;
-  industry?: string;
-  averageSalary?: {
-    entry: string;
-    experienced: string;
-    senior: string;
-  };
-  salaryRange?: string; // MCP server format
-  growthOutlook?: string;
-  marketOutlook?: string; // MCP server format  
-  entryRequirements?: string[];
-  trainingPathways?: string[];
-  trainingPathway?: string; // MCP server format (singular)
-  keySkills?: string[];
-  skillsRequired?: string[]; // MCP server format
-  workEnvironment?: string;
-  nextSteps?: string[];
-  location?: string;
-  confidence?: number;
-}
+import { CareerCard } from '../../types/careerCard';
 
 interface CareerCardsPanelProps {
   cards: CareerCard[];
