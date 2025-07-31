@@ -36,6 +36,22 @@ export default defineConfig(({ mode }) => {
       ],
       force: true
     },
+    build: {
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            vendor: ['react', 'react-dom'],
+            router: ['react-router-dom'],
+            firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/analytics']
+          }
+        }
+      },
+      // Ensure proper chunk loading
+      assetsDir: 'assets',
+      sourcemap: false,
+      // Improve caching
+      chunkSizeWarningLimit: 1000
+    },
     server: {
       proxy: {
         '/api/openai': {

@@ -35,6 +35,8 @@ services:
         sync: false
       - key: VITE_ELEVENLABS_AGENT_ID
         sync: false
+      - key: VITE_PERPLEXITY_API_KEY
+        sync: false
 
   - type: web
     name: off-script-mcp-elevenlabs

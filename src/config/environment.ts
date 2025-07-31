@@ -126,6 +126,11 @@ const getWindowEnvironment = (): Partial<EnvironmentConfig> => {
     return {};
   }
   
+  // Debug: Log window.ENV to see what's actually available in production
+  console.log('🔍 Debug window.ENV keys:', Object.keys((window as any).ENV || {}));
+  console.log('🔍 Debug Firebase API key present:', Boolean((window as any).ENV?.VITE_FIREBASE_API_KEY));
+  console.log('🔍 Debug Firebase API key value:', (window as any).ENV?.VITE_FIREBASE_API_KEY?.substring(0, 20) + '...');
+  
   return {
     firebase: {
       apiKey: (window as any).ENV.VITE_FIREBASE_API_KEY,
