@@ -1364,12 +1364,29 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                     {/* Core Purpose */}
                                     <div>
                                       <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                        <Target className="w-5 h-5 mr-2 text-blue-600" />
+                                        <div className="bg-electric-blue/20 rounded-full p-1.5 mr-2">
+                                          <Target className="w-4 h-4 text-electric-blue" />
+                                        </div>
                                         Core Purpose
                                       </h4>
-                                      <p className="text-sm text-gray-600 mb-4">
+                                      <p className="text-sm text-gray-700 mb-4 leading-relaxed">
                                         {roleFundamentals?.corePurpose || primaryPathway.description}
                                       </p>
+                                      
+                                      {/* Day in the Life Enhancement */}
+                                      {primaryPathway.dayInTheLife && (
+                                        <div className="bg-gradient-to-r from-cyber-yellow/10 to-acid-green/10 rounded-lg p-4 mt-4 border border-cyber-yellow/20">
+                                          <h5 className="font-semibold text-gray-900 mb-2 flex items-center">
+                                            <div className="bg-cyber-yellow/20 rounded-full p-1 mr-2">
+                                              <Clock className="w-4 h-4 text-cyber-yellow" />
+                                            </div>
+                                            A Day in the Life
+                                          </h5>
+                                          <p className="text-sm text-gray-700 leading-relaxed">
+                                            {primaryPathway.dayInTheLife}
+                                          </p>
+                                        </div>
+                                      )}
                                       
                                       {/* Problems Solved */}
                                       {roleFundamentals?.problemsSolved?.length > 0 && (
