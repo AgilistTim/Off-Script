@@ -1372,6 +1372,13 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                     primaryPathway = guidance.alternativePathways[idx];
                                   }
                                 }
+                                console.log('🪛 Pathway debug', {
+                                  threadId: exploration.threadId,
+                                  isAlt: exploration.threadId.includes('_alt-'),
+                                  altIndex: exploration.threadId.includes('_alt-') ? parseInt(exploration.threadId.split('_alt-')[1]) : null,
+                                  pathwayTitle: primaryPathway?.title,
+                                  altCount: guidance.alternativePathways?.length
+                                });
                                 const roleFundamentals = primaryPathway.roleFundamentals;
                                 
                                 return (
