@@ -1247,18 +1247,30 @@ class CareerPathwayService {
           if (data.guidance?.alternativePathways) {
             console.log('🔍 DEBUG: Processing', data.guidance.alternativePathways.length, 'alternative pathways');
             data.guidance.alternativePathways.forEach((pathway: any, index: number) => {
+              // ✅ FIXED: Map comprehensive data fields correctly
               const cardData = {
                 id: `guidance-${doc.id}-alt-${index}`,
                 title: pathway.title,
-                description: pathway.description,
-                industry: pathway.industry || 'Technology',
-                averageSalary: pathway.averageSalary || {
+                // ✅ Use comprehensive data with fallbacks to legacy
+                description: pathway.roleFundamentals?.corePurpose || pathway.description,
+                industry: pathway.workEnvironmentCulture?.typicalEmployers?.[0] || pathway.industry || 'Technology',
+                // ✅ Map comprehensive salary data
+                averageSalary: pathway.compensationRewards?.salaryRange ? {
+                  entry: `£${pathway.compensationRewards.salaryRange.entry?.toLocaleString() || '25,000'}`,
+                  experienced: `£${pathway.compensationRewards.salaryRange.mid?.toLocaleString() || '35,000'}`,
+                  senior: `£${pathway.compensationRewards.salaryRange.senior?.toLocaleString() || '50,000'}`
+                } : pathway.averageSalary || {
                   entry: '£25,000',
                   experienced: '£35,000', 
                   senior: '£50,000'
                 },
-                growthOutlook: pathway.growthOutlook || 'Growing demand',
-                keySkills: pathway.requiredSkills || [],
+                // ✅ Map comprehensive growth outlook
+                growthOutlook: pathway.labourMarketDynamics?.demandOutlook?.growthForecast || pathway.growthOutlook || 'Growing demand',
+                // ✅ Map comprehensive skills data
+                keySkills: [
+                  ...(pathway.competencyRequirements?.technicalSkills || []),
+                  ...(pathway.competencyRequirements?.softSkills || [])
+                ].slice(0, 5) || pathway.keySkills || [],
                 trainingPathways: this.validateTrainingPathwayAlignment(pathway.title || '', pathway.trainingPathways || []),
                 trainingOptions: this.convertTrainingPathwaysToOptions(
                   this.validateTrainingPathwayAlignment(pathway.title || '', pathway.trainingPathways || []),
@@ -1266,7 +1278,8 @@ class CareerPathwayService {
                 ),
                 nextSteps: this.extractNextStepsArray(pathway.nextSteps) || [],
                 confidence: pathway.match || 80,
-                workEnvironment: pathway.workEnvironment || 'Office-based',
+                // ✅ Map comprehensive work environment
+                workEnvironment: pathway.workEnvironmentCulture?.physicalContext?.[0] || pathway.workEnvironment || 'Office-based',
                 entryRequirements: pathway.entryRequirements || [],
                 location: 'UK',
                 isCurrent: true,
@@ -1295,18 +1308,30 @@ class CareerPathwayService {
           // Also include primary pathway
           if (data.guidance?.primaryPathway) {
             const primary = data.guidance.primaryPathway;
+            // ✅ FIXED: Map comprehensive data fields correctly for primary pathway
             const primaryCardData = {
               id: `guidance-${doc.id}-primary`,
               title: primary.title,
-              description: primary.description,
-              industry: primary.industry || 'Technology',
-              averageSalary: primary.averageSalary || {
+              // ✅ Use comprehensive data with fallbacks to legacy
+              description: primary.roleFundamentals?.corePurpose || primary.description,
+              industry: primary.workEnvironmentCulture?.typicalEmployers?.[0] || primary.industry || 'Technology',
+              // ✅ Map comprehensive salary data
+              averageSalary: primary.compensationRewards?.salaryRange ? {
+                entry: `£${primary.compensationRewards.salaryRange.entry?.toLocaleString() || '25,000'}`,
+                experienced: `£${primary.compensationRewards.salaryRange.mid?.toLocaleString() || '35,000'}`,
+                senior: `£${primary.compensationRewards.salaryRange.senior?.toLocaleString() || '50,000'}`
+              } : primary.averageSalary || {
                 entry: '£25,000',
                 experienced: '£35,000',
                 senior: '£50,000'
               },
-              growthOutlook: primary.growthOutlook || 'Growing demand',
-              keySkills: primary.requiredSkills || [],
+              // ✅ Map comprehensive growth outlook
+              growthOutlook: primary.labourMarketDynamics?.demandOutlook?.growthForecast || primary.growthOutlook || 'Growing demand',
+              // ✅ Map comprehensive skills data
+              keySkills: [
+                ...(primary.competencyRequirements?.technicalSkills || []),
+                ...(primary.competencyRequirements?.softSkills || [])
+              ].slice(0, 5) || primary.keySkills || [],
               trainingPathways: this.validateTrainingPathwayAlignment(primary.title || '', primary.trainingPathways || []),
               trainingOptions: this.convertTrainingPathwaysToOptions(
                 this.validateTrainingPathwayAlignment(primary.title || '', primary.trainingPathways || []),
@@ -1314,7 +1339,8 @@ class CareerPathwayService {
               ),
               nextSteps: this.extractNextStepsArray(primary.nextSteps) || [],
               confidence: primary.match || 85,
-              workEnvironment: primary.workEnvironment || 'Office-based',
+              // ✅ Map comprehensive work environment
+              workEnvironment: primary.workEnvironmentCulture?.physicalContext?.[0] || primary.workEnvironment || 'Office-based',
               entryRequirements: primary.entryRequirements || [],
               location: 'UK',
               isCurrent: true,
