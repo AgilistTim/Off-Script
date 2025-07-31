@@ -120,7 +120,11 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                     {/* Overview */}
                     <section>
                       <h3 className="text-lg font-semibold mb-3 text-gray-900">Overview</h3>
-                      <p className="text-gray-600 leading-relaxed">{careerCard.description}</p>
+                      <p className="text-gray-600 leading-relaxed">
+                        {careerCard.roleFundamentals?.corePurpose || 
+                         careerCard.description || 
+                         'Career overview not available'}
+                      </p>
                     </section>
 
                     {/* Salary Information */}
@@ -130,7 +134,26 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                         Salary Range
                       </h3>
                       <div className="bg-green-50 rounded-lg p-4">
-                        {careerCard.averageSalary ? (
+                        {careerCard.compensationRewards?.salaryRange ? (
+                          <div className="grid grid-cols-4 gap-4 text-center">
+                            <div>
+                              <div className="text-sm text-gray-600 mb-1">Entry Level</div>
+                              <div className="font-semibold text-green-700">£{careerCard.compensationRewards.salaryRange.entry.toLocaleString()}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-gray-600 mb-1">Mid Level</div>
+                              <div className="font-semibold text-green-700">£{careerCard.compensationRewards.salaryRange.mid.toLocaleString()}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-gray-600 mb-1">Senior</div>
+                              <div className="font-semibold text-green-700">£{careerCard.compensationRewards.salaryRange.senior.toLocaleString()}</div>
+                            </div>
+                            <div>
+                              <div className="text-sm text-gray-600 mb-1">Exceptional</div>
+                              <div className="font-semibold text-green-700">£{careerCard.compensationRewards.salaryRange.exceptional.toLocaleString()}</div>
+                            </div>
+                          </div>
+                        ) : careerCard.averageSalary ? (
                           <div className="grid grid-cols-3 gap-4 text-center">
                             <div>
                               <div className="text-sm text-gray-600 mb-1">Entry Level</div>
@@ -159,7 +182,12 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                     <section>
                       <h3 className="text-lg font-semibold mb-3 text-gray-900">Growth Outlook</h3>
                       <div className="bg-blue-50 rounded-lg p-4">
-                        <p className="text-blue-800">{careerCard.growthOutlook || careerCard.marketOutlook || 'Growth outlook information not available'}</p>
+                        <p className="text-blue-800">
+                          {careerCard.labourMarketDynamics?.demandOutlook?.growthForecast || 
+                           careerCard.growthOutlook || 
+                           careerCard.marketOutlook || 
+                           'Growth outlook information not available'}
+                        </p>
                       </div>
                     </section>
 
@@ -169,7 +197,11 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                         <Users className="h-5 w-5 text-purple-600" />
                         Work Environment
                       </h3>
-                      <p className="text-gray-600">{careerCard.workEnvironment || 'Work environment information not available'}</p>
+                      <p className="text-gray-600">
+                        {careerCard.workEnvironmentCulture?.physicalContext?.[0] || 
+                         careerCard.workEnvironment || 
+                         'Work environment information not available'}
+                      </p>
                     </section>
                   </div>
 
@@ -179,7 +211,12 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                     <section>
                       <h3 className="text-lg font-semibold mb-3 text-gray-900">Key Skills</h3>
                       <div className="flex flex-wrap gap-2">
-                        {(careerCard.keySkills || careerCard.skillsRequired || []).map((skill, index) => (
+                        {([
+                          ...(careerCard.competencyRequirements?.technicalSkills || []),
+                          ...(careerCard.competencyRequirements?.softSkills || []),
+                          ...(careerCard.keySkills || []),
+                          ...(careerCard.skillsRequired || [])
+                        ].filter((skill, index, arr) => arr.indexOf(skill) === index)).map((skill, index) => (
                           <span
                             key={index}
                             className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
