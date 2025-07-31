@@ -425,6 +425,7 @@ class CareerPathwayService {
   async saveCareerCardsFromConversation(userId: string, careerCards: any[]): Promise<void> {
     try {
       console.log('💾 Saving career cards from conversation for user:', userId, 'Cards:', careerCards.length);
+      console.log('🔍 DEBUG saveCareerCards: First card FULL ORIGINAL DATA:', careerCards[0]);
       console.log('🔍 DEBUG saveCareerCards: First card web search data:', {
         webSearchVerified: careerCards[0]?.webSearchVerified,
         requiresVerification: careerCards[0]?.requiresVerification,
@@ -512,7 +513,15 @@ class CareerPathwayService {
               }
             ]
           },
-          alternativePathways: careerCards.slice(1).map(card => ({
+          alternativePathways: careerCards.slice(1).map((card, index) => {
+            console.log(`🔍 DEBUG: Saving alternative card ${index + 1}:`, {
+              title: card.title,
+              originalIndustry: card.industry,
+              originalSalary: card.averageSalary,
+              originalGrowth: card.growthOutlook,
+              webSearchVerified: card.webSearchVerified
+            });
+            return {
             id: card.id || `alt-${Date.now()}`,
             title: card.title,
             description: card.description,
@@ -1169,6 +1178,14 @@ class CareerPathwayService {
           if (data.guidance?.alternativePathways) {
             console.log('🔍 DEBUG: Processing', data.guidance.alternativePathways.length, 'alternative pathways');
             data.guidance.alternativePathways.forEach((pathway: any, index: number) => {
+              console.log(`🔍 DEBUG: Loading alternative card ${index + 1}:`, {
+                title: pathway.title,
+                originalIndustry: pathway.industry,
+                willUseDefault: !pathway.industry,
+                originalSalary: pathway.averageSalary,
+                originalGrowth: pathway.growthOutlook,
+                webSearchVerified: pathway.webSearchVerified
+              });
               const cardData = {
                 id: `guidance-${doc.id}-alt-${index}`,
                 title: pathway.title,
@@ -1218,6 +1235,13 @@ class CareerPathwayService {
           if (data.guidance?.primaryPathway) {
             console.log('🔍 DEBUG: Processing primary pathway');
             const primary = data.guidance.primaryPathway;
+            console.log('🔍 DEBUG: Primary pathway original data:', {
+              title: primary.title,
+              originalIndustry: primary.industry,
+              originalSalary: primary.averageSalary,
+              originalGrowth: primary.growthOutlook,
+              webSearchVerified: primary.webSearchVerified
+            });
             const primaryCardData = {
               id: `guidance-${doc.id}-primary`,
               title: primary.title,
