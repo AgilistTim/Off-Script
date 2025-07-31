@@ -39,44 +39,204 @@ export interface FundingOption {
 export interface CareerPathway {
   id: string;
   title: string;
-  description: string;
   match: number; // 0-100 relevance score
-  // Career card specific fields
-  industry?: string;
-  averageSalary?: {
-    entry: string;
-    experienced: string;
-    senior: string;
+  
+  // 1. Role Fundamentals
+  roleFundamentals: {
+    corePurpose: string;
+    problemsSolved: string[];
+    typicalResponsibilities: string[];
+    decisionLatitude: string;
+    deliverables: string[];
+    keyStakeholders: string[];
   };
-  growthOutlook?: string;
-  requiredSkills?: string[];
-  workEnvironment?: string;
-  entryRequirements?: string[];
-  trainingPathways?: string[];
-  // Web search verification fields
+  
+  // 2. Competency Requirements
+  competencyRequirements: {
+    technicalSkills: string[];
+    softSkills: string[];
+    tools: string[];
+    certifications: string[];
+    qualificationPathway: {
+      degrees: string[];
+      licenses: string[];
+      alternativeRoutes: string[];
+      apprenticeships: string[];
+      bootcamps: string[];
+    };
+    learningCurve: {
+      timeToCompetent: string;
+      difficultyLevel: string;
+      prerequisites: string[];
+    };
+  };
+  
+  // 3. Compensation & Rewards
+  compensationRewards: {
+    salaryRange: {
+      entry: number;
+      mid: number;
+      senior: number;
+      exceptional: number;
+      currency: string;
+    };
+    variablePay: {
+      bonuses: string;
+      commissions: string;
+      equity: string;
+      profitShare: string;
+    };
+    nonFinancialBenefits: {
+      pension: string;
+      healthcare: string;
+      leavePolicy: string;
+      professionalDevelopment: string;
+      perks: string[];
+    };
+  };
+  
+  // 4. Career Trajectory
+  careerTrajectory: {
+    progressionSteps: Array<{
+      title: string;
+      timeFrame: string;
+      requirements: string[];
+    }>;
+    horizontalMoves: string[];
+    leadershipTrack: string[];
+    specialistTrack: string[];
+    dualLadders: boolean;
+  };
+  
+  // 5. Labour-Market Dynamics
+  labourMarketDynamics: {
+    demandOutlook: {
+      growthForecast: string;
+      timeHorizon: string;
+      regionalHotspots: string[];
+    };
+    supplyProfile: {
+      talentScarcity: string;
+      competitionLevel: string;
+      barriers: string[];
+    };
+    economicSensitivity: {
+      recessionImpact: string;
+      techDisruption: string;
+      cyclicalPatterns: string;
+    };
+  };
+  
+  // 6. Work Environment & Culture
+  workEnvironmentCulture: {
+    typicalEmployers: string[];
+    teamStructures: string[];
+    culturalNorms: {
+      pace: string;
+      formality: string;
+      decisionMaking: string;
+      diversityInclusion: string;
+    };
+    physicalContext: string[];
+  };
+  
+  // 7. Lifestyle Fit
+  lifestyleFit: {
+    workingHours: {
+      typical: string;
+      flexibility: string;
+      shiftWork: boolean;
+      onCall: boolean;
+    };
+    remoteOptions: {
+      remoteWork: boolean;
+      hybridOptions: boolean;
+      travelRequirements: {
+        frequency: string;
+        duration: string;
+        international: boolean;
+      };
+    };
+    stressProfile: {
+      intensity: string;
+      volatility: string;
+      emotionalLabour: string;
+    };
+    workLifeBoundaries: {
+      flexibility: string;
+      autonomy: string;
+      predictability: string;
+    };
+  };
+  
+  // 8. Cost & Risk of Entry
+  costRiskEntry: {
+    upfrontInvestment: {
+      tuitionCosts: string;
+      trainingCosts: string;
+      examFees: string;
+      lostEarnings: string;
+      totalEstimate: string;
+    };
+    employmentCertainty: {
+      placementRates: string;
+      probationFailureRates: string;
+      timeToFirstRole: string;
+    };
+    regulatoryRisk: {
+      licenseRequirements: string[];
+      renewalRequirements: string;
+      revocationRisk: string;
+    };
+  };
+  
+  // 9. Values & Impact
+  valuesImpact: {
+    societalContribution: {
+      publicGood: string;
+      sustainability: string;
+      ethicalFootprint: string;
+    };
+    personalAlignment: {
+      intrinsicMotivation: string[];
+      meaningfulness: string;
+      purposeDriven: boolean;
+    };
+    reputationPrestige: {
+      perceivedStatus: string;
+      credibilityFactor: string;
+      networkingValue: string;
+    };
+  };
+  
+  // 10. Transferability & Future-Proofing
+  transferabilityFutureProofing: {
+    portableSkills: string[];
+    automationExposure: {
+      vulnerabilityLevel: string;
+      timeHorizon: string;
+      protectiveFactors: string[];
+    };
+    globalRelevance: {
+      credentialRecognition: string[];
+      marketDemand: string[];
+      culturalAdaptability: string;
+    };
+  };
+  
+  // Metadata
   webSearchVerified?: boolean;
   requiresVerification?: boolean;
   citations?: string[];
-  // Original pathway fields
+  
+  // Support Resources
   trainingOptions: TrainingOption[];
   volunteeringOpportunities: VolunteeringOpportunity[];
   fundingOptions: FundingOption[];
-  nextSteps: {
-    immediate: string[];
-    shortTerm: string[];
-    longTerm: string[];
-  };
-  reflectiveQuestions: string[];
   keyResources: {
     title: string;
     description: string;
     link?: string;
-  }[];
-  progressionPath: {
-    stage: string;
-    description: string;
-    timeframe: string;
-    requirements: string[];
   }[];
 }
 
@@ -439,22 +599,187 @@ class CareerPathwayService {
             careerStage: 'exploring' as const
           },
           primaryPathway: {
+            // Store complete comprehensive career data
+            ...careerCards[0],
             id: careerCards[0]?.id || `primary-${Date.now()}`,
-            title: careerCards[0]?.title || 'Career Exploration',
-            description: careerCards[0]?.description || 'Explore career opportunities',
             match: careerCards[0]?.confidence || 85,
-            // Preserve original career card fields INCLUDING OpenAI web search data
-            industry: careerCards[0]?.industry,
-            averageSalary: careerCards[0]?.averageSalary,
-            growthOutlook: careerCards[0]?.growthOutlook,
-            requiredSkills: careerCards[0]?.keySkills || [],
-            workEnvironment: careerCards[0]?.workEnvironment,
-            entryRequirements: careerCards[0]?.entryRequirements || [],
-            trainingPathways: this.validateTrainingPathwayAlignment(careerCards[0]?.title || '', careerCards[0]?.trainingPathways || []),
-            // Preserve web search verification and citation data
+            
+            // Preserve all 10 sections from comprehensive framework
+            roleFundamentals: careerCards[0]?.roleFundamentals || {
+              corePurpose: careerCards[0]?.description || 'Explore career opportunities',
+              problemsSolved: [],
+              typicalResponsibilities: [],
+              decisionLatitude: '',
+              deliverables: [],
+              keyStakeholders: []
+            },
+            
+            competencyRequirements: careerCards[0]?.competencyRequirements || {
+              technicalSkills: careerCards[0]?.keySkills || [],
+              softSkills: [],
+              tools: [],
+              certifications: [],
+              qualificationPathway: {
+                degrees: careerCards[0]?.entryRequirements || [],
+                licenses: [],
+                alternativeRoutes: [],
+                apprenticeships: careerCards[0]?.trainingPathways || [],
+                bootcamps: []
+              },
+              learningCurve: {
+                timeToCompetent: '',
+                difficultyLevel: '',
+                prerequisites: []
+              }
+            },
+            
+            compensationRewards: careerCards[0]?.compensationRewards || {
+              salaryRange: {
+                entry: parseInt(careerCards[0]?.averageSalary?.entry?.replace(/[^0-9]/g, '')) || 0,
+                mid: parseInt(careerCards[0]?.averageSalary?.experienced?.replace(/[^0-9]/g, '')) || 0,
+                senior: parseInt(careerCards[0]?.averageSalary?.senior?.replace(/[^0-9]/g, '')) || 0,
+                exceptional: 0,
+                currency: 'GBP'
+              },
+              variablePay: {
+                bonuses: '',
+                commissions: '',
+                equity: '',
+                profitShare: ''
+              },
+              nonFinancialBenefits: {
+                pension: '',
+                healthcare: '',
+                leavePolicy: '',
+                professionalDevelopment: '',
+                perks: []
+              }
+            },
+            
+            careerTrajectory: careerCards[0]?.careerTrajectory || {
+              progressionSteps: [],
+              horizontalMoves: [],
+              leadershipTrack: [],
+              specialistTrack: [],
+              dualLadders: false
+            },
+            
+            labourMarketDynamics: careerCards[0]?.labourMarketDynamics || {
+              demandOutlook: {
+                growthForecast: careerCards[0]?.growthOutlook || '',
+                timeHorizon: '',
+                regionalHotspots: []
+              },
+              supplyProfile: {
+                talentScarcity: '',
+                competitionLevel: '',
+                barriers: []
+              },
+              economicSensitivity: {
+                recessionImpact: '',
+                techDisruption: '',
+                cyclicalPatterns: ''
+              }
+            },
+            
+            workEnvironmentCulture: careerCards[0]?.workEnvironmentCulture || {
+              typicalEmployers: [careerCards[0]?.industry || ''],
+              teamStructures: [],
+              culturalNorms: {
+                pace: '',
+                formality: '',
+                decisionMaking: '',
+                diversityInclusion: ''
+              },
+              physicalContext: [careerCards[0]?.workEnvironment || '']
+            },
+            
+            lifestyleFit: careerCards[0]?.lifestyleFit || {
+              workingHours: {
+                typical: '',
+                flexibility: '',
+                shiftWork: false,
+                onCall: false
+              },
+              remoteOptions: {
+                remoteWork: false,
+                hybridOptions: false,
+                travelRequirements: {
+                  frequency: '',
+                  duration: '',
+                  international: false
+                }
+              },
+              stressProfile: {
+                intensity: '',
+                volatility: '',
+                emotionalLabour: ''
+              },
+              workLifeBoundaries: {
+                flexibility: '',
+                autonomy: '',
+                predictability: ''
+              }
+            },
+            
+            costRiskEntry: careerCards[0]?.costRiskEntry || {
+              upfrontInvestment: {
+                tuitionCosts: '',
+                trainingCosts: '',
+                examFees: '',
+                lostEarnings: '',
+                totalEstimate: ''
+              },
+              employmentCertainty: {
+                placementRates: '',
+                probationFailureRates: '',
+                timeToFirstRole: ''
+              },
+              regulatoryRisk: {
+                licenseRequirements: [],
+                renewalRequirements: '',
+                revocationRisk: ''
+              }
+            },
+            
+            valuesImpact: careerCards[0]?.valuesImpact || {
+              societalContribution: {
+                publicGood: '',
+                sustainability: '',
+                ethicalFootprint: ''
+              },
+              personalAlignment: {
+                intrinsicMotivation: [],
+                meaningfulness: '',
+                purposeDriven: false
+              },
+              reputationPrestige: {
+                perceivedStatus: '',
+                credibilityFactor: '',
+                networkingValue: ''
+              }
+            },
+            
+            transferabilityFutureProofing: careerCards[0]?.transferabilityFutureProofing || {
+              portableSkills: [],
+              automationExposure: {
+                vulnerabilityLevel: '',
+                timeHorizon: '',
+                protectiveFactors: []
+              },
+              globalRelevance: {
+                credentialRecognition: [],
+                marketDemand: [],
+                culturalAdaptability: ''
+              }
+            },
+            
+            // Preserve metadata
             webSearchVerified: careerCards[0]?.webSearchVerified,
             requiresVerification: careerCards[0]?.requiresVerification,
             citations: careerCards[0]?.citations,
+            
+            // Support resources
             trainingOptions: this.convertTrainingPathwaysToOptions(
               this.validateTrainingPathwayAlignment(careerCards[0]?.title || '', careerCards[0]?.trainingPathways || []),
               careerCards[0]?.title
@@ -1655,11 +1980,192 @@ class CareerPathwayService {
     // Add UK-specific enhancements based on career field
     const ukResources = this.getUKResourcesForField(pathway.title);
     
+    // Create comprehensive career pathway with UK enhancements
     return {
       id: `pathway-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title: pathway.title,
-      description: pathway.description,
       match: isPrimary ? 95 : Math.floor(Math.random() * 20) + 70,
+      
+      // 1. Role Fundamentals
+      roleFundamentals: pathway.roleFundamentals || {
+        corePurpose: pathway.description || '',
+        problemsSolved: [],
+        typicalResponsibilities: [],
+        decisionLatitude: '',
+        deliverables: [],
+        keyStakeholders: []
+      },
+      
+      // 2. Competency Requirements
+      competencyRequirements: pathway.competencyRequirements || {
+        technicalSkills: pathway.keySkills || [],
+        softSkills: [],
+        tools: [],
+        certifications: [],
+        qualificationPathway: {
+          degrees: pathway.entryRequirements || [],
+          licenses: [],
+          alternativeRoutes: [],
+          apprenticeships: pathway.trainingPathways || [],
+          bootcamps: []
+        },
+        learningCurve: {
+          timeToCompetent: '',
+          difficultyLevel: '',
+          prerequisites: []
+        }
+      },
+      
+      // 3. Compensation & Rewards
+      compensationRewards: pathway.compensationRewards || {
+        salaryRange: {
+          entry: parseInt(pathway.averageSalary?.entry?.replace(/[^0-9]/g, '')) || 0,
+          mid: parseInt(pathway.averageSalary?.experienced?.replace(/[^0-9]/g, '')) || 0,
+          senior: parseInt(pathway.averageSalary?.senior?.replace(/[^0-9]/g, '')) || 0,
+          exceptional: 0,
+          currency: 'GBP'
+        },
+        variablePay: {
+          bonuses: '',
+          commissions: '',
+          equity: '',
+          profitShare: ''
+        },
+        nonFinancialBenefits: {
+          pension: '',
+          healthcare: '',
+          leavePolicy: '',
+          professionalDevelopment: '',
+          perks: []
+        }
+      },
+      
+      // 4. Career Trajectory
+      careerTrajectory: pathway.careerTrajectory || {
+        progressionSteps: pathway.progressionPath || this.generateProgressionPath(pathway.title),
+        horizontalMoves: [],
+        leadershipTrack: [],
+        specialistTrack: [],
+        dualLadders: false
+      },
+      
+      // 5. Labour-Market Dynamics
+      labourMarketDynamics: pathway.labourMarketDynamics || {
+        demandOutlook: {
+          growthForecast: pathway.growthOutlook || '',
+          timeHorizon: '',
+          regionalHotspots: []
+        },
+        supplyProfile: {
+          talentScarcity: '',
+          competitionLevel: '',
+          barriers: []
+        },
+        economicSensitivity: {
+          recessionImpact: '',
+          techDisruption: '',
+          cyclicalPatterns: ''
+        }
+      },
+      
+      // 6. Work Environment & Culture
+      workEnvironmentCulture: pathway.workEnvironmentCulture || {
+        typicalEmployers: [pathway.industry || ''],
+        teamStructures: [],
+        culturalNorms: {
+          pace: '',
+          formality: '',
+          decisionMaking: '',
+          diversityInclusion: ''
+        },
+        physicalContext: [pathway.workEnvironment || '']
+      },
+      
+      // 7. Lifestyle Fit
+      lifestyleFit: pathway.lifestyleFit || {
+        workingHours: {
+          typical: '',
+          flexibility: '',
+          shiftWork: false,
+          onCall: false
+        },
+        remoteOptions: {
+          remoteWork: false,
+          hybridOptions: false,
+          travelRequirements: {
+            frequency: '',
+            duration: '',
+            international: false
+          }
+        },
+        stressProfile: {
+          intensity: '',
+          volatility: '',
+          emotionalLabour: ''
+        },
+        workLifeBoundaries: {
+          flexibility: '',
+          autonomy: '',
+          predictability: ''
+        }
+      },
+      
+      // 8. Cost & Risk of Entry
+      costRiskEntry: pathway.costRiskEntry || {
+        upfrontInvestment: {
+          tuitionCosts: '',
+          trainingCosts: '',
+          examFees: '',
+          lostEarnings: '',
+          totalEstimate: ''
+        },
+        employmentCertainty: {
+          placementRates: '',
+          probationFailureRates: '',
+          timeToFirstRole: ''
+        },
+        regulatoryRisk: {
+          licenseRequirements: [],
+          renewalRequirements: '',
+          revocationRisk: ''
+        }
+      },
+      
+      // 9. Values & Impact
+      valuesImpact: pathway.valuesImpact || {
+        societalContribution: {
+          publicGood: '',
+          sustainability: '',
+          ethicalFootprint: ''
+        },
+        personalAlignment: {
+          intrinsicMotivation: [],
+          meaningfulness: '',
+          purposeDriven: false
+        },
+        reputationPrestige: {
+          perceivedStatus: '',
+          credibilityFactor: '',
+          networkingValue: ''
+        }
+      },
+      
+      // 10. Transferability & Future-Proofing
+      transferabilityFutureProofing: pathway.transferabilityFutureProofing || {
+        portableSkills: [],
+        automationExposure: {
+          vulnerabilityLevel: '',
+          timeHorizon: '',
+          protectiveFactors: []
+        },
+        globalRelevance: {
+          credentialRecognition: [],
+          marketDemand: [],
+          culturalAdaptability: ''
+        }
+      },
+      
+      // Support Resources
       trainingOptions: [
         ...pathway.trainingOptions || [],
         ...ukResources.training
@@ -1672,10 +2178,12 @@ class CareerPathwayService {
         ...pathway.fundingOptions || [],
         ...ukResources.funding
       ],
-      nextSteps: pathway.nextSteps || this.generateDefaultNextSteps(pathway.title),
-      reflectiveQuestions: pathway.reflectiveQuestions || this.generateReflectiveQuestions(pathway.title),
       keyResources: ukResources.keyResources,
-      progressionPath: pathway.progressionPath || this.generateProgressionPath(pathway.title)
+      
+      // Metadata
+      webSearchVerified: pathway.webSearchVerified || false,
+      requiresVerification: pathway.requiresVerification || false,
+      citations: pathway.citations || []
     };
   }
 
