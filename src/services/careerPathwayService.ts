@@ -567,7 +567,8 @@ class CareerPathwayService {
                 requirements: ['Research', 'Comparison with primary choice']
               }
             ]
-          })),
+          };
+          }),
           crossCuttingResources: {
             generalFunding: [],
             careerSupport: []
