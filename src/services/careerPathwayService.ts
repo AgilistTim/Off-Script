@@ -210,7 +210,7 @@ class CareerPathwayService {
 
   /**
    * Convert training pathway strings to structured TrainingOption objects
-   * Enhanced to preserve specific details from OpenAI-generated content
+   * PRESERVE original rich conversation data instead of using generic templates
    */
   private convertTrainingPathwaysToOptions(trainingPathways: string[], careerTitle?: string): TrainingOption[] {
     if (!trainingPathways || !Array.isArray(trainingPathways)) {
@@ -221,89 +221,69 @@ class CareerPathwayService {
       const title = pathway.trim();
       const lowerTitle = title.toLowerCase();
       
-      // More sophisticated parsing to preserve OpenAI-generated details
-      let level = 'Professional Training';
-      let duration = '6-12 months';
-      let cost = 'Varies';
-      let provider = 'Various Institutions';
-      let description = title;
-      let fundingInfo = 'Various funding options available';
+      // PRESERVE the original rich training pathway data as the primary content
+      // Use intelligent parsing to extract details when possible, but don't replace with generic templates
+      let level = 'Training';
+      let duration = '';
+      let cost = '';
+      let provider = '';
+      let description = title; // Use the full original text as description
+      let fundingInfo = '';
       
-      // Advanced pattern matching for specific qualifications
-      if (lowerTitle.includes('degree') || lowerTitle.includes('bachelor') || lowerTitle.includes('master')) {
-        level = lowerTitle.includes('master') ? 'Masters Degree' : 'University Degree';
-        duration = lowerTitle.includes('master') ? '1-2 years' : '3-4 years';
-        cost = '£9,000-£27,000 per year';
-        provider = 'UK Universities';
-        fundingInfo = 'Student finance, scholarships, and grants available';
-        if (!description.includes('skills') && !description.includes('qualifications')) {
-          description = `${title} - Comprehensive university education providing theoretical knowledge and practical skills for career advancement.`;
-        }
-      } else if (lowerTitle.includes('apprentice')) {
-        level = 'Apprenticeship';
-        duration = lowerTitle.includes('higher') || lowerTitle.includes('degree') ? '3-4 years' : '1-3 years';
-        cost = 'Employer funded';
-        provider = 'Approved Training Providers';
-        fundingInfo = 'Fully funded by employer';
-        if (!description.includes('skills') && !description.includes('work-based')) {
-          description = `${title} - Work-based learning combining practical experience with formal training.`;
-        }
-      } else if (lowerTitle.includes('nvq') || lowerTitle.includes('level 2') || lowerTitle.includes('level 3')) {
-        level = lowerTitle.includes('level 3') ? 'Advanced Vocational' : 'Foundation Vocational';
-        duration = '6-18 months';
-        cost = '£1,000-£4,000';
-        provider = 'Colleges & Training Centers';
-        fundingInfo = 'Adult education funding available';
-        if (!description.includes('skills') && !description.includes('workplace')) {
-          description = `${title} - Practical vocational qualification demonstrating work-ready skills.`;
-        }
-      } else if (lowerTitle.includes('diploma') || lowerTitle.includes('btec') || lowerTitle.includes('hnd')) {
-        level = lowerTitle.includes('higher') || lowerTitle.includes('hnd') ? 'Higher Diploma' : 'Diploma';
-        duration = lowerTitle.includes('higher') ? '2-3 years' : '1-2 years';
-        cost = '£2,000-£8,000';
-        provider = 'Colleges & Universities';
-        fundingInfo = 'Student finance and employer sponsorship available';
-        if (!description.includes('skills') && !description.includes('industry')) {
-          description = `${title} - Industry-focused qualification providing specialized knowledge and practical skills.`;
-        }
-      } else if (lowerTitle.includes('certificate') || lowerTitle.includes('course') || lowerTitle.includes('training')) {
-        level = 'Professional Certificate';
-        duration = lowerTitle.includes('short') ? '1-6 months' : '3-12 months';
-        cost = '£500-£3,000';
-        provider = 'Professional Bodies & Training Organizations';
-        fundingInfo = 'Employer funding and professional development budgets';
-        if (!description.includes('skills') && !description.includes('professional')) {
-          description = `${title} - Professional development training to enhance specific career skills.`;
-        }
-      } else if (lowerTitle.includes('online') || lowerTitle.includes('distance')) {
-        level = 'Online Learning';
-        duration = '3-12 months';
-        cost = '£200-£2,000';
-        provider = 'Online Education Providers';
-        fundingInfo = 'Flexible payment options available';
-        if (!description.includes('skills') && !description.includes('flexible')) {
-          description = `${title} - Flexible online learning designed for working professionals.`;
-        }
+      // PRESERVE original rich data by extracting details from the actual text
+      // Extract university/institution names from the original text
+      const universityMatch = title.match(/(?:University of|at|from)\s+([A-Z][a-zA-Z\s&]+)|([A-Z][a-zA-Z\s&]*(?:University|College|Institute|Academy))/i);
+      if (universityMatch) {
+        provider = universityMatch[1] || universityMatch[2];
       }
       
-      // If OpenAI provided a detailed description, preserve it
-      const originalDescription = description;
-      if (title.length > 50 && title.includes(' - ')) {
-        // Likely contains detailed info from OpenAI
-        description = title;
-      } else if (originalDescription === title) {
-        // Add context if we only have a basic title
-        description = `${title} - Gain the skills and qualifications needed for this career path.`;
+      // Extract costs/prices from the original text
+      const costMatch = title.match(/£([\d,]+(?:\.\d{2})?)|(\$[\d,]+(?:\.\d{2})?)/i);
+      if (costMatch) {
+        cost = costMatch[0];
+      }
+      
+      // Extract duration from the original text
+      const durationMatch = title.match(/(\d+[-–]\d+|\d+)\s*(month|year|week)s?/i);
+      if (durationMatch) {
+        duration = durationMatch[0];
+      }
+      
+      // Extract organization/provider names from original text
+      const providerMatch = title.match(/(?:by|from|at|with)\s+([A-Z][a-zA-Z\s&]+(?:Ltd|Limited|Inc|Corporation|Corp|Group|Company|Co\.|Organization|Org|Foundation|Society|Association|Council|Board|Training|Education|Learning|Certification))/i);
+      if (providerMatch && !provider) {
+        provider = providerMatch[1];
+      }
+      
+      // Intelligently determine level based on content keywords
+      if (lowerTitle.includes('phd') || lowerTitle.includes('doctorate')) {
+        level = 'Doctorate Degree';
+      } else if (lowerTitle.includes('master') || lowerTitle.includes('msc') || lowerTitle.includes('ma ')) {
+        level = 'Masters Degree';
+      } else if (lowerTitle.includes('bachelor') || lowerTitle.includes('bsc') || lowerTitle.includes('ba ') || lowerTitle.includes('degree')) {
+        level = 'University Degree';
+      } else if (lowerTitle.includes('apprentice')) {
+        level = 'Apprenticeship';
+      } else if (lowerTitle.includes('certificate') || lowerTitle.includes('certification') || lowerTitle.includes('certified')) {
+        level = 'Professional Certificate';
+      } else if (lowerTitle.includes('diploma') || lowerTitle.includes('btec') || lowerTitle.includes('hnd')) {
+        level = 'Diploma';
+      } else if (lowerTitle.includes('bootcamp')) {
+        level = 'Intensive Bootcamp';
+      } else if (lowerTitle.includes('nvq') || lowerTitle.includes('level')) {
+        level = 'Vocational Qualification';
+      } else if (lowerTitle.includes('course') || lowerTitle.includes('training') || lowerTitle.includes('program')) {
+        level = 'Professional Training';
       }
       
       return {
-        title: title.split(' - ')[0].trim(), // Clean title without description
+        title: title, // PRESERVE the original rich title exactly as provided
         level,
-        duration,
-        cost,
-        provider,
-        description,
-        fundingAvailable: fundingInfo,
+        duration: duration || 'Contact provider for details',
+        cost: cost || 'Contact provider for pricing',
+        provider: provider || 'See training details', 
+        description: title, // Use the full original text as description to preserve all details
+        fundingAvailable: 'Contact provider for funding options',
         qualificationBody: provider
       };
     });
@@ -425,13 +405,6 @@ class CareerPathwayService {
   async saveCareerCardsFromConversation(userId: string, careerCards: any[]): Promise<void> {
     try {
       console.log('💾 Saving career cards from conversation for user:', userId, 'Cards:', careerCards.length);
-      console.log('🔍 DEBUG saveCareerCards: First card FULL ORIGINAL DATA:', careerCards[0]);
-      console.log('🔍 DEBUG saveCareerCards: First card web search data:', {
-        webSearchVerified: careerCards[0]?.webSearchVerified,
-        requiresVerification: careerCards[0]?.requiresVerification,
-        citations: careerCards[0]?.citations,
-        title: careerCards[0]?.title
-      });
       
       const { db } = await import('./firebase');
       const { doc, setDoc } = await import('firebase/firestore');
@@ -513,15 +486,7 @@ class CareerPathwayService {
               }
             ]
           },
-          alternativePathways: careerCards.slice(1).map((card, index) => {
-            console.log(`🔍 DEBUG: Saving alternative card ${index + 1}:`, {
-              title: card.title,
-              originalIndustry: card.industry,
-              originalSalary: card.averageSalary,
-              originalGrowth: card.growthOutlook,
-              webSearchVerified: card.webSearchVerified
-            });
-            return {
+          alternativePathways: careerCards.slice(1).map((card, index) => ({
             id: card.id || `alt-${Date.now()}`,
             title: card.title,
             description: card.description,
@@ -567,8 +532,7 @@ class CareerPathwayService {
                 requirements: ['Research', 'Comparison with primary choice']
               }
             ]
-          };
-          }),
+          })),
           crossCuttingResources: {
             generalFunding: [],
             careerSupport: []
@@ -1179,14 +1143,6 @@ class CareerPathwayService {
           if (data.guidance?.alternativePathways) {
             console.log('🔍 DEBUG: Processing', data.guidance.alternativePathways.length, 'alternative pathways');
             data.guidance.alternativePathways.forEach((pathway: any, index: number) => {
-              console.log(`🔍 DEBUG: Loading alternative card ${index + 1}:`, {
-                title: pathway.title,
-                originalIndustry: pathway.industry,
-                willUseDefault: !pathway.industry,
-                originalSalary: pathway.averageSalary,
-                originalGrowth: pathway.growthOutlook,
-                webSearchVerified: pathway.webSearchVerified
-              });
               const cardData = {
                 id: `guidance-${doc.id}-alt-${index}`,
                 title: pathway.title,
@@ -1227,22 +1183,14 @@ class CareerPathwayService {
                   pathwayTitle: pathway.title
                 }
               };
-              console.log('🔍 DEBUG: Adding alternative card:', cardData.title, 'with web search:', cardData.webSearchVerified);
+
               careerCards.push(cardData);
             });
           }
           
           // Also include primary pathway
           if (data.guidance?.primaryPathway) {
-            console.log('🔍 DEBUG: Processing primary pathway');
             const primary = data.guidance.primaryPathway;
-            console.log('🔍 DEBUG: Primary pathway original data:', {
-              title: primary.title,
-              originalIndustry: primary.industry,
-              originalSalary: primary.averageSalary,
-              originalGrowth: primary.growthOutlook,
-              webSearchVerified: primary.webSearchVerified
-            });
             const primaryCardData = {
               id: `guidance-${doc.id}-primary`,
               title: primary.title,
@@ -1283,7 +1231,7 @@ class CareerPathwayService {
                 pathwayTitle: primary.title
               }
             };
-            console.log('🔍 DEBUG: Adding primary card:', primaryCardData.title, 'with web search:', primaryCardData.webSearchVerified);
+
             careerCards.push(primaryCardData);
           }
         }
