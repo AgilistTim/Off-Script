@@ -11,6 +11,7 @@ import { db } from './firebase';
 import { guestSessionService, GuestSession } from './guestSessionService';
 import { updateUserProfile } from './userService';
 import { UserProfile } from '../models/User';
+import { perplexityCareerEnhancementService } from './perplexityCareerEnhancementService';
 
 // Migration tracking interface
 interface MigrationRecord {
@@ -126,6 +127,14 @@ export class GuestMigrationService {
       };
 
       await this.recordMigration(finalRecord);
+
+      // 6. Queue premium Perplexity enhancement for logged-in users (background process)
+      if (guestSession.careerCards.length > 0) {
+        this.queuePerplexityEnhancement(userId, guestSession.careerCards)
+          .catch(error => {
+            console.warn('⚠️ Could not queue Perplexity enhancement (non-critical):', error);
+          });
+      }
 
       // Clean up guest session
       guestSessionService.clearSession();
@@ -460,6 +469,55 @@ export class GuestMigrationService {
    */
   static hasGuestDataToMigrate(): boolean {
     return guestSessionService.hasSignificantData();
+  }
+
+  /**
+   * Queue Perplexity enhancement for migrated career cards (premium feature)
+   */
+  private static async queuePerplexityEnhancement(
+    userId: string,
+    careerCards: any[]
+  ): Promise<void> {
+    try {
+      // Only enhance if Perplexity is available and user has career cards
+      if (!perplexityCareerEnhancementService.isEnhancementAvailable()) {
+        console.log('📊 Perplexity enhancement not available - skipping premium enhancement');
+        return;
+      }
+
+      if (careerCards.length === 0) {
+        console.log('📊 No career cards to enhance');
+        return;
+      }
+
+      console.log(`🎯 Queueing premium Perplexity enhancement for ${careerCards.length} career cards`);
+
+      // Start enhancement process in background after a short delay
+      setTimeout(async () => {
+        try {
+          console.log(`🚀 Starting background Perplexity enhancement for user: ${userId}`);
+          
+          // Note: In a production environment, this would ideally be handled by a job queue
+          // For now, we'll run it as a background process
+          await perplexityCareerEnhancementService.batchEnhanceUserCareerCards(
+            userId,
+            careerCards,
+            (status) => {
+              console.log(`📊 Enhancement progress:`, status);
+              // TODO: Could emit real-time progress updates to the user via WebSocket/SSE
+            }
+          );
+
+          console.log(`✅ Background Perplexity enhancement completed for user: ${userId}`);
+        } catch (error) {
+          console.error(`❌ Background Perplexity enhancement failed for user ${userId}:`, error);
+        }
+      }, 5000); // Start after 5 seconds to allow user registration to complete
+
+    } catch (error) {
+      console.error('❌ Error queueing Perplexity enhancement:', error);
+      // Don't throw - this is a premium feature and shouldn't break migration
+    }
   }
 
   /**

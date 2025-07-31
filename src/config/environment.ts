@@ -39,6 +39,11 @@ export interface EnvironmentConfig {
     agentId?: string;
   };
   
+  // Perplexity configuration
+  perplexity: {
+    apiKey?: string;
+  };
+  
   // API endpoints
   apiEndpoints: {
     bumpupsProxy?: string;
@@ -55,6 +60,7 @@ export interface EnvironmentConfig {
     enableBumpupsIntegration: boolean;
     enableOpenAIAssistant: boolean;
     enableElevenLabsVoice: boolean;
+    enablePerplexityEnhancement: boolean;
   };
 }
 
@@ -101,6 +107,9 @@ const getViteEnvironment = (): Partial<EnvironmentConfig> => {
       apiKey: import.meta.env.VITE_ELEVENLABS_API_KEY as string,
       agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID as string,
     },
+    perplexity: {
+      apiKey: import.meta.env.VITE_PERPLEXITY_API_KEY as string,
+    },
     apiEndpoints: {
       bumpupsProxy: import.meta.env.VITE_BUMPUPS_PROXY_URL as string,
       openaiAssistant: import.meta.env.VITE_OPENAI_ASSISTANT_URL as string,
@@ -136,6 +145,9 @@ const getWindowEnvironment = (): Partial<EnvironmentConfig> => {
     elevenLabs: {
       apiKey: (window as any).ENV.VITE_ELEVENLABS_API_KEY || undefined,
       agentId: (window as any).ENV.VITE_ELEVENLABS_AGENT_ID || undefined,
+    },
+    perplexity: {
+      apiKey: (window as any).ENV.VITE_PERPLEXITY_API_KEY || undefined,
     },
     apiEndpoints: {
       bumpupsProxy: (window as any).ENV.VITE_BUMPUPS_PROXY_URL,
@@ -192,6 +204,10 @@ const determineFeatureFlags = (config: Partial<EnvironmentConfig>): EnvironmentC
     // Enable ElevenLabs voice if API key and agent ID are available
     enableElevenLabsVoice: config.features?.enableElevenLabsVoice ?? 
       Boolean(config.elevenLabs?.apiKey && config.elevenLabs?.agentId),
+
+    // Enable Perplexity enhancement if API key is available
+    enablePerplexityEnhancement: config.features?.enablePerplexityEnhancement ?? 
+      Boolean(config.perplexity?.apiKey),
   };
 };
 
@@ -290,6 +306,9 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
       apiKey: fallbackConfig.elevenLabs?.apiKey,
       agentId: fallbackConfig.elevenLabs?.agentId,
     },
+    perplexity: {
+      apiKey: fallbackConfig.perplexity?.apiKey,
+    },
     apiEndpoints: generateApiEndpoints(fallbackConfig),
     environment: fallbackConfig.environment || 'development',
     features: determineFeatureFlags(fallbackConfig),
@@ -303,6 +322,7 @@ export const env = getEnvironmentConfig();
 export const firebaseConfig = env.firebase;
 export const apiKeys = env.apiKeys;
 export const elevenLabs = env.elevenLabs;
+export const perplexity = env.perplexity;
 export const apiEndpoints = env.apiEndpoints;
 export const features = env.features;
 export const environment = env.environment;

@@ -50,6 +50,26 @@ export interface MCPInsightsResult {
   error?: string;
 }
 
+export interface PerplexitySearchResult {
+  success: boolean;
+  response?: string;
+  sources?: Array<{
+    title: string;
+    url: string;
+    date?: string;
+  }>;
+  relatedQuestions?: string[];
+  error?: string;
+}
+
+export interface PerplexitySearchParams {
+  query: string;
+  return_related_questions?: boolean;
+  search_recency_filter?: 'hour' | 'day' | 'week' | 'month' | 'year';
+  search_domain_filter?: string[];
+  showThinking?: boolean;
+}
+
 class MCPBridgeService {
   private isConnected = false;
   private mcpServerUrl: string | null = null;
@@ -253,6 +273,90 @@ class MCPBridgeService {
     } catch (error) {
       console.warn('⚠️ MCP preferences retrieval failed:', error);
       return this.fallbackGetPreferences(userId);
+    }
+  }
+
+  /**
+   * Search using Perplexity API for real-time career data
+   */
+  async searchWithPerplexity(params: PerplexitySearchParams): Promise<PerplexitySearchResult> {
+    try {
+      const { perplexity } = await import('../config/environment');
+      
+      if (!perplexity.apiKey) {
+        return {
+          success: false,
+          error: 'Perplexity API key not configured'
+        };
+      }
+
+      console.log('🔍 Calling Perplexity API:', params.query);
+
+      const response = await fetch('https://api.perplexity.ai/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${perplexity.apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: 'sonar-pro',
+          messages: [
+            {
+              role: 'system',
+              content: 'You are a helpful assistant providing accurate, current information about UK career opportunities, training pathways, and job market data. Always cite your sources and provide recent, verifiable information.'
+            },
+            {
+              role: 'user',
+              content: params.query
+            }
+          ],
+          return_citations: true,
+          search_domain_filter: params.search_domain_filter,
+          search_recency_filter: params.search_recency_filter,
+          return_related_questions: params.return_related_questions,
+          temperature: 0.1,
+          max_tokens: 1500
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Perplexity API error: ${response.status} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      const choice = data.choices?.[0];
+      
+      if (!choice) {
+        throw new Error('No response from Perplexity API');
+      }
+
+      // Extract sources from citations or search_results
+      const sources = data.search_results?.map((result: any) => ({
+        title: result.title,
+        url: result.url,
+        date: result.date
+      })) || [];
+
+      console.log('✅ Perplexity search completed:', {
+        query: params.query,
+        sourcesFound: sources.length,
+        responseLength: choice.message?.content?.length || 0
+      });
+
+      return {
+        success: true,
+        response: choice.message?.content || '',
+        sources,
+        relatedQuestions: data.related_questions || []
+      };
+
+    } catch (error) {
+      console.error('❌ Perplexity API error:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown Perplexity API error'
+      };
     }
   }
 
