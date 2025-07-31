@@ -236,7 +236,7 @@ const CareerGuidancePanel: React.FC<CareerGuidancePanelProps> = ({
                         {primaryPathway.title || 'Career Path'}
                       </h3>
                       <p className="text-gray-600 mb-4">
-                        {primaryPathway.description || 'No description available'}
+                        {primaryPathway.description || primaryPathway.roleFundamentals?.corePurpose || 'No description available'}
                       </p>
                       <Button className="w-full">
                         <ArrowRight className="w-4 h-4 mr-2" />
@@ -283,9 +283,10 @@ const CareerGuidancePanel: React.FC<CareerGuidancePanelProps> = ({
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {primaryPathway.progressionPath && primaryPathway.progressionPath.length > 0 ? (
+                    {(primaryPathway.progressionPath || primaryPathway.careerTrajectory?.progressionSteps) && 
+                     (primaryPathway.progressionPath?.length || primaryPathway.careerTrajectory?.progressionSteps?.length) > 0 ? (
                       <div className="space-y-4">
-                        {primaryPathway.progressionPath.map((stage, index) => (
+                        {(primaryPathway.progressionPath || primaryPathway.careerTrajectory?.progressionSteps || []).map((stage, index) => (
                           <div key={index} className="border-l-4 border-blue-500 pl-4 py-2">
                             <h4 className="font-semibold text-gray-900">{stage.stage}</h4>
                             <p className="text-gray-600 text-sm">{stage.description}</p>

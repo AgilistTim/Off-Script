@@ -238,6 +238,28 @@ export interface CareerPathway {
     description: string;
     link?: string;
   }[];
+
+  // Legacy fields for backward compatibility
+  description?: string;
+  industry?: string;
+  averageSalary?: {
+    entry: string;
+    experienced: string;
+    senior: string;
+  };
+  growthOutlook?: string;
+  entryRequirements?: string[];
+  trainingPathways?: string[];
+  keySkills?: string[];
+  workEnvironment?: string;
+  nextSteps?: string[];
+  location?: string;
+  progressionPath?: Array<{
+    stage: string;
+    description: string;
+    timeframe: string;
+    requirements: string[];
+  }>;
 }
 
 export interface ComprehensiveCareerGuidance {
@@ -2195,8 +2217,204 @@ class CareerPathwayService {
       const primaryPathway: CareerPathway = {
         id: 'ai-generated-primary',
         title: aiData.primaryPathway?.title || 'AI-Generated Career Path',
-        description: aiData.primaryPathway?.description || 'AI-generated career guidance',
         match: 95,
+        
+        // 1. Role Fundamentals
+        roleFundamentals: {
+          corePurpose: aiData.primaryPathway?.description || 'AI-generated career guidance',
+          problemsSolved: [],
+          typicalResponsibilities: [],
+          decisionLatitude: '',
+          deliverables: [],
+          keyStakeholders: []
+        },
+        
+        // 2. Competency Requirements
+        competencyRequirements: {
+          technicalSkills: [],
+          softSkills: [],
+          tools: [],
+          certifications: [],
+          qualificationPathway: {
+            degrees: [],
+            licenses: [],
+            alternativeRoutes: [],
+            apprenticeships: [],
+            bootcamps: []
+          },
+          learningCurve: {
+            timeToCompetent: '',
+            difficultyLevel: '',
+            prerequisites: []
+          }
+        },
+        
+        // 3. Compensation & Rewards
+        compensationRewards: {
+          salaryRange: {
+            entry: 0,
+            mid: 0,
+            senior: 0,
+            exceptional: 0,
+            currency: 'GBP'
+          },
+          variablePay: {
+            bonuses: '',
+            commissions: '',
+            equity: '',
+            profitShare: ''
+          },
+          nonFinancialBenefits: {
+            pension: '',
+            healthcare: '',
+            leavePolicy: '',
+            professionalDevelopment: '',
+            perks: []
+          }
+        },
+        
+        // 4. Career Trajectory
+        careerTrajectory: {
+          progressionSteps: [
+            {
+              title: 'Entry Level',
+              timeFrame: '0-6 months',
+              requirements: ['Basic skills', 'Volunteer experience']
+            },
+            {
+              title: 'Developing',
+              timeFrame: '6-18 months',
+              requirements: ['Relevant qualification', 'Practical experience']
+            },
+            {
+              title: 'Established',
+              timeFrame: '18+ months',
+              requirements: ['Work experience', 'Ongoing training']
+            }
+          ],
+          horizontalMoves: [],
+          leadershipTrack: [],
+          specialistTrack: [],
+          dualLadders: false
+        },
+        
+        // 5. Labour-Market Dynamics
+        labourMarketDynamics: {
+          demandOutlook: {
+            growthForecast: '',
+            timeHorizon: '',
+            regionalHotspots: []
+          },
+          supplyProfile: {
+            talentScarcity: '',
+            competitionLevel: '',
+            barriers: []
+          },
+          economicSensitivity: {
+            recessionImpact: '',
+            techDisruption: '',
+            cyclicalPatterns: ''
+          }
+        },
+        
+        // 6. Work Environment & Culture
+        workEnvironmentCulture: {
+          typicalEmployers: [],
+          teamStructures: [],
+          culturalNorms: {
+            pace: '',
+            formality: '',
+            decisionMaking: '',
+            diversityInclusion: ''
+          },
+          physicalContext: []
+        },
+        
+        // 7. Lifestyle Fit
+        lifestyleFit: {
+          workingHours: {
+            typical: '',
+            flexibility: '',
+            shiftWork: false,
+            onCall: false
+          },
+          remoteOptions: {
+            remoteWork: false,
+            hybridOptions: false,
+            travelRequirements: {
+              frequency: '',
+              duration: '',
+              international: false
+            }
+          },
+          stressProfile: {
+            intensity: '',
+            volatility: '',
+            emotionalLabour: ''
+          },
+          workLifeBoundaries: {
+            flexibility: '',
+            autonomy: '',
+            predictability: ''
+          }
+        },
+        
+        // 8. Cost & Risk of Entry
+        costRiskEntry: {
+          upfrontInvestment: {
+            tuitionCosts: '',
+            trainingCosts: '',
+            examFees: '',
+            lostEarnings: '',
+            totalEstimate: ''
+          },
+          employmentCertainty: {
+            placementRates: '',
+            probationFailureRates: '',
+            timeToFirstRole: ''
+          },
+          regulatoryRisk: {
+            licenseRequirements: [],
+            renewalRequirements: '',
+            revocationRisk: ''
+          }
+        },
+        
+        // 9. Values & Impact
+        valuesImpact: {
+          societalContribution: {
+            publicGood: '',
+            sustainability: '',
+            ethicalFootprint: ''
+          },
+          personalAlignment: {
+            intrinsicMotivation: [],
+            meaningfulness: '',
+            purposeDriven: false
+          },
+          reputationPrestige: {
+            perceivedStatus: '',
+            credibilityFactor: '',
+            networkingValue: ''
+          }
+        },
+        
+        // 10. Transferability & Future-Proofing
+        transferabilityFutureProofing: {
+          portableSkills: [],
+          automationExposure: {
+            vulnerabilityLevel: '',
+            timeHorizon: '',
+            protectiveFactors: []
+          },
+          globalRelevance: {
+            credentialRecognition: [],
+            marketDemand: [],
+            culturalAdaptability: ''
+          }
+        },
+        
+        // Support Resources
         trainingOptions: aiData.training?.map((t: any) => ({
           title: t.title,
           level: 'Various',
@@ -2223,21 +2441,14 @@ class CareerPathwayService {
           description: f.description,
           link: f.link
         })) || [],
-        nextSteps: {
-          immediate: aiData.primaryPathway?.requirements || [],
-          shortTerm: aiData.primaryPathway?.progression?.slice(0, 2) || [],
-          longTerm: aiData.primaryPathway?.progression?.slice(2) || []
-        },
-        reflectiveQuestions: [
-          'How does this career path align with your personal values?',
-          'What aspects of this field excite you most?',
-          'Which skills would you like to develop further?'
-        ],
         keyResources: aiData.resources?.map((r: any) => ({
           title: r.title,
           description: r.description,
           link: r.link
         })) || [],
+        
+        // Legacy fields for backward compatibility
+        description: aiData.primaryPathway?.description || 'AI-generated career guidance',
         progressionPath: [
           {
             stage: 'Entry Level',
