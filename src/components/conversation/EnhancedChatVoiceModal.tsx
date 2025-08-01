@@ -63,7 +63,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   currentConversationHistory = [],
   onConversationUpdate
 }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, userData } = useAuth();
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>(currentConversationHistory);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -92,21 +92,10 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
   // Build personalized greeting using agent context service
   const buildGreeting = (): string => {
-    // Convert Firebase User to our User interface for agent context service
-    const userForContext = currentUser ? {
-      uid: currentUser.uid,
-      email: currentUser.email,
-      displayName: currentUser.displayName,
-      photoURL: currentUser.photoURL,
-      createdAt: new Date(), // Placeholder - we don't have this from Firebase User
-      lastLogin: new Date(), // Placeholder - we don't have this from Firebase User
-      role: 'user' as const, // Default role
-      profile: undefined // Firebase User doesn't have our profile structure
-    } : null;
-    
+    // Use userData which has our User interface with profile
     const context = agentContextService.buildAgentContext(
-      userForContext,
-      undefined, // Don't pass profile since Firebase User doesn't have it
+      userData, // Use full userData from auth context
+      userData?.profile, // Pass the user's profile
       careerContext
     );
     return context.greeting;
@@ -411,7 +400,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     ) : (
                       <>
                         <PhoneOff className="w-5 h-5 mr-2" />
-                        End Chat
+                        End Call
                       </>
                     )}
                   </Button>

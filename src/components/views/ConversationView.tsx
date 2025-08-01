@@ -698,29 +698,28 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
                   <div className="mb-4">
                     <motion.button
                       onClick={() => setShowEnhancedModal(true)}
-                      className="w-full px-6 py-4 bg-gradient-to-r from-neon-pink to-cyber-yellow text-primary-black font-bold rounded-xl hover:scale-105 transition-transform duration-200 shadow-lg"
+                      className="w-full px-6 py-4 bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white font-bold rounded-xl hover:scale-105 transition-transform duration-200 shadow-lg"
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                     >
                       <div className="flex items-center justify-center space-x-3">
-                        <Video className="w-6 h-6" />
-                        <span>ENHANCED VOICE EXPERIENCE</span>
-                        <Sparkles className="w-5 h-5" />
+                        <Mic className="w-6 h-6" />
+                        <span>START CONVERSATION</span>
                       </div>
-                      <p className="text-xs mt-1 opacity-80">Rich conversation with history display</p>
+                      <p className="text-xs mt-1 opacity-80">Voice-first career guidance with real-time insights</p>
                     </motion.button>
                   </div>
 
-                  {/* ElevenLabs Widget */}
-                  <div className="relative">
-                    <ElevenLabsWidget
-                      onCareerCardsGenerated={handleCareerCardsGenerated}
-                      onPersonProfileGenerated={handlePersonProfileGenerated}
-                      onAnalysisStateChange={handleAnalysisStateChange}
-                      onConversationStart={handleConversationStart}
-                      onConversationEnd={handleConversationEnd}
-                      className="min-h-96"
-                    />
+                  {/* Instructions */}
+                  <div className="text-center space-y-3 text-sm text-primary-white/70">
+                    <div className="flex items-center justify-center space-x-2">
+                      <Sparkles className="w-4 h-4 text-cyber-yellow" />
+                      <span>Career cards will appear automatically as you discuss your interests</span>
+                    </div>
+                    <div className="flex items-center justify-center space-x-2">
+                      <Target className="w-4 h-4 text-electric-blue" />
+                      <span>Analysis happens every few messages to generate personalized recommendations</span>
+                    </div>
                   </div>
 
                   {/* Status Indicators */}
