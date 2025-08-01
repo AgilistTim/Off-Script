@@ -29,16 +29,27 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     setConversationHistory(messages);
   }, []);
 
+  // Debug: Log when career cards are discovered
+  const handleCareerCardsDiscovered = useCallback((cards: CareerCard[]) => {
+    console.log('🎯 ConversationView: Career cards discovered:', cards.length);
+    setDiscoveredCareerCards(cards);
+  }, []);
+
   // Handle modal close - check if we should show post-conversation CTA
   const handleModalClose = useCallback(() => {
+    console.log('🚪 ConversationView: handleModalClose called');
     setShowEnhancedModal(false);
     
-    // Show post-conversation CTA if guest user discovered career cards
-    if (!currentUser && discoveredCareerCards.length > 0) {
-      console.log('🎯 Showing post-conversation CTA for guest with career insights');
-      setShowPostConversationCTA(true);
-    }
-  }, [currentUser, discoveredCareerCards.length]);
+    // Use current state value to avoid dependency issues
+    setDiscoveredCareerCards(currentCards => {
+      // Show post-conversation CTA if guest user discovered career cards
+      if (!currentUser && currentCards.length > 0) {
+        console.log('🎯 Showing post-conversation CTA for guest with career insights');
+        setShowPostConversationCTA(true);
+      }
+      return currentCards; // Return unchanged
+    });
+  }, [currentUser]); // Remove discoveredCareerCards.length dependency
 
   // Handle signup CTA
   const handleSignUp = useCallback(() => {
@@ -176,7 +187,10 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
               transition={{ duration: 0.8, delay: 0.7 }}
             >
               <motion.button
-                onClick={() => setShowEnhancedModal(true)}
+                onClick={() => {
+                  console.log('🚀 ConversationView: Opening enhanced modal');
+                  setShowEnhancedModal(true);
+                }}
                 className="px-12 py-6 bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white font-bold text-xl rounded-2xl hover:scale-105 transition-transform duration-200 shadow-2xl"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
@@ -332,7 +346,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         careerContext={undefined}
         currentConversationHistory={conversationHistory}
         onConversationUpdate={handleConversationUpdate}
-        onCareerCardsDiscovered={setDiscoveredCareerCards}
+        onCareerCardsDiscovered={handleCareerCardsDiscovered}
       />
     </motion.div>
   );

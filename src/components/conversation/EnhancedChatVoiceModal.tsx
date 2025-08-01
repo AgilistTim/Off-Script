@@ -91,6 +91,14 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const conversationInitialized = useRef<boolean>(false);
 
+  // Debug: Log component mount/unmount
+  useEffect(() => {
+    console.log('🎭 EnhancedChatVoiceModal: Component mounted');
+    return () => {
+      console.log('🎭 EnhancedChatVoiceModal: Component unmounting');
+    };
+  }, []);
+
   // Handle conversation update callback separately to avoid setState during render
   useEffect(() => {
     if (onConversationUpdate) {
@@ -462,6 +470,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   };
 
   if (!isOpen) return null;
+
+  console.log('🎭 EnhancedChatVoiceModal: Rendering modal (isOpen=true)');
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
