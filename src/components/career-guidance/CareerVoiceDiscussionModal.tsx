@@ -18,7 +18,9 @@ import {
   Bot,
   Radio,
   PhoneCall,
-  PhoneOff
+  PhoneOff,
+  Save,
+  CheckCircle
 } from 'lucide-react';
 
 import { 
@@ -75,6 +77,13 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
+  const [savingInsights, setSavingInsights] = useState(false);
+  const [insightsSaved, setInsightsSaved] = useState(false);
+  const [discoveredInsights, setDiscoveredInsights] = useState<{
+    interests: string[];
+    goals: string[];
+    skills: string[];
+  }>({ interests: [], goals: [], skills: [] });
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Get ElevenLabs configuration
@@ -103,7 +112,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
       setConnectionStatus('disconnected');
       setIsSpeaking(false);
     },
-    onMessage: (message) => {
+    onMessage: async (message) => {
       console.log('🤖 Agent message:', message);
       const newMessage: ConversationMessage = {
         role: 'assistant',
@@ -111,6 +120,12 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
         timestamp: new Date()
       };
       setConversationHistory(prev => [...prev, newMessage]);
+      
+      // Track message with careerAwareVoiceService
+      if (sessionId) {
+        const { careerAwareVoiceService } = await import('../../services/careerAwareVoiceService');
+        await careerAwareVoiceService.trackConversationMessage(sessionId, 'assistant', message.message);
+      }
     },
     onError: (error) => {
       console.error('❌ Voice conversation error:', error);
@@ -160,6 +175,53 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
     conversation.endSession();
     setConnectionStatus('disconnected');
     setIsSpeaking(false);
+  };
+
+  // Track user input (this would be called by ElevenLabs when user speaks)
+  const handleUserInput = async (userMessage: string) => {
+    const newMessage: ConversationMessage = {
+      role: 'user',
+      content: userMessage,
+      timestamp: new Date()
+    };
+    setConversationHistory(prev => [...prev, newMessage]);
+    
+    // Track message with careerAwareVoiceService
+    if (sessionId) {
+      const { careerAwareVoiceService } = await import('../../services/careerAwareVoiceService');
+      await careerAwareVoiceService.trackConversationMessage(sessionId, 'user', userMessage);
+      
+      // Update insights display
+      const insights = careerAwareVoiceService.getSessionInsights(sessionId);
+      if (insights) {
+        setDiscoveredInsights(insights.discoveredInsights);
+      }
+    }
+  };
+
+  // Save insights to user profile
+  const handleSaveInsights = async () => {
+    if (!sessionId) return;
+    
+    setSavingInsights(true);
+    try {
+      const { careerAwareVoiceService } = await import('../../services/careerAwareVoiceService');
+      const result = await careerAwareVoiceService.saveInsightsToProfile(sessionId);
+      
+      if (result.success) {
+        setInsightsSaved(true);
+        console.log('✅ Insights saved to profile:', result.updatedFields);
+        
+        // Show success feedback
+        setTimeout(() => setInsightsSaved(false), 3000);
+      } else {
+        console.error('❌ Failed to save insights:', result.error);
+      }
+    } catch (error) {
+      console.error('❌ Error saving insights:', error);
+    } finally {
+      setSavingInsights(false);
+    }
   };
 
   // Format career data for display
@@ -295,6 +357,47 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                     <p>• Compare with other careers</p>
                   </div>
                 </div>
+
+                {/* Discovered Insights Panel */}
+                {(discoveredInsights.interests.length > 0 || 
+                  discoveredInsights.goals.length > 0 || 
+                  discoveredInsights.skills.length > 0) && (
+                  <div className="border-t border-electric-blue/20 pt-4">
+                    <h4 className="text-sm font-bold text-acid-green mb-2">Insights from Discussion:</h4>
+                    <div className="space-y-2 text-xs">
+                      {discoveredInsights.interests.length > 0 && (
+                        <div>
+                          <span className="font-medium text-electric-blue">New Interests:</span>
+                          <div className="ml-2 text-primary-white/80">
+                            {discoveredInsights.interests.map((interest, idx) => (
+                              <p key={idx}>• {interest}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {discoveredInsights.goals.length > 0 && (
+                        <div>
+                          <span className="font-medium text-neon-pink">Career Goals:</span>
+                          <div className="ml-2 text-primary-white/80">
+                            {discoveredInsights.goals.map((goal, idx) => (
+                              <p key={idx}>• {goal}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {discoveredInsights.skills.length > 0 && (
+                        <div>
+                          <span className="font-medium text-cyber-yellow">Skills Mentioned:</span>
+                          <div className="ml-2 text-primary-white/80">
+                            {discoveredInsights.skills.map((skill, idx) => (
+                              <p key={idx}>• {skill}</p>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
@@ -391,6 +494,39 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                     <div className="flex items-center space-x-2 text-sm text-primary-white/70">
                       <Radio className="w-4 h-4" />
                       <span>Voice conversation active</span>
+                    </div>
+                  )}
+                  
+                  {/* Discovered Insights */}
+                  {(discoveredInsights.interests.length > 0 || 
+                    discoveredInsights.goals.length > 0 || 
+                    discoveredInsights.skills.length > 0) && (
+                    <div className="flex items-center space-x-3">
+                      <div className="text-xs text-electric-blue">
+                        <span className="font-medium">Insights discovered:</span>
+                        <span className="ml-2">
+                          {discoveredInsights.interests.length + discoveredInsights.goals.length + discoveredInsights.skills.length} items
+                        </span>
+                      </div>
+                      <Button
+                        onClick={handleSaveInsights}
+                        disabled={savingInsights || insightsSaved}
+                        size="sm"
+                        className={`text-xs px-3 py-1 ${
+                          insightsSaved 
+                            ? 'bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black' 
+                            : 'bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white'
+                        }`}
+                      >
+                        {savingInsights ? (
+                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                        ) : insightsSaved ? (
+                          <CheckCircle className="w-3 h-3 mr-1" />
+                        ) : (
+                          <Save className="w-3 h-3 mr-1" />
+                        )}
+                        {insightsSaved ? 'Saved!' : 'Save to Profile'}
+                      </Button>
                     </div>
                   )}
                   

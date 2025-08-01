@@ -7,7 +7,7 @@
 import { CareerDiscussionContext, CareerDiscussionService, CareerDiscussionContextBuilder } from '../types/careerDiscussionContext';
 import { elevenLabs } from '../config/environment';
 import careerPathwayService from './careerPathwayService';
-import { getUserById } from './userService';
+import { getUserById, updateUserProfile } from './userService';
 
 // ElevenLabs Career-Aware Agent Configuration
 const CAREER_AWARE_AGENT_ID = 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
@@ -26,6 +26,9 @@ interface CareerDiscussionSession {
     keyTopics: string[];
     userEngagement: number;
     careerConfidenceChange?: number;
+    discoveredInterests?: string[];
+    refinedGoals?: string[];
+    identifiedSkills?: string[];
   };
 }
 
@@ -397,6 +400,248 @@ You already have all the context about this user and career path. Start the conv
         console.log('🧹 Cleaned up inactive session:', sessionId);
       }
     });
+  }
+
+  /**
+   * Track a conversation message and analyze for insights
+   */
+  async trackConversationMessage(
+    sessionId: string, 
+    role: 'user' | 'assistant', 
+    content: string
+  ): Promise<void> {
+    const session = this.activeSessions.get(sessionId);
+    if (!session) {
+      console.warn(`⚠️ Session ${sessionId} not found for message tracking`);
+      return;
+    }
+
+    // Add message to conversation history
+    const message = {
+      role,
+      content,
+      timestamp: new Date()
+    };
+    
+    session.conversationHistory.push(message);
+
+    // Analyze user messages for insights
+    if (role === 'user') {
+      this.analyzeMessageForInsights(session, content);
+    }
+
+    console.log('💬 Tracked conversation message', {
+      sessionId,
+      role,
+      messageLength: content.length,
+      totalMessages: session.conversationHistory.length
+    });
+  }
+
+  /**
+   * Analyze user message for career insights (interests, goals, skills)
+   */
+  private analyzeMessageForInsights(session: CareerDiscussionSession, userMessage: string): void {
+    const lowercaseMessage = userMessage.toLowerCase();
+
+    // Extract potential interests
+    const interestKeywords = [
+      'interested in', 'love', 'enjoy', 'fascinated by', 'passionate about',
+      'excited about', 'drawn to', 'curious about', 'like working with'
+    ];
+    
+    // Extract potential goals
+    const goalKeywords = [
+      'want to', 'hope to', 'goal is', 'looking to', 'plan to',
+      'aim to', 'would like to', 'dream of', 'aspire to'
+    ];
+
+    // Extract potential skills mentions
+    const skillKeywords = [
+      'experience with', 'skilled at', 'good at', 'know how to',
+      'worked with', 'used', 'familiar with', 'background in'
+    ];
+
+    // Simple keyword extraction (in production, could use NLP)
+    for (const keyword of interestKeywords) {
+      if (lowercaseMessage.includes(keyword)) {
+        const insight = this.extractInsightAfterKeyword(userMessage, keyword);
+        if (insight && !session.insights.discoveredInterests?.includes(insight)) {
+          session.insights.discoveredInterests = session.insights.discoveredInterests || [];
+          session.insights.discoveredInterests.push(insight);
+        }
+      }
+    }
+
+    for (const keyword of goalKeywords) {
+      if (lowercaseMessage.includes(keyword)) {
+        const insight = this.extractInsightAfterKeyword(userMessage, keyword);
+        if (insight && !session.insights.refinedGoals?.includes(insight)) {
+          session.insights.refinedGoals = session.insights.refinedGoals || [];
+          session.insights.refinedGoals.push(insight);
+        }
+      }
+    }
+
+    for (const keyword of skillKeywords) {
+      if (lowercaseMessage.includes(keyword)) {
+        const insight = this.extractInsightAfterKeyword(userMessage, keyword);
+        if (insight && !session.insights.identifiedSkills?.includes(insight)) {
+          session.insights.identifiedSkills = session.insights.identifiedSkills || [];
+          session.insights.identifiedSkills.push(insight);
+        }
+      }
+    }
+  }
+
+  /**
+   * Extract meaningful text after a keyword
+   */
+  private extractInsightAfterKeyword(message: string, keyword: string): string | null {
+    const keywordIndex = message.toLowerCase().indexOf(keyword);
+    if (keywordIndex === -1) return null;
+
+    const afterKeyword = message.substring(keywordIndex + keyword.length).trim();
+    
+    // Extract up to the first sentence or 100 characters
+    const sentences = afterKeyword.split(/[.!?]/);
+    const insight = sentences[0]?.trim();
+    
+    if (insight && insight.length > 3 && insight.length < 100) {
+      return insight.charAt(0).toUpperCase() + insight.slice(1).toLowerCase();
+    }
+    
+    return null;
+  }
+
+  /**
+   * Save conversation insights to user profile
+   */
+  async saveInsightsToProfile(sessionId: string): Promise<{
+    success: boolean;
+    updatedFields: string[];
+    error?: string;
+  }> {
+    try {
+      const session = this.activeSessions.get(sessionId);
+      if (!session) {
+        throw new Error(`Session ${sessionId} not found`);
+      }
+
+      // Extract user ID from session ID (format: session_timestamp_userId)
+      const userId = session.context.technical.sessionId.split('_')[2];
+      
+      if (!userId) {
+        throw new Error('User ID not found in session context');
+      }
+
+      const insights = session.insights;
+      const profileUpdates: any = {};
+      const updatedFields: string[] = [];
+
+      // Get current user profile to merge with new insights
+      const currentUser = await getUserById(userId);
+      const currentProfile = currentUser?.profile || {};
+
+      // Add discovered interests
+      if (insights.discoveredInterests && insights.discoveredInterests.length > 0) {
+        const currentInterests = currentProfile.interests || [];
+        const newInterests = [...new Set([...currentInterests, ...insights.discoveredInterests])];
+        if (newInterests.length > currentInterests.length) {
+          profileUpdates.interests = newInterests;
+          updatedFields.push('interests');
+        }
+      }
+
+      // Add refined goals
+      if (insights.refinedGoals && insights.refinedGoals.length > 0) {
+        const currentGoals = currentProfile.careerGoals || [];
+        const newGoals = [...new Set([...currentGoals, ...insights.refinedGoals])];
+        if (newGoals.length > currentGoals.length) {
+          profileUpdates.careerGoals = newGoals;
+          updatedFields.push('careerGoals');
+        }
+      }
+
+      // Add identified skills
+      if (insights.identifiedSkills && insights.identifiedSkills.length > 0) {
+        const currentSkills = currentProfile.skills || [];
+        const newSkills = [...new Set([...currentSkills, ...insights.identifiedSkills])];
+        if (newSkills.length > currentSkills.length) {
+          profileUpdates.skills = newSkills;
+          updatedFields.push('skills');
+        }
+      }
+
+      // Save to Firebase if there are updates
+      if (Object.keys(profileUpdates).length > 0) {
+        await updateUserProfile(userId, profileUpdates);
+        
+        console.log('✅ Saved conversation insights to user profile', {
+          userId,
+          sessionId,
+          updatedFields,
+          newInsights: {
+            interests: insights.discoveredInterests?.length || 0,
+            goals: insights.refinedGoals?.length || 0,
+            skills: insights.identifiedSkills?.length || 0
+          }
+        });
+
+        return {
+          success: true,
+          updatedFields
+        };
+      } else {
+        console.log('ℹ️ No new insights to save to profile', { sessionId });
+        return {
+          success: true,
+          updatedFields: []
+        };
+      }
+
+    } catch (error) {
+      console.error('❌ Failed to save insights to profile:', error);
+      return {
+        success: false,
+        updatedFields: [],
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
+   * Get session insights summary
+   */
+  getSessionInsights(sessionId: string): {
+    totalMessages: number;
+    userMessages: number;
+    assistantMessages: number;
+    discoveredInsights: {
+      interests: string[];
+      goals: string[];
+      skills: string[];
+    };
+    sessionDuration: number;
+  } | null {
+    const session = this.activeSessions.get(sessionId);
+    if (!session) return null;
+
+    const userMessages = session.conversationHistory.filter(m => m.role === 'user');
+    const assistantMessages = session.conversationHistory.filter(m => m.role === 'assistant');
+    const sessionDuration = Date.now() - session.startTime.getTime();
+
+    return {
+      totalMessages: session.conversationHistory.length,
+      userMessages: userMessages.length,
+      assistantMessages: assistantMessages.length,
+      discoveredInsights: {
+        interests: session.insights.discoveredInterests || [],
+        goals: session.insights.refinedGoals || [],
+        skills: session.insights.identifiedSkills || []
+      },
+      sessionDuration
+    };
   }
 }
 
