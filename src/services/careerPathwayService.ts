@@ -311,6 +311,8 @@ interface ThreadCareerGuidance {
 }
 
 class CareerPathwayService {
+  private structuredGuidanceCache = new Map<string, { data: any; timestamp: number }>();
+  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   
   /**
    * Extract next steps array from either array or object format
@@ -707,42 +709,90 @@ class CareerPathwayService {
         const data = docSnap.data();
         let needsUpdate = false;
         
-        // Check and update primary pathway
+        // Check and update primary pathway - PRESERVE comprehensive 10-section data
         if (data.guidance?.primaryPathway?.title === careerTitle) {
           data.guidance.primaryPathway = {
             ...data.guidance.primaryPathway,
-            industry: enhancedCard.industry,
-            averageSalary: enhancedCard.averageSalary,
-            growthOutlook: enhancedCard.growthOutlook,
-            requiredSkills: enhancedCard.keySkills || [],
-            workEnvironment: enhancedCard.workEnvironment,
-            entryRequirements: enhancedCard.entryRequirements || [],
-            trainingPathways: enhancedCard.trainingPathways || [],
-            trainingOptions: this.convertTrainingPathwaysToOptions(enhancedCard.trainingPathways || []),
+            // Enhanced basic fields
+            industry: enhancedCard.industry || data.guidance.primaryPathway.industry,
+            averageSalary: enhancedCard.averageSalary || data.guidance.primaryPathway.averageSalary,
+            growthOutlook: enhancedCard.growthOutlook || data.guidance.primaryPathway.growthOutlook,
+            keySkills: [...(data.guidance.primaryPathway.keySkills || []), ...(enhancedCard.keySkills || [])].filter((skill, index, arr) => arr.indexOf(skill) === index),
+            workEnvironment: enhancedCard.workEnvironment || data.guidance.primaryPathway.workEnvironment,
+            entryRequirements: [...(data.guidance.primaryPathway.entryRequirements || []), ...(enhancedCard.entryRequirements || [])].filter((req, index, arr) => arr.indexOf(req) === index),
+            trainingPathways: [...(data.guidance.primaryPathway.trainingPathways || []), ...(enhancedCard.trainingPathways || [])].filter((pathway, index, arr) => arr.indexOf(pathway) === index),
+            trainingOptions: this.convertTrainingPathwaysToOptions([...(data.guidance.primaryPathway.trainingPathways || []), ...(enhancedCard.trainingPathways || [])]),
             description: enhancedCard.description || data.guidance.primaryPathway.description,
-            nextSteps: {
-              ...data.guidance.primaryPathway.nextSteps,
-              immediate: enhancedCard.nextSteps?.slice(0, 2) || data.guidance.primaryPathway.nextSteps.immediate
-            }
+            nextSteps: this.extractNextStepsArray([...(this.extractNextStepsArray(data.guidance.primaryPathway.nextSteps) || []), ...(enhancedCard.nextSteps || [])]),
+            
+            // PRESERVE comprehensive 10-section data structure
+            roleFundamentals: data.guidance.primaryPathway.roleFundamentals,
+            competencyRequirements: {
+              ...data.guidance.primaryPathway.competencyRequirements,
+              // Merge technical and soft skills from enhancement
+              technicalSkills: [...(data.guidance.primaryPathway.competencyRequirements?.technicalSkills || []), ...(enhancedCard.keySkills?.filter(skill => skill.toLowerCase().includes('technical') || skill.toLowerCase().includes('software') || skill.toLowerCase().includes('system')) || [])].filter((skill, index, arr) => arr.indexOf(skill) === index),
+              softSkills: [...(data.guidance.primaryPathway.competencyRequirements?.softSkills || []), ...(enhancedCard.keySkills?.filter(skill => !skill.toLowerCase().includes('technical') && !skill.toLowerCase().includes('software') && !skill.toLowerCase().includes('system')) || [])].filter((skill, index, arr) => arr.indexOf(skill) === index)
+            },
+            compensationRewards: data.guidance.primaryPathway.compensationRewards,
+            careerTrajectory: data.guidance.primaryPathway.careerTrajectory,
+            labourMarketDynamics: data.guidance.primaryPathway.labourMarketDynamics,
+            workEnvironmentCulture: data.guidance.primaryPathway.workEnvironmentCulture,
+            lifestyleFit: data.guidance.primaryPathway.lifestyleFit,
+            costRiskEntry: data.guidance.primaryPathway.costRiskEntry,
+            valuesImpact: data.guidance.primaryPathway.valuesImpact,
+            transferabilityFutureProofing: data.guidance.primaryPathway.transferabilityFutureProofing,
+            
+            // Mark as enhanced and add enhancement metadata
+            isEnhanced: true,
+            enhancementStatus: 'enhanced',
+            enhancedAt: new Date().toISOString(),
+            enhancedSources: enhancedCard.citations || [],
+            webSearchVerified: true
           };
           needsUpdate = true;
         }
         
-        // Check and update alternative pathways
+        // Check and update alternative pathways - PRESERVE comprehensive 10-section data
         if (data.guidance?.alternativePathways) {
           data.guidance.alternativePathways = data.guidance.alternativePathways.map((pathway: any) => {
             if (pathway.title === careerTitle) {
               return {
                 ...pathway,
-                industry: enhancedCard.industry,
-                averageSalary: enhancedCard.averageSalary,
-                growthOutlook: enhancedCard.growthOutlook,
-                requiredSkills: enhancedCard.keySkills || [],
-                workEnvironment: enhancedCard.workEnvironment,
-                entryRequirements: enhancedCard.entryRequirements || [],
-                trainingPathways: enhancedCard.trainingPathways || [],
-                trainingOptions: this.convertTrainingPathwaysToOptions(enhancedCard.trainingPathways || []),
-                description: enhancedCard.description || pathway.description
+                // Enhanced basic fields
+                industry: enhancedCard.industry || pathway.industry,
+                averageSalary: enhancedCard.averageSalary || pathway.averageSalary,
+                growthOutlook: enhancedCard.growthOutlook || pathway.growthOutlook,
+                keySkills: [...(pathway.keySkills || []), ...(enhancedCard.keySkills || [])].filter((skill, index, arr) => arr.indexOf(skill) === index),
+                workEnvironment: enhancedCard.workEnvironment || pathway.workEnvironment,
+                entryRequirements: [...(pathway.entryRequirements || []), ...(enhancedCard.entryRequirements || [])].filter((req, index, arr) => arr.indexOf(req) === index),
+                trainingPathways: [...(pathway.trainingPathways || []), ...(enhancedCard.trainingPathways || [])].filter((tp, index, arr) => arr.indexOf(tp) === index),
+                trainingOptions: this.convertTrainingPathwaysToOptions([...(pathway.trainingPathways || []), ...(enhancedCard.trainingPathways || [])]),
+                description: enhancedCard.description || pathway.description,
+                nextSteps: this.extractNextStepsArray([...(this.extractNextStepsArray(pathway.nextSteps) || []), ...(enhancedCard.nextSteps || [])]),
+                
+                // PRESERVE comprehensive 10-section data structure
+                roleFundamentals: pathway.roleFundamentals,
+                competencyRequirements: {
+                  ...pathway.competencyRequirements,
+                  // Merge technical and soft skills from enhancement
+                  technicalSkills: [...(pathway.competencyRequirements?.technicalSkills || []), ...(enhancedCard.keySkills?.filter(skill => skill.toLowerCase().includes('technical') || skill.toLowerCase().includes('software') || skill.toLowerCase().includes('system')) || [])].filter((skill, index, arr) => arr.indexOf(skill) === index),
+                  softSkills: [...(pathway.competencyRequirements?.softSkills || []), ...(enhancedCard.keySkills?.filter(skill => !skill.toLowerCase().includes('technical') && !skill.toLowerCase().includes('software') && !skill.toLowerCase().includes('system')) || [])].filter((skill, index, arr) => arr.indexOf(skill) === index)
+                },
+                compensationRewards: pathway.compensationRewards,
+                careerTrajectory: pathway.careerTrajectory,
+                labourMarketDynamics: pathway.labourMarketDynamics,
+                workEnvironmentCulture: pathway.workEnvironmentCulture,
+                lifestyleFit: pathway.lifestyleFit,
+                costRiskEntry: pathway.costRiskEntry,
+                valuesImpact: pathway.valuesImpact,
+                transferabilityFutureProofing: pathway.transferabilityFutureProofing,
+                
+                // Mark as enhanced and add enhancement metadata
+                isEnhanced: true,
+                enhancementStatus: 'enhanced',
+                enhancedAt: new Date().toISOString(),
+                enhancedSources: enhancedCard.citations || [],
+                webSearchVerified: true
               };
             }
             return pathway;
@@ -1508,6 +1558,14 @@ class CareerPathwayService {
         throw new Error('User ID is required');
       }
 
+      // Check cache first
+      const cacheKey = `guidance_${userId}`;
+      const cached = this.structuredGuidanceCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+        console.log('✅ Using cached structured career guidance');
+        return cached.data;
+      }
+
       // Wait for authentication before making Firebase queries
       const { auth } = await import('./firebase');
       if (!auth.currentUser) {
@@ -1685,6 +1743,12 @@ class CareerPathwayService {
         primaryTitle: result.primaryPathway?.title,
         alternativeCount: result.alternativePathways.length,
         totalPathways: result.totalPathways
+      });
+
+      // Cache the result
+      this.structuredGuidanceCache.set(cacheKey, {
+        data: result,
+        timestamp: Date.now()
       });
 
       return result;

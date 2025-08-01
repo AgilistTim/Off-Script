@@ -7,6 +7,7 @@ import { CareerCardsPanel } from '../conversation/CareerCardsPanel';
 import { PersonaDetector } from '../conversation/PersonaDetector';
 import { AdaptiveAIResponse } from '../conversation/AdaptiveAIResponse';
 import { RegistrationPrompt } from '../conversation/RegistrationPrompt';
+import { EnhancedChatVoiceModal } from '../conversation/EnhancedChatVoiceModal';
 import { cn } from '../../lib/utils';
 import { simpleChatService } from '../../services/simpleChatService';
 import { conversationAnalyzer } from '../../services/conversationAnalyzer';
@@ -70,6 +71,10 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     type: undefined as 'career_analysis' | 'profile_update' | undefined,
     progress: '' 
   });
+
+  // Enhanced chat modal state
+  const [showEnhancedModal, setShowEnhancedModal] = useState(false);
+  const [conversationHistory, setConversationHistory] = useState<any[]>([]);
   
   // Progressive engagement state (legacy - keeping for compatibility)
   const [careerProfile, setCareerProfile] = useState<EnhancedCareerProfile | null>(null);
@@ -689,6 +694,23 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
                     )}
                   </AnimatePresence>
 
+                  {/* Enhanced Voice Chat Button */}
+                  <div className="mb-4">
+                    <motion.button
+                      onClick={() => setShowEnhancedModal(true)}
+                      className="w-full px-6 py-4 bg-gradient-to-r from-neon-pink to-cyber-yellow text-primary-black font-bold rounded-xl hover:scale-105 transition-transform duration-200 shadow-lg"
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <div className="flex items-center justify-center space-x-3">
+                        <Video className="w-6 h-6" />
+                        <span>ENHANCED VOICE EXPERIENCE</span>
+                        <Sparkles className="w-5 h-5" />
+                      </div>
+                      <p className="text-xs mt-1 opacity-80">Rich conversation with history display</p>
+                    </motion.button>
+                  </div>
+
                   {/* ElevenLabs Widget */}
                   <div className="relative">
                     <ElevenLabsWidget
@@ -867,6 +889,15 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
             }}
           />
         )}
+
+        {/* Enhanced Chat Voice Modal */}
+        <EnhancedChatVoiceModal
+          isOpen={showEnhancedModal}
+          onClose={() => setShowEnhancedModal(false)}
+          careerContext={careerCards.length > 0 ? careerCards[0] : undefined}
+          currentConversationHistory={conversationHistory}
+          onConversationUpdate={setConversationHistory}
+        />
       </div>
     </motion.div>
   );

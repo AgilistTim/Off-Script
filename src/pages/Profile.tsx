@@ -39,6 +39,7 @@ const Profile: React.FC = () => {
   
   // Profile form state
   const [profile, setProfile] = useState<Partial<UserProfile>>({
+    displayName: '',
     bio: '',
     school: '',
     grade: '',
@@ -82,6 +83,7 @@ const Profile: React.FC = () => {
         const skills = objectToArray(userData.profile.skills);
         
         const newProfileData = {
+          displayName: userData.profile.displayName || '',
           bio: userData.profile.bio || '',
           school: userData.profile.school || '',
           grade: userData.profile.grade || '',
@@ -480,6 +482,13 @@ const Profile: React.FC = () => {
                   </button>
                 </div>
                 
+                {profile.displayName && (
+                  <div className="bg-primary-white/10 rounded-lg p-4">
+                    <div className="text-electric-blue font-bold mb-2">DISPLAY NAME</div>
+                    <div className="text-primary-white">{profile.displayName}</div>
+                  </div>
+                )}
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="bg-primary-white/10 rounded-lg p-4">
                     <div className="text-electric-blue font-bold mb-1">SCHOOL</div>
@@ -500,6 +509,17 @@ const Profile: React.FC = () => {
               </div>
             ) : (
               <form onSubmit={handleProfileSubmit} className="space-y-6">
+                <div>
+                  <label className="block text-electric-blue font-bold mb-2">DISPLAY NAME</label>
+                  <input
+                    type="text"
+                    value={profile.displayName || ''}
+                    onChange={(e) => setProfile(prev => ({ ...prev, displayName: e.target.value }))}
+                    className="w-full px-4 py-3 bg-primary-white/10 border border-electric-blue/30 rounded-lg text-primary-white placeholder-primary-white/50 focus:border-electric-blue focus:outline-none"
+                    placeholder="How should we address you?"
+                  />
+                </div>
+                
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-electric-blue font-bold mb-2">SCHOOL</label>

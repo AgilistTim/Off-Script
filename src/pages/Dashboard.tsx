@@ -181,6 +181,16 @@ const Dashboard: React.FC = () => {
     sessionId: null,
     isPrimary: true
   });
+
+  // Comparison modal state
+  const [showComparisonModal, setShowComparisonModal] = useState(false);
+  const [comparisonModalData, setComparisonModalData] = useState<{
+    alternative: any | null;
+    primary: any | null;
+  }>({
+    alternative: null,
+    primary: null
+  });
   
   // Cache for career card details to reduce API calls
   const [careerCardCache, setCareerCardCache] = useState<Map<string, any>>(new Map());
@@ -419,7 +429,13 @@ const Dashboard: React.FC = () => {
       
       console.log('✅ Career comparison discussion initialized:', result);
       
-      // TODO: Open comparison voice discussion modal
+      // Open comparison voice discussion modal
+      setComparisonModalData({
+        alternative: pathway,
+        primary: structuredGuidance.primaryPathway
+      });
+      setShowComparisonModal(true);
+      
       setNotification({
         message: `⚖️ AI comparison ready: ${pathway.title} vs ${structuredGuidance.primaryPathway.title}!`,
         type: 'success'
@@ -450,6 +466,15 @@ const Dashboard: React.FC = () => {
       discussionContext: null,
       sessionId: null,
       isPrimary: true
+    });
+  };
+
+  // Comparison modal handlers
+  const handleCloseComparisonModal = () => {
+    setShowComparisonModal(false);
+    setComparisonModalData({
+      alternative: null,
+      primary: null
     });
   };
 
@@ -484,7 +509,18 @@ const Dashboard: React.FC = () => {
     const fetchAllData = async () => {
       if (loading) return; // Prevent concurrent calls
       
-      console.log('🔄 Dashboard: Starting data fetch...');
+      // Check if we already have cached data (unless forced refresh)
+      const hasExistingData = structuredGuidance.totalPathways > 0 && recommendedVideos.length > 0;
+      if (hasExistingData && dataRefreshKey === 0) {
+        console.log('✅ Dashboard: Using cached data, skipping fetch');
+        return;
+      }
+      
+      console.log('🔄 Dashboard: Starting data fetch...', { 
+        hasExistingData, 
+        dataRefreshKey, 
+        forcedRefresh: dataRefreshKey > 0 
+      });
       setLoading(true);
       
       try {
@@ -625,6 +661,7 @@ const Dashboard: React.FC = () => {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-gradient-to-br from-primary-black via-primary-black to-electric-blue/10 pt-24 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <AnimatePresence>
@@ -1033,6 +1070,71 @@ const Dashboard: React.FC = () => {
       </motion.div>
       </div>
     </div>
+
+    {/* Career Voice Discussion Modal */}
+    <CareerVoiceDiscussionModal
+      isOpen={voiceDiscussionModal.isOpen}
+      onClose={handleCloseVoiceDiscussion}
+      careerData={voiceDiscussionModal.careerData}
+      discussionContext={voiceDiscussionModal.discussionContext}
+      sessionId={voiceDiscussionModal.sessionId}
+      isPrimary={voiceDiscussionModal.isPrimary}
+    />
+
+    {/* Comparison Modal */}
+    {showComparisonModal && comparisonModalData.alternative && comparisonModalData.primary && (
+      <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center">
+        <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-4xl w-full mx-4 max-h-[90vh] overflow-auto">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900">Career Comparison</h2>
+            <button
+              onClick={handleCloseComparisonModal}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Primary Career */}
+            <div className="bg-blue-50 rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-blue-800 mb-3">Primary Recommendation</h3>
+              <div className="space-y-3">
+                <h4 className="font-medium text-gray-900">{comparisonModalData.primary.title}</h4>
+                <p className="text-sm text-gray-600">{comparisonModalData.primary.description}</p>
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 text-yellow-500" />
+                  <span className="text-sm font-medium">{Math.round((comparisonModalData.primary.confidence || 0.95) * 100)}% match</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Alternative Career */}
+            <div className="bg-green-50 rounded-lg p-4">
+              <h3 className="text-lg font-semibold text-green-800 mb-3">Alternative Option</h3>
+              <div className="space-y-3">
+                <h4 className="font-medium text-gray-900">{comparisonModalData.alternative.title}</h4>
+                <p className="text-sm text-gray-600">{comparisonModalData.alternative.description}</p>
+                <div className="flex items-center gap-2">
+                  <Star className="h-4 w-4 text-yellow-500" />
+                  <span className="text-sm font-medium">{Math.round((comparisonModalData.alternative.confidence || 0.80) * 100)}% match</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-center">
+            <button
+              onClick={handleCloseComparisonModal}
+              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Close Comparison
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

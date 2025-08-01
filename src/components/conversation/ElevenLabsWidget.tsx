@@ -3,6 +3,7 @@ import { useConversation } from '@elevenlabs/react';
 import { useAuth } from '../../context/AuthContext';
 import { guestSessionService } from '../../services/guestSessionService';
 import { CareerCard, PersonProfile } from '../../types/careerCard';
+import { mcpQueueService } from '../../services/mcpQueueService';
 
 // Helper function to get environment variables from both sources (dev + production)
 const getEnvVar = (key: string): string | undefined => {
@@ -74,8 +75,20 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     conversationHistoryRef.current = conversationHistory;
   }, [conversationHistory]);
 
+  // Dynamic agent selection based on user state and conversation context
+  const getAgentId = useCallback((): string => {
+    if (!currentUser) {
+      // Guest user - use general career guide agent
+      return 'agent_01k0fkhhx0e8k8e6nwtz8ptkwb';
+    }
+    
+    // For now, authenticated users use the general career guide with enhanced context
+    // Could switch to career-aware agent if conversation develops specific career focus
+    return 'agent_01k0fkhhx0e8k8e6nwtz8ptkwb';
+  }, [currentUser]);
+
   // Use the helper function to get environment variables
-  const agentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
+  const agentId = getAgentId();
   const apiKey = getEnvVar('VITE_ELEVENLABS_API_KEY');
   const mcpEndpoint = 'https://off-script-mcp-elevenlabs.onrender.com/mcp';
 
@@ -223,26 +236,29 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         forceFreshAnalysis: true
       };
       
-      const response = await fetch(`${mcpEndpoint}/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...enhancedContext,
-          userId: currentUser?.uid || `guest_${Date.now()}`,
-          triggerReason: triggerReason,
-          careInterestDetected: hasCareInterest
-        }),
-      });
+      // Use queue service instead of direct fetch to prevent blocking
+      const queueResult = await mcpQueueService.queueAnalysisRequest(
+        validMessages,
+        triggerReason,
+        mcpEndpoint,
+        currentUser?.uid
+      );
 
-      if (!response.ok) {
-        console.error('❌ MCP request failed:', response.status, response.statusText);
-        return 'Career analysis temporarily unavailable';
-      }
-
-      const result = await response.json();
-      console.log('✅ Enhanced MCP Analysis result:', result);
+      // Parse the result - queue service returns the analysis directly
+      let result: any;
+      let analysisData: any;
       
-      const analysisData = result.analysis || result;
+      if (typeof queueResult === 'string') {
+        // Simple string response - create a basic structure
+        result = { analysis: { message: queueResult } };
+        analysisData = { message: queueResult };
+      } else {
+        // Object response - use as-is
+        result = queueResult;
+        analysisData = result.analysis || result;
+      }
+      
+      console.log('✅ Queued MCP Analysis result:', result);
       let careerCards = analysisData.careerCards || [];
       
       // Generate user profile automatically when analyzing conversation (only if we have meaningful data)

@@ -18,6 +18,7 @@ export interface UserPreferences {
 }
 
 export interface UserProfile {
+  displayName?: string;
   bio?: string;
   school?: string;
   grade?: string;
