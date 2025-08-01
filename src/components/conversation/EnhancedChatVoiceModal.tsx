@@ -182,17 +182,11 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           }
 
           console.log('✅ Career analysis completed:', analysisData);
-          return {
-            careerCards: newCareerCards,
-            message: analysisData.message || "Career analysis completed successfully"
-          };
+          return analysisData.message || "Career analysis completed successfully";
 
         } catch (error) {
           console.error('❌ Error analyzing conversation:', error);
-          return { 
-            careerCards: [], 
-            message: "Career analysis is temporarily unavailable" 
-          };
+          return "Career analysis is temporarily unavailable";
         }
       },
 
