@@ -41,6 +41,7 @@ import careerPathwayService from '../services/careerPathwayService';
 import { dashboardCareerEnhancementService, DashboardCareerCard } from '../services/dashboardCareerEnhancementService';
 import PrimaryPathwayHero from '../components/career-guidance/PrimaryPathwayHero';
 import AlternativePathwaysAccordion from '../components/career-guidance/AlternativePathwaysAccordion';
+import { CareerVoiceDiscussionModal } from '../components/career-guidance/CareerVoiceDiscussionModal';
 
 // Notification component with street-art styling
 interface NotificationProps {
@@ -165,6 +166,21 @@ const Dashboard: React.FC = () => {
   }>({ primaryPathway: null, alternativePathways: [], totalPathways: 0 });
   const [showAllAlternatives, setShowAllAlternatives] = useState(false);
   const [dataRefreshKey, setDataRefreshKey] = useState(0); // Force refresh trigger
+
+  // Voice discussion modal state
+  const [voiceDiscussionModal, setVoiceDiscussionModal] = useState<{
+    isOpen: boolean;
+    careerData: any | null;
+    discussionContext: any | null;
+    sessionId: string | null;
+    isPrimary: boolean;
+  }>({
+    isOpen: false,
+    careerData: null,
+    discussionContext: null,
+    sessionId: null,
+    isPrimary: true
+  });
   
   // Cache for career card details to reduce API calls
   const [careerCardCache, setCareerCardCache] = useState<Map<string, any>>(new Map());
@@ -317,10 +333,13 @@ const Dashboard: React.FC = () => {
       
       console.log('✅ Career discussion initialized:', result);
       
-      // TODO: Open voice discussion modal/component
-      setNotification({
-        message: `🎯 AI discussion ready for ${structuredGuidance.primaryPathway.title}! Enhanced context loaded.`,
-        type: 'success'
+      // Open voice discussion modal
+      setVoiceDiscussionModal({
+        isOpen: true,
+        careerData: structuredGuidance.primaryPathway,
+        discussionContext: context,
+        sessionId: result.sessionId,
+        isPrimary: true
       });
       
     } catch (error) {
@@ -353,10 +372,13 @@ const Dashboard: React.FC = () => {
       
       console.log('✅ Alternative career discussion initialized:', result);
       
-      // TODO: Open voice discussion modal/component
-      setNotification({
-        message: `🎯 AI discussion ready for ${pathway.title}! Enhanced context loaded.`,
-        type: 'success'
+      // Open voice discussion modal
+      setVoiceDiscussionModal({
+        isOpen: true,
+        careerData: pathway,
+        discussionContext: context,
+        sessionId: result.sessionId,
+        isPrimary: false
       });
       
     } catch (error) {
@@ -418,6 +440,17 @@ const Dashboard: React.FC = () => {
       setSelectedCareerCard(structuredGuidance.primaryPathway);
       setShowCareerCardModal(true);
     }
+  };
+
+  // Voice discussion modal handlers
+  const handleCloseVoiceDiscussion = () => {
+    setVoiceDiscussionModal({
+      isOpen: false,
+      careerData: null,
+      discussionContext: null,
+      sessionId: null,
+      isPrimary: true
+    });
   };
 
   // Fetch video recommendations
@@ -856,6 +889,16 @@ const Dashboard: React.FC = () => {
           </div>
         )}
       </AnimatePresence>
+
+      {/* Voice Discussion Modal */}
+      <CareerVoiceDiscussionModal
+        isOpen={voiceDiscussionModal.isOpen}
+        onClose={handleCloseVoiceDiscussion}
+        careerData={voiceDiscussionModal.careerData}
+        discussionContext={voiceDiscussionModal.discussionContext}
+        sessionId={voiceDiscussionModal.sessionId || ''}
+        isPrimary={voiceDiscussionModal.isPrimary}
+      />
 
       {/* Welcome Header with street-art styling */}
       <motion.div
