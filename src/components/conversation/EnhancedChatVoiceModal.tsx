@@ -104,11 +104,14 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   // Initialize conversation
   const conversation = useConversation({
     agentId,
-    overrides: {
-      agent: {
-        firstMessage: buildGreeting(),
+    // Only override firstMessage for authenticated users to avoid WebSocket issues for guests
+    ...(currentUser && {
+      overrides: {
+        agent: {
+          firstMessage: buildGreeting(),
+        },
       },
-    },
+    }),
     clientTools: {
       analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
         console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - Enhanced modal agent calling tools!');
@@ -143,16 +146,19 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       setIsConnected(true);
       setConnectionStatus('connected');
       
-      // Add personalized initial message
-      const initialMessage: ConversationMessage = {
-        role: 'assistant',
-        content: buildGreeting(),
-        timestamp: new Date()
-      };
-      
-      const updatedHistory = [...conversationHistory, initialMessage];
-      setConversationHistory(updatedHistory);
-      onConversationUpdate?.(updatedHistory);
+      // Add personalized initial message only for authenticated users
+      // For guests, let the agent use its default greeting to avoid connection issues
+      if (currentUser) {
+        const initialMessage: ConversationMessage = {
+          role: 'assistant',
+          content: buildGreeting(),
+          timestamp: new Date()
+        };
+        
+        const updatedHistory = [...conversationHistory, initialMessage];
+        setConversationHistory(updatedHistory);
+        onConversationUpdate?.(updatedHistory);
+      }
     },
     onDisconnect: () => {
       console.log('📞 Disconnected from enhanced chat voice assistant');
