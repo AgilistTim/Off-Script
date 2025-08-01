@@ -88,6 +88,13 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   const [careerCards, setCareerCards] = useState<any[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
+  // Handle conversation update callback separately to avoid setState during render
+  useEffect(() => {
+    if (onConversationUpdate) {
+      onConversationUpdate(conversationHistory);
+    }
+  }, [conversationHistory, onConversationUpdate]);
+
   // Determine agent based on user auth state and context
   const getAgentId = (): string => {
     if (!currentUser) {
@@ -251,11 +258,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         timestamp: new Date()
       };
       
-      setConversationHistory(prev => {
-        const updatedHistory = [...prev, newMessage];
-        onConversationUpdate?.(updatedHistory);
-        return updatedHistory;
-      });
+      setConversationHistory(prev => [...prev, newMessage]);
     },
     onError: (error) => {
       console.error('❌ Enhanced chat voice conversation error:', error);
@@ -383,8 +386,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-full mx-4 max-h-[90vh] bg-gradient-to-br from-primary-dark via-secondary-dark to-primary-dark border border-electric-blue/30 [&>button]:hidden">
-        <DialogHeader className="border-b border-electric-blue/20 pb-4">
+      <DialogContent className="max-w-7xl w-[95vw] h-[85vh] bg-gradient-to-br from-primary-dark via-secondary-dark to-primary-dark border border-electric-blue/30 [&>button]:hidden flex flex-col">
+        <DialogHeader className="border-b border-electric-blue/20 pb-4 flex-shrink-0">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="w-12 h-12 bg-gradient-to-br from-electric-blue to-neon-pink rounded-xl flex items-center justify-center">
@@ -435,9 +438,9 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           </div>
         </DialogHeader>
 
-        <div className="flex-1 flex space-x-6 overflow-hidden min-h-0">
+        <div className="flex-1 flex space-x-4 overflow-hidden min-h-0 p-2">
           {/* Career Insights Panel */}
-          <div className="w-80 flex-shrink-0">
+          <div className="w-72 xl:w-80 flex-shrink-0">
             <Card className="bg-gradient-to-br from-primary-gray/50 to-electric-blue/10 border border-electric-blue/20 h-full">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
@@ -584,7 +587,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                       animate={{ opacity: 1, y: 0 }}
                       className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className={`max-w-xs lg:max-w-md px-4 py-3 rounded-xl ${
+                      <div className={`max-w-[80%] px-4 py-3 rounded-xl break-words ${
                         message.role === 'user' 
                           ? 'bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white' 
                           : 'bg-gradient-to-r from-primary-gray to-primary-white/10 text-primary-white border border-electric-blue/20'
@@ -599,7 +602,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                             {message.role === 'user' ? (currentUser ? (userData?.profile?.displayName || 'You') : 'You') : agentInfo.name}
                           </span>
                         </div>
-                        <p className="text-sm leading-relaxed">{message.content}</p>
+                        <p className="text-sm leading-relaxed break-words overflow-wrap-anywhere">{message.content}</p>
                         <p className="text-xs opacity-50 mt-2">
                           {formatTime(message.timestamp)}
                         </p>
@@ -627,13 +630,13 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
             {/* Voice Controls */}
             <div className="bg-gradient-to-r from-primary-gray/50 to-electric-blue/10 rounded-xl p-4 border border-electric-blue/20 flex-shrink-0">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
+              <div className="flex flex-col space-y-3 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
+                <div className="flex items-center justify-center lg:justify-start">
                   {!isConnected ? (
                     <Button
                       onClick={handleStartConversation}
                       disabled={connectionStatus === 'connecting' || !apiKey}
-                      className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black font-bold px-6 py-2 rounded-xl hover:scale-105 transition-transform duration-200"
+                      className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base"
                     >
                       {connectionStatus === 'connecting' ? (
                         <>
@@ -651,7 +654,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     <Button
                       onClick={handleEndConversation}
                       disabled={isLoading}
-                      className="bg-gradient-to-r from-neon-pink to-sunset-orange text-primary-white font-bold px-6 py-2 rounded-xl hover:scale-105 transition-transform duration-200"
+                      className="bg-gradient-to-r from-neon-pink to-sunset-orange text-primary-white font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base"
                     >
                       {isLoading ? (
                         <>
