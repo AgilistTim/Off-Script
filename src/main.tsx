@@ -4,7 +4,8 @@ import App from './App.tsx';
 import './index.css';
 
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
+  // Temporarily disable StrictMode to prevent ElevenLabs WebSocket conflicts
+  // <StrictMode>
     <App />
-  </StrictMode>
+  // </StrictMode>
 );

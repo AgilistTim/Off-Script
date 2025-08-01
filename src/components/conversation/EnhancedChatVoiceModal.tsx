@@ -89,6 +89,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   }>({ interests: [], goals: [], skills: [] });
   const [careerCards, setCareerCards] = useState<any[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const conversationInitialized = useRef<boolean>(false);
 
   // Handle conversation update callback separately to avoid setState during render
   useEffect(() => {
@@ -96,6 +97,17 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       onConversationUpdate(conversationHistory);
     }
   }, [conversationHistory, onConversationUpdate]);
+
+  // Cleanup conversation on unmount to prevent WebSocket conflicts
+  useEffect(() => {
+    return () => {
+      if (conversation && isConnected) {
+        console.log('🧹 Cleaning up conversation on unmount');
+        conversationInitialized.current = false;
+        conversation.endSession().catch(console.error);
+      }
+    };
+  }, [conversation, isConnected]);
 
   // Determine agent based on user auth state and context
   const getAgentId = (): string => {
@@ -285,7 +297,13 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       },
     },
     onConnect: () => {
+      if (conversationInitialized.current) {
+        console.log('⚠️ Conversation already initialized, skipping duplicate connection');
+        return;
+      }
+      
       console.log(`🎙️ Connected to enhanced chat voice assistant (Agent: ${agentId})`);
+      conversationInitialized.current = true;
       setIsConnected(true);
       setConnectionStatus('connected');
       setIsLoading(false); // Reset loading state on successful connection
@@ -306,6 +324,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     },
     onDisconnect: () => {
       console.log('📞 Disconnected from enhanced chat voice assistant');
+      conversationInitialized.current = false;
       setIsConnected(false);
       setConnectionStatus('disconnected');
       setIsSpeaking(false);

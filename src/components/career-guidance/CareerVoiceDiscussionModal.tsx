@@ -244,8 +244,14 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[80vh] bg-gradient-to-br from-primary-black to-primary-gray border border-electric-blue/30 text-primary-white overflow-hidden [&>button]:hidden">
+              <DialogContent 
+          className="max-w-4xl h-[80vh] bg-gradient-to-br from-primary-black to-primary-gray border border-electric-blue/30 text-primary-white overflow-hidden [&>button]:hidden"
+          aria-describedby="career-voice-discussion-description"
+        >
         <DialogHeader className="border-b border-electric-blue/20 pb-4">
+          <div id="career-voice-discussion-description" className="sr-only">
+            AI career discussion interface for deep career exploration and guidance
+          </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="w-12 h-12 bg-gradient-to-br from-electric-blue to-neon-pink rounded-xl flex items-center justify-center">
