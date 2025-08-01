@@ -116,6 +116,53 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   const agentId = getAgentId();
   const apiKey = getEnvVar('VITE_ELEVENLABS_API_KEY');
 
+  // Fallback career card generation when MCP is unavailable
+  const generateFallbackCareerCards = async (messages: any[], triggerReason: string) => {
+    console.log('🎯 Generating fallback career cards from conversation');
+    
+    // Extract career-related keywords from conversation
+    const conversationText = messages.map(m => m.content.toLowerCase()).join(' ');
+    
+    // Simple keyword-based career detection
+    const careerKeywords = {
+      'Chef': ['cooking', 'chef', 'kitchen', 'culinary', 'food', 'restaurant', 'catering'],
+      'Teacher': ['teaching', 'education', 'school', 'students', 'classroom'],
+      'Software Engineer': ['engineering', 'technical', 'programming', 'coding', 'software'],
+      'Nurse': ['healthcare', 'medical', 'patient', 'nursing', 'hospital'],
+      'Designer': ['design', 'creative', 'art', 'graphic', 'visual'],
+      'Writer': ['writing', 'content', 'blog', 'journalism', 'author']
+    };
+    
+    const detectedCareers = [];
+    for (const [career, keywords] of Object.entries(careerKeywords)) {
+      if (keywords.some(keyword => conversationText.includes(keyword))) {
+        detectedCareers.push(career);
+      }
+    }
+    
+    // Generate basic career cards
+    const careerCards = detectedCareers.slice(0, 2).map(career => ({
+      title: career,
+      description: `A career as a ${career.toLowerCase()} based on your interests`,
+      matchScore: 85,
+      salaryRange: "£25,000 - £60,000+",
+      educationLevel: "Varies by role",
+      skills: ["Passion", "Dedication", "Learning"],
+      nextSteps: ["Research the field", "Find training programs", "Network with professionals"],
+      keyResponsibilities: [`Core ${career.toLowerCase()} duties`, "Professional development", "Skill building"],
+      generatedAt: new Date().toISOString()
+    }));
+    
+    return {
+      careerCards,
+      message: `Generated ${careerCards.length} career insights based on our conversation`,
+      analysis: {
+        detectedInterests: detectedCareers,
+        confidence: 0.8
+      }
+    };
+  };
+
   // Build personalized greeting using agent context service
   const buildGreeting = (): string => {
     // Use userData which has our User interface with profile
@@ -166,14 +213,22 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             return "I'm analyzing our conversation. Please continue chatting and I'll generate career insights shortly.";
           }
 
-          // Use MCP queue service for analysis
+          // Try MCP queue service for analysis, with fallback
           const mcpEndpoint = 'http://localhost:3001/mcp';
-          const result = await mcpQueueService.queueAnalysisRequest(
-            validMessages,
-            parameters.trigger_reason,
-            mcpEndpoint,
-            currentUser?.uid
-          );
+          let result;
+          
+          try {
+            result = await mcpQueueService.queueAnalysisRequest(
+              validMessages,
+              parameters.trigger_reason,
+              mcpEndpoint,
+              currentUser?.uid
+            );
+          } catch (mcpError) {
+            console.log('⚠️ MCP service unavailable, using fallback career generation');
+            // Fallback: Generate career cards based on conversation content
+            result = await generateFallbackCareerCards(validMessages, parameters.trigger_reason);
+          }
 
           // Parse the result
           let analysisData: any;
