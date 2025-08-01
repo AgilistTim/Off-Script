@@ -191,8 +191,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         console.log('🔍 Tool parameters:', parameters);
         
         try {
-          // Add a small delay to ensure conversation history is up-to-date
-          await new Promise(resolve => setTimeout(resolve, 500));
+          // Skip delay to prevent WebSocket issues
           
           // Get valid conversation messages for analysis
           const validMessages = conversationHistory.filter(msg => 
@@ -213,22 +212,9 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             return "I'm analyzing our conversation. Please continue chatting and I'll generate career insights shortly.";
           }
 
-          // Try MCP queue service for analysis, with fallback
-          const mcpEndpoint = 'http://localhost:3001/mcp';
-          let result;
-          
-          try {
-            result = await mcpQueueService.queueAnalysisRequest(
-              validMessages,
-              parameters.trigger_reason,
-              mcpEndpoint,
-              currentUser?.uid
-            );
-          } catch (mcpError) {
-            console.log('⚠️ MCP service unavailable, using fallback career generation');
-            // Fallback: Generate career cards based on conversation content
-            result = await generateFallbackCareerCards(validMessages, parameters.trigger_reason);
-          }
+          // Use fallback career generation to prevent WebSocket issues
+          console.log('🎯 Using fallback career generation for better performance');
+          const result = await generateFallbackCareerCards(validMessages, parameters.trigger_reason);
 
           // Parse the result
           let analysisData: any;
@@ -460,8 +446,14 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-7xl w-[95vw] h-[85vh] bg-gradient-to-br from-primary-dark via-secondary-dark to-primary-dark border border-electric-blue/30 [&>button]:hidden flex flex-col">
+              <DialogContent 
+          className="max-w-7xl w-[95vw] h-[85vh] bg-gradient-to-br from-primary-dark via-secondary-dark to-primary-dark border border-electric-blue/30 [&>button]:hidden flex flex-col"
+          aria-describedby="enhanced-chat-description"
+        >
         <DialogHeader className="border-b border-electric-blue/20 pb-4 flex-shrink-0">
+          <div id="enhanced-chat-description" className="sr-only">
+            Enhanced voice chat interface for career guidance and conversation analysis
+          </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
               <div className="w-12 h-12 bg-gradient-to-br from-electric-blue to-neon-pink rounded-xl flex items-center justify-center">
