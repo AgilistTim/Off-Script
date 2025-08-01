@@ -125,7 +125,10 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
   // Auto-scroll to bottom of conversation
   useEffect(() => {
     if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
     }
   }, [conversationHistory]);
 
@@ -231,7 +234,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
           </div>
         </DialogHeader>
 
-        <div className="flex-1 flex space-x-6 overflow-hidden">
+        <div className="flex-1 flex space-x-6 overflow-hidden min-h-0">
           {/* Career Quick Reference Panel */}
           <div className="w-80 flex-shrink-0">
             <Card className="bg-gradient-to-br from-primary-gray/50 to-electric-blue/10 border border-electric-blue/20 h-full">
@@ -297,11 +300,11 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
           </div>
 
           {/* Voice Conversation Panel */}
-          <div className="flex-1 flex flex-col">
+          <div className="flex-1 flex flex-col min-h-0">
             {/* Conversation History */}
-            <div className="flex-1 mb-4">
-              <ScrollArea ref={scrollAreaRef} className="h-full pr-4">
-                <div className="space-y-4">
+            <div className="flex-1 mb-4 min-h-0">
+              <ScrollArea ref={scrollAreaRef} className="h-full pr-2">
+                <div className="space-y-4 pb-4">
                   {conversationHistory.map((message, index) => (
                     <motion.div
                       key={index}
@@ -351,7 +354,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
             </div>
 
             {/* Voice Controls */}
-            <div className="bg-gradient-to-r from-primary-gray/50 to-electric-blue/10 rounded-xl p-4 border border-electric-blue/20">
+            <div className="bg-gradient-to-r from-primary-gray/50 to-electric-blue/10 rounded-xl p-4 border border-electric-blue/20 flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   {!isConnected ? (
