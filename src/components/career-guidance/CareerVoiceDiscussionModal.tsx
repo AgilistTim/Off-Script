@@ -244,7 +244,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl h-[80vh] bg-gradient-to-br from-primary-black to-primary-gray border border-electric-blue/30 text-primary-white overflow-hidden">
+      <DialogContent className="max-w-4xl h-[80vh] bg-gradient-to-br from-primary-black to-primary-gray border border-electric-blue/30 text-primary-white overflow-hidden [&>button]:hidden">
         <DialogHeader className="border-b border-electric-blue/20 pb-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">

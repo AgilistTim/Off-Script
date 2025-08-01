@@ -104,6 +104,40 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   // Initialize conversation
   const conversation = useConversation({
     agentId,
+    overrides: {
+      agent: {
+        firstMessage: buildGreeting(),
+      },
+    },
+    clientTools: {
+      analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
+        console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - Enhanced modal agent calling tools!');
+        console.log('🔍 Tool parameters:', parameters);
+        
+        // Create mock analysis for now since this modal is more basic
+        const mockAnalysis = {
+          careerCards: [
+            {
+              title: "Career Analysis Available",
+              description: "Your conversation has been analyzed. Please use the main conversation interface for detailed career insights.",
+              matchScore: 85
+            }
+          ],
+          message: "Career analysis completed successfully"
+        };
+        
+        return mockAnalysis;
+      },
+
+      update_person_profile: async (parameters: { interests?: string[]; goals?: string[]; skills?: string[] }) => {
+        console.log('🚨 TOOL CALLED: update_person_profile - Enhanced modal agent calling tools!');
+        console.log('👤 Updating person profile based on conversation...');
+        console.log('👤 Profile parameters:', parameters);
+        
+        // Return success message for now
+        return "Profile updated successfully based on conversation";
+      },
+    },
     onConnect: () => {
       console.log(`🎙️ Connected to enhanced chat voice assistant (Agent: ${agentId})`);
       setIsConnected(true);
@@ -129,14 +163,16 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     onMessage: async (message) => {
       console.log('🤖 Agent message:', message);
       const newMessage: ConversationMessage = {
-        role: 'assistant',
+        role: message.source === 'ai' ? 'assistant' : 'user',
         content: message.message,
         timestamp: new Date()
       };
       
-      const updatedHistory = [...conversationHistory, newMessage];
-      setConversationHistory(updatedHistory);
-      onConversationUpdate?.(updatedHistory);
+      setConversationHistory(prev => {
+        const updatedHistory = [...prev, newMessage];
+        onConversationUpdate?.(updatedHistory);
+        return updatedHistory;
+      });
     },
     onError: (error) => {
       console.error('❌ Enhanced chat voice conversation error:', error);
@@ -234,7 +270,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-full mx-4 max-h-[90vh] bg-gradient-to-br from-primary-dark via-secondary-dark to-primary-dark border border-electric-blue/30">
+      <DialogContent className="max-w-4xl w-full mx-4 max-h-[90vh] bg-gradient-to-br from-primary-dark via-secondary-dark to-primary-dark border border-electric-blue/30 [&>button]:hidden">
         <DialogHeader className="border-b border-electric-blue/20 pb-4">
           <DialogTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-3">

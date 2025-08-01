@@ -172,7 +172,7 @@ const Profile: React.FC = () => {
     };
     
     fetchCareerInsights();
-  }, [currentUser, userData]);
+  }, [currentUser]);
   
   // Handle profile form submission
   const handleProfileSubmit = async (e: React.FormEvent) => {
