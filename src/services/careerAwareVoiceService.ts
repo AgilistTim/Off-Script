@@ -167,19 +167,66 @@ Ready to have an informed career discussion!
   }
 
   /**
-   * Send context to the ElevenLabs agent
+   * Send context to the ElevenLabs agent by updating agent configuration
    */
   private async sendContextToAgent(agentId: string, contextPrompt: string): Promise<string> {
-    // This would integrate with ElevenLabs API to send the context
-    // For now, return a simulated response
+    if (!this.elevenLabsApiKey) {
+      throw new Error('ElevenLabs API key not configured');
+    }
+
     console.log('📤 Sending context to agent:', {
       agentId,
       contextLength: contextPrompt.length,
       preview: contextPrompt.substring(0, 200) + '...'
     });
 
-    // Simulated agent response - in production this would call ElevenLabs API
-    return "Hi! I've loaded all the details about your career match. I can see this aligns really well with your interests. What aspect would you like to explore first?";
+    try {
+      // Update the agent's context via ElevenLabs API
+      const response = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'xi-api-key': this.elevenLabsApiKey
+        },
+        body: JSON.stringify({
+          conversation_config: {
+            agent: {
+              prompt: {
+                prompt: `You are an expert career counselor specializing in AI-powered career guidance.
+
+${contextPrompt}
+
+RESPONSE STYLE:
+- Keep responses 30-60 words for voice conversations
+- Be conversational and natural (this is voice, not text)
+- Ask engaging follow-up questions about the specific career path
+- Reference the user's interests and profile when relevant
+- Provide specific, actionable career insights
+
+You already have all the context about this user and career path. Start the conversation by acknowledging what you know and ask what they'd like to explore first about this specific career.`
+              }
+            }
+          }
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('❌ ElevenLabs API error:', response.status, errorText);
+        throw new Error(`ElevenLabs API error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log('✅ Agent context updated successfully');
+
+      return `Hi! I have all the details about your career path loaded. I can see how this aligns with your interests and background. What would you like to explore first about this career?`;
+
+    } catch (error) {
+      console.error('❌ Failed to send context to ElevenLabs agent:', error);
+      
+      // Fallback to basic response if API call fails
+      return `Hi! I'm ready to discuss your career path. What aspect would you like to explore first?`;
+    }
   }
 
   /**

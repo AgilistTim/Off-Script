@@ -139,7 +139,9 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
     try {
       setConnectionStatus('connecting');
       
-      // Start conversation with context pre-loaded
+      console.log('🎙️ Starting voice conversation - context already loaded by careerAwareVoiceService');
+      
+      // Start conversation - the agent should already have the context from our service call
       await conversation.startSession({
         agentId: careerAwareAgentId,
       });
