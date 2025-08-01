@@ -1493,6 +1493,213 @@ class CareerPathwayService {
   }
 
   /**
+   * Get structured career guidance data with primary pathway and alternatives
+   * NEW: Returns proper hierarchy for dashboard redesign
+   */
+  async getStructuredCareerGuidance(userId: string): Promise<{
+    primaryPathway: any | null;
+    alternativePathways: any[];
+    totalPathways: number;
+  }> {
+    try {
+      console.log('🔍 DEBUG: Getting structured career guidance for user:', userId);
+      
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+
+      // Wait for authentication before making Firebase queries
+      const { auth } = await import('./firebase');
+      if (!auth.currentUser) {
+        throw new Error('User not authenticated for getStructuredCareerGuidance access');
+      }
+      
+      const { db } = await import('./firebase');
+      const { collection, query, where, orderBy, getDocs, limit } = await import('firebase/firestore');
+
+      // Get the thread career guidance data (using updatedAt like existing queries)
+      const guidanceQuery = query(
+        collection(db, 'threadCareerGuidance'),
+        where('userId', '==', userId),
+        orderBy('updatedAt', 'desc'),
+        limit(1) // Get the most recent guidance
+      );
+
+      const guidanceSnapshot = await getDocs(guidanceQuery);
+      
+      if (guidanceSnapshot.empty) {
+        console.log('✅ No thread career guidance found for structured response');
+        return {
+          primaryPathway: null,
+          alternativePathways: [],
+          totalPathways: 0
+        };
+      }
+
+      const doc = guidanceSnapshot.docs[0];
+      const data = doc.data();
+      const guidance = data.guidance;
+
+      if (!guidance?.primaryPathway) {
+        console.log('⚠️ No primary pathway found in guidance data');
+        return {
+          primaryPathway: null,
+          alternativePathways: [],
+          totalPathways: 0
+        };
+      }
+
+      // Process primary pathway
+      const primary = guidance.primaryPathway;
+      const primaryCardData = {
+        id: `guidance-${doc.id}-primary`,
+        title: primary.title,
+        description: primary.roleFundamentals?.corePurpose || primary.description,
+        industry: primary.workEnvironmentCulture?.typicalEmployers?.[0] || primary.industry || 'Technology',
+        averageSalary: primary.compensationRewards?.salaryRange ? {
+          entry: `£${primary.compensationRewards.salaryRange.entry?.toLocaleString() || '25,000'}`,
+          experienced: `£${primary.compensationRewards.salaryRange.mid?.toLocaleString() || '35,000'}`,
+          senior: `£${primary.compensationRewards.salaryRange.senior?.toLocaleString() || '50,000'}`
+        } : primary.averageSalary || {
+          entry: '£25,000',
+          experienced: '£35,000', 
+          senior: '£50,000'
+        },
+        growthOutlook: primary.labourMarketDynamics?.demandOutlook?.growthForecast || primary.growthOutlook || 'Growing demand',
+        keySkills: [
+          ...(primary.competencyRequirements?.technicalSkills || []),
+          ...(primary.competencyRequirements?.softSkills || [])
+        ].slice(0, 5) || primary.keySkills || [],
+        confidence: primary.match || 95,
+        workEnvironment: primary.workEnvironmentCulture?.physicalContext?.[0] || primary.workEnvironment || 'Office-based',
+        isPrimary: true,
+        rank: 1,
+        threadId: data.threadId,
+        firebaseDocId: doc.id,
+        pathwayType: 'primary',
+        trainingPathways: this.validateTrainingPathwayAlignment(primary.title || '', primary.trainingPathways || []),
+        nextSteps: this.extractNextStepsArray(primary.nextSteps) || [],
+        entryRequirements: primary.entryRequirements || [],
+        location: 'UK',
+        isCurrent: true,
+        source: 'conversation_guidance',
+        // Full comprehensive data preservation
+        roleFundamentals: primary.roleFundamentals,
+        competencyRequirements: primary.competencyRequirements,
+        compensationRewards: primary.compensationRewards,
+        careerTrajectory: primary.careerTrajectory,
+        labourMarketDynamics: primary.labourMarketDynamics,
+        workEnvironmentCulture: primary.workEnvironmentCulture,
+        lifestyleFit: primary.lifestyleFit,
+        costRiskEntry: primary.costRiskEntry,
+        valuesImpact: primary.valuesImpact,
+        transferabilityFutureProofing: primary.transferabilityFutureProofing,
+        // Enhanced properties for backward compatibility
+        enhancedSalary: primary.enhancedSalary,
+        careerProgression: primary.careerProgression,
+        dayInTheLife: primary.dayInTheLife,
+        industryTrends: primary.industryTrends,
+        topUKEmployers: primary.topUKEmployers,
+        professionalTestimonials: primary.professionalTestimonials,
+        additionalQualifications: primary.additionalQualifications,
+        workLifeBalance: primary.workLifeBalance,
+        professionalAssociations: primary.professionalAssociations,
+        enhancedSources: primary.enhancedSources,
+        isEnhanced: primary.isEnhanced,
+        enhancementStatus: primary.enhancementStatus
+      };
+
+      // Process alternative pathways
+      const alternativePathways = [];
+      if (guidance.alternativePathways && guidance.alternativePathways.length > 0) {
+        guidance.alternativePathways.forEach((alt: any, index: number) => {
+          const altCardData = {
+            id: `guidance-${doc.id}-alt-${index}`,
+            title: alt.title,
+            description: alt.roleFundamentals?.corePurpose || alt.description,
+            industry: alt.workEnvironmentCulture?.typicalEmployers?.[0] || alt.industry || 'Technology',
+            averageSalary: alt.compensationRewards?.salaryRange ? {
+              entry: `£${alt.compensationRewards.salaryRange.entry?.toLocaleString() || '25,000'}`,
+              experienced: `£${alt.compensationRewards.salaryRange.mid?.toLocaleString() || '35,000'}`, 
+              senior: `£${alt.compensationRewards.salaryRange.senior?.toLocaleString() || '50,000'}`
+            } : alt.averageSalary || {
+              entry: '£25,000',
+              experienced: '£35,000',
+              senior: '£50,000'
+            },
+            growthOutlook: alt.labourMarketDynamics?.demandOutlook?.growthForecast || alt.growthOutlook || 'Growing demand',
+            keySkills: [
+              ...(alt.competencyRequirements?.technicalSkills || []),
+              ...(alt.competencyRequirements?.softSkills || [])
+            ].slice(0, 5) || alt.keySkills || [],
+            confidence: alt.match || 80 - (index * 5), // Decreasing confidence for alternatives
+            workEnvironment: alt.workEnvironmentCulture?.physicalContext?.[0] || alt.workEnvironment || 'Office-based',
+            isPrimary: false,
+            rank: index + 2, // Start from 2 since primary is rank 1
+            threadId: data.threadId,
+            firebaseDocId: doc.id,
+            pathwayType: 'alternative',
+            pathwayIndex: index,
+            trainingPathways: this.validateTrainingPathwayAlignment(alt.title || '', alt.trainingPathways || []),
+            nextSteps: this.extractNextStepsArray(alt.nextSteps) || [],
+            entryRequirements: alt.entryRequirements || [],
+            location: 'UK',
+            isCurrent: true,
+            source: 'conversation_guidance',
+            // Full comprehensive data preservation
+            roleFundamentals: alt.roleFundamentals,
+            competencyRequirements: alt.competencyRequirements,
+            compensationRewards: alt.compensationRewards,
+            careerTrajectory: alt.careerTrajectory,
+            labourMarketDynamics: alt.labourMarketDynamics,
+            workEnvironmentCulture: alt.workEnvironmentCulture,
+            lifestyleFit: alt.lifestyleFit,
+            costRiskEntry: alt.costRiskEntry,
+            valuesImpact: alt.valuesImpact,
+            transferabilityFutureProofing: alt.transferabilityFutureProofing,
+            // Enhanced properties for backward compatibility
+            enhancedSalary: alt.enhancedSalary,
+            careerProgression: alt.careerProgression,
+            dayInTheLife: alt.dayInTheLife,
+            industryTrends: alt.industryTrends,
+            topUKEmployers: alt.topUKEmployers,
+            professionalTestimonials: alt.professionalTestimonials,
+            additionalQualifications: alt.additionalQualifications,
+            workLifeBalance: alt.workLifeBalance,
+            professionalAssociations: alt.professionalAssociations,
+            enhancedSources: alt.enhancedSources,
+            isEnhanced: alt.isEnhanced,
+            enhancementStatus: alt.enhancementStatus
+          };
+          alternativePathways.push(altCardData);
+        });
+      }
+
+      const result = {
+        primaryPathway: primaryCardData,
+        alternativePathways: alternativePathways,
+        totalPathways: 1 + alternativePathways.length
+      };
+
+      console.log('✅ Structured career guidance prepared:', {
+        primaryTitle: result.primaryPathway?.title,
+        alternativeCount: result.alternativePathways.length,
+        totalPathways: result.totalPathways
+      });
+
+      return result;
+
+    } catch (error) {
+      console.error('❌ CRITICAL ERROR in getStructuredCareerGuidance:', error);
+      return {
+        primaryPathway: null,
+        alternativePathways: [],
+        totalPathways: 0
+      };
+    }
+  }
+
+  /**
    * Delete career guidance for a specific thread
    */
   async deleteThreadCareerGuidance(threadId: string, userId: string): Promise<void> {

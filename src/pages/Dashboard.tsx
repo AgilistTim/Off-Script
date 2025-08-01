@@ -39,6 +39,8 @@ import { db } from '../services/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import careerPathwayService from '../services/careerPathwayService';
 import { dashboardCareerEnhancementService, DashboardCareerCard } from '../services/dashboardCareerEnhancementService';
+import PrimaryPathwayHero from '../components/career-guidance/PrimaryPathwayHero';
+import AlternativePathwaysAccordion from '../components/career-guidance/AlternativePathwaysAccordion';
 
 // Notification component with street-art styling
 interface NotificationProps {
@@ -155,8 +157,13 @@ const Dashboard: React.FC = () => {
   const [selectedCareerCard, setSelectedCareerCard] = useState<any | null>(null);
   const [showCareerCardModal, setShowCareerCardModal] = useState(false);
 
-  // New state for current conversation data
-  const [currentCareerCards, setCurrentCareerCards] = useState<DashboardCareerCard[]>([]);
+  // New state for structured career guidance
+  const [structuredGuidance, setStructuredGuidance] = useState<{
+    primaryPathway: any | null;
+    alternativePathways: any[];
+    totalPathways: number;
+  }>({ primaryPathway: null, alternativePathways: [], totalPathways: 0 });
+  const [showAllAlternatives, setShowAllAlternatives] = useState(false);
   const [dataRefreshKey, setDataRefreshKey] = useState(0); // Force refresh trigger
   
   // Cache for career card details to reduce API calls
@@ -288,81 +295,39 @@ const Dashboard: React.FC = () => {
     }
   }, [currentUser, loading, careerCardCache]); // Added careerCardCache dependency
 
-  // Delete career card function
-  const deleteCareerCard = useCallback(async (cardId: string) => {
-    if (!currentUser) return;
-
-    try {
-      // Find the career card to get its Firebase info
-      const cardToDelete = currentCareerCards.find(card => card.id === cardId);
-      if (!cardToDelete) {
-        console.error('Career card not found for deletion:', cardId);
-        return;
-      }
-
-      console.log('🗑️ Deleting career card:', cardToDelete);
-
-              // Smart deletion based on card source
-        if (cardToDelete.firebaseDocId && cardToDelete.pathwayType) {
-          // Modern cards with Firebase metadata - use precise deletion
-          console.log('🎯 Using Firebase-based deletion for current card');
-          await careerPathwayService.deleteCareerCardByFirebaseId(
-            cardId,
-            cardToDelete.firebaseDocId,
-            (cardToDelete.pathwayType as 'primary' | 'alternative') || 'primary',
-            cardToDelete.pathwayIndex,
-            currentUser.uid
-          );
-      } else if (cardId.includes('_card_')) {
-        // Migrated guest cards - delete from careerExplorations only
-        console.log('🎯 Using legacy deletion methods for migrated card');
-        await careerPathwayService.deleteCareerExplorationOrCard(cardToDelete.threadId || cardId, currentUser.uid);
-        // NO threadCareerGuidance deletion for migrated cards
-      } else {
-        // Conversation-generated cards - delete from threadCareerGuidance only  
-        console.log('🎯 Using thread guidance deletion for conversation card');
-        await careerPathwayService.deleteThreadCareerGuidance(cardToDelete.threadId || cardId, currentUser.uid);
-        // NO careerExplorations deletion for conversation cards
-      }
-
-      // Remove from cache and current cards
-      setCareerCardCache(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(cardId);
-        return newMap;
-      });
-
-      setCurrentCareerCards(prev => prev.filter(card => card.id !== cardId));
-
+  // AI Discussion Handlers
+  const handleAskAIAboutPrimary = () => {
+    if (structuredGuidance.primaryPathway) {
       setNotification({
-        message: 'Career card deleted successfully!',
-        type: 'success'
-      });
-
-      // Close modal if the deleted card was selected
-      if (selectedCareerCard?.id === cardId) {
-        setShowCareerCardModal(false);
-        setSelectedCareerCard(null);
-      }
-
-      // Refresh the career cards to reflect Firebase changes
-      setTimeout(async () => {
-        try {
-          const updatedCards = await careerPathwayService.getCurrentCareerCards(currentUser.uid);
-          setCurrentCareerCards(updatedCards);
-        } catch (error) {
-          console.error('Error refreshing career cards after deletion:', error);
-        }
-      }, 500);
-
-    } catch (error) {
-      console.error('Error deleting career card:', error);
-      setNotification({
-        message: 'Error deleting career card. Please try again.',
-        type: 'error'
+        message: 'AI Discussion feature coming soon! Continue your conversation in the chat.',
+        type: 'info'
       });
     }
-  }, [currentUser, selectedCareerCard, currentCareerCards]);
+  };
+
+  const handleAskAIAboutAlternative = (pathway: any) => {
+    setNotification({
+      message: `AI Discussion about ${pathway.title} coming soon! Continue your conversation in the chat.`,
+      type: 'info'
+    });
+  };
+
+  const handleCompareToPrimary = (pathway: any) => {
+    if (structuredGuidance.primaryPathway) {
+      setNotification({
+        message: `Career comparison between ${structuredGuidance.primaryPathway.title} and ${pathway.title} coming soon!`,
+        type: 'info'
+      });
+    }
+  };
+
+  const handleExplorePrimary = () => {
+    if (structuredGuidance.primaryPathway) {
+      // Open the career card modal for detailed view
+      setSelectedCareerCard(structuredGuidance.primaryPathway);
+      setShowCareerCardModal(true);
+    }
+  };
 
   // Fetch video recommendations
   const fetchRecommendations = useCallback(async () => {
@@ -412,62 +377,26 @@ const Dashboard: React.FC = () => {
             return videosSnapshot.docs.map(doc => doc.id);
           })(),
           
-          // Fetch and enhance current career cards
+          // Fetch structured career guidance data
           (async () => {
-            console.log('🔍 DEBUG: Starting enhanced career card fetch for user:', currentUser.uid);
+            console.log('🔍 DEBUG: Starting structured career guidance fetch for user:', currentUser.uid);
             
-            // Get basic cards using the service
-            const basicCards = await careerPathwayService.getCurrentCareerCards(currentUser.uid);
-            console.log('🔍 DEBUG: Service returned cards:', basicCards.length);
+            // Get structured guidance using the new service method
+            const structuredData = await careerPathwayService.getStructuredCareerGuidance(currentUser.uid);
+            console.log('🔍 DEBUG: Service returned structured data:', {
+              hasPrimary: !!structuredData.primaryPathway,
+              primaryTitle: structuredData.primaryPathway?.title,
+              alternativesCount: structuredData.alternativePathways.length,
+              totalPathways: structuredData.totalPathways
+            });
             
-            // ✅ ADDED: Detailed logging of what the dashboard receives
-            if (basicCards.length > 0) {
-              console.log('🔍 DEBUG: Dashboard received career cards:', {
-                count: basicCards.length,
-                titles: basicCards.map(c => c.title),
-                firstCardKeys: Object.keys(basicCards[0]),
-                firstCardData: {
-                  title: basicCards[0].title,
-                  description: basicCards[0].description,
-                  industry: basicCards[0].industry,
-                  averageSalary: basicCards[0].averageSalary,
-                  growthOutlook: basicCards[0].growthOutlook,
-                  keySkills: basicCards[0].keySkills,
-                  workEnvironment: basicCards[0].workEnvironment,
-                  confidence: basicCards[0].confidence,
-                  
-                  // Check comprehensive data
-                  hasRoleFundamentals: !!basicCards[0].roleFundamentals,
-                  hasCompensationRewards: !!basicCards[0].compensationRewards,
-                  hasCareerTrajectory: !!basicCards[0].careerTrajectory,
-                  hasLabourMarketDynamics: !!basicCards[0].labourMarketDynamics,
-                  hasWorkEnvironmentCulture: !!basicCards[0].workEnvironmentCulture,
-                  hasCompetencyRequirements: !!basicCards[0].competencyRequirements,
-                  
-                  // Check if comprehensive data is accessible
-                  roleFundamentals: basicCards[0].roleFundamentals,
-                  compensationRewards: basicCards[0].compensationRewards,
-                  labourMarketDynamics: basicCards[0].labourMarketDynamics,
-                  workEnvironmentCulture: basicCards[0].workEnvironmentCulture,
-                  competencyRequirements: basicCards[0].competencyRequirements
-                }
-              });
+            if (structuredData.totalPathways === 0) {
+              console.log('🔄 No career guidance found on first load - they may still be processing');
+              return structuredData;
             }
             
-            if (basicCards.length === 0) {
-              console.log('🔄 No migrated career cards found on first load - they may still be processing');
-              return [];
-            }
-            
-            // Enhance cards automatically for dashboard view
-            console.log('🚀 Starting auto-enhancement for dashboard cards...');
-            const enhancedCards = await dashboardCareerEnhancementService.enhanceCareerCards(basicCards);
-            
-            // Log enhancement results
-            const stats = dashboardCareerEnhancementService.getEnhancementStats(enhancedCards);
-            console.log('✅ Dashboard card enhancement completed:', stats);
-            
-            return enhancedCards;
+            console.log('✅ Structured career guidance loaded successfully');
+            return structuredData;
           })()
         ]);
         
@@ -479,24 +408,26 @@ const Dashboard: React.FC = () => {
           setRecommendedVideos(videosResult.value);
         }
         
-        // Process current career cards
+        // Process structured career guidance
         if (currentCardsResult.status === 'fulfilled') {
-          const enhancedCards = currentCardsResult.value;
-          setCurrentCareerCards(enhancedCards);
-          console.log('✅ Loaded current career cards:', enhancedCards.length);
+          const guidanceData = currentCardsResult.value;
+          setStructuredGuidance(guidanceData);
+          console.log('✅ Loaded structured career guidance:', guidanceData.totalPathways, 'pathways');
           
-          // Show enhancement notification if any cards were enhanced
-          const stats = dashboardCareerEnhancementService.getEnhancementStats(enhancedCards);
-          if (stats.enhanced > 0) {
+          // Show success notification if we have career paths
+          if (guidanceData.totalPathways > 0) {
+            const hasRichData = guidanceData.primaryPathway?.isEnhanced || guidanceData.primaryPathway?.dayInTheLife;
             setNotification({
-              message: `Enhanced ${stats.enhanced} career card${stats.enhanced > 1 ? 's' : ''} with real UK data!`,
+              message: hasRichData 
+                ? `✨ Enhanced career intelligence loaded: ${guidanceData.primaryPathway?.title} + ${guidanceData.alternativePathways.length} alternatives with comprehensive UK data!`
+                : `Loaded your career guidance: ${guidanceData.primaryPathway?.title} + ${guidanceData.alternativePathways.length} alternatives!`,
               type: 'success'
             });
           }
         } else if (currentCardsResult.status === 'rejected') {
-          console.error('❌ Failed to load career cards:', currentCardsResult.reason);
+          console.error('❌ Failed to load structured career guidance:', currentCardsResult.reason);
           setNotification({
-            message: 'Error loading career cards. Please try refreshing.',
+            message: 'Error loading career guidance. Please try refreshing.',
             type: 'error'
           });
         }
@@ -630,13 +561,6 @@ const Dashboard: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
-                    <button
-                      onClick={() => deleteCareerCard(selectedCareerCard.id)}
-                      className="w-10 h-10 bg-gradient-to-br from-neon-pink to-sunset-orange rounded-xl flex items-center justify-center hover:scale-110 transition-transform duration-200"
-                      title="Delete Career Card"
-                    >
-                      <Trash2 className="h-5 w-5 text-primary-white" />
-                    </button>
                     <button
                       onClick={() => setShowCareerCardModal(false)}
                       className="w-10 h-10 bg-gradient-to-br from-neon-pink to-electric-blue rounded-xl flex items-center justify-center hover:scale-110 transition-transform duration-200"
@@ -914,14 +838,33 @@ const Dashboard: React.FC = () => {
                 YOUR CAREER DISCOVERIES
               </h2>
               <p className="text-primary-white/70">
-                {currentCareerCards.length} {currentCareerCards.length === 1 ? 'path' : 'paths'} explored
+                {structuredGuidance.totalPathways} {structuredGuidance.totalPathways === 1 ? 'path' : 'paths'} discovered
+                {structuredGuidance.primaryPathway?.isEnhanced && (
+                  <span className="ml-2 text-acid-green">• Enhanced with real UK data</span>
+                )}
               </p>
             </div>
           </div>
-          <CareerExplorationOverview 
-            onSelectExploration={handleSelectExploration}
-            currentCareerCards={currentCareerCards}
+          
+          {/* Primary Pathway Hero */}
+          <PrimaryPathwayHero 
+            pathway={structuredGuidance.primaryPathway}
+            onAskAI={handleAskAIAboutPrimary}
+            onExplorePath={handleExplorePrimary}
           />
+          
+          {/* Alternative Pathways Accordion */}
+          {structuredGuidance.alternativePathways.length > 0 && (
+            <div className="mt-8">
+              <AlternativePathwaysAccordion 
+                alternatives={structuredGuidance.alternativePathways}
+                showAll={showAllAlternatives}
+                onToggleShowAll={() => setShowAllAlternatives(!showAllAlternatives)}
+                onAskAI={handleAskAIAboutAlternative}
+                onCompareToPrimary={handleCompareToPrimary}
+              />
+            </div>
+          )}
         </div>
       </motion.div>
 
