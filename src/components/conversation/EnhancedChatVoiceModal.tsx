@@ -63,6 +63,7 @@ interface EnhancedChatVoiceModalProps {
   careerContext?: any;
   currentConversationHistory?: ConversationMessage[];
   onConversationUpdate?: (messages: ConversationMessage[]) => void;
+  onCareerCardsDiscovered?: (cards: any[]) => void;
 }
 
 export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
@@ -70,7 +71,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   onClose,
   careerContext,
   currentConversationHistory = [],
-  onConversationUpdate
+  onConversationUpdate,
+  onCareerCardsDiscovered
 }) => {
   const { currentUser, userData } = useAuth();
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>(currentConversationHistory);
@@ -184,6 +186,12 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   combined.push(newCard);
                 }
               });
+              
+              // Notify parent of discovered career cards
+              if (onCareerCardsDiscovered) {
+                onCareerCardsDiscovered(combined);
+              }
+              
               return combined;
             });
           }
