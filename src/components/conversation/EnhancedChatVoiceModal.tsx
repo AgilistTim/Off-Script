@@ -144,16 +144,26 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         console.log('🔍 Tool parameters:', parameters);
         
         try {
+          // Add a small delay to ensure conversation history is up-to-date
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
           // Get valid conversation messages for analysis
           const validMessages = conversationHistory.filter(msg => 
             msg.content && 
             msg.content.trim().length > 0 && 
-            !msg.content.includes('Connected to enhanced chat voice assistant')
+            !msg.content.includes('Connected to enhanced chat voice assistant') &&
+            !msg.content.includes('Sarah an AI assistant') // Filter out system messages
           );
 
+          console.log('🔍 Conversation history for analysis:', {
+            totalMessages: conversationHistory.length,
+            validMessages: validMessages.length,
+            messages: validMessages.map(m => ({ role: m.role, content: m.content.substring(0, 50) + '...' }))
+          });
+
           if (validMessages.length === 0) {
-            console.log('⚠️ No valid messages for analysis');
-            return { careerCards: [], message: "No conversation content to analyze yet" };
+            console.log('⚠️ No valid messages for analysis - conversation may be too new');
+            return "I'm analyzing our conversation. Please continue chatting and I'll generate career insights shortly.";
           }
 
           // Use MCP queue service for analysis
@@ -237,6 +247,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       console.log(`🎙️ Connected to enhanced chat voice assistant (Agent: ${agentId})`);
       setIsConnected(true);
       setConnectionStatus('connected');
+      setIsLoading(false); // Reset loading state on successful connection
       
       // Add personalized initial message only for authenticated users
       // For guests, let the agent use its default greeting to avoid connection issues
