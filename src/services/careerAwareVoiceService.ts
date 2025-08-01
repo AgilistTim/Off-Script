@@ -291,19 +291,28 @@ Ready to have an informed career discussion!
       // Get career guidance data
       const guidanceData = await careerPathwayService.getStructuredCareerGuidance(userId);
       
-      // Build context using the builder pattern
-      const profileData = userProfile.profile || {
-        interests: [],
-        careerGoals: [],
-        skills: []
+      // Build context using the builder pattern - ensure safe array access
+      const rawProfile = userProfile.profile || {};
+      const profileData = {
+        interests: Array.isArray(rawProfile.interests) ? rawProfile.interests : [],
+        careerGoals: Array.isArray(rawProfile.careerGoals) ? rawProfile.careerGoals : [],
+        skills: Array.isArray(rawProfile.skills) ? rawProfile.skills : []
       };
+      
+      console.log('🔍 Profile data processed:', {
+        hasInterests: profileData.interests.length > 0,
+        interestsCount: profileData.interests.length,
+        firstFewInterests: profileData.interests.slice(0, 3),
+        hasGoals: profileData.careerGoals.length > 0,
+        hasSkills: profileData.skills.length > 0
+      });
       
       const context = CareerDiscussionContextBuilder.create()
         .withCareer(careerToDiscuss, isPrimary, careerToDiscuss.matchScore || 85)
         .withUserProfile(profileData, {
           conversationCount: guidanceData.totalPathways,
           careerCardsGenerated: guidanceData.totalPathways,
-          topInterestAreas: profileData.interests?.slice(0, 3) || [],
+          topInterestAreas: profileData.interests.slice(0, 3),
           careerStage: 'exploring'
         })
         .withCareerIntelligence(
