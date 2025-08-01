@@ -98,17 +98,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     }
   }, [conversationHistory, onConversationUpdate]);
 
-  // Cleanup conversation on unmount to prevent WebSocket conflicts
-  useEffect(() => {
-    return () => {
-      if (conversation && isConnected) {
-        console.log('🧹 Cleaning up conversation on unmount');
-        conversationInitialized.current = false;
-        conversation.endSession().catch(console.error);
-      }
-    };
-  }, [conversation, isConnected]);
-
   // Determine agent based on user auth state and context
   const getAgentId = (): string => {
     if (!currentUser) {
@@ -366,6 +355,17 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       setConversationHistory(currentConversationHistory);
     }
   }, [currentConversationHistory, isConnected]);
+
+  // Cleanup conversation on unmount to prevent WebSocket conflicts
+  useEffect(() => {
+    return () => {
+      if (conversation && isConnected) {
+        console.log('🧹 Cleaning up conversation on unmount');
+        conversationInitialized.current = false;
+        conversation.endSession().catch(console.error);
+      }
+    };
+  }, [conversation, isConnected]);
 
   // Handle conversation start
   const handleStartConversation = async () => {
