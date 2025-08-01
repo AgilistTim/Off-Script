@@ -295,28 +295,119 @@ const Dashboard: React.FC = () => {
     }
   }, [currentUser, loading, careerCardCache]); // Added careerCardCache dependency
 
-  // AI Discussion Handlers
-  const handleAskAIAboutPrimary = () => {
-    if (structuredGuidance.primaryPathway) {
+  // AI Discussion Handlers - Enhanced with Career-Aware Voice Service
+  const handleAskAIAboutPrimary = async () => {
+    if (!currentUser || !structuredGuidance.primaryPathway) return;
+    
+    try {
+      console.log('🤖 Starting AI discussion about primary pathway:', structuredGuidance.primaryPathway.title);
+      
+      // Import the career-aware voice service
+      const { careerAwareVoiceService } = await import('../services/careerAwareVoiceService');
+      
+      // Create rich context for the primary pathway discussion
+      const context = await careerAwareVoiceService.createContextFromFirebaseData(
+        currentUser.uid,
+        structuredGuidance.primaryPathway,
+        true // isPrimary
+      );
+      
+      // Start the career-aware discussion
+      const result = await careerAwareVoiceService.startCareerDiscussion(context);
+      
+      console.log('✅ Career discussion initialized:', result);
+      
+      // TODO: Open voice discussion modal/component
       setNotification({
-        message: 'AI Discussion feature coming soon! Continue your conversation in the chat.',
-        type: 'info'
+        message: `🎯 AI discussion ready for ${structuredGuidance.primaryPathway.title}! Enhanced context loaded.`,
+        type: 'success'
+      });
+      
+    } catch (error) {
+      console.error('❌ Failed to start AI discussion:', error);
+      setNotification({
+        message: 'Failed to start AI discussion. Please try again.',
+        type: 'error'
       });
     }
   };
 
-  const handleAskAIAboutAlternative = (pathway: any) => {
-    setNotification({
-      message: `AI Discussion about ${pathway.title} coming soon! Continue your conversation in the chat.`,
-      type: 'info'
-    });
+  const handleAskAIAboutAlternative = async (pathway: any) => {
+    if (!currentUser) return;
+    
+    try {
+      console.log('🤖 Starting AI discussion about alternative pathway:', pathway.title);
+      
+      // Import the career-aware voice service
+      const { careerAwareVoiceService } = await import('../services/careerAwareVoiceService');
+      
+      // Create rich context for the alternative pathway discussion
+      const context = await careerAwareVoiceService.createContextFromFirebaseData(
+        currentUser.uid,
+        pathway,
+        false // isPrimary
+      );
+      
+      // Start the career-aware discussion
+      const result = await careerAwareVoiceService.startCareerDiscussion(context);
+      
+      console.log('✅ Alternative career discussion initialized:', result);
+      
+      // TODO: Open voice discussion modal/component
+      setNotification({
+        message: `🎯 AI discussion ready for ${pathway.title}! Enhanced context loaded.`,
+        type: 'success'
+      });
+      
+    } catch (error) {
+      console.error('❌ Failed to start alternative AI discussion:', error);
+      setNotification({
+        message: 'Failed to start AI discussion. Please try again.',
+        type: 'error'
+      });
+    }
   };
 
-  const handleCompareToPrimary = (pathway: any) => {
-    if (structuredGuidance.primaryPathway) {
+  const handleCompareToPrimary = async (pathway: any) => {
+    if (!currentUser || !structuredGuidance.primaryPathway) return;
+    
+    try {
+      console.log('⚖️ Starting AI comparison:', pathway.title, 'vs', structuredGuidance.primaryPathway.title);
+      
+      // Import the career-aware voice service
+      const { careerAwareVoiceService } = await import('../services/careerAwareVoiceService');
+      
+      // Create comparison context
+      const context = await careerAwareVoiceService.createContextFromFirebaseData(
+        currentUser.uid,
+        pathway,
+        false // isPrimary
+      );
+      
+      // Enhance with comparison focus
+      await careerAwareVoiceService.enhanceDiscussion(context.technical.sessionId, {
+        discussionConfig: {
+          focusArea: 'comparison',
+          comparisonTarget: structuredGuidance.primaryPathway
+        }
+      });
+      
+      // Start the comparison discussion
+      const result = await careerAwareVoiceService.startCareerDiscussion(context);
+      
+      console.log('✅ Career comparison discussion initialized:', result);
+      
+      // TODO: Open comparison voice discussion modal
       setNotification({
-        message: `Career comparison between ${structuredGuidance.primaryPathway.title} and ${pathway.title} coming soon!`,
-        type: 'info'
+        message: `⚖️ AI comparison ready: ${pathway.title} vs ${structuredGuidance.primaryPathway.title}!`,
+        type: 'success'
+      });
+      
+    } catch (error) {
+      console.error('❌ Failed to start comparison discussion:', error);
+      setNotification({
+        message: 'Failed to start comparison discussion. Please try again.',
+        type: 'error'
       });
     }
   };
