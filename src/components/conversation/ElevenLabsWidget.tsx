@@ -4,6 +4,7 @@ import { useAuth } from '../../context/AuthContext';
 import { guestSessionService } from '../../services/guestSessionService';
 import { CareerCard, PersonProfile } from '../../types/careerCard';
 import { mcpQueueService } from '../../services/mcpQueueService';
+import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 
 // Helper function to get environment variables from both sources (dev + production)
 const getEnvVar = (key: string): string | undefined => {
@@ -78,13 +79,13 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   // Dynamic agent selection based on user state and conversation context
   const getAgentId = useCallback((): string => {
     if (!currentUser) {
-      // Guest user - use general career guide agent
-      return 'agent_01k0fkhhx0e8k8e6nwtz8ptkwb';
+      // Guest user - use career-aware agent (unified architecture)
+      return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
     }
     
-    // For now, authenticated users use the general career guide with enhanced context
-    // Could switch to career-aware agent if conversation develops specific career focus
-    return 'agent_01k0fkhhx0e8k8e6nwtz8ptkwb';
+    // Authenticated users use the same agent with context injection
+    // Context will be injected dynamically via UnifiedVoiceContextService
+    return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
   }, [currentUser]);
 
   // Use the helper function to get environment variables
@@ -613,6 +614,23 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     try {
       setConnectionStatus('connecting');
       
+      // 🎯 PHASE 3: Inject dynamic context based on user type
+      console.log('🔧 Injecting context before conversation start...');
+      
+      const contextService = new UnifiedVoiceContextService();
+      
+      if (!currentUser) {
+        // Guest user - inject discovery context
+        console.log('👤 Guest user detected - injecting discovery context');
+        await contextService.injectGuestContext(agentId);
+      } else {
+        // Authenticated user - inject personalized context
+        console.log('🔐 Authenticated user detected - injecting personalized context');
+        await contextService.injectAuthenticatedContext(agentId, currentUser.uid);
+      }
+      
+      console.log('✅ Context injection completed successfully');
+      
       const result = await conversation.startSession({
         agentId
       });
@@ -621,9 +639,24 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       
     } catch (error) {
       console.error('❌ Failed to start conversation:', error);
-      setConnectionStatus('disconnected');
+      
+      // If context injection fails, log but still try to start conversation
+      if (error instanceof Error && error.message.includes('context')) {
+        console.warn('⚠️ Context injection failed, starting conversation without personalized context');
+        try {
+          const result = await conversation.startSession({
+            agentId
+          });
+          console.log('✅ Conversation started without context injection:', result);
+        } catch (fallbackError) {
+          console.error('❌ Fallback conversation start also failed:', fallbackError);
+          setConnectionStatus('disconnected');
+        }
+      } else {
+        setConnectionStatus('disconnected');
+      }
     }
-  }, [conversation, agentId, apiKey]);
+  }, [conversation, agentId, apiKey, currentUser]);
 
   const endConversation = useCallback(async () => {
     try {

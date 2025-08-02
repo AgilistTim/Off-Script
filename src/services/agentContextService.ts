@@ -380,11 +380,11 @@ Use their name naturally in conversation and reference their known interests and
     careerContext?: any
   ): string {
     if (agentType === 'career-deep-dive') {
-      // Career deep-dive always uses the specialized agent
+      // Career deep-dive uses the unified agent with career context injection
       return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
     } else {
-      // Exploration uses the general MCP-integrated agent
-      return 'agent_01k0fkhhx0e8k8e6nwtz8ptkwb';
+      // Exploration uses the same unified agent with basic context injection
+      return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
     }
   }
 
@@ -397,17 +397,17 @@ Use their name naturally in conversation and reference their known interests and
     conversationDepth: number = 0
   ): string {
     if (!user) {
-      // Guest users always get the general career guide
-      return 'agent_01k0fkhhx0e8k8e6nwtz8ptkwb';
-    }
-
-    if (careerContext && careerContext.title && conversationDepth > 5) {
-      // Deep career discussions with context use the career-aware agent
+      // Guest users get the unified agent with basic discovery context
       return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
     }
 
-    // General authenticated users get the career guide with context
-    return 'agent_01k0fkhhx0e8k8e6nwtz8ptkwb';
+    if (careerContext && careerContext.title && conversationDepth > 5) {
+      // Deep career discussions use same agent with enhanced career context
+      return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
+    }
+
+    // General authenticated users get same agent with user profile context
+    return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
   }
 
   /**

@@ -60,6 +60,7 @@ import { useAuth } from '../../context/AuthContext';
 import { agentContextService } from '../../services/agentContextService';
 import { mcpQueueService } from '../../services/mcpQueueService';
 import { progressAwareMCPService, MCPProgressUpdate } from '../../services/progressAwareMCPService';
+import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 
 
 // Helper function to get environment variables (matches ElevenLabsWidget pattern)
@@ -152,17 +153,17 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   // Determine agent based on user auth state and context
   const getAgentId = (): string => {
     if (!currentUser) {
-      // Guest user - use general career guide agent
-      return 'agent_01k0fkhhx0e8k8e6nwtz8ptkwb';
-    }
-    
-    if (careerContext && careerContext.title) {
-      // Authenticated user with career context - use career-aware agent
+      // Guest user - use unified career-aware agent
       return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
     }
     
-    // Authenticated user without specific career context - use general career guide with context
-    return 'agent_01k0fkhhx0e8k8e6nwtz8ptkwb';
+    if (careerContext && careerContext.title) {
+      // Authenticated user with career context - use same agent with career context injection
+      return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
+    }
+    
+    // Authenticated user without specific career context - use same agent with user context injection
+    return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
   };
 
   const agentId = getAgentId();
@@ -540,12 +541,47 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     setConnectionStatus('connecting');
 
     try {
+      // 🎯 PHASE 3: Inject enhanced context based on user type and career context
+      console.log('🔧 Injecting enhanced context before conversation start...');
+      
+      const contextService = new UnifiedVoiceContextService();
+      
+      if (!currentUser) {
+        // Guest user - inject discovery context
+        console.log('👤 Guest user detected - injecting discovery context');
+        await contextService.injectGuestContext(agentId);
+      } else if (careerContext && careerContext.title) {
+        // Authenticated user with career context - inject career-specific context
+        console.log('🎯 Authenticated user with career context - injecting career-specific context');
+        await contextService.injectCareerContext(agentId, currentUser.uid, careerContext);
+      } else {
+        // Authenticated user without specific career context - inject personalized context
+        console.log('🔐 Authenticated user without career context - injecting personalized context');
+        await contextService.injectAuthenticatedContext(agentId, currentUser.uid);
+      }
+      
+      console.log('✅ Enhanced context injection completed successfully');
+      
       await conversation.startSession({ agentId });
       console.log('✅ Enhanced chat conversation started successfully');
     } catch (error) {
       console.error('❌ Failed to start enhanced chat conversation:', error);
-      setConnectionStatus('disconnected');
-      setIsLoading(false);
+      
+      // If context injection fails, log but still try to start conversation
+      if (error instanceof Error && error.message.includes('context')) {
+        console.warn('⚠️ Enhanced context injection failed, starting conversation without enhanced context');
+        try {
+          await conversation.startSession({ agentId });
+          console.log('✅ Enhanced chat conversation started without context injection');
+        } catch (fallbackError) {
+          console.error('❌ Fallback conversation start also failed:', fallbackError);
+          setConnectionStatus('disconnected');
+          setIsLoading(false);
+        }
+      } else {
+        setConnectionStatus('disconnected');
+        setIsLoading(false);
+      }
     }
   };
 
