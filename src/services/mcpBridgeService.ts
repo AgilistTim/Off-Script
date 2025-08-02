@@ -1,6 +1,20 @@
 // MCP Bridge Service - Connects main application to MCP server for enhanced conversation analysis
 // Browser-compatible version that can work with external MCP server or provide fallback
 
+// Helper function to get environment variables with window.ENV fallback
+const getEnvVar = (key: string): string | undefined => {
+  const devValue = import.meta.env[key];
+  if (devValue && devValue !== 'undefined') return devValue;
+  
+  if (typeof window !== 'undefined' && window.ENV) {
+    const prodValue = window.ENV[key];
+    if (prodValue && !prodValue.includes('__MCP_SERVER_URL__')) {
+      return prodValue;
+    }
+  }
+  return undefined;
+};
+
 export interface MCPMessage {
   role: 'user' | 'assistant';
   content: string;
@@ -77,8 +91,14 @@ class MCPBridgeService {
 
   constructor() {
     // In browser environment, we'll use HTTP API or fallback mode
-    this.mcpServerUrl = import.meta.env.VITE_MCP_SERVER_URL || 'http://localhost:3001/mcp';
-    this.fallbackMode = import.meta.env.VITE_MCP_FALLBACK_MODE === 'true';
+    this.mcpServerUrl = getEnvVar('VITE_MCP_SERVER_URL') || 'https://off-script-mcp-elevenlabs.onrender.com/mcp';
+    this.fallbackMode = getEnvVar('VITE_MCP_FALLBACK_MODE') === 'true';
+    
+    console.log('🔗 MCP Bridge Service initialized:', {
+      mcpServerUrl: this.mcpServerUrl,
+      fallbackMode: this.fallbackMode,
+      envVar: getEnvVar('VITE_MCP_SERVER_URL')
+    });
   }
 
   /**

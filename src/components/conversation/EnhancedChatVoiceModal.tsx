@@ -254,43 +254,83 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             return "I'm analyzing our conversation. Please continue chatting and I'll generate career insights shortly.";
           }
 
-          // Use fallback career generation since MCP server is not available locally
-          console.log('🎯 Using fallback career generation - MCP server not available locally');
-          const result = await generateFallbackCareerCards(validMessages, parameters.trigger_reason);
-
-          // Parse the result
-          let analysisData: any;
-          if (typeof result === 'string') {
-            analysisData = { message: result };
-          } else {
-            analysisData = result.analysis || result;
-          }
-
-          // Update career cards state
-          const newCareerCards = analysisData.careerCards || [];
-          if (newCareerCards.length > 0) {
-            setCareerCards(prev => {
-              const combined = [...prev];
-              newCareerCards.forEach((newCard: any) => {
-                const existingIndex = combined.findIndex(card => card.title === newCard.title);
-                if (existingIndex >= 0) {
-                  combined[existingIndex] = { ...combined[existingIndex], ...newCard };
-                } else {
-                  combined.push(newCard);
-                }
-              });
+          // Try MCP server first, then fallback if unavailable
+          console.log('🎯 Attempting to use MCP server for career analysis');
+          
+          try {
+            // Import and use MCP service
+            const { mcpQueueService } = await import('../../services/mcpQueueService');
+            const mcpResult = await mcpQueueService.analyzeConversation(validMessages, parameters.trigger_reason);
+            
+            if (mcpResult.success && mcpResult.analysis) {
+              console.log('✅ MCP server analysis successful');
+              const result = mcpResult.analysis;
               
-              // Notify parent of discovered career cards
-              if (onCareerCardsDiscovered) {
-                onCareerCardsDiscovered(combined);
+              // Update career cards state
+              const newCareerCards = result.careerCards || [];
+              if (newCareerCards.length > 0) {
+                setCareerCards(prev => {
+                  const combined = [...prev];
+                  newCareerCards.forEach((newCard: any) => {
+                    const existingIndex = combined.findIndex(card => card.title === newCard.title);
+                    if (existingIndex >= 0) {
+                      combined[existingIndex] = { ...combined[existingIndex], ...newCard };
+                    } else {
+                      combined.push(newCard);
+                    }
+                  });
+                  
+                  // Notify parent of discovered career cards
+                  if (onCareerCardsDiscovered) {
+                    onCareerCardsDiscovered(combined);
+                  }
+                  
+                  return combined;
+                });
               }
               
-              return combined;
-            });
-          }
+              return `Generated ${newCareerCards.length} career insights using AI analysis`;
+            } else {
+              throw new Error('MCP analysis failed or returned no results');
+            }
+          } catch (error) {
+            console.log('⚠️ MCP server unavailable, using fallback career generation:', error);
+            const result = await generateFallbackCareerCards(validMessages, parameters.trigger_reason);
+            
+            // Parse the fallback result
+            let analysisData: any;
+            if (typeof result === 'string') {
+              analysisData = { message: result };
+            } else {
+              analysisData = result.analysis || result;
+            }
 
-          console.log('✅ Career analysis completed:', analysisData);
-          return analysisData.message || "Career analysis completed successfully";
+            // Update career cards state
+            const newCareerCards = analysisData.careerCards || [];
+            if (newCareerCards.length > 0) {
+              setCareerCards(prev => {
+                const combined = [...prev];
+                newCareerCards.forEach((newCard: any) => {
+                  const existingIndex = combined.findIndex(card => card.title === newCard.title);
+                  if (existingIndex >= 0) {
+                    combined[existingIndex] = { ...combined[existingIndex], ...newCard };
+                  } else {
+                    combined.push(newCard);
+                  }
+                });
+                
+                // Notify parent of discovered career cards
+                if (onCareerCardsDiscovered) {
+                  onCareerCardsDiscovered(combined);
+                }
+                
+                return combined;
+              });
+            }
+
+            console.log('✅ Fallback career analysis completed:', analysisData);
+            return analysisData.message || "Career analysis completed using fallback mode";
+          }
 
         } catch (error) {
           console.error('❌ Error analyzing conversation:', error);

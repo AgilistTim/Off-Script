@@ -25,4 +25,7 @@ window.ENV = {
   // API Endpoints (URLs are safe to expose)
   VITE_BUMPUPS_PROXY_URL: '__BUMPUPS_PROXY_URL__',
   VITE_OPENAI_ASSISTANT_URL: '__OPENAI_ASSISTANT_URL__',
+  
+  // MCP Server configuration
+  VITE_MCP_SERVER_URL: '__MCP_SERVER_URL__',
 }; 
