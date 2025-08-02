@@ -18,6 +18,23 @@ import {
   PoundSterling,
   TrendingUp,
   Briefcase,
+  ChevronDown,
+  Target,
+  Wrench,
+  DollarSign,
+  TrendingUp as TrendingUpIcon,
+  BarChart3,
+  Building2,
+  Clock,
+  AlertTriangle,
+  Heart,
+  Shield,
+  Lightbulb,
+  Star,
+  CheckCircle2,
+  Zap,
+  Award,
+  Smile,
   Radio,
   Save,
   CheckCircle
@@ -33,6 +50,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
+import { 
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from '../ui/accordion';
 import { useAuth } from '../../context/AuthContext';
 import { agentContextService } from '../../services/agentContextService';
 import { mcpQueueService } from '../../services/mcpQueueService';
@@ -66,6 +89,7 @@ interface EnhancedChatVoiceModalProps {
   currentConversationHistory?: ConversationMessage[];
   onConversationUpdate?: (messages: ConversationMessage[]) => void;
   onCareerCardsDiscovered?: (cards: any[]) => void;
+  onConversationEnd?: (hasGeneratedData: boolean, careerCardCount: number) => void;
 }
 
 export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
@@ -74,7 +98,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   careerContext,
   currentConversationHistory = [],
   onConversationUpdate,
-  onCareerCardsDiscovered
+  onCareerCardsDiscovered,
+  onConversationEnd
 }) => {
   const { currentUser, userData } = useAuth();
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>(currentConversationHistory);
@@ -88,7 +113,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     interests: string[];
     goals: string[];
     skills: string[];
-  }>({ interests: [], goals: [], skills: [] });
+    personalQualities: string[];
+  }>({ interests: [], goals: [], skills: [], personalQualities: [] });
   const [careerCards, setCareerCards] = useState<any[]>([]);
   
   // Progress tracking for career analysis
@@ -195,7 +221,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     }
     
     // Generate career cards
-    const careerCards = detectedCareers.slice(0, 2).map(({ career, ...data }) => ({
+    const careerCards = detectedCareers.map(({ career, ...data }) => ({
       title: career,
       description: data.description,
       matchScore: data.matchScore,
@@ -374,7 +400,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         }
       },
 
-      update_person_profile: async (parameters: { interests?: string[] | string; goals?: string[] | string; skills?: string[] | string; [key: string]: any }) => {
+      update_person_profile: async (parameters: { interests?: string[] | string; goals?: string[] | string; skills?: string[] | string; personalQualities?: string[] | string; [key: string]: any }) => {
         console.log('🚨 TOOL CALLED: update_person_profile - Enhanced modal agent calling tools!');
         console.log('👤 Updating person profile based on conversation...');
         console.log('👤 Profile parameters:', parameters);
@@ -394,13 +420,15 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           const newInsights = {
             interests: parseInsights(parameters.interests),
             goals: parseInsights(parameters.goals),
-            skills: parseInsights(parameters.skills)
+            skills: parseInsights(parameters.skills),
+            personalQualities: parseInsights(parameters.personalQualities)
           };
 
           setDiscoveredInsights(prev => ({
             interests: [...new Set([...prev.interests, ...newInsights.interests])],
             goals: [...new Set([...prev.goals, ...newInsights.goals])],
-            skills: [...new Set([...prev.skills, ...newInsights.skills])]
+            skills: [...new Set([...prev.skills, ...newInsights.skills])],
+            personalQualities: [...new Set([...prev.personalQualities, ...newInsights.personalQualities])]
           }));
 
           console.log('✅ Profile insights updated:', newInsights);
@@ -433,6 +461,14 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       setIsConnected(false);
       setConnectionStatus('disconnected');
       setIsSpeaking(false);
+      setIsLoading(false);
+      
+      // Call onConversationEnd callback with career cards data
+      if (onConversationEnd) {
+        const hasGeneratedData = careerCards.length > 0;
+        console.log('🎯 Calling onConversationEnd:', { hasGeneratedData, careerCardCount: careerCards.length });
+        onConversationEnd(hasGeneratedData, careerCards.length);
+      }
     },
     onMessage: async (message) => {
       console.log('🤖 Agent message:', message);
@@ -664,44 +700,196 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 overflow-y-auto">
                 {/* Discovered Career Cards */}
                 {careerCards.length > 0 && (
-                  <div className="space-y-3">
-                    {careerCards.slice(0, 2).map((card, index) => {
+                  <Accordion type="single" collapsible className="space-y-2">
+                    {careerCards.map((card, index) => {
                       const matchBadge = getMatchBadge(card.matchScore || 85);
                       const MatchIcon = matchBadge.icon;
                       
                       return (
-                        <div key={index} className="border border-electric-blue/20 rounded-lg p-3 bg-primary-white/5">
-                          <div className="flex items-center justify-between mb-2">
-                            <h4 className="text-sm font-bold text-electric-blue">{card.title}</h4>
-                            <Badge className={`text-xs ${matchBadge.color}`}>
-                              <MatchIcon className="w-3 h-3 mr-1" />
-                              {card.matchScore || 85}%
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-primary-white/70 line-clamp-2">
-                            {card.description}
-                          </p>
-                          {card.averageSalary && (
-                            <div className="flex items-center mt-2 space-x-3">
-                              <div className="flex items-center space-x-1">
-                                <PoundSterling className="w-3 h-3 text-acid-green" />
-                                <span className="text-xs text-primary-white">{formatSalary(card.averageSalary)}</span>
+                        <AccordionItem 
+                          key={index} 
+                          value={`career-${index}`}
+                          className="border border-electric-blue/20 rounded-lg bg-primary-white/5 px-3"
+                        >
+                          <AccordionTrigger className="hover:no-underline py-3">
+                            <div className="flex items-center justify-between w-full mr-3">
+                              <div className="flex items-center space-x-3">
+                                <Briefcase className="w-4 h-4 text-electric-blue" />
+                                <div className="text-left">
+                                  <h4 className="text-sm font-bold text-electric-blue">{card.title}</h4>
+                                  <p className="text-xs text-primary-white/70 line-clamp-1">
+                                    {card.description || 'Career pathway discovered from our conversation'}
+                                  </p>
+                                </div>
                               </div>
-                              {card.growthOutlook && (
-                                <div className="flex items-center space-x-1">
-                                  <TrendingUp className="w-3 h-3 text-electric-blue" />
-                                  <span className="text-xs text-primary-white">{card.growthOutlook}</span>
+                              <Badge className={`text-xs ${matchBadge.color} ml-2`}>
+                                <MatchIcon className="w-3 h-3 mr-1" />
+                                {card.matchScore || 85}%
+                              </Badge>
+                            </div>
+                          </AccordionTrigger>
+                          
+                          <AccordionContent className="pb-3">
+                            <div className="space-y-4 mt-2">
+                              {/* Basic Info Section */}
+                              <div className="grid grid-cols-2 gap-3 text-xs">
+                                {(card.salaryRange || card.averageSalary) && (
+                                  <div className="flex items-center space-x-1">
+                                    <PoundSterling className="w-3 h-3 text-acid-green" />
+                                    <span className="text-primary-white">
+                                      {card.salaryRange || formatSalary(card.averageSalary)}
+                                    </span>
+                                  </div>
+                                )}
+                                {card.growthOutlook && (
+                                  <div className="flex items-center space-x-1">
+                                    <TrendingUp className="w-3 h-3 text-electric-blue" />
+                                    <span className="text-primary-white">{card.growthOutlook}</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Comprehensive Career Data Sections */}
+                              {card.roleFundamentals && (
+                                <div className="border-t border-electric-blue/20 pt-3">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <Target className="w-3 h-3 text-neon-pink" />
+                                    <h5 className="text-xs font-bold text-neon-pink">Role Fundamentals</h5>
+                                  </div>
+                                  <p className="text-xs text-primary-white/80 mb-2">{card.roleFundamentals.corePurpose}</p>
+                                  {card.roleFundamentals.typicalResponsibilities && (
+                                    <div>
+                                      <p className="text-xs font-semibold text-primary-white mb-1">Key Responsibilities:</p>
+                                      <ul className="text-xs text-primary-white/70 space-y-1">
+                                        {card.roleFundamentals.typicalResponsibilities.slice(0, 3).map((resp, i) => (
+                                          <li key={i} className="flex items-start space-x-1">
+                                            <span className="text-acid-green mt-0.5">•</span>
+                                            <span>{resp}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
                                 </div>
                               )}
+
+                              {card.competencyRequirements && (
+                                <div className="border-t border-electric-blue/20 pt-3">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <Wrench className="w-3 h-3 text-acid-green" />
+                                    <h5 className="text-xs font-bold text-acid-green">Skills & Requirements</h5>
+                                  </div>
+                                  {card.competencyRequirements.technicalSkills && (
+                                    <div className="mb-2">
+                                      <p className="text-xs font-semibold text-primary-white mb-1">Technical Skills:</p>
+                                      <div className="flex flex-wrap gap-1">
+                                        {card.competencyRequirements.technicalSkills.slice(0, 4).map((skill, i) => (
+                                          <Badge key={i} variant="outline" className="text-xs border-acid-green/30 text-acid-green">
+                                            {skill}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  {card.competencyRequirements.qualificationPathway && (
+                                    <div>
+                                      <p className="text-xs font-semibold text-primary-white mb-1">Education:</p>
+                                      <p className="text-xs text-primary-white/70">
+                                        {card.competencyRequirements.qualificationPathway.degrees?.[0] || 
+                                         card.competencyRequirements.qualificationPathway.alternativeRoutes?.[0] ||
+                                         'Various pathways available'}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {card.compensationRewards && (
+                                <div className="border-t border-electric-blue/20 pt-3">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <DollarSign className="w-3 h-3 text-acid-green" />
+                                    <h5 className="text-xs font-bold text-acid-green">Compensation</h5>
+                                  </div>
+                                  {card.compensationRewards.salaryRange && (
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div>
+                                        <p className="font-semibold text-primary-white">Entry Level:</p>
+                                        <p className="text-primary-white/70">£{card.compensationRewards.salaryRange.entry?.toLocaleString()}</p>
+                                      </div>
+                                      <div>
+                                        <p className="font-semibold text-primary-white">Senior Level:</p>
+                                        <p className="text-primary-white/70">£{card.compensationRewards.salaryRange.senior?.toLocaleString()}</p>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {card.careerTrajectory && (
+                                <div className="border-t border-electric-blue/20 pt-3">
+                                  <div className="flex items-center space-x-2 mb-2">
+                                    <TrendingUpIcon className="w-3 h-3 text-electric-blue" />
+                                    <h5 className="text-xs font-bold text-electric-blue">Career Path</h5>
+                                  </div>
+                                  {card.careerTrajectory.progressionSteps && (
+                                    <div className="space-y-1">
+                                      {card.careerTrajectory.progressionSteps.slice(0, 3).map((step, i) => (
+                                        <div key={i} className="flex justify-between text-xs">
+                                          <span className="text-primary-white font-medium">{step.title}</span>
+                                          <span className="text-primary-white/70">{step.timeFrame}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Fallback sections for basic cards */}
+                              {(card.skills || card.nextSteps || card.keyResponsibilities) && !card.roleFundamentals && (
+                                <>
+                                  {card.skills && (
+                                    <div className="border-t border-electric-blue/20 pt-3">
+                                      <div className="flex items-center space-x-2 mb-2">
+                                        <Wrench className="w-3 h-3 text-acid-green" />
+                                        <h5 className="text-xs font-bold text-acid-green">Key Skills</h5>
+                                      </div>
+                                      <div className="flex flex-wrap gap-1">
+                                        {card.skills.map((skill, i) => (
+                                          <Badge key={i} variant="outline" className="text-xs border-acid-green/30 text-acid-green">
+                                            {skill}
+                                          </Badge>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {card.nextSteps && (
+                                    <div className="border-t border-electric-blue/20 pt-3">
+                                      <div className="flex items-center space-x-2 mb-2">
+                                        <Target className="w-3 h-3 text-neon-pink" />
+                                        <h5 className="text-xs font-bold text-neon-pink">Next Steps</h5>
+                                      </div>
+                                      <ul className="text-xs text-primary-white/70 space-y-1">
+                                        {card.nextSteps.slice(0, 3).map((step, i) => (
+                                          <li key={i} className="flex items-start space-x-1">
+                                            <span className="text-acid-green mt-0.5">•</span>
+                                            <span>{step}</span>
+                                          </li>
+                                        ))}
+                                      </ul>
+                                    </div>
+                                  )}
+                                </>
+                              )}
                             </div>
-                          )}
-                        </div>
+                          </AccordionContent>
+                        </AccordionItem>
                       );
                     })}
-                  </div>
+                  </Accordion>
                 )}
 
                 {/* Original Career Context */}
@@ -727,10 +915,58 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                 {/* Discovered Insights Panel */}
                 {(discoveredInsights.interests.length > 0 || 
                   discoveredInsights.goals.length > 0 || 
-                  discoveredInsights.skills.length > 0) && (
+                  discoveredInsights.skills.length > 0 ||
+                  discoveredInsights.personalQualities.length > 0) && (
                   <div className="border-t border-electric-blue/20 pt-4">
                     <h4 className="text-sm font-bold text-acid-green mb-2">Insights from Discussion:</h4>
-                    <div className="space-y-2 text-xs">
+                    <div className="space-y-3 text-xs">
+                      {/* Personal Qualities - Confidence Building Section */}
+                      {discoveredInsights.personalQualities.length > 0 && (
+                        <div className="bg-gradient-to-r from-acid-green/10 to-neon-pink/10 border border-acid-green/30 rounded-lg p-3">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Star className="w-4 h-4 text-cyber-yellow" />
+                            <span className="font-bold text-cyber-yellow">Your Strengths:</span>
+                          </div>
+                          <div className="grid grid-cols-1 gap-2">
+                            {discoveredInsights.personalQualities.map((quality, idx) => {
+                              // Map qualities to appropriate icons and colors
+                              const getQualityIcon = (quality: string) => {
+                                const lowerQuality = quality.toLowerCase();
+                                if (lowerQuality.includes('innovative') || lowerQuality.includes('creative')) {
+                                  return { Icon: Lightbulb, color: 'text-cyber-yellow' };
+                                } else if (lowerQuality.includes('organised') || lowerQuality.includes('organized')) {
+                                  return { Icon: CheckCircle2, color: 'text-acid-green' };
+                                } else if (lowerQuality.includes('leader') || lowerQuality.includes('confident')) {
+                                  return { Icon: Crown, color: 'text-neon-pink' };
+                                } else if (lowerQuality.includes('analytical') || lowerQuality.includes('thoughtful')) {
+                                  return { Icon: Target, color: 'text-electric-blue' };
+                                } else if (lowerQuality.includes('passionate') || lowerQuality.includes('enthusiastic')) {
+                                  return { Icon: Heart, color: 'text-neon-pink' };
+                                } else if (lowerQuality.includes('adaptable') || lowerQuality.includes('flexible')) {
+                                  return { Icon: Zap, color: 'text-cyber-yellow' };
+                                } else {
+                                  return { Icon: Award, color: 'text-acid-green' };
+                                }
+                              };
+                              
+                              const { Icon, color } = getQualityIcon(quality);
+                              
+                              return (
+                                <div key={idx} className="flex items-center space-x-2 bg-primary-white/5 rounded px-2 py-1">
+                                  <Icon className={`w-3 h-3 ${color}`} />
+                                  <span className="text-primary-white font-medium">{quality}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                          <div className="mt-2 text-center">
+                            <p className="text-xs text-primary-white/80 italic">
+                              ✨ These qualities make you unique and valuable in any career path
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                      
                       {discoveredInsights.interests.length > 0 && (
                         <div>
                           <span className="font-medium text-electric-blue">New Interests:</span>
@@ -889,14 +1125,15 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   )}
                   
                   {/* Discovered Insights */}
-                  {(discoveredInsights.interests.length > 0 || 
-                    discoveredInsights.goals.length > 0 || 
-                    discoveredInsights.skills.length > 0) && (
+                                  {(discoveredInsights.interests.length > 0 ||
+                  discoveredInsights.goals.length > 0 ||
+                  discoveredInsights.skills.length > 0 ||
+                  discoveredInsights.personalQualities.length > 0) && (
                     <div className="flex items-center space-x-3">
                       <div className="text-xs text-electric-blue">
                         <span className="font-medium">Insights discovered:</span>
                         <span className="ml-2">
-                          {discoveredInsights.interests.length + discoveredInsights.goals.length + discoveredInsights.skills.length} items
+                          {discoveredInsights.interests.length + discoveredInsights.goals.length + discoveredInsights.skills.length + discoveredInsights.personalQualities.length} items
                         </span>
                       </div>
                       <Button

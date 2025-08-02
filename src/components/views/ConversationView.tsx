@@ -66,6 +66,17 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     setShowPostConversationCTA(false);
   }, []);
 
+  // Handle conversation end from modal
+  const handleConversationEnd = useCallback((hasGeneratedData: boolean, careerCardCount: number) => {
+    console.log('🎯 ConversationView: handleConversationEnd called', { hasGeneratedData, careerCardCount });
+    
+    // Show post-conversation CTA if guest user generated career insights
+    if (!currentUser && hasGeneratedData && careerCardCount > 0) {
+      console.log('🎯 Triggering post-conversation CTA for guest with career insights');
+      setShowPostConversationCTA(true);
+    }
+  }, [currentUser]);
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -347,6 +358,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         currentConversationHistory={conversationHistory}
         onConversationUpdate={handleConversationUpdate}
         onCareerCardsDiscovered={handleCareerCardsDiscovered}
+        onConversationEnd={handleConversationEnd}
       />
     </motion.div>
   );
