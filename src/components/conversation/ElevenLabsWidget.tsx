@@ -619,17 +619,30 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       
       const contextService = new UnifiedVoiceContextService();
       
+      let contextResult;
+      
       if (!currentUser) {
         // Guest user - inject discovery context
         console.log('👤 Guest user detected - injecting discovery context');
-        await contextService.injectGuestContext(agentId);
+        contextResult = await contextService.injectGuestContext(agentId);
       } else {
         // Authenticated user - inject personalized context
         console.log('🔐 Authenticated user detected - injecting personalized context');
-        await contextService.injectAuthenticatedContext(agentId, currentUser.uid);
+        contextResult = await contextService.injectAuthenticatedContext(agentId, currentUser.uid);
       }
       
-      console.log('✅ Context injection completed successfully');
+      if (contextResult?.success) {
+        console.log('✅ Context injection completed successfully');
+      } else {
+        console.error('❌ CRITICAL: Context injection failed for ElevenLabs widget:', {
+          result: contextResult,
+          agentId,
+          userType: !currentUser ? 'guest' : 'authenticated',
+          timestamp: new Date().toISOString(),
+          fallbackUsed: contextResult?.fallbackUsed || false
+        });
+        console.warn('⚠️ Widget conversation will proceed with default agent configuration - this may result in poor user experience');
+      }
       
       const result = await conversation.startSession({
         agentId

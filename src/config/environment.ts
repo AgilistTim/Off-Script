@@ -169,7 +169,15 @@ const validateFirebaseConfig = (config: EnvironmentConfig['firebase']): boolean 
   for (const key of required) {
     const value = config[key as keyof typeof config];
     if (!value || isPlaceholder(value)) {
-      console.error(`❌ Missing or invalid Firebase configuration: ${key}`);
+      console.error(`❌ Missing or invalid Firebase configuration: ${key}`, {
+        key,
+        value: value ? `"${value.substring(0, 20)}${value.length > 20 ? '...' : ''}"` : 'undefined',
+        isPlaceholder: isPlaceholder(value || ''),
+        windowEnvExists: typeof window !== 'undefined' && !!window.ENV,
+        windowEnvKeys: typeof window !== 'undefined' && window.ENV ? Object.keys((window as any).ENV) : 'N/A',
+        viteEnvMode: import.meta.env.MODE,
+        timestamp: new Date().toISOString()
+      });
       return false;
     }
   }

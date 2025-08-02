@@ -239,7 +239,8 @@ PERSONA: Expert career counselor with deep knowledge of this specific field`;
         body: JSON.stringify({
           conversation_config: {
             agent: {
-              prompt: `You are an expert career counselor specializing in AI-powered career guidance for young adults.
+              prompt: {
+                prompt: `You are an expert career counselor specializing in AI-powered career guidance for young adults.
 
 ${contextPrompt}
 
@@ -257,7 +258,14 @@ TOOLS AVAILABLE:
 - generate_career_recommendations: Create detailed career cards with UK data
 - trigger_instant_insights: Provide immediate career analysis
 
-Begin by acknowledging the context you have and ask what they'd like to explore.`
+Begin by acknowledging the context you have and ask what they'd like to explore.`,
+                tool_ids: [
+                  'tool_1201k1nmz5tyeav9h3rejbs6xds1', // analyze_conversation_for_careers
+                  'tool_6401k1nmz60te5cbmnvytjtdqmgv', // generate_career_recommendations  
+                  'tool_5401k1nmz66eevwswve1q0rqxmwj', // trigger_instant_insights
+                  'tool_8501k1nmz6bves9syexedj36520r'  // update_person_profile
+                ]
+              }
             }
           }
         })
@@ -279,11 +287,41 @@ Begin by acknowledging the context you have and ask what they'd like to explore.
       };
 
     } catch (error) {
-      console.error('❌ Failed to inject context to unified agent:', error);
+      // Detailed error logging instead of silent fallbacks
+      console.error('❌ CRITICAL: Context injection failed completely for unified agent:', {
+        agentId,
+        contextType,
+        error: error instanceof Error ? error.message : error,
+        stack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString(),
+        apiKeyPresent: !!this.elevenLabsApiKey,
+        apiKeyLength: this.elevenLabsApiKey?.length || 0,
+        contextLength: contextPrompt.length
+      });
+      
+      // Log the exact payload that failed for debugging
+      console.error('❌ Failed payload structure:', {
+        url: `https://api.elevenlabs.io/v1/convai/agents/${agentId}`,
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'xi-api-key': this.elevenLabsApiKey ? `${this.elevenLabsApiKey.substring(0, 8)}...` : 'MISSING'
+        },
+        payloadStructure: {
+          conversation_config: {
+            agent: {
+              prompt: {
+                prompt: `<${contextPrompt.length} characters>`,
+                tool_ids: ['tool_1201k1nmz5tyeav9h3rejbs6xds1', '...3 more tools']
+              }
+            }
+          }
+        }
+      });
       
       return {
         success: false,
-        message: this.getFallbackMessage(contextType),
+        message: `Context injection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         fallbackUsed: true
       };
     }

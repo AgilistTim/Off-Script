@@ -194,7 +194,8 @@ Ready to have an informed career discussion!
         body: JSON.stringify({
           conversation_config: {
             agent: {
-              prompt: `You are an expert career counselor specializing in AI-powered career guidance.
+              prompt: {
+                prompt: `You are an expert career counselor specializing in AI-powered career guidance.
 
 ${contextPrompt}
 
@@ -205,7 +206,14 @@ RESPONSE STYLE:
 - Reference the user's interests and profile when relevant
 - Provide specific, actionable career insights
 
-You already have all the context about this user and career path. Start the conversation by acknowledging what you know and ask what they'd like to explore first about this specific career.`
+You already have all the context about this user and career path. Start the conversation by acknowledging what you know and ask what they'd like to explore first about this specific career.`,
+                tool_ids: [
+                  'tool_1201k1nmz5tyeav9h3rejbs6xds1', // analyze_conversation_for_careers
+                  'tool_6401k1nmz60te5cbmnvytjtdqmgv', // generate_career_recommendations  
+                  'tool_5401k1nmz66eevwswve1q0rqxmwj', // trigger_instant_insights
+                  'tool_8501k1nmz6bves9syexedj36520r'  // update_person_profile
+                ]
+              }
             }
           }
         })

@@ -546,21 +546,35 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       
       const contextService = new UnifiedVoiceContextService();
       
+      let contextResult;
+      
       if (!currentUser) {
         // Guest user - inject discovery context
         console.log('👤 Guest user detected - injecting discovery context');
-        await contextService.injectGuestContext(agentId);
+        contextResult = await contextService.injectGuestContext(agentId);
       } else if (careerContext && careerContext.title) {
         // Authenticated user with career context - inject career-specific context
         console.log('🎯 Authenticated user with career context - injecting career-specific context');
-        await contextService.injectCareerContext(agentId, currentUser.uid, careerContext);
+        contextResult = await contextService.injectCareerContext(agentId, currentUser.uid, careerContext);
       } else {
         // Authenticated user without specific career context - inject personalized context
         console.log('🔐 Authenticated user without career context - injecting personalized context');
-        await contextService.injectAuthenticatedContext(agentId, currentUser.uid);
+        contextResult = await contextService.injectAuthenticatedContext(agentId, currentUser.uid);
       }
       
-      console.log('✅ Enhanced context injection completed successfully');
+      if (contextResult?.success) {
+        console.log('✅ Enhanced context injection completed successfully');
+      } else {
+        console.error('❌ CRITICAL: Enhanced context injection failed for conversation:', {
+          result: contextResult,
+          agentId,
+          userType: !currentUser ? 'guest' : (careerContext?.title ? 'authenticated_with_career' : 'authenticated'),
+          careerContext: careerContext?.title || 'none',
+          timestamp: new Date().toISOString(),
+          fallbackUsed: contextResult?.fallbackUsed || false
+        });
+        console.warn('⚠️ Conversation will proceed with default agent configuration - this may result in poor user experience');
+      }
       
       await conversation.startSession({ agentId });
       console.log('✅ Enhanced chat conversation started successfully');
