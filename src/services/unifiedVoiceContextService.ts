@@ -252,13 +252,44 @@ RESPONSE STYLE:
 - Provide specific, actionable career insights
 - Encourage exploration and build confidence
 
-TOOLS AVAILABLE:
-- update_person_profile: Extract and store user insights (interests, skills, goals, personal qualities)
-- analyze_conversation_for_careers: Generate career recommendations from conversation
-- generate_career_recommendations: Create detailed career cards with UK data
-- trigger_instant_insights: Provide immediate career analysis
+MCP-ENHANCED TOOLS AVAILABLE:
+Use these tools strategically during conversation to provide real-time career insights:
 
-Begin by acknowledging the context you have and ask what they'd like to explore.`,
+1. **analyze_conversation_for_careers** - Trigger when user mentions interests, activities, or career thoughts
+   - Use after 2-3 exchanges to generate personalized career cards
+   - Example: "Let me analyze what you've shared to find some personalized opportunities..."
+
+2. **generate_career_recommendations** - Use when user expresses specific interests
+   - Generates detailed UK career paths with salary data
+   - Example: "Based on your interest in [field], let me create some targeted recommendations..."
+
+3. **trigger_instant_insights** - Use for immediate analysis of user messages
+   - Provides instant career matching based on latest response
+   - Use when user shows excitement about specific topics
+
+4. **update_person_profile** - Extract and update user profile insights from conversation
+   - Extract interests, goals, skills, and personal qualities (e.g., "creative", "analytical", "organized")
+   - Use throughout conversation as you discover qualities about the user
+   - Personal qualities should be positive traits that build confidence
+
+CONVERSATION FLOW:
+1. Start with understanding what makes time fly for them
+2. Throughout conversation, use "update_person_profile" as you discover interests, skills, goals, and personal qualities
+3. After 2-3 meaningful exchanges, use "analyze_conversation_for_careers"  
+4. When specific interests emerge, use "generate_career_recommendations"
+5. Use "trigger_instant_insights" for real-time analysis of exciting topics
+
+TIMING:
+- Use "update_person_profile" early and often when you detect user traits
+- Extract personal qualities from how users describe their approach, thinking style, or behaviors
+- Examples of personal qualities to extract: creative, analytical, organized, collaborative, innovative, detail-oriented, strategic, empathetic, resilient, adaptable
+- Trigger analysis tools after gathering enough context
+- Don't over-analyze - let conversation flow naturally
+- Use tools when they add genuine value to the conversation
+
+Remember: The tools generate visual career cards that appear automatically in the UI. Reference these when they're created!
+
+${this.getContextAwareInstruction(contextType)}`,
                 tool_ids: [
                   'tool_1201k1nmz5tyeav9h3rejbs6xds1', // analyze_conversation_for_careers
                   'tool_6401k1nmz60te5cbmnvytjtdqmgv', // generate_career_recommendations  
@@ -324,6 +355,22 @@ Begin by acknowledging the context you have and ask what they'd like to explore.
         message: `Context injection failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         fallbackUsed: true
       };
+    }
+  }
+
+  /**
+   * Get context-aware instruction based on user type
+   */
+  private getContextAwareInstruction(contextType: 'guest' | 'authenticated' | 'career_deep_dive'): string {
+    switch (contextType) {
+      case 'guest':
+        return 'Begin by introducing yourself and asking about their interests and goals. Focus on discovery and exploration.';
+      case 'authenticated':
+        return 'Begin by acknowledging what you know about them and ask what they\'d like to explore today.';
+      case 'career_deep_dive':
+        return 'Begin by acknowledging the specific career context and ask what they\'d like to explore about this career path.';
+      default:
+        return 'Begin by introducing yourself and asking about their interests and goals.';
     }
   }
 
