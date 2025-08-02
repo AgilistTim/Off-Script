@@ -1639,8 +1639,40 @@ class OffScriptMCPServer {
     Logger.info('MCP: Analyzing conversation for careers:', args);
     
     try {
+      let conversationHistory = null;
+      let conversationText = '';
+
+      // First, try to use conversation history from args (direct call)
+      if (args.conversation_history) {
+        if (typeof args.conversation_history === 'string') {
+          conversationText = args.conversation_history;
+          Logger.info('Using conversation history from arguments (string format)', { 
+            contentLength: conversationText.length 
+          });
+        } else if (Array.isArray(args.conversation_history)) {
+          conversationHistory = args.conversation_history;
+          conversationText = conversationHistory
+            .map(msg => `${msg.role}: ${msg.content}`)
+            .join('\n');
+          Logger.info('Using conversation history from arguments (array format)', { 
+            messageCount: conversationHistory.length,
+            contentLength: conversationText.length 
+          });
+        }
+      }
+      // Fallback to cached conversation history if no args provided
+      else if (this.cachedConversationHistory && this.cachedConversationHistory.length > 0) {
+        conversationText = this.cachedConversationHistory
+          .map(msg => `${msg.role}: ${msg.content}`)
+          .join('\n');
+        Logger.info('Using cached conversation history', { 
+          messageCount: this.cachedConversationHistory.length,
+          contentLength: conversationText.length 
+        });
+      }
+      
       // Require proper conversation history - no fallbacks to prevent misleading results
-      if (!this.cachedConversationHistory || this.cachedConversationHistory.length === 0) {
+      if (!conversationText || conversationText.trim().length === 0) {
         Logger.error('No conversation history available for analysis');
         return {
           success: false,
@@ -1652,15 +1684,6 @@ class OffScriptMCPServer {
           }
         };
       }
-
-      const conversationText = this.cachedConversationHistory
-        .map(msg => `${msg.role}: ${msg.content}`)
-        .join('\n');
-      
-      Logger.info('Using cached conversation history', { 
-        messageCount: this.cachedConversationHistory.length,
-        contentLength: conversationText.length 
-      });
 
       // Use proper conversation analysis with the full conversation only
       const analysisResult = await ConversationAnalysisService.analyzeWithOpenAI(conversationText);
