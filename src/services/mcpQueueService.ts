@@ -29,7 +29,7 @@ class MCPQueueService {
       concurrency: 2,      // Allow 2 concurrent MCP calls
       interval: 1000,      // Rate limiting window (1 second)
       intervalCap: 5,      // Max 5 requests per second
-      timeout: 30000,      // 30-second timeout per request
+      timeout: 90000,      // 90-second timeout per request (increased for OpenAI analysis)
       throwOnTimeout: true
     });
 
