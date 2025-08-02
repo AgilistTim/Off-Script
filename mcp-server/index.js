@@ -1634,9 +1634,12 @@ class OffScriptMCPServer {
     }
   }
 
-  // MCP-specific tool handlers
+  // MCP-specific tool handlers  
   async handleMCPAnalyzeConversation(args) {
     Logger.info('MCP: Analyzing conversation for careers:', args);
+    Logger.info('MCP: Args keys:', Object.keys(args));
+    Logger.info('MCP: Has conversation_history:', !!args.conversation_history);
+    Logger.info('MCP: conversation_history type:', typeof args.conversation_history);
     
     try {
       let conversationHistory = null;
