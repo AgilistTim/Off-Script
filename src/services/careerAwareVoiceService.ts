@@ -194,8 +194,7 @@ Ready to have an informed career discussion!
         body: JSON.stringify({
           conversation_config: {
             agent: {
-              prompt: {
-                prompt: `You are an expert career counselor specializing in AI-powered career guidance.
+              prompt: `You are an expert career counselor specializing in AI-powered career guidance.
 
 ${contextPrompt}
 
@@ -207,7 +206,6 @@ RESPONSE STYLE:
 - Provide specific, actionable career insights
 
 You already have all the context about this user and career path. Start the conversation by acknowledging what you know and ask what they'd like to explore first about this specific career.`
-              }
             }
           }
         })

@@ -51,8 +51,7 @@ const agentConfig = {
   // Proper conversationConfig structure per ElevenLabs API
   conversationConfig: {
     agent: {
-      prompt: {
-        prompt: `You are an expert career counselor specializing in Gen Z career guidance with AI-powered insight generation.
+      prompt: `You are an expert career counselor specializing in Gen Z career guidance with AI-powered insight generation.
 
 PERSONALITY: Encouraging, authentic, practical, and supportive.
 
@@ -94,8 +93,7 @@ TIMING:
 - Don't over-analyze - let conversation flow naturally
 - Use tools when they add genuine value to the conversation
 
-Remember: The tools generate visual career cards that appear automatically in the UI. Reference these when they're created!`
-      },
+Remember: The tools generate visual career cards that appear automatically in the UI. Reference these when they're created!`,
       firstMessage: "Hey there! I'm your AI career guide with real-time insights. I can analyze our conversation and instantly create personalized career cards for you. What's been on your mind about your future lately?",
       language: "en"
     },

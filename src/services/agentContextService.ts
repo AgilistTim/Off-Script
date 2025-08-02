@@ -216,9 +216,7 @@ Use their name naturally in conversation and reference their known interests and
         body: JSON.stringify({
           conversation_config: {
             agent: {
-              prompt: {
-                prompt: context.systemPrompt
-              }
+              prompt: context.systemPrompt
             }
           }
         })

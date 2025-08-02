@@ -100,11 +100,15 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   }, []);
 
   // Handle conversation update callback separately to avoid setState during render
+  // Use ref to store callback to prevent stale closures
+  const onConversationUpdateRef = useRef(onConversationUpdate);
+  onConversationUpdateRef.current = onConversationUpdate;
+  
   useEffect(() => {
-    if (onConversationUpdate) {
-      onConversationUpdate(conversationHistory);
+    if (onConversationUpdateRef.current) {
+      onConversationUpdateRef.current(conversationHistory);
     }
-  }, [conversationHistory, onConversationUpdate]);
+  }, [conversationHistory]); // Only depend on conversationHistory to prevent re-render loops
 
   // Determine agent based on user auth state and context
   const getAgentId = (): string => {
@@ -129,45 +133,76 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   const generateFallbackCareerCards = async (messages: any[], triggerReason: string) => {
     console.log('🎯 Generating fallback career cards from conversation');
     
-    // Extract career-related keywords from conversation
-    const conversationText = messages.map(m => m.content.toLowerCase()).join(' ');
+    // Extract career-related keywords from conversation and trigger
+    const conversationText = messages.map(m => m.content.toLowerCase()).join(' ') + ' ' + triggerReason.toLowerCase();
     
-    // Simple keyword-based career detection
-    const careerKeywords = {
-      'Chef': ['cooking', 'chef', 'kitchen', 'culinary', 'food', 'restaurant', 'catering'],
-      'Teacher': ['teaching', 'education', 'school', 'students', 'classroom'],
-      'Software Engineer': ['engineering', 'technical', 'programming', 'coding', 'software'],
-      'Nurse': ['healthcare', 'medical', 'patient', 'nursing', 'hospital'],
-      'Designer': ['design', 'creative', 'art', 'graphic', 'visual'],
-      'Writer': ['writing', 'content', 'blog', 'journalism', 'author']
+    // Enhanced career data with UK-specific information
+    const careerData = {
+      'Chef': {
+        keywords: ['cooking', 'chef', 'kitchen', 'culinary', 'food', 'restaurant', 'catering'],
+        description: 'Professional chef creating delicious meals in restaurants, hotels, or catering businesses',
+        salaryRange: '£18,000 - £45,000+',
+        matchScore: 90,
+        skills: ['Culinary Skills', 'Creativity', 'Time Management', 'Team Leadership'],
+        nextSteps: ['Complete a culinary course', 'Gain kitchen experience', 'Work in different restaurant types', 'Consider apprenticeships'],
+        keyResponsibilities: ['Menu planning and preparation', 'Managing kitchen operations', 'Training junior staff', 'Maintaining food safety standards'],
+        educationLevel: 'Apprenticeship or culinary qualification'
+      },
+      'Sous Chef': {
+        keywords: ['cooking', 'chef', 'kitchen', 'culinary', 'sous'],
+        description: 'Second-in-command in professional kitchens, supporting head chefs and managing daily operations',
+        salaryRange: '£22,000 - £35,000',
+        matchScore: 85,
+        skills: ['Leadership', 'Organization', 'Culinary Expertise', 'Staff Management'],
+        nextSteps: ['Gain chef experience', 'Develop leadership skills', 'Learn inventory management', 'Study advanced cooking techniques'],
+        keyResponsibilities: ['Supervising kitchen staff', 'Quality control', 'Menu development support', 'Kitchen operations management'],
+        educationLevel: 'Professional culinary experience'
+      },
+      'Food Service Manager': {
+        keywords: ['food', 'restaurant', 'management', 'service'],
+        description: 'Managing food service operations in restaurants, hotels, or institutional settings',
+        salaryRange: '£20,000 - £40,000',
+        matchScore: 75,
+        skills: ['Management', 'Customer Service', 'Financial Planning', 'Team Leadership'],
+        nextSteps: ['Gain restaurant experience', 'Develop management skills', 'Study business operations', 'Learn food safety regulations'],
+        keyResponsibilities: ['Staff scheduling and training', 'Customer service oversight', 'Budget management', 'Compliance monitoring'],
+        educationLevel: 'Business or hospitality qualification preferred'
+      }
     };
     
+    // Detect careers based on keywords
     const detectedCareers = [];
-    for (const [career, keywords] of Object.entries(careerKeywords)) {
-      if (keywords.some(keyword => conversationText.includes(keyword))) {
-        detectedCareers.push(career);
+    for (const [career, data] of Object.entries(careerData)) {
+      if (data.keywords.some(keyword => conversationText.includes(keyword))) {
+        detectedCareers.push({ career, ...data });
       }
     }
     
-    // Generate basic career cards
-    const careerCards = detectedCareers.slice(0, 2).map(career => ({
+    // If no specific matches, add general chef career for cooking interests
+    if (detectedCareers.length === 0 && (conversationText.includes('cooking') || conversationText.includes('chef'))) {
+      detectedCareers.push({ career: 'Chef', ...careerData.Chef });
+    }
+    
+    // Generate career cards
+    const careerCards = detectedCareers.slice(0, 2).map(({ career, ...data }) => ({
       title: career,
-      description: `A career as a ${career.toLowerCase()} based on your interests`,
-      matchScore: 85,
-      salaryRange: "£25,000 - £60,000+",
-      educationLevel: "Varies by role",
-      skills: ["Passion", "Dedication", "Learning"],
-      nextSteps: ["Research the field", "Find training programs", "Network with professionals"],
-      keyResponsibilities: [`Core ${career.toLowerCase()} duties`, "Professional development", "Skill building"],
-      generatedAt: new Date().toISOString()
+      description: data.description,
+      matchScore: data.matchScore,
+      salaryRange: data.salaryRange,
+      educationLevel: data.educationLevel,
+      skills: data.skills,
+      nextSteps: data.nextSteps,
+      keyResponsibilities: data.keyResponsibilities,
+      generatedAt: new Date().toISOString(),
+      source: 'local_fallback'
     }));
     
     return {
       careerCards,
-      message: `Generated ${careerCards.length} career insights based on our conversation`,
+      message: `Generated ${careerCards.length} UK career insights based on your culinary interests`,
       analysis: {
-        detectedInterests: detectedCareers,
-        confidence: 0.8
+        detectedInterests: detectedCareers.map(c => c.career),
+        confidence: 0.85
       }
     };
   };
@@ -186,22 +221,13 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   // Initialize conversation
   const conversation = useConversation({
     agentId,
-    // Only override firstMessage for authenticated users to avoid WebSocket issues for guests
-    ...(currentUser && {
-      overrides: {
-        agent: {
-          firstMessage: buildGreeting(),
-        },
-      },
-    }),
+    // Remove firstMessage override to prevent WebSocket connection issues
     clientTools: {
       analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
         console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - Enhanced modal agent calling tools!');
         console.log('🔍 Tool parameters:', parameters);
         
         try {
-          // Skip delay to prevent WebSocket issues
-          
           // Get valid conversation messages for analysis
           const validMessages = conversationHistory.filter(msg => 
             msg.content && 
@@ -221,8 +247,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             return "I'm analyzing our conversation. Please continue chatting and I'll generate career insights shortly.";
           }
 
-          // Use fallback career generation to prevent WebSocket issues
-          console.log('🎯 Using fallback career generation for better performance');
+          // Use fallback career generation since MCP server is not available locally
+          console.log('🎯 Using fallback career generation - MCP server not available locally');
           const result = await generateFallbackCareerCards(validMessages, parameters.trigger_reason);
 
           // Parse the result
@@ -265,17 +291,27 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         }
       },
 
-      update_person_profile: async (parameters: { interests?: string[]; goals?: string[]; skills?: string[] }) => {
+      update_person_profile: async (parameters: { interests?: string[] | string; goals?: string[] | string; skills?: string[] | string; [key: string]: any }) => {
         console.log('🚨 TOOL CALLED: update_person_profile - Enhanced modal agent calling tools!');
         console.log('👤 Updating person profile based on conversation...');
         console.log('👤 Profile parameters:', parameters);
         
         try {
-          // Update discovered insights state
+          // Handle both string and array inputs from ElevenLabs agent
+          const parseInsights = (value: any): string[] => {
+            if (!value) return [];
+            if (Array.isArray(value)) return value;
+            if (typeof value === 'string') {
+              // Split by comma and clean up
+              return value.split(',').map(item => item.trim()).filter(item => item.length > 0);
+            }
+            return [];
+          };
+
           const newInsights = {
-            interests: parameters.interests || [],
-            goals: parameters.goals || [],
-            skills: parameters.skills || []
+            interests: parseInsights(parameters.interests),
+            goals: parseInsights(parameters.goals),
+            skills: parseInsights(parameters.skills)
           };
 
           setDiscoveredInsights(prev => ({
@@ -305,19 +341,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       setConnectionStatus('connected');
       setIsLoading(false); // Reset loading state on successful connection
       
-      // Add personalized initial message only for authenticated users
-      // For guests, let the agent use its default greeting to avoid connection issues
-      if (currentUser) {
-        const initialMessage: ConversationMessage = {
-          role: 'assistant',
-          content: buildGreeting(),
-          timestamp: new Date()
-        };
-        
-        const updatedHistory = [...conversationHistory, initialMessage];
-        setConversationHistory(updatedHistory);
-        onConversationUpdate?.(updatedHistory);
-      }
+      // Let the agent use its default greeting to avoid connection issues
+      // Custom greetings will be handled by the agent's prompt configuration
     },
     onDisconnect: () => {
       console.log('📞 Disconnected from enhanced chat voice assistant');
@@ -367,13 +392,13 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   // Cleanup conversation on unmount to prevent WebSocket conflicts
   useEffect(() => {
     return () => {
-      if (conversation && isConnected) {
+      if (conversation && conversationInitialized.current) {
         console.log('🧹 Cleaning up conversation on unmount');
         conversationInitialized.current = false;
         conversation.endSession().catch(console.error);
       }
     };
-  }, [conversation, isConnected]);
+  }, []); // Empty dependency array - only run cleanup on actual unmount
 
   // Handle conversation start
   const handleStartConversation = async () => {
