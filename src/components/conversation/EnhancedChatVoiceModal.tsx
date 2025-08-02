@@ -90,6 +90,9 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   const [careerCards, setCareerCards] = useState<any[]>([]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const conversationInitialized = useRef<boolean>(false);
+  
+  // Ref to always access current conversation history (avoids stale closure)
+  const conversationHistoryRef = useRef<ConversationMessage[]>([]);
 
   // Debug: Log component mount/unmount
   useEffect(() => {
@@ -228,8 +231,11 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         console.log('🔍 Tool parameters:', parameters);
         
         try {
+          // Use ref to get current conversation history (avoids stale closure)
+          const currentHistory = conversationHistoryRef.current;
+          
           // Get valid conversation messages for analysis
-          const validMessages = conversationHistory.filter(msg => 
+          const validMessages = currentHistory.filter(msg => 
             msg.content && 
             msg.content.trim().length > 0 && 
             !msg.content.includes('Connected to enhanced chat voice assistant') &&
@@ -237,9 +243,10 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           );
 
           console.log('🔍 Conversation history for analysis:', {
-            totalMessages: conversationHistory.length,
+            totalMessages: currentHistory.length,
             validMessages: validMessages.length,
-            messages: validMessages.map(m => ({ role: m.role, content: m.content.substring(0, 50) + '...' }))
+            messages: validMessages.map(m => ({ role: m.role, content: m.content.substring(0, 50) + '...' })),
+            debugInfo: 'Using conversationHistoryRef.current to avoid stale closure'
           });
 
           if (validMessages.length === 0) {
@@ -359,7 +366,12 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         timestamp: new Date()
       };
       
-      setConversationHistory(prev => [...prev, newMessage]);
+      setConversationHistory(prev => {
+        const updated = [...prev, newMessage];
+        conversationHistoryRef.current = updated; // Keep ref in sync
+        console.log(`📝 Message added to history. Total messages: ${updated.length}`);
+        return updated;
+      });
     },
     onError: (error) => {
       console.error('❌ Enhanced chat voice conversation error:', error);
@@ -386,6 +398,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   useEffect(() => {
     if (currentConversationHistory.length > 0 && !isConnected) {
       setConversationHistory(currentConversationHistory);
+      conversationHistoryRef.current = currentConversationHistory; // Keep ref in sync
     }
   }, [currentConversationHistory, isConnected]);
 
