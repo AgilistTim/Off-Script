@@ -1688,13 +1688,22 @@ class OffScriptMCPServer {
         };
       }
 
-      // Use proper conversation analysis with the full conversation only
+      // First extract interests/skills, then generate career cards
       const analysisResult = await ConversationAnalysisService.analyzeWithOpenAI(conversationText);
+      
+      // Generate career recommendations based on the conversation
+      const careerRecommendations = await ConversationAnalysisService.generateCareerRecommendations(conversationText);
+      
+      Logger.info('Career cards generated successfully', {
+        cardCount: careerRecommendations.careerCards?.length || 0,
+        hasAnalysis: !!analysisResult,
+        interestCount: analysisResult.interests?.length || 0
+      });
 
       return {
         success: true,
         analysis: analysisResult,
-        careerCards: analysisResult.careerCards || []
+        careerCards: careerRecommendations.careerCards || []
       };
     } catch (error) {
       Logger.error('MCP analysis error:', error);
