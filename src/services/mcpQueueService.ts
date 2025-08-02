@@ -171,6 +171,30 @@ class MCPQueueService {
   }
 
   /**
+   * Simplified interface for conversation analysis
+   */
+  async analyzeConversation(conversationHistory: any[], triggerReason: string = 'agent_request'): Promise<{ success: boolean; analysis?: any; error?: string }> {
+    try {
+      const result = await this.queueAnalysisRequest(
+        conversationHistory,
+        triggerReason,
+        'https://off-script-mcp-elevenlabs.onrender.com/mcp' // Use live MCP server
+      );
+      
+      return {
+        success: true,
+        analysis: result
+      };
+    } catch (error) {
+      console.error('❌ MCP analysis failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
    * Clear request history (for memory management)
    */
   clearHistory(olderThanMs: number = 5 * 60 * 1000): void {
@@ -228,14 +252,19 @@ class MCPQueueService {
         .join('\n');
 
       const requestBody = {
-        method: 'analyze_conversation_for_careers',
+        jsonrpc: '2.0',
+        id: Date.now(),
+        method: 'tools/call',
         params: {
-          conversation_history: conversationText,
-          trigger_reason: triggerReason,
-          user_context: {
-            user_id: userId || 'guest',
-            user_type: userId ? 'registered' : 'guest',
-            timestamp: new Date().toISOString()
+          name: 'analyze_conversation_for_careers',
+          arguments: {
+            conversation_history: conversationText,
+            trigger_reason: triggerReason,
+            user_context: {
+              user_id: userId || 'guest',
+              user_type: userId ? 'registered' : 'guest',
+              timestamp: new Date().toISOString()
+            }
           }
         }
       };
@@ -265,6 +294,22 @@ class MCPQueueService {
       }
 
       console.log('✅ MCP analysis completed successfully');
+      
+      // Handle JSON-RPC response format
+      if (result.result && result.result.content && result.result.content.length > 0) {
+        const content = result.result.content[0];
+        if (content.type === 'text') {
+          try {
+            // Try to parse the text content as JSON
+            const parsedContent = JSON.parse(content.text);
+            return parsedContent;
+          } catch (e) {
+            // If not JSON, return as plain text
+            return { message: content.text };
+          }
+        }
+      }
+      
       return result.result || result || 'Analysis completed successfully';
 
     } catch (error) {
