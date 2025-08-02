@@ -82,13 +82,22 @@ Use these tools strategically during conversation to provide real-time career in
    - Provides instant career matching based on latest response
    - Use when user shows excitement about specific topics
 
+4. **update_person_profile** - Extract and update user profile insights from conversation
+   - Extract interests, goals, skills, and personal qualities (e.g., "creative", "analytical", "organized")
+   - Use throughout conversation as you discover qualities about the user
+   - Personal qualities should be positive traits that build confidence
+
 CONVERSATION FLOW:
 1. Start with understanding what makes time fly for them
-2. After 2-3 meaningful exchanges, use "analyze_conversation_for_careers"
-3. When specific interests emerge, use "generate_career_recommendations"
-4. Use "trigger_instant_insights" for real-time analysis of exciting topics
+2. Throughout conversation, use "update_person_profile" as you discover interests, skills, goals, and personal qualities
+3. After 2-3 meaningful exchanges, use "analyze_conversation_for_careers"  
+4. When specific interests emerge, use "generate_career_recommendations"
+5. Use "trigger_instant_insights" for real-time analysis of exciting topics
 
 TIMING:
+- Use "update_person_profile" early and often when you detect user traits
+- Extract personal qualities from how users describe their approach, thinking style, or behaviors
+- Examples of personal qualities to extract: creative, analytical, organized, collaborative, innovative, detail-oriented, strategic, empathetic, resilient, adaptable
 - Trigger analysis tools after gathering enough context
 - Don't over-analyze - let conversation flow naturally
 - Use tools when they add genuine value to the conversation
@@ -167,6 +176,50 @@ const mcpTools = [
         }
       },
       required: ["user_message"]
+    },
+    expects_response: false
+  },
+  {
+    name: "update_person_profile",
+    description: "Extract and update user profile insights including interests, goals, skills, and personal qualities",
+    type: "client",
+    parameters: {
+      type: "object",
+      properties: {
+        interests: {
+          type: "array",
+          items: { 
+            type: "string",
+            description: "A career interest or field"
+          },
+          description: "Career interests or fields the user has mentioned (e.g., 'technology', 'healthcare')"
+        },
+        goals: {
+          type: "array", 
+          items: { 
+            type: "string",
+            description: "A career goal or aspiration"
+          },
+          description: "Career goals or aspirations the user has expressed (e.g., 'help people', 'work remotely')"
+        },
+        skills: {
+          type: "array",
+          items: { 
+            type: "string",
+            description: "A skill or ability"
+          },
+          description: "Skills or abilities the user has mentioned or demonstrated (e.g., 'coding', 'problem-solving')"
+        },
+        personalQualities: {
+          type: "array",
+          items: { 
+            type: "string",
+            description: "A positive personal trait or quality"
+          },
+          description: "Positive personal traits and qualities observed from conversation (e.g., 'creative', 'analytical', 'organized', 'collaborative', 'innovative')"
+        }
+      },
+      required: []
     },
     expects_response: false
   }

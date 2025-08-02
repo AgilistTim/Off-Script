@@ -60,7 +60,7 @@ import { useAuth } from '../../context/AuthContext';
 import { agentContextService } from '../../services/agentContextService';
 import { mcpQueueService } from '../../services/mcpQueueService';
 import { progressAwareMCPService, MCPProgressUpdate } from '../../services/progressAwareMCPService';
-import { CareerAnalysisProgress } from '../ui/career-analysis-progress';
+
 
 // Helper function to get environment variables (matches ElevenLabsWidget pattern)
 const getEnvVar = (key: string): string | undefined => {
@@ -118,7 +118,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   const [careerCards, setCareerCards] = useState<any[]>([]);
   
   // Progress tracking for career analysis
-  const [showProgressModal, setShowProgressModal] = useState(false);
   const [progressUpdate, setProgressUpdate] = useState<MCPProgressUpdate | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
@@ -127,6 +126,9 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   
   // Ref to always access current conversation history (avoids stale closure)
   const conversationHistoryRef = useRef<ConversationMessage[]>([]);
+  
+  // Ref to always access current career cards (avoids stale closure)
+  const careerCardsRef = useRef<any[]>([]);
 
   // Debug: Log component mount/unmount
   useEffect(() => {
@@ -288,9 +290,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             return "I'm analyzing our conversation. Please continue chatting and I'll generate career insights shortly.";
           }
 
-          // Show progress modal and start analysis
+          // Show progress and start analysis
           setIsAnalyzing(true);
-          setShowProgressModal(true);
           setProgressUpdate(null);
 
           // Determine if we should use enhanced analysis (Perplexity) for authenticated users
@@ -352,7 +353,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
             // Hide progress modal after short delay
             setTimeout(() => {
-              setShowProgressModal(false);
               setIsAnalyzing(false);
             }, 2000);
 
@@ -365,8 +365,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             // Analysis failed
             console.error('❌ Progress-aware analysis failed:', analysisResult.error);
             
-            // Hide progress modal
-            setShowProgressModal(false);
+            // Hide progress
             setIsAnalyzing(false);
             
             // Try fallback analysis
@@ -392,8 +391,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         } catch (error) {
           console.error('❌ Error in progress-aware career analysis:', error);
           
-          // Hide progress modal on error
-          setShowProgressModal(false);
+          // Hide progress on error
           setIsAnalyzing(false);
           
           return "Career analysis is temporarily unavailable. Please try again in a moment.";
@@ -465,9 +463,10 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       
       // Call onConversationEnd callback with career cards data
       if (onConversationEnd) {
-        const hasGeneratedData = careerCards.length > 0;
-        console.log('🎯 Calling onConversationEnd:', { hasGeneratedData, careerCardCount: careerCards.length });
-        onConversationEnd(hasGeneratedData, careerCards.length);
+        const currentCards = careerCardsRef.current;
+        const hasGeneratedData = currentCards.length > 0;
+        console.log('🎯 Calling onConversationEnd:', { hasGeneratedData, careerCardCount: currentCards.length });
+        onConversationEnd(hasGeneratedData, currentCards.length);
       }
     },
     onMessage: async (message) => {
@@ -524,6 +523,11 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       }
     };
   }, []); // Empty dependency array - only run cleanup on actual unmount
+
+  // Update ref when career cards change to avoid stale closure in callbacks
+  useEffect(() => {
+    careerCardsRef.current = careerCards;
+  }, [careerCards]);
 
   // Handle conversation start
   const handleStartConversation = async () => {
@@ -700,7 +704,29 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4 overflow-y-auto">
+              <CardContent className="space-y-4 overflow-y-auto max-h-96">
+                {/* Progress Indicator */}
+                {isAnalyzing && progressUpdate && (
+                  <div className="bg-electric-blue/10 rounded-lg p-3 mb-4 border border-electric-blue/20">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Loader2 className="w-4 h-4 animate-spin text-electric-blue" />
+                      <span className="text-sm font-medium text-electric-blue">Analyzing Career Path</span>
+                    </div>
+                    <div className="text-xs text-primary-white/80 mb-2">
+                      {progressUpdate.message || 'Processing your conversation...'}
+                    </div>
+                    <div className="w-full bg-primary-white/20 rounded-full h-2">
+                      <div 
+                        className="bg-gradient-to-r from-electric-blue to-neon-pink h-2 rounded-full transition-all duration-500 ease-out"
+                        style={{ width: `${progressUpdate.progress || 0}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-primary-white/60 mt-1 text-center">
+                      {progressUpdate.progress || 0}% complete
+                    </div>
+                  </div>
+                )}
+                
                 {/* Discovered Career Cards */}
                 {careerCards.length > 0 && (
                   <Accordion type="single" collapsible className="space-y-2">
@@ -1170,21 +1196,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         </div>
       </DialogContent>
       
-      {/* Career Analysis Progress Modal */}
-      <CareerAnalysisProgress
-        isVisible={showProgressModal}
-        enableEnhancement={!!currentUser}
-        progressUpdate={progressUpdate}
-        onComplete={() => {
-          setShowProgressModal(false);
-          setIsAnalyzing(false);
-        }}
-        onError={(error) => {
-          console.error('Progress modal error:', error);
-          setShowProgressModal(false);
-          setIsAnalyzing(false);
-        }}
-      />
+
     </Dialog>
   );
 };
