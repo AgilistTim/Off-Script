@@ -36,6 +36,8 @@ import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '../../context/AuthContext';
 import { agentContextService } from '../../services/agentContextService';
 import { mcpQueueService } from '../../services/mcpQueueService';
+import { progressAwareMCPService, MCPProgressUpdate } from '../../services/progressAwareMCPService';
+import { CareerAnalysisProgress } from '../ui/career-analysis-progress';
 
 // Helper function to get environment variables (matches ElevenLabsWidget pattern)
 const getEnvVar = (key: string): string | undefined => {
@@ -88,6 +90,12 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     skills: string[];
   }>({ interests: [], goals: [], skills: [] });
   const [careerCards, setCareerCards] = useState<any[]>([]);
+  
+  // Progress tracking for career analysis
+  const [showProgressModal, setShowProgressModal] = useState(false);
+  const [progressUpdate, setProgressUpdate] = useState<MCPProgressUpdate | null>(null);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const conversationInitialized = useRef<boolean>(false);
   
@@ -227,7 +235,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     // Remove firstMessage override to prevent WebSocket connection issues
     clientTools: {
       analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
-        console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - Enhanced modal agent calling tools!');
+        console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - Enhanced modal with progress tracking!');
         console.log('🔍 Tool parameters:', parameters);
         
         try {
@@ -254,63 +262,51 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             return "I'm analyzing our conversation. Please continue chatting and I'll generate career insights shortly.";
           }
 
-          // Try MCP server first, then fallback if unavailable
-          console.log('🎯 Attempting to use MCP server for career analysis');
-          
-          try {
-            // Import and use MCP service
-            const { mcpQueueService } = await import('../../services/mcpQueueService');
-            const mcpResult = await mcpQueueService.analyzeConversation(validMessages, parameters.trigger_reason);
-            
-            if (mcpResult.success && mcpResult.analysis) {
-              console.log('✅ MCP server analysis successful');
-              const result = mcpResult.analysis;
-              
-              // Update career cards state
-              const newCareerCards = result.careerCards || [];
-              if (newCareerCards.length > 0) {
-                setCareerCards(prev => {
-                  const combined = [...prev];
-                  newCareerCards.forEach((newCard: any) => {
-                    const existingIndex = combined.findIndex(card => card.title === newCard.title);
-                    if (existingIndex >= 0) {
-                      combined[existingIndex] = { ...combined[existingIndex], ...newCard };
-                    } else {
-                      combined.push(newCard);
-                    }
-                  });
-                  
-                  // Notify parent of discovered career cards
-                  if (onCareerCardsDiscovered) {
-                    onCareerCardsDiscovered(combined);
-                  }
-                  
-                  return combined;
-                });
-              }
-              
-              return `Generated ${newCareerCards.length} career insights using AI analysis`;
-            } else {
-              throw new Error('MCP analysis failed or returned no results');
-            }
-          } catch (error) {
-            console.log('⚠️ MCP server unavailable, using fallback career generation:', error);
-            const result = await generateFallbackCareerCards(validMessages, parameters.trigger_reason);
-            
-            // Parse the fallback result
-            let analysisData: any;
-            if (typeof result === 'string') {
-              analysisData = { message: result };
-            } else {
-              analysisData = result.analysis || result;
-            }
+          // Show progress modal and start analysis
+          setIsAnalyzing(true);
+          setShowProgressModal(true);
+          setProgressUpdate(null);
 
+          // Determine if we should use enhanced analysis (Perplexity) for authenticated users
+          const enableEnhancement = !!currentUser;
+          
+          console.log('🎯 Starting progress-aware career analysis', {
+            enableEnhancement,
+            userType: currentUser ? 'authenticated' : 'guest',
+            messageCount: validMessages.length
+          });
+
+          // Progress callback to update UI
+          const handleProgress = (update: MCPProgressUpdate) => {
+            console.log('📊 Progress update:', update);
+            setProgressUpdate(update);
+          };
+
+          // Use progress-aware MCP service
+          const analysisResult = await progressAwareMCPService.analyzeConversationWithProgress(
+            validMessages,
+            parameters.trigger_reason,
+            currentUser?.uid,
+            handleProgress,
+            enableEnhancement
+          );
+
+          if (analysisResult.success) {
+            console.log('✅ Progress-aware analysis successful:', {
+              hasBasicCards: !!analysisResult.basicCareerCards?.length,
+              hasEnhancedCards: !!analysisResult.enhancedCareerCards?.length,
+              basicCount: analysisResult.basicCareerCards?.length || 0,
+              enhancedCount: analysisResult.enhancedCareerCards?.length || 0
+            });
+
+            // Use enhanced cards if available, otherwise basic cards
+            const careerCardsToUse = analysisResult.enhancedCareerCards || analysisResult.basicCareerCards || [];
+            
             // Update career cards state
-            const newCareerCards = analysisData.careerCards || [];
-            if (newCareerCards.length > 0) {
+            if (careerCardsToUse.length > 0) {
               setCareerCards(prev => {
                 const combined = [...prev];
-                newCareerCards.forEach((newCard: any) => {
+                careerCardsToUse.forEach((newCard: any) => {
                   const existingIndex = combined.findIndex(card => card.title === newCard.title);
                   if (existingIndex >= 0) {
                     combined[existingIndex] = { ...combined[existingIndex], ...newCard };
@@ -328,13 +324,53 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               });
             }
 
-            console.log('✅ Fallback career analysis completed:', analysisData);
-            return analysisData.message || "Career analysis completed using fallback mode";
+            // Hide progress modal after short delay
+            setTimeout(() => {
+              setShowProgressModal(false);
+              setIsAnalyzing(false);
+            }, 2000);
+
+            const cardCount = careerCardsToUse.length;
+            const cardType = analysisResult.enhancedCareerCards ? 'enhanced' : 'basic';
+            
+            return `Generated ${cardCount} ${cardType} career recommendations with ${enableEnhancement ? 'premium market intelligence' : 'AI analysis'}`;
+            
+          } else {
+            // Analysis failed
+            console.error('❌ Progress-aware analysis failed:', analysisResult.error);
+            
+            // Hide progress modal
+            setShowProgressModal(false);
+            setIsAnalyzing(false);
+            
+            // Try fallback analysis
+            console.log('🔄 Attempting fallback analysis...');
+            const fallbackResult = await generateFallbackCareerCards(validMessages, parameters.trigger_reason);
+            
+            if (fallbackResult && typeof fallbackResult === 'object' && fallbackResult.careerCards) {
+              const fallbackCards = fallbackResult.careerCards;
+              setCareerCards(prev => {
+                const combined = [...prev, ...fallbackCards];
+                if (onCareerCardsDiscovered) {
+                  onCareerCardsDiscovered(combined);
+                }
+                return combined;
+              });
+              
+              return `Generated ${fallbackCards.length} career insights using fallback analysis`;
+            }
+            
+            return `Career analysis encountered an issue: ${analysisResult.error}`;
           }
 
         } catch (error) {
-          console.error('❌ Error analyzing conversation:', error);
-          return "Career analysis is temporarily unavailable";
+          console.error('❌ Error in progress-aware career analysis:', error);
+          
+          // Hide progress modal on error
+          setShowProgressModal(false);
+          setIsAnalyzing(false);
+          
+          return "Career analysis is temporarily unavailable. Please try again in a moment.";
         }
       },
 
@@ -896,6 +932,22 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           </div>
         </div>
       </DialogContent>
+      
+      {/* Career Analysis Progress Modal */}
+      <CareerAnalysisProgress
+        isVisible={showProgressModal}
+        enableEnhancement={!!currentUser}
+        progressUpdate={progressUpdate}
+        onComplete={() => {
+          setShowProgressModal(false);
+          setIsAnalyzing(false);
+        }}
+        onError={(error) => {
+          console.error('Progress modal error:', error);
+          setShowProgressModal(false);
+          setIsAnalyzing(false);
+        }}
+      />
     </Dialog>
   );
 };
