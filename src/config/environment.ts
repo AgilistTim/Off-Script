@@ -208,17 +208,29 @@ const getWindowEnvironment = async (): Promise<Partial<EnvironmentConfig>> => {
 const validateFirebaseConfig = (config: EnvironmentConfig['firebase']): boolean => {
   const required = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'appId'];
   
+  console.log('🔍 DEBUG: validateFirebaseConfig called', {
+    configKeys: Object.keys(config),
+    apiKeyValue: config.apiKey,
+    apiKeyType: typeof config.apiKey,
+    windowEnvExists: typeof window !== 'undefined' && !!window.ENV,
+    windowEnvApiKey: typeof window !== 'undefined' && window.ENV ? (window as any).ENV.VITE_FIREBASE_API_KEY : 'WINDOW_NOT_AVAILABLE',
+    caller: new Error().stack?.split('\n')[1]?.trim(),
+  });
+  
   for (const key of required) {
     const value = config[key as keyof typeof config];
     if (!value || isPlaceholder(value)) {
       console.error(`❌ Missing or invalid Firebase configuration: ${key}`, {
         key,
         value: value ? `"${value.substring(0, 20)}${value.length > 20 ? '...' : ''}"` : 'undefined',
+        rawValue: value,
         isPlaceholder: isPlaceholder(value || ''),
         windowEnvExists: typeof window !== 'undefined' && !!window.ENV,
         windowEnvKeys: typeof window !== 'undefined' && window.ENV ? Object.keys((window as any).ENV) : 'N/A',
+        windowEnvApiKey: typeof window !== 'undefined' && window.ENV ? (window as any).ENV.VITE_FIREBASE_API_KEY : 'WINDOW_NOT_AVAILABLE',
         viteEnvMode: import.meta.env.MODE,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        caller: new Error().stack?.split('\n')[1]?.trim(),
       });
       return false;
     }
@@ -371,6 +383,11 @@ export const initializeEnvironmentConfig = async (): Promise<EnvironmentConfig> 
  * This will return immediately available config or fallback values
  */
 const getEnvironmentConfigSync = (): EnvironmentConfig => {
+  // Add debug stack trace to identify which component is calling this
+  console.error('🚨 SYNCHRONOUS CONFIG ACCESS DETECTED!');
+  console.error('📍 Stack trace:', new Error().stack);
+  console.error('⚠️ This component should wait for Firebase initialization!');
+  
   // Only try Vite environment variables synchronously
   const viteConfig = getViteEnvironment();
   
@@ -387,6 +404,8 @@ const getEnvironmentConfigSync = (): EnvironmentConfig => {
   
   // For production, provide a minimal config that will trigger async loading
   console.warn('⚠️ Synchronous config access - async initialization required for production');
+  console.warn('🔍 Component should use async initializeEnvironment() instead');
+  
   return {
     firebase: {
       apiKey: 'INITIALIZING',
