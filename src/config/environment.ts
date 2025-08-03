@@ -379,21 +379,20 @@ export const initializeEnvironmentConfig = async (): Promise<EnvironmentConfig> 
 };
 
 /**
- * Synchronous fallback function for backwards compatibility
- * This will return immediately available config or fallback values
+ * Synchronous environment access - SHOULD NOT BE USED
+ * Only exists for backwards compatibility during migration
  */
 const getEnvironmentConfigSync = (): EnvironmentConfig => {
-  // Add debug stack trace to identify which component is calling this
-  console.error('🚨 SYNCHRONOUS CONFIG ACCESS DETECTED!');
-  console.error('📍 Stack trace:', new Error().stack);
-  console.error('⚠️ This component should wait for Firebase initialization!');
+  const caller = new Error().stack?.split('\n')[2]?.trim() || 'unknown';
   
-  // First try Vite environment variables synchronously
+  console.error('🚨 ILLEGAL SYNCHRONOUS CONFIG ACCESS!');
+  console.error('📍 Caller:', caller);
+  console.error('💥 This will be removed - components must wait for async initialization!');
+  
+  // In development, try Vite vars
   const viteConfig = getViteEnvironment();
-  
-  // Check if Firebase config from Vite is valid
   if (viteConfig.firebase && validateFirebaseConfig(viteConfig.firebase)) {
-    console.log('✅ Using Vite environment variables (sync)');
+    console.warn('🛠️ Using Vite config (development only)');
     return {
       ...viteConfig,
       features: determineFeatureFlags(viteConfig),
@@ -402,80 +401,78 @@ const getEnvironmentConfigSync = (): EnvironmentConfig => {
     } as EnvironmentConfig;
   }
   
-  // If Vite config is not valid, try window.ENV synchronously (for production)
+  // In production, check if window.ENV is ready  
   if (typeof window !== 'undefined' && (window as any).ENV) {
-    console.log('🔄 Trying window.ENV synchronously as fallback...');
+    const windowEnv = (window as any).ENV;
     
-    const windowConfig = {
+    // Validate we have the critical Firebase API key
+    if (!windowEnv.VITE_FIREBASE_API_KEY || windowEnv.VITE_FIREBASE_API_KEY === 'undefined') {
+      throw new Error(`🚨 CRITICAL: Firebase API key not available in window.ENV!
+        
+DIAGNOSIS:
+- window.ENV exists: ✅ 
+- VITE_FIREBASE_API_KEY: "${windowEnv.VITE_FIREBASE_API_KEY}"
+- Available keys: ${Object.keys(windowEnv).join(', ')}
+
+SOLUTION: Component must await Firebase initialization before accessing environment config.
+      
+STACK: ${caller}`);
+    }
+    
+    console.warn('⚡ Using window.ENV (should be async!)');
+    const config = {
       firebase: {
-        apiKey: (window as any).ENV.VITE_FIREBASE_API_KEY,
-        authDomain: (window as any).ENV.VITE_FIREBASE_AUTH_DOMAIN,
-        projectId: (window as any).ENV.VITE_FIREBASE_PROJECT_ID,
-        storageBucket: (window as any).ENV.VITE_FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: (window as any).ENV.VITE_FIREBASE_MESSAGING_SENDER_ID,
-        appId: (window as any).ENV.VITE_FIREBASE_APP_ID,
-        measurementId: (window as any).ENV.VITE_FIREBASE_MEASUREMENT_ID,
+        apiKey: windowEnv.VITE_FIREBASE_API_KEY,
+        authDomain: windowEnv.VITE_FIREBASE_AUTH_DOMAIN,
+        projectId: windowEnv.VITE_FIREBASE_PROJECT_ID,
+        storageBucket: windowEnv.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: windowEnv.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: windowEnv.VITE_FIREBASE_APP_ID,
+        measurementId: windowEnv.VITE_FIREBASE_MEASUREMENT_ID,
       },
       apiKeys: {
-        youtube: (window as any).ENV.VITE_YOUTUBE_API_KEY,
-        recaptcha: (window as any).ENV.VITE_RECAPTCHA_SITE_KEY,
-        openai: (window as any).ENV.VITE_OPENAI_API_KEY,
+        youtube: windowEnv.VITE_YOUTUBE_API_KEY,
+        recaptcha: windowEnv.VITE_RECAPTCHA_SITE_KEY,
+        openai: windowEnv.VITE_OPENAI_API_KEY,
       },
       elevenLabs: {
-        apiKey: (window as any).ENV.VITE_ELEVENLABS_API_KEY || undefined,
-        agentId: (window as any).ENV.VITE_ELEVENLABS_AGENT_ID || undefined,
+        apiKey: windowEnv.VITE_ELEVENLABS_API_KEY || undefined,
+        agentId: windowEnv.VITE_ELEVENLABS_AGENT_ID || undefined,
       },
       perplexity: {
-        apiKey: (window as any).ENV.VITE_PERPLEXITY_API_KEY || undefined,
+        apiKey: windowEnv.VITE_PERPLEXITY_API_KEY || undefined,
       },
       apiEndpoints: {
-        bumpupsProxy: (window as any).ENV.VITE_BUMPUPS_PROXY_URL,
-        openaiAssistant: (window as any).ENV.VITE_OPENAI_ASSISTANT_URL || undefined,
+        bumpupsProxy: windowEnv.VITE_BUMPUPS_PROXY_URL,
+        openaiAssistant: windowEnv.VITE_OPENAI_ASSISTANT_URL || undefined,
       },
-      environment: viteConfig.environment || 'production',
+      environment: 'production' as const,
     };
     
-    // Check if Firebase config from window.ENV is valid
-    if (windowConfig.firebase && validateFirebaseConfig(windowConfig.firebase)) {
-      console.log('✅ Using window.ENV synchronously (fallback)');
-      return {
-        ...windowConfig,
-        features: determineFeatureFlags(windowConfig),
-        apiEndpoints: generateApiEndpoints(windowConfig),
-      } as EnvironmentConfig;
-    }
+    return {
+      ...config,
+      features: determineFeatureFlags(config),
+      apiEndpoints: generateApiEndpoints(config),
+    } as EnvironmentConfig;
   }
   
-  // For production, provide a minimal config that will trigger async loading
-  console.warn('⚠️ Synchronous config access - async initialization required for production');
-  console.warn('🔍 Component should use async initializeEnvironment() instead');
-  
-  return {
-    firebase: {
-      apiKey: 'INITIALIZING',
-      authDomain: 'INITIALIZING',
-      projectId: 'INITIALIZING',
-      storageBucket: 'INITIALIZING',
-      messagingSenderId: 'INITIALIZING',
-      appId: 'INITIALIZING',
-      measurementId: 'INITIALIZING',
-    },
-    apiKeys: {
-      youtube: undefined,
-      recaptcha: undefined,
-      openai: undefined,
-    },
-    elevenLabs: {
-      apiKey: undefined,
-      agentId: undefined,
-    },
-    perplexity: {
-      apiKey: undefined,
-    },
-    apiEndpoints: generateApiEndpoints({}),
-    environment: viteConfig.environment || 'production',
-    features: determineFeatureFlags({}),
-  };
+  // FAIL HARD - no fallbacks
+  throw new Error(`🚨 ENVIRONMENT NOT READY!
+
+PROBLEM: Environment configuration not available for synchronous access.
+
+ENVIRONMENT STATUS:
+- window exists: ${typeof window !== 'undefined'}
+- window.ENV exists: ${typeof window !== 'undefined' && !!(window as any).ENV}
+- Vite mode: ${import.meta.env.MODE}
+- Vite API key: ${import.meta.env.VITE_FIREBASE_API_KEY ? 'SET' : 'NOT_SET'}
+
+SOLUTION: 
+1. Ensure main.tsx calls 'await initFirebase()' before rendering
+2. Components should not access environment config during module loading
+3. Use async initialization patterns
+
+ILLEGAL CALLER: ${caller}`);
 };
 
 // Environment configuration state management
