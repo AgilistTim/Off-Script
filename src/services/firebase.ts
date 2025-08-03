@@ -1,8 +1,7 @@
 import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, initializeFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
-import { getAuth, GoogleAuthProvider, Auth } from 'firebase/auth';
-import { getAnalytics, Analytics } from 'firebase/analytics';
-import { firebaseConfig, isProduction, isDevelopment, initializeEnvironment, isEnvironmentInitialized } from '../config/environment';
+import { getFirestore as getFirestoreInstance, initializeFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getAuth as getAuthInstance, GoogleAuthProvider, Auth } from 'firebase/auth';
+import { getAnalytics as getAnalyticsInstance, Analytics } from 'firebase/analytics';
 
 // Add type declaration for window.ENV
 declare global {
@@ -23,102 +22,157 @@ declare global {
   }
 }
 
-// Lazy initialization singletons
-let _app: FirebaseApp | null = null;
-let _db: Firestore | null = null;
-let _auth: Auth | null = null;
-let _analytics: Analytics | null = null;
+// Firebase instances - initialized only after environment is ready
+let firebaseApp: FirebaseApp | null = null;
+let firestore: Firestore | null = null;
+let firebaseAuth: Auth | null = null;
+let firebaseAnalytics: Analytics | null = null;
+let isFirebaseInitialized = false;
 
 /**
- * Get the Firebase app instance (lazy-initialized with environment waiting)
+ * Wait for window.ENV to be available
  */
-const getApp = async (): Promise<FirebaseApp> => {
-  if (!_app) {
-    console.log('🔍 Environment check:', {
-      MODE: import.meta.env.MODE,
-      VITE_DISABLE_EMULATORS: import.meta.env.VITE_DISABLE_EMULATORS,
-      isDevelopment: import.meta.env.MODE === 'development'
-    });
-    
-    // Wait for environment initialization before creating Firebase app
-    if (!isEnvironmentInitialized()) {
-      console.log('⏳ Waiting for environment initialization...');
-      await initializeEnvironment();
-      console.log('✅ Environment initialization complete');
+const waitForEnvironment = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    // If window.ENV is already available, resolve immediately
+    if (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_FIREBASE_API_KEY) {
+      resolve(true);
+      return;
     }
     
-    _app = initializeApp(firebaseConfig);
-    console.log('🚀 Firebase app initialized');
-  }
-  return _app;
-};
-
-/**
- * Get the Firestore database instance (lazy-initialized)
- */
-const getDb = async (): Promise<Firestore> => {
-  if (!_db) {
-    const app = await getApp();
+    // Otherwise, poll for window.ENV with timeout
+    let attempts = 0;
+    const maxAttempts = 50; // 5 seconds total (50 * 100ms)
     
-    const useEmulators = import.meta.env.MODE === 'development' && 
-                        import.meta.env.VITE_DISABLE_EMULATORS !== 'true';
-
-    if (useEmulators) {
-      // Initialize Firestore with emulator settings
-      _db = getFirestore(app);
-      
-      // Connect to local emulator with explicit host and port
-      connectFirestoreEmulator(_db, '127.0.0.1', 8080);
-      console.log('🧪 Connected to Firestore emulator on 127.0.0.1:8080');
-    } else {
-      // Connect to production database
-      _db = initializeFirestore(app, {
-        ignoreUndefinedProperties: true,
-        experimentalForceLongPolling: true,
-        experimentalAutoDetectLongPolling: false
-      });
-      console.log('🔄 Connected to Firestore production database');
-    }
-  }
-  return _db;
-};
-
-/**
- * Get the Firebase Auth instance (lazy-initialized)
- */
-const getAuthInstance = async (): Promise<Auth> => {
-  if (!_auth) {
-    const app = await getApp();
-    _auth = getAuth(app);
-    console.log('🔐 Firebase Auth initialized');
-  }
-  return _auth;
-};
-
-/**
- * Get the Firebase Analytics instance (lazy-initialized)
- */
-const getAnalyticsInstance = async (): Promise<Analytics | null> => {
-  if (_analytics === undefined) {
-    try {
-      if (typeof window !== 'undefined' && isProduction()) {
-        const app = await getApp();
-        _analytics = getAnalytics(app);
-        console.log('✅ Firebase Analytics initialized');
+    const checkEnv = () => {
+      if (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_FIREBASE_API_KEY) {
+        resolve(true);
+      } else if (attempts >= maxAttempts) {
+        console.error('❌ window.ENV not available after timeout');
+        resolve(false);
       } else {
-        _analytics = null;
+        attempts++;
+        setTimeout(checkEnv, 100); // Check every 100ms
       }
+    };
+    
+    checkEnv();
+  });
+};
+
+/**
+ * Initialize Firebase with environment variables
+ * Must be called before any Firebase services are used
+ */
+export const initFirebase = async (): Promise<void> => {
+  if (isFirebaseInitialized) {
+    return; // Already initialized
+  }
+  
+  console.log('🔧 Initializing Firebase...');
+  
+  // Wait for window.ENV to be available
+  const envReady = await waitForEnvironment();
+  
+  if (!envReady || !window.ENV) {
+    throw new Error('Environment variables not available - cannot initialize Firebase');
+  }
+  
+  console.log('🔍 Environment check:', {
+    MODE: import.meta.env.MODE,
+    VITE_DISABLE_EMULATORS: import.meta.env.VITE_DISABLE_EMULATORS,
+    isDevelopment: import.meta.env.MODE === 'development'
+  });
+  
+  // Build Firebase config from window.ENV
+  const config = {
+    apiKey: window.ENV.VITE_FIREBASE_API_KEY,
+    authDomain: window.ENV.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: window.ENV.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: window.ENV.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: window.ENV.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: window.ENV.VITE_FIREBASE_APP_ID,
+    measurementId: window.ENV.VITE_FIREBASE_MEASUREMENT_ID,
+  };
+  
+  // Validate required fields
+  if (!config.apiKey || config.apiKey === 'undefined') {
+    throw new Error(`Invalid Firebase API key: ${config.apiKey}`);
+  }
+  
+  // Initialize Firebase app
+  firebaseApp = initializeApp(config);
+  console.log('🚀 Firebase app initialized');
+  
+  // Initialize Firestore
+  const isDev = import.meta.env.MODE === 'development';
+  const useEmulators = isDev && import.meta.env.VITE_DISABLE_EMULATORS !== 'true';
+  
+  if (useEmulators) {
+    firestore = getFirestoreInstance(firebaseApp);
+    connectFirestoreEmulator(firestore, '127.0.0.1', 8080);
+    console.log('🧪 Connected to Firestore emulator on 127.0.0.1:8080');
+  } else {
+    firestore = initializeFirestore(firebaseApp, {
+      ignoreUndefinedProperties: true,
+      experimentalForceLongPolling: true,
+      experimentalAutoDetectLongPolling: false
+    });
+    console.log('🔄 Connected to Firestore production database');
+  }
+  
+  // Initialize Auth
+  firebaseAuth = getAuthInstance(firebaseApp);
+  console.log('🔐 Firebase Auth initialized');
+  
+  // Initialize Analytics (production only)
+  if (typeof window !== 'undefined' && import.meta.env.MODE === 'production') {
+    try {
+      firebaseAnalytics = getAnalyticsInstance(firebaseApp);
+      console.log('📊 Firebase Analytics initialized');
     } catch (error) {
       console.warn('⚠️ Firebase Analytics initialization failed:', error);
-      _analytics = null;
+      firebaseAnalytics = null;
     }
   }
-  return _analytics;
+  
+  isFirebaseInitialized = true;
+  console.log('✅ Firebase initialization complete');
+};
+
+/**
+ * Safe Firebase service getters - require initialization first
+ */
+const ensureInitialized = () => {
+  if (!isFirebaseInitialized) {
+    throw new Error('Firebase not initialized. Call initFirebase() first.');
+  }
+};
+
+export const getFirebaseApp = (): FirebaseApp => {
+  ensureInitialized();
+  return firebaseApp!;
+};
+
+export const getFirestore = (): Firestore => {
+  ensureInitialized();
+  return firestore!;
+};
+
+export const getAuth = (): Auth => {
+  ensureInitialized();
+  return firebaseAuth!;
+};
+
+export const getAnalytics = (): Analytics | null => {
+  ensureInitialized();
+  return firebaseAnalytics;
 };
 
 // Utility function to get the correct Firebase function URL
 export const getFirebaseFunctionUrl = (functionName: string): string => {
-  const projectId = firebaseConfig.projectId || 'offscript-8f6eb';
+  // Use hardcoded project ID since we can't access config before Firebase init
+  const projectId = 'offscript-8f6eb';
   
   // Use emulator in development, production URL otherwise
   const useEmulators = import.meta.env.MODE === 'development' && 
@@ -132,100 +186,42 @@ export const getFirebaseFunctionUrl = (functionName: string): string => {
 };
 
 // Initialize Google Auth Provider (this is stateless)
-const googleProvider = new GoogleAuthProvider();
+export const googleProvider = new GoogleAuthProvider();
 
-// Export lazy-loaded instances using Proxies
-// Async-aware Firebase service exports
+// Simple exports - no Proxy magic, just direct access to initialized instances
 export const db = new Proxy({} as Firestore, {
   get(target, prop) {
-    // For sync access, we need to handle async initialization gracefully
-    const dbPromise = getDb();
-    
-    // If accessing a method, return a wrapper that waits for initialization
-    if (typeof prop === 'string') {
-      return async function(...args: any[]) {
-        const dbInstance = await dbPromise;
-        const method = dbInstance[prop as keyof Firestore];
-        if (typeof method === 'function') {
-          return (method as any).apply(dbInstance, args);
-        }
-        return method;
-      };
-    }
-    
-    // For property access, we can't wait, so trigger initialization in background
-    dbPromise.catch(console.error);
-    return undefined;
+    const dbInstance = getFirestore();
+    const value = dbInstance[prop as keyof Firestore];
+    return typeof value === 'function' ? value.bind(dbInstance) : value;
   }
 });
 
 export const auth = new Proxy({} as Auth, {
   get(target, prop) {
-    const authPromise = getAuthInstance();
-    
-    if (typeof prop === 'string') {
-      return async function(...args: any[]) {
-        const authInstance = await authPromise;
-        const method = authInstance[prop as keyof Auth];
-        if (typeof method === 'function') {
-          return (method as any).apply(authInstance, args);
-        }
-        return method;
-      };
-    }
-    
-    authPromise.catch(console.error);
-    return undefined;
+    const authInstance = getAuth();
+    const value = authInstance[prop as keyof Auth];
+    return typeof value === 'function' ? value.bind(authInstance) : value;
   }
 });
 
 export const analytics = new Proxy({} as Analytics | null, {
   get(target, prop) {
-    const analyticsPromise = getAnalyticsInstance();
-    
-    if (typeof prop === 'string') {
-      return async function(...args: any[]) {
-        const analyticsInstance = await analyticsPromise;
-        if (!analyticsInstance) return undefined;
-        const method = (analyticsInstance as any)[prop];
-        if (typeof method === 'function') {
-          return method.apply(analyticsInstance, args);
-        }
-        return method;
-      };
-    }
-    
-    analyticsPromise.catch(console.error);
-    return undefined;
+    const analyticsInstance = getAnalytics();
+    if (!analyticsInstance) return undefined;
+    const value = (analyticsInstance as any)[prop];
+    return typeof value === 'function' ? value.bind(analyticsInstance) : value;
   }
 });
 
-// Export the Google Auth Provider and helper function
-export { googleProvider };
+// Legacy exports for backwards compatibility
+export const getFirebaseAnalytics = getAnalytics;
 
-// Legacy export for backwards compatibility  
-export const getFirebaseAnalytics = getAnalyticsInstance;
-
-// Export the app getter for advanced use cases
-export const getFirebaseApp = getApp;
-
-// Default export is the lazy-loaded app
+// Default export
 export default new Proxy({} as FirebaseApp, {
   get(target, prop) {
-    const appPromise = getApp();
-    
-    if (typeof prop === 'string') {
-      return async function(...args: any[]) {
-        const appInstance = await appPromise;
-        const method = (appInstance as any)[prop];
-        if (typeof method === 'function') {
-          return method.apply(appInstance, args);
-        }
-        return method;
-      };
-    }
-    
-    appPromise.catch(console.error);
-    return undefined;
+    const appInstance = getFirebaseApp();
+    const value = (appInstance as any)[prop];
+    return typeof value === 'function' ? value.bind(appInstance) : value;
   }
 });
