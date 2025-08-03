@@ -492,6 +492,21 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         return result;
       },
 
+      // Legacy tool mapping for backwards compatibility with agent configuration
+      generate_career_recommendations: async (parameters: any) => {
+        console.log('🚨 TOOL CALLED: generate_career_recommendations -> explore_career_opportunities (Legacy Mapping)');
+        console.log('🔄 Routing to unified career exploration tool');
+        console.log('🔍 Legacy tool parameters:', parameters);
+        
+        // Map legacy parameters to unified tool format
+        const effectiveTriggerReason = parameters.trigger_reason || 'career_recommendations';
+        
+        // Use existing career analysis functionality (same as explore_career_opportunities)
+        const result = await analyzeConversationForCareerInsights(effectiveTriggerReason);
+        
+        return result;
+      },
+
       // Consolidated Tool 2: All profile extraction and updates including names
       extract_and_update_profile: async (parameters: { 
         name?: string,

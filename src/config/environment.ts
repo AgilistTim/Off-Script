@@ -126,8 +126,34 @@ const getWindowEnvironment = (): Partial<EnvironmentConfig> => {
     return {};
   }
   
-  // Debug logging can be enabled for troubleshooting if needed
-  // console.log('🔍 Debug window.ENV keys:', Object.keys((window as any).ENV || {}));
+  // Enhanced debug logging for environment variable troubleshooting
+  if (import.meta.env.MODE === 'production') {
+    console.log('🔍 Production Environment Debug:', {
+      windowEnvExists: typeof window !== 'undefined' && !!window.ENV,
+      windowEnvKeys: typeof window !== 'undefined' && window.ENV ? Object.keys((window as any).ENV) : 'N/A',
+      firebaseApiKey: typeof window !== 'undefined' && window.ENV ? (window as any).ENV.VITE_FIREBASE_API_KEY : 'window.ENV not available',
+      firebaseApiKeyType: typeof window !== 'undefined' && window.ENV ? typeof (window as any).ENV.VITE_FIREBASE_API_KEY : 'N/A',
+      elevenLabsAgentId: typeof window !== 'undefined' && window.ENV ? (window as any).ENV.VITE_ELEVENLABS_AGENT_ID : 'window.ENV not available',
+      timestamp: new Date().toISOString()
+    });
+
+    // Check if we can fetch the actual environment.js file to debug content
+    if (typeof window !== 'undefined') {
+      fetch('/environment.js')
+        .then(response => response.text())
+        .then(content => {
+          console.log('🔍 Raw environment.js content preview:', content.substring(0, 500) + '...');
+          
+          // Check if placeholders are still present
+          if (content.includes('__FIREBASE_API_KEY__')) {
+            console.error('🚨 CRITICAL: Placeholders detected in environment.js - Docker injection failed!');
+          } else {
+            console.log('✅ Placeholders appear to be replaced in environment.js');
+          }
+        })
+        .catch(err => console.log('⚠️ Could not fetch environment.js for debugging:', err.message));
+    }
+  }
   
   return {
     firebase: {
