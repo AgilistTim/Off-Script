@@ -482,6 +482,9 @@ const getEnvironmentConfigSync = (): EnvironmentConfig => {
 let _environmentConfig: EnvironmentConfig | null = null;
 let _initializationPromise: Promise<EnvironmentConfig> | null = null;
 
+// Debug: Track config changes
+console.log('🔧 Environment module loaded, _environmentConfig initialized to null');
+
 /**
  * Initialize environment configuration asynchronously
  * This should be called early in the application lifecycle
@@ -509,19 +512,37 @@ export const isEnvironmentInitialized = (): boolean => {
 
 export const env = new Proxy({} as EnvironmentConfig, {
   get(target, prop) {
+    console.log('🔍 PROXY ACCESS:', {
+      prop,
+      hasConfig: !!_environmentConfig,
+      configApiKey: _environmentConfig?.firebase?.apiKey,
+      timestamp: new Date().toISOString()
+    });
+    
     if (!_environmentConfig) {
+      console.log('🚨 PROXY: No cached config, calling getEnvironmentConfigSync()');
       _environmentConfig = getEnvironmentConfigSync();
+      console.log('🔧 PROXY: Config cached:', {
+        apiKey: _environmentConfig.firebase.apiKey,
+        isInitializing: _environmentConfig.firebase.apiKey === 'INITIALIZING'
+      });
       
       // Trigger async initialization if we're using fallback config
       if (!isEnvironmentInitialized()) {
         initializeEnvironment().then(config => {
+          console.log('🔄 PROXY: Async init complete, updating cache');
           _environmentConfig = config;
         }).catch(error => {
           console.error('❌ Failed to initialize environment configuration:', error);
         });
       }
+    } else {
+      console.log('✅ PROXY: Using cached config');
     }
-    return _environmentConfig[prop as keyof EnvironmentConfig];
+    
+    const result = _environmentConfig[prop as keyof EnvironmentConfig];
+    console.log('📤 PROXY RESULT:', { prop, result: typeof result === 'object' ? 'object' : result });
+    return result;
   }
 });
 
