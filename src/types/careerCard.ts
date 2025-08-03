@@ -215,6 +215,7 @@ export type CareerCardData = CareerCard;
 
 // Person Profile interface
 export interface PersonProfile {
+  name?: string; // Optional field for user names (guest capture + authenticated display)
   interests: string[];
   skills: string[];
   goals: string[];

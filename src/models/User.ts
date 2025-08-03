@@ -1,3 +1,5 @@
+import { PersonProfile } from '../types/careerCard';
+
 export interface User {
   uid: string;
   email: string | null;
@@ -8,6 +10,7 @@ export interface User {
   role: 'user' | 'admin' | 'parent';
   preferences?: UserPreferences;
   profile?: UserProfile;
+  careerProfile?: PersonProfile; // Enhanced career profile with name support
 }
 
 export interface UserPreferences {

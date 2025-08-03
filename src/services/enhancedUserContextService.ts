@@ -112,7 +112,7 @@ export class EnhancedUserContextService {
       
       const userContext: UserContext = {
         uid: user.uid,
-        name: user.displayName || userData.displayName || 'User',
+        name: userData.careerProfile?.name || user.displayName || userData.displayName || 'User',
         email: user.email,
         accountType: 'registered',
         previousSessions: conversationHistory,
@@ -548,6 +548,11 @@ export class EnhancedUserContextService {
         topicsExplored: context.topicsExplored,
         lastAgentUsed: context.lastAgentUsed,
         agentSwitchHistory: context.agentSwitchHistory,
+        // Preserve career profile with name if it exists
+        careerProfile: context.name !== (context.name || 'User') ? { 
+          name: context.name,
+          lastUpdated: new Date().toLocaleDateString()
+        } : undefined,
         lastLogin: serverTimestamp(),
         createdAt: serverTimestamp()
       }, { merge: true });

@@ -5,6 +5,7 @@ import { guestSessionService } from '../../services/guestSessionService';
 import { CareerCard, PersonProfile } from '../../types/careerCard';
 import { mcpQueueService } from '../../services/mcpQueueService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
+import { EnhancedUserContextService } from '../../services/enhancedUserContextService';
 
 // Helper function to get environment variables from both sources (dev + production)
 const getEnvVar = (key: string): string | undefined => {
@@ -51,6 +52,9 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   const [sessionCareerCardCount, setSessionCareerCardCount] = useState(0);
   const [sessionHasGeneratedProfile, setSessionHasGeneratedProfile] = useState(false);
   
+  // User profile data for personalized welcome messages
+  const [userProfileData, setUserProfileData] = useState<{interests: string[], name?: string} | null>(null);
+  
   // Use ref to access current conversation history in tool closures
   const conversationHistoryRef = useRef(conversationHistory);
   
@@ -70,6 +74,50 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     
     checkEnvLoaded();
   }, []);
+
+  // Fetch user profile data for personalized welcome messages
+  useEffect(() => {
+    let isMounted = true;
+    
+    const fetchUserProfile = async () => {
+      if (currentUser) {
+        try {
+          const enhancedUserContextService = new EnhancedUserContextService();
+          const userContext = await enhancedUserContextService.getUserContext(currentUser);
+          
+          if (isMounted && userContext) {
+            // Extract relevant data for welcome message
+            const profileData = {
+              name: userContext.name,
+              interests: userContext.discoveredInsights?.interests || []
+            };
+            setUserProfileData(profileData);
+          }
+        } catch (error) {
+          console.error('Failed to fetch user profile for welcome message:', error);
+          if (isMounted) {
+            // Fallback to basic user data
+            setUserProfileData({
+              name: currentUser.displayName || 'there',
+              interests: []
+            });
+          }
+        }
+      } else {
+        // Guest user - check if they have a name from previous session
+        const guestName = guestSessionService.getGuestName();
+        if (isMounted) {
+          setUserProfileData(guestName ? { name: guestName, interests: [] } : null);
+        }
+      }
+    };
+
+    fetchUserProfile();
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [currentUser]);
 
   // Update ref whenever state changes
   useEffect(() => {
@@ -367,20 +415,89 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     }
   }, [agentId, apiKey, currentUser]);
 
+  // Helper function to generate contextual welcome message overrides
+  const getConversationOverrides = useCallback(() => {
+    if (currentUser && userProfileData) {
+      // Authenticated user with profile data
+      const userName = userProfileData.name || 'there';
+      const interests = userProfileData.interests.slice(0, 3); // Show max 3 interests
+      const interestsText = interests.length > 0 ? 
+        ` I can see your interests in ${interests.join(', ')}.` : '';
+      
+      return {
+        overrides: {
+          agent: {
+            firstMessage: `Hi ${userName}! Welcome back.${interestsText} What would you like to explore about your career journey today?`
+          }
+        }
+      };
+    } else if (currentUser) {
+      // Authenticated user without profile data yet
+      const userName = currentUser.displayName || 'there';
+      return {
+        overrides: {
+          agent: {
+            firstMessage: `Hi ${userName}! Welcome back. What would you like to explore about your career journey today?`
+          }
+        }
+      };
+    } else if (userProfileData?.name) {
+      // Guest user with stored name
+      return {
+        overrides: {
+          agent: {
+            firstMessage: `Hi ${userProfileData.name}! Good to continue our conversation. What else would you like to explore about your career possibilities?`
+          }
+        }
+      };
+    } else {
+      // Guest user without name - ask for it
+      return {
+        overrides: {
+          agent: {
+            firstMessage: "Hi! I'm here to help you explore career possibilities. What's your name, and what interests you about your future career?"
+          }
+        }
+      };
+    }
+  }, [currentUser, userProfileData]);
+
   // Initialize conversation with client tools that ElevenLabs calls
   const conversation = useConversation({
+    ...getConversationOverrides(),
     clientTools: {
-      analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
-        console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - AGENT IS CALLING TOOLS!');
+      // Consolidated Tool 1: All career exploration and analysis
+      explore_career_opportunities: async (parameters: { 
+        analysis_type: 'instant_insights' | 'deep_analysis' | 'specific_focus',
+        trigger_reason: string,
+        focus_area?: string 
+      }) => {
+        console.log('🚨 TOOL CALLED: explore_career_opportunities - UNIFIED CAREER ANALYSIS!');
         console.log('🔍 Tool parameters:', parameters);
         
-        const result = await analyzeConversationForCareerInsights(parameters.trigger_reason || 'agent_request');
+        // Map analysis_type to appropriate trigger_reason if needed
+        const effectiveTriggerReason = parameters.trigger_reason || 
+          (parameters.analysis_type === 'instant_insights' ? 'instant_analysis' : 
+           parameters.analysis_type === 'specific_focus' ? `focus_on_${parameters.focus_area}` : 
+           'agent_request');
+        
+        // Use existing career analysis functionality
+        const result = await analyzeConversationForCareerInsights(effectiveTriggerReason);
+        
         return result;
       },
 
-      update_person_profile: async (parameters: { interests?: string[]; goals?: string[]; skills?: string[] }) => {
-        console.log('🚨 TOOL CALLED: update_person_profile - AGENT IS CALLING TOOLS!');
-        console.log('👤 Updating person profile based on conversation...');
+      // Consolidated Tool 2: All profile extraction and updates including names
+      extract_and_update_profile: async (parameters: { 
+        name?: string,
+        interests?: string[], 
+        goals?: string[], 
+        skills?: string[],
+        values?: string[],
+        insights_from_conversation?: string
+      }) => {
+        console.log('🚨 TOOL CALLED: extract_and_update_profile - UNIFIED PROFILE MANAGEMENT!');
+        console.log('👤 Updating person profile with enhanced name support...');
         console.log('👤 Profile parameters:', parameters);
         
         // Start loading state for profile update
@@ -404,6 +521,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
                   triggerReason: 'persona_update',
                   generatePersona: true,
                   profileParams: parameters,
+                  // Include name extraction in analysis
+                  extractName: !parameters.name, // Extract name if not provided
                   // Cache-busting for profile updates
                   timestamp: Date.now(),
                   analysisId: `profile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
@@ -424,18 +543,19 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
                   return [];
                 };
                 
-                // Generate enhanced profile from analysis with proper data types
+                // Generate enhanced profile from analysis with name support
                 const updatedProfile: PersonProfile = {
+                  name: parameters.name || result.extractedName || undefined, // Include name field
                   interests: normalizeToArray(parameters.interests || result.detectedInterests) || ["Technology", "Problem Solving", "Innovation"],
                   goals: normalizeToArray(parameters.goals || result.detectedGoals) || ["Career development", "Skill building"],
                   skills: normalizeToArray(parameters.skills || result.detectedSkills) || ["Communication", "Analytical thinking"],
-                  values: normalizeToArray(result.detectedValues) || ["Making a difference", "Innovation", "Growth"],
+                  values: normalizeToArray(parameters.values || result.detectedValues) || ["Making a difference", "Innovation", "Growth"],
                   careerStage: result.careerStage || "exploring",
                   workStyle: normalizeToArray(result.workStyle) || ["Collaborative", "Flexible"],
                   lastUpdated: new Date().toLocaleDateString()
                 };
                 
-                console.log('🎯 Generated enhanced persona profile:', updatedProfile);
+                console.log('🎯 Generated enhanced profile with name support:', updatedProfile);
                 // Track session progress for conversation end callback
                 setSessionHasGeneratedProfile(true);
                 onPersonProfileGenerated(updatedProfile);
@@ -443,7 +563,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
                 // Complete loading state
                 onAnalysisStateChange?.({ isAnalyzing: false });
                 
-                return `I've analyzed our conversation and updated your profile with insights about your interests in ${updatedProfile.interests.join(', ')}!`;
+                const nameMessage = updatedProfile.name ? ` Nice to meet you, ${updatedProfile.name}!` : '';
+                return `I've analyzed our conversation and updated your profile with insights about your interests in ${updatedProfile.interests.join(', ')}!${nameMessage}`;
               }
             }
           } catch (error) {
@@ -453,12 +574,13 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
             onAnalysisStateChange?.({ isAnalyzing: false });
           }
           
-          // Fallback to basic profile
+          // Fallback to basic profile with name support
           const updatedProfile: PersonProfile = {
+            name: parameters.name || undefined, // Include name from parameters
             interests: Array.isArray(parameters.interests) ? parameters.interests : ["Technology", "Problem Solving", "Innovation"],
             goals: Array.isArray(parameters.goals) ? parameters.goals : ["Career development", "Skill building"],
             skills: Array.isArray(parameters.skills) ? parameters.skills : ["Communication", "Analytical thinking"],
-            values: ["Making a difference", "Innovation", "Growth"],
+            values: Array.isArray(parameters.values) ? parameters.values : ["Making a difference", "Innovation", "Growth"],
             careerStage: "exploring",
             workStyle: ["Collaborative", "Flexible"],
             lastUpdated: new Date().toLocaleDateString()
@@ -471,7 +593,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           // Complete loading state
           onAnalysisStateChange?.({ isAnalyzing: false });
           
-          return "I've updated your profile based on our conversation!";
+          const nameMessage = updatedProfile.name ? ` Nice to meet you, ${updatedProfile.name}!` : '';
+          return `I've updated your profile based on our conversation!${nameMessage}`;
         }
         
         // Complete loading state for simple update

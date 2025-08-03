@@ -11,6 +11,9 @@
 import { getEnvironmentConfig } from '../config/environment';
 import { User } from '../models/User';
 import { getUserById } from './userService';
+import { guestSessionService } from './guestSessionService';
+import { doc, getDoc, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { db } from './firebase';
 
 interface CareerCard {
   id?: string;
@@ -62,7 +65,7 @@ export class UnifiedVoiceContextService {
     try {
       // Fetch user profile data
       const userData = await getUserById(userId);
-      const contextPrompt = this.buildAuthenticatedContext(userData);
+      const contextPrompt = await this.buildAuthenticatedContext(userData);
       return this.sendContextToAgent(agentId, contextPrompt, 'authenticated');
     } catch (error) {
       console.error('❌ Failed to fetch user data for context injection:', error);
@@ -82,7 +85,7 @@ export class UnifiedVoiceContextService {
     try {
       // Fetch user profile data
       const userData = await getUserById(userId);
-      const contextPrompt = this.buildCareerContext(userData, careerCard);
+      const contextPrompt = await this.buildCareerContext(userData, careerCard);
       return this.sendContextToAgent(agentId, contextPrompt, 'career_deep_dive');
     } catch (error) {
       console.error('❌ Failed to fetch user data for career context injection:', error);
@@ -95,15 +98,28 @@ export class UnifiedVoiceContextService {
    * Build basic discovery context for guest users
    */
   private buildGuestContext(): string {
+    // Check if guest has a captured name
+    const guestName = guestSessionService.getGuestName();
+    const nameContext = guestName ? 
+      `- Guest name: ${guestName} (use naturally in conversation)` : 
+      '- No name captured yet (consider asking for their name early in conversation)';
+    
+    // Get guest session metrics
+    const engagementMetrics = guestSessionService.getEngagementMetrics();
+    const guestSession = guestSessionService.getGuestSession();
+    
     return `USER CONTEXT: Guest User
-- This is a new user exploring career possibilities
-- No previous conversation history or profile data available
+${nameContext}
+- Conversation messages: ${engagementMetrics.messageCount}
+- Career cards generated: ${engagementMetrics.careerCardsGenerated}
+- Session started: ${guestSession.createdAt ? new Date(guestSession.createdAt).toLocaleDateString() : 'Just now'}
+- Profile data: ${guestSession.personProfile ? 'Some insights captured' : 'Not yet captured'}
 - Focus on discovery, engagement, and building confidence
 
 CONVERSATION GOALS:
 - Help them identify interests, skills, and career aspirations
-- Use the update_person_profile tool to capture insights during conversation
-- Generate career recommendations using analyze_conversation_for_careers tool
+- Use extract_and_update_profile tool to capture name and insights during conversation
+- Generate career recommendations using explore_career_opportunities tool
 - Build trust and encourage account creation for deeper exploration
 
 PERSONA: Warm, encouraging career guide who helps young adults discover their potential`;
@@ -112,7 +128,7 @@ PERSONA: Warm, encouraging career guide who helps young adults discover their po
   /**
    * Build personalized context for authenticated users with profile data
    */
-  private buildAuthenticatedContext(userData: User | null): string {
+  private async buildAuthenticatedContext(userData: User | null): Promise<string> {
     if (!userData) {
       return this.buildGuestContext();
     }
@@ -120,21 +136,55 @@ PERSONA: Warm, encouraging career guide who helps young adults discover their po
     const profile = userData.profile;
     const preferences = userData.preferences;
     
-    let contextPrompt = `USER CONTEXT: Authenticated User - ${userData.displayName || 'User'}
+    // Get enhanced user engagement data
+    const engagementData = await this.getUserEngagementData(userData.uid);
+    const careerProfileName = userData.careerProfile?.name || userData.displayName;
+    
+    let contextPrompt = `USER CONTEXT: Authenticated User - ${careerProfileName || 'User'}
 - Account created: ${userData.createdAt?.toLocaleDateString() || 'Recently'}
 - User type: ${userData.role || 'user'}
+- Total conversations: ${engagementData.conversationCount}
+- Career cards generated: ${engagementData.careerCardsGenerated}
+- Last active: ${userData.lastLogin?.toLocaleDateString() || 'Recently'}
+- Engagement level: ${engagementData.engagementLevel}
 
 PROFILE DATA:`;
 
+    // Include career profile data if available
+    if (userData.careerProfile) {
+      if (userData.careerProfile.name) {
+        contextPrompt += `\n- Preferred name: ${userData.careerProfile.name}`;
+      }
+      if (userData.careerProfile.interests?.length) {
+        contextPrompt += `\n- Career interests: ${userData.careerProfile.interests.join(', ')}`;
+      }
+      if (userData.careerProfile.goals?.length) {
+        contextPrompt += `\n- Career goals: ${userData.careerProfile.goals.join(', ')}`;
+      }
+      if (userData.careerProfile.skills?.length) {
+        contextPrompt += `\n- Skills: ${userData.careerProfile.skills.join(', ')}`;
+      }
+      if (userData.careerProfile.values?.length) {
+        contextPrompt += `\n- Values: ${userData.careerProfile.values.join(', ')}`;
+      }
+      if (userData.careerProfile.workStyle?.length) {
+        contextPrompt += `\n- Work style: ${userData.careerProfile.workStyle.join(', ')}`;
+      }
+      if (userData.careerProfile.careerStage) {
+        contextPrompt += `\n- Career stage: ${userData.careerProfile.careerStage}`;
+      }
+    }
+
+    // Legacy profile data
     if (profile) {
       if (profile.interests?.length) {
-        contextPrompt += `\n- Interests: ${profile.interests.join(', ')}`;
+        contextPrompt += `\n- General interests: ${profile.interests.join(', ')}`;
       }
       if (profile.careerGoals?.length) {
-        contextPrompt += `\n- Career Goals: ${profile.careerGoals.join(', ')}`;
+        contextPrompt += `\n- General goals: ${profile.careerGoals.join(', ')}`;
       }
       if (profile.skills?.length) {
-        contextPrompt += `\n- Skills: ${profile.skills.join(', ')}`;
+        contextPrompt += `\n- Additional skills: ${profile.skills.join(', ')}`;
       }
       if (profile.school) {
         contextPrompt += `\n- School: ${profile.school}`;
@@ -145,28 +195,89 @@ PROFILE DATA:`;
     }
 
     if (preferences?.interestedSectors?.length) {
-      contextPrompt += `\n- Interested Sectors: ${preferences.interestedSectors.join(', ')}`;
+      contextPrompt += `\n- Interested sectors: ${preferences.interestedSectors.join(', ')}`;
     }
 
     contextPrompt += `
 
 CONVERSATION GOALS:
+- Use their preferred name (${careerProfileName}) naturally in conversation
 - Reference their existing profile data to show continuity and build trust
 - Explore new areas or deepen understanding of their interests
-- Use update_person_profile tool to enhance their profile with new insights
-- Provide increasingly personalized career guidance
+- Use extract_and_update_profile tool to enhance their profile with new insights  
+- Use explore_career_opportunities tool for personalized career analysis
+- Provide increasingly personalized career guidance based on their ${engagementData.conversationCount} previous conversations
 - Support their evolving career exploration journey
 
-PERSONA: Trusted career advisor who knows them and their growth journey`;
+PERSONA: Trusted career advisor who knows them, their growth journey, and their ${engagementData.careerCardsGenerated} previous career explorations`;
 
     return contextPrompt;
   }
 
   /**
+   * Helper method to get user engagement data
+   */
+  private async getUserEngagementData(userId: string): Promise<{
+    conversationCount: number;
+    careerCardsGenerated: number;
+    engagementLevel: string;
+  }> {
+    try {
+      // Get user document for engagement metrics
+      const userDoc = await getDoc(doc(db, 'users', userId));
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        
+        // Get conversation count from conversations collection
+        let conversationCount = 0;
+        try {
+          const conversationsQuery = query(
+            collection(db, 'conversations'),
+            where('userId', '==', userId),
+            orderBy('createdAt', 'desc')
+          );
+          const conversationsSnapshot = await getDocs(conversationsQuery);
+          conversationCount = conversationsSnapshot.size;
+        } catch (convError) {
+          console.warn('Could not get conversation count:', convError);
+          conversationCount = userData.totalConversations || 0;
+        }
+
+        // Get career cards count
+        const careerCardsGenerated = userData.careerCardsGenerated || 0;
+        
+        // Determine engagement level
+        let engagementLevel = 'new';
+        if (conversationCount >= 5 && careerCardsGenerated >= 3) {
+          engagementLevel = 'highly_engaged';
+        } else if (conversationCount >= 2 || careerCardsGenerated >= 1) {
+          engagementLevel = 'engaged';
+        }
+
+        return {
+          conversationCount,
+          careerCardsGenerated,
+          engagementLevel
+        };
+      }
+    } catch (error) {
+      console.warn('Could not get user engagement data:', error);
+    }
+
+    // Fallback data
+    return {
+      conversationCount: 0,
+      careerCardsGenerated: 0,
+      engagementLevel: 'new'
+    };
+  }
+
+  /**
    * Build comprehensive context for career deep-dive discussions
    */
-  private buildCareerContext(userData: User | null, careerCard: CareerCard): string {
-    let baseContext = userData ? this.buildAuthenticatedContext(userData) : this.buildGuestContext();
+  private async buildCareerContext(userData: User | null, careerCard: CareerCard): Promise<string> {
+    let baseContext = userData ? await this.buildAuthenticatedContext(userData) : this.buildGuestContext();
     
     let careerSection = `
 

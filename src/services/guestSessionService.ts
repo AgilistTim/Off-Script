@@ -223,6 +223,7 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
         
         // Merge with existing profile if present
         const mergedProfile: PersonProfile = state.personProfile ? {
+          name: profile.name || state.personProfile.name, // Use new name if provided, keep existing if not
           interests: [...new Set([...state.personProfile.interests, ...profile.interests])],
           goals: [...new Set([...state.personProfile.goals, ...profile.goals])],
           skills: [...new Set([...state.personProfile.skills, ...profile.skills])],
@@ -389,6 +390,11 @@ export class GuestSessionService {
   // Analytics
   getEngagementMetrics(): GuestSession['engagementMetrics'] {
     return this.store.getState().engagementMetrics;
+  }
+
+  // Name helper for ElevenLabs integration
+  getGuestName(): string | null {
+    return this.store.getState().personProfile?.name || null;
   }
 }
 

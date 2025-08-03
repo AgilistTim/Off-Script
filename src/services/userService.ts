@@ -16,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from './firebase';
 import { User, UserPreferences, UserProfile } from '../models/User';
+import { PersonProfile } from '../types/careerCard';
 import { sendPasswordResetEmail as firebaseSendPasswordResetEmail } from 'firebase/auth';
 import { perplexityCareerEnhancementService } from './perplexityCareerEnhancementService';
 
@@ -104,6 +105,37 @@ export const updateUserProfile = async (uid: string, profile: Partial<UserProfil
     });
   } catch (error) {
     console.error('Error updating user profile:', error);
+    throw error;
+  }
+};
+
+// Update career profile (PersonProfile from career analysis)
+export const updateCareerProfile = async (uid: string, careerProfile: Partial<PersonProfile>): Promise<void> => {
+  try {
+    const userRef = doc(db, 'users', uid);
+    
+    // Get current user data first
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      throw new Error('User document does not exist');
+    }
+    
+    const userData = userDoc.data();
+    const currentCareerProfile = userData.careerProfile || {};
+    
+    // Merge career profile data, including name field
+    const mergedCareerProfile = {
+      ...currentCareerProfile,
+      ...careerProfile,
+      lastUpdated: new Date().toLocaleDateString()
+    };
+    
+    // Update career profile field
+    await updateDoc(userRef, { 
+      careerProfile: mergedCareerProfile
+    });
+  } catch (error) {
+    console.error('Error updating career profile:', error);
     throw error;
   }
 };
