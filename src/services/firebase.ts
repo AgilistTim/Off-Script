@@ -79,7 +79,7 @@ export { db, auth, googleProvider };
 // Initialize Analytics if available
 let analytics = null;
 try {
-  if (typeof window !== 'undefined' && isProduction) {
+  if (typeof window !== 'undefined' && isProduction()) {
     analytics = getAnalytics(app);
     console.log('✅ Firebase Analytics initialized');
   }

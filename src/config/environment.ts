@@ -336,4 +336,49 @@ export const env = new Proxy({} as EnvironmentConfig, {
     }
     return _environmentConfig[prop as keyof EnvironmentConfig];
   }
-}); 
+});
+
+// Export convenience accessors (also lazy-loaded)
+export const firebaseConfig = new Proxy({} as EnvironmentConfig['firebase'], {
+  get(target, prop) {
+    return env.firebase[prop as keyof EnvironmentConfig['firebase']];
+  }
+});
+
+export const apiKeys = new Proxy({} as EnvironmentConfig['apiKeys'], {
+  get(target, prop) {
+    return env.apiKeys[prop as keyof EnvironmentConfig['apiKeys']];
+  }
+});
+
+export const elevenLabs = new Proxy({} as EnvironmentConfig['elevenLabs'], {
+  get(target, prop) {
+    return env.elevenLabs[prop as keyof EnvironmentConfig['elevenLabs']];
+  }
+});
+
+export const perplexity = new Proxy({} as EnvironmentConfig['perplexity'], {
+  get(target, prop) {
+    return env.perplexity[prop as keyof EnvironmentConfig['perplexity']];
+  }
+});
+
+export const apiEndpoints = new Proxy({} as EnvironmentConfig['apiEndpoints'], {
+  get(target, prop) {
+    return env.apiEndpoints[prop as keyof EnvironmentConfig['apiEndpoints']];
+  }
+});
+
+export const features = new Proxy({} as EnvironmentConfig['features'], {
+  get(target, prop) {
+    return env.features[prop as keyof EnvironmentConfig['features']];
+  }
+});
+
+// Environment flags (lazy-loaded)
+export const isProduction = () => env.environment === 'production';
+export const isDevelopment = () => env.environment === 'development';
+export const isTest = () => env.environment === 'test';
+
+// Default export for backwards compatibility
+export default env; 
