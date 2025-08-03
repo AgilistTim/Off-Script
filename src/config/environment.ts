@@ -99,31 +99,31 @@ export const isPlaceholder = (value: string): boolean => {
 const getViteEnvironment = (): Partial<EnvironmentConfig> => {
   return {
     firebase: {
-      apiKey: import.meta.env.VITE_FIREBASE_API_KEY as string,
-      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string,
-      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID as string,
-      storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET as string,
-      messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID as string,
-      appId: import.meta.env.VITE_FIREBASE_APP_ID as string,
-      measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID as string,
+      apiKey: import.meta.env.VITE_FIREBASE_API_KEY || undefined,
+      authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || undefined,
+      projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || undefined,
+      storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || undefined,
+      messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || undefined,
+      appId: import.meta.env.VITE_FIREBASE_APP_ID || undefined,
+      measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || undefined,
     },
     apiKeys: {
-      youtube: import.meta.env.VITE_YOUTUBE_API_KEY as string,
-      recaptcha: import.meta.env.VITE_RECAPTCHA_SITE_KEY as string,
-      openai: import.meta.env.VITE_OPENAI_API_KEY as string,
+      youtube: import.meta.env.VITE_YOUTUBE_API_KEY || undefined,
+      recaptcha: import.meta.env.VITE_RECAPTCHA_SITE_KEY || undefined,
+      openai: import.meta.env.VITE_OPENAI_API_KEY || undefined,
       // SECURITY: bumpups and webshare API keys excluded from client-side for security
       // bumpups and webshare keys are handled server-side in Firebase Functions
     },
     elevenLabs: {
-      apiKey: import.meta.env.VITE_ELEVENLABS_API_KEY as string,
-      agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID as string,
+      apiKey: import.meta.env.VITE_ELEVENLABS_API_KEY || undefined,
+      agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID || undefined,
     },
     perplexity: {
-      apiKey: import.meta.env.VITE_PERPLEXITY_API_KEY as string,
+      apiKey: import.meta.env.VITE_PERPLEXITY_API_KEY || undefined,
     },
     apiEndpoints: {
-      bumpupsProxy: import.meta.env.VITE_BUMPUPS_PROXY_URL as string,
-      openaiAssistant: import.meta.env.VITE_OPENAI_ASSISTANT_URL as string,
+      bumpupsProxy: import.meta.env.VITE_BUMPUPS_PROXY_URL || undefined,
+      openaiAssistant: import.meta.env.VITE_OPENAI_ASSISTANT_URL || undefined,
     },
     environment: (import.meta.env.MODE || 'development') as 'development' | 'production' | 'test',
   };
