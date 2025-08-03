@@ -149,6 +149,7 @@ const ensureInitialized = () => {
   }
 };
 
+// ❌ Synchronous getters - DEPRECATED, use async versions below
 export const getFirebaseApp = (): FirebaseApp => {
   ensureInitialized();
   return firebaseApp!;
@@ -166,6 +167,35 @@ export const getAuth = (): Auth => {
 
 export const getAnalytics = (): Analytics | null => {
   ensureInitialized();
+  return firebaseAnalytics;
+};
+
+// ✅ OPTION B: Lazy loading async getters - USE THESE INSTEAD
+export const getFirebaseAppSafe = async (): Promise<FirebaseApp> => {
+  if (!firebaseApp) {
+    await initFirebase();
+  }
+  return firebaseApp!;
+};
+
+export const getFirestoreSafe = async (): Promise<Firestore> => {
+  if (!firestore) {
+    await initFirebase();
+  }
+  return firestore!;
+};
+
+export const getAuthSafe = async (): Promise<Auth> => {
+  if (!firebaseAuth) {
+    await initFirebase();
+  }
+  return firebaseAuth!;
+};
+
+export const getAnalyticsSafe = async (): Promise<Analytics | null> => {
+  if (!firebaseAnalytics && !isFirebaseInitialized) {
+    await initFirebase();
+  }
   return firebaseAnalytics;
 };
 
@@ -188,29 +218,53 @@ export const getFirebaseFunctionUrl = (functionName: string): string => {
 // Initialize Google Auth Provider (this is stateless)
 export const googleProvider = new GoogleAuthProvider();
 
-// Simple exports - no Proxy magic, just direct access to initialized instances
+// ❌ DEPRECATED: Synchronous proxy exports
+// These cause early access issues - use async Safe versions instead
 export const db = new Proxy({} as Firestore, {
   get(target, prop) {
-    const dbInstance = getFirestore();
-    const value = dbInstance[prop as keyof Firestore];
-    return typeof value === 'function' ? value.bind(dbInstance) : value;
+    throw new Error(`🚨 DEPRECATED: Direct 'db.${String(prop)}' access detected!
+
+PROBLEM: This synchronous access happens before Firebase is initialized.
+
+SOLUTION: Use async pattern instead:
+  
+  // ❌ OLD: const result = db.collection('users');
+  // ✅ NEW: const firestore = await getFirestoreSafe();
+  //         const result = firestore.collection('users');
+
+See migration guide for full details.`);
   }
 });
 
 export const auth = new Proxy({} as Auth, {
   get(target, prop) {
-    const authInstance = getAuth();
-    const value = authInstance[prop as keyof Auth];
-    return typeof value === 'function' ? value.bind(authInstance) : value;
+    throw new Error(`🚨 DEPRECATED: Direct 'auth.${String(prop)}' access detected!
+
+PROBLEM: This synchronous access happens before Firebase is initialized.
+
+SOLUTION: Use async pattern instead:
+  
+  // ❌ OLD: const user = auth.currentUser;
+  // ✅ NEW: const authInstance = await getAuthSafe();
+  //         const user = authInstance.currentUser;
+
+See migration guide for full details.`);
   }
 });
 
 export const analytics = new Proxy({} as Analytics | null, {
   get(target, prop) {
-    const analyticsInstance = getAnalytics();
-    if (!analyticsInstance) return undefined;
-    const value = (analyticsInstance as any)[prop];
-    return typeof value === 'function' ? value.bind(analyticsInstance) : value;
+    throw new Error(`🚨 DEPRECATED: Direct 'analytics.${String(prop)}' access detected!
+
+PROBLEM: This synchronous access happens before Firebase is initialized.
+
+SOLUTION: Use async pattern instead:
+  
+  // ❌ OLD: analytics.logEvent('event');
+  // ✅ NEW: const analyticsInstance = await getAnalyticsSafe();
+  //         if (analyticsInstance) analyticsInstance.logEvent('event');
+
+See migration guide for full details.`);
   }
 });
 
