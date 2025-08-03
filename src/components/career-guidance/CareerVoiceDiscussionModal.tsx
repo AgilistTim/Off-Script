@@ -34,20 +34,9 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '../../context/AuthContext';
+import { useAsyncEnvironment } from '../../hooks/useAsyncEnvironment';
 
-// Helper function to get environment variables (matches ElevenLabsWidget pattern)
-const getEnvVar = (key: string): string | undefined => {
-  const devValue = import.meta.env[key];
-  if (devValue && devValue !== 'undefined') return devValue;
-  
-  if (typeof window !== 'undefined' && window.ENV) {
-    const prodValue = window.ENV[key];
-    if (prodValue && prodValue !== '__ELEVENLABS_API_KEY__' && prodValue !== '__ELEVENLABS_AGENT_ID__') {
-      return prodValue;
-    }
-  }
-  return undefined;
-};
+
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -73,6 +62,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
   isPrimary = true
 }) => {
   const { currentUser } = useAuth();
+  const { config: envConfig, loading: envLoading, error: envError } = useAsyncEnvironment();
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -87,12 +77,12 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Get ElevenLabs configuration
-  const careerAwareAgentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
-  const apiKey = getEnvVar('VITE_ELEVENLABS_API_KEY');
+  const careerAwareAgentId = envConfig?.elevenLabs?.agentId;
+  const apiKey = envConfig?.elevenLabs?.apiKey;
 
-  // Initialize conversation with career-aware agent
+  // Initialize conversation with career-aware agent (only when environment config is ready)
   const conversation = useConversation({
-    agentId: careerAwareAgentId,
+    agentId: careerAwareAgentId || '', // Fallback to empty string when config not ready
     onConnect: () => {
       console.log('🎙️ Connected to career-aware voice assistant');
       setIsConnected(true);
@@ -241,6 +231,62 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
   const MatchIcon = matchBadge.icon;
 
   if (!isOpen) return null;
+
+  // Handle environment loading state
+  if (envLoading) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl h-[80vh] bg-gradient-to-br from-primary-black to-primary-gray border border-electric-blue/30 text-primary-white overflow-hidden [&>button]:hidden">
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-electric-blue" />
+              <p className="text-electric-blue">Loading environment configuration...</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Handle environment error state
+  if (envError) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl h-[80vh] bg-gradient-to-br from-primary-black to-primary-gray border border-electric-blue/30 text-primary-white overflow-hidden [&>button]:hidden">
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center space-y-4 text-center">
+              <X className="h-8 w-8 text-neon-pink" />
+              <h3 className="text-lg font-bold text-neon-pink">Configuration Error</h3>
+              <p className="text-primary-white">{envError}</p>
+              <Button onClick={onClose} variant="outline" className="border-electric-blue text-electric-blue hover:bg-electric-blue/10">
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Handle missing environment config
+  if (!envConfig || !apiKey || !careerAwareAgentId) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="max-w-4xl h-[80vh] bg-gradient-to-br from-primary-black to-primary-gray border border-electric-blue/30 text-primary-white overflow-hidden [&>button]:hidden">
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center space-y-4 text-center">
+              <X className="h-8 w-8 text-neon-pink" />
+              <h3 className="text-lg font-bold text-neon-pink">Configuration Missing</h3>
+              <p className="text-primary-white">ElevenLabs configuration is not available. Please check your environment setup.</p>
+              <Button onClick={onClose} variant="outline" className="border-electric-blue text-electric-blue hover:bg-electric-blue/10">
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

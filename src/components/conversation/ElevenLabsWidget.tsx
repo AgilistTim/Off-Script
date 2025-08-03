@@ -6,23 +6,9 @@ import { CareerCard, PersonProfile } from '../../types/careerCard';
 import { mcpQueueService } from '../../services/mcpQueueService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 import { EnhancedUserContextService } from '../../services/enhancedUserContextService';
+import { useAsyncEnvironment } from '../../hooks/useAsyncEnvironment';
 
-// Helper function to get environment variables from both sources (dev + production)
-const getEnvVar = (key: string): string | undefined => {
-  // Try import.meta.env first (development)
-  const devValue = import.meta.env[key];
-  if (devValue && devValue !== 'undefined') return devValue;
-  
-  // Fallback to window.ENV (production runtime injection)
-  if (typeof window !== 'undefined' && window.ENV) {
-    const prodValue = window.ENV[key];
-    if (prodValue && prodValue !== '__ELEVENLABS_API_KEY__' && prodValue !== '__ELEVENLABS_AGENT_ID__') {
-      return prodValue;
-    }
-  }
-  
-  return undefined;
-};
+
 
 interface ElevenLabsWidgetProps {
   onCareerCardsGenerated?: (cards: any[]) => void;
@@ -42,11 +28,11 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   className = ''
 }) => {
   const { currentUser } = useAuth();
+  const { config: envConfig, loading: envLoading, error: envError } = useAsyncEnvironment();
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string; timestamp: Date }>>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
   const [insightsGenerated, setInsightsGenerated] = useState(0);
-  const [envLoaded, setEnvLoaded] = useState(false);
   
   // Track data generated during this conversation session
   const [sessionCareerCardCount, setSessionCareerCardCount] = useState(0);
@@ -58,22 +44,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   // Use ref to access current conversation history in tool closures
   const conversationHistoryRef = useRef(conversationHistory);
   
-  // Check if environment variables are loaded
-  useEffect(() => {
-    const checkEnvLoaded = () => {
-      const agentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
-      const apiKey = getEnvVar('VITE_ELEVENLABS_API_KEY');
-      
-      if (agentId && apiKey) {
-        setEnvLoaded(true);
-      } else {
-        // Retry after a short delay to allow window.ENV to populate
-        setTimeout(checkEnvLoaded, 100);
-      }
-    };
-    
-    checkEnvLoaded();
-  }, []);
+
 
   // Fetch user profile data for personalized welcome messages
   useEffect(() => {
@@ -126,7 +97,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
 
   // Dynamic agent selection based on user state and conversation context
   const getAgentId = useCallback((): string => {
-    const agentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
+    const agentId = envConfig?.elevenLabs?.agentId;
     if (!agentId) {
       console.error('Missing VITE_ELEVENLABS_AGENT_ID environment variable');
       throw new Error('ElevenLabs agent ID not configured');
@@ -140,11 +111,11 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     // Authenticated users use the same agent with context injection
     // Context will be injected dynamically via UnifiedVoiceContextService
     return agentId;
-  }, [currentUser]);
+  }, [currentUser, envConfig]);
 
   // Use the helper function to get environment variables
-  const agentId = getAgentId();
-  const apiKey = getEnvVar('VITE_ELEVENLABS_API_KEY');
+  const agentId = envConfig ? getAgentId() : '';
+  const apiKey = envConfig?.elevenLabs?.apiKey;
   const mcpEndpoint = 'https://off-script-mcp-elevenlabs.onrender.com/mcp';
 
   // Helper function to update conversation history and persist to Firebase
@@ -211,7 +182,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     const currentHistory = conversationHistoryRef.current;
     
     // Allow analysis with cached conversation data even when disconnected
-    if (!envLoaded) { // Check if environment variables are loaded
+    if (!envConfig || envLoading) { // Check if environment variables are loaded
       console.log('🚫 Analysis blocked - ElevenLabs environment not loaded');
       return 'Please ensure ElevenLabs configuration is correct.';
     }
@@ -408,7 +379,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       
       return 'Career analysis temporarily unavailable';
     }
-  }, [envLoaded, agentId, apiKey, onCareerCardsGenerated, onAnalysisStateChange]); // Removed conversationHistory dependency since using ref
+  }, [envConfig, envLoading, agentId, apiKey, onCareerCardsGenerated, onAnalysisStateChange]); // Removed conversationHistory dependency since using ref
 
   // Validate configuration on mount
   useEffect(() => {
@@ -826,13 +797,27 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     }
   }, [conversation]);
 
-  // Configuration check - wait for environment to load
-  if (!envLoaded) {
+
+
+  // Handle environment loading state
+  if (envLoading) {
     return (
-      <div className={`p-6 border-2 border-dashed border-gray-300 rounded-lg text-center ${className}`}>
-        <div className="text-gray-500">
-          <p className="text-lg font-medium">Loading ElevenLabs Configuration...</p>
-          <p className="text-sm mt-2">Waiting for environment variables to load</p>
+      <div className={`flex items-center justify-center p-6 ${className}`}>
+        <div className="flex flex-col items-center space-y-2">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          <p className="text-gray-600 text-sm">Loading environment configuration...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle environment error state
+  if (envError) {
+    return (
+      <div className={`p-6 border-2 border-dashed border-red-300 rounded-lg text-center ${className}`}>
+        <div className="text-red-500">
+          <p className="text-lg font-medium">Configuration Error</p>
+          <p className="text-sm mt-2">{envError}</p>
         </div>
       </div>
     );

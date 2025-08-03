@@ -61,21 +61,10 @@ import { agentContextService } from '../../services/agentContextService';
 import { mcpQueueService } from '../../services/mcpQueueService';
 import { progressAwareMCPService, MCPProgressUpdate } from '../../services/progressAwareMCPService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
+import { useAsyncEnvironment } from '../../hooks/useAsyncEnvironment';
 
 
-// Helper function to get environment variables (matches ElevenLabsWidget pattern)
-const getEnvVar = (key: string): string | undefined => {
-  const devValue = import.meta.env[key];
-  if (devValue && devValue !== 'undefined') return devValue;
-  
-  if (typeof window !== 'undefined' && window.ENV) {
-    const prodValue = window.ENV[key];
-    if (prodValue && prodValue !== '__ELEVENLABS_API_KEY__' && prodValue !== '__ELEVENLABS_AGENT_ID__') {
-      return prodValue;
-    }
-  }
-  return undefined;
-};
+
 
 interface ConversationMessage {
   role: 'user' | 'assistant';
@@ -103,6 +92,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   onConversationEnd
 }) => {
   const { currentUser, userData } = useAuth();
+  const { config: envConfig, loading: envLoading, error: envError } = useAsyncEnvironment();
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>(currentConversationHistory);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -152,7 +142,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
   // Determine agent based on user auth state and context
   const getAgentId = (): string => {
-    const agentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
+    const agentId = envConfig?.elevenLabs?.agentId;
     if (!agentId) {
       console.error('Missing VITE_ELEVENLABS_AGENT_ID environment variable');
       throw new Error('ElevenLabs agent ID not configured');
@@ -172,8 +162,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     return agentId;
   };
 
-  const agentId = getAgentId();
-  const apiKey = getEnvVar('VITE_ELEVENLABS_API_KEY');
+  const agentId = envConfig ? getAgentId() : '';
+  const apiKey = envConfig?.elevenLabs?.apiKey;
 
   // Fallback career card generation when MCP is unavailable
   const generateFallbackCareerCards = async (messages: any[], triggerReason: string) => {
@@ -264,9 +254,9 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     return context.greeting;
   };
 
-  // Initialize conversation
+  // Initialize conversation (only when environment config is ready)
   const conversation = useConversation({
-    agentId,
+    agentId: agentId || '', // Fallback to empty string when config not ready
     // Remove firstMessage override to prevent WebSocket connection issues
     clientTools: {
       analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
@@ -626,7 +616,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   // Get agent display info
   const getAgentInfo = () => {
     // Dynamic agent info based on current configuration
-    const currentAgentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
+    const currentAgentId = envConfig?.elevenLabs?.agentId;
     
     switch (agentId) {
       case 'agent_01k0fkhhx0e8k8e6nwtz8ptkwb':
@@ -683,6 +673,62 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   };
 
   if (!isOpen) return null;
+
+  // Handle environment loading state
+  if (envLoading) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="w-[90vw] max-w-5xl h-[80vh] bg-gradient-to-br from-primary-black via-primary-gray to-primary-black p-0 border-electric-blue/30 shadow-[0_0_50px_rgba(0,255,255,0.3)]">
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center space-y-4">
+              <Loader2 className="h-8 w-8 animate-spin text-electric-blue" />
+              <p className="text-electric-blue">Loading environment configuration...</p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Handle environment error state
+  if (envError) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="w-[90vw] max-w-5xl h-[80vh] bg-gradient-to-br from-primary-black via-primary-gray to-primary-black p-6 border-electric-blue/30 shadow-[0_0_50px_rgba(0,255,255,0.3)]">
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center space-y-4 text-center">
+              <AlertTriangle className="h-8 w-8 text-neon-pink" />
+              <h3 className="text-lg font-bold text-neon-pink">Configuration Error</h3>
+              <p className="text-primary-white">{envError}</p>
+              <Button onClick={onClose} variant="outline" className="border-electric-blue text-electric-blue hover:bg-electric-blue/10">
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  // Handle missing environment config
+  if (!envConfig || !apiKey || !agentId) {
+    return (
+      <Dialog open={isOpen} onOpenChange={onClose}>
+        <DialogContent className="w-[90vw] max-w-5xl h-[80vh] bg-gradient-to-br from-primary-black via-primary-gray to-primary-black p-6 border-electric-blue/30 shadow-[0_0_50px_rgba(0,255,255,0.3)]">
+          <div className="flex items-center justify-center h-full">
+            <div className="flex flex-col items-center space-y-4 text-center">
+              <AlertTriangle className="h-8 w-8 text-neon-pink" />
+              <h3 className="text-lg font-bold text-neon-pink">Configuration Missing</h3>
+              <p className="text-primary-white">ElevenLabs configuration is not available. Please check your environment setup.</p>
+              <Button onClick={onClose} variant="outline" className="border-electric-blue text-electric-blue hover:bg-electric-blue/10">
+                Close
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   console.log('🎭 EnhancedChatVoiceModal: Rendering modal (isOpen=true)');
 
