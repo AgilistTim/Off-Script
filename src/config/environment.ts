@@ -126,34 +126,8 @@ const getWindowEnvironment = (): Partial<EnvironmentConfig> => {
     return {};
   }
   
-  // Enhanced debug logging for environment variable troubleshooting
-  if (import.meta.env.MODE === 'production') {
-    console.log('🔍 Production Environment Debug:', {
-      windowEnvExists: typeof window !== 'undefined' && !!window.ENV,
-      windowEnvKeys: typeof window !== 'undefined' && window.ENV ? Object.keys((window as any).ENV) : 'N/A',
-      firebaseApiKey: typeof window !== 'undefined' && window.ENV ? (window as any).ENV.VITE_FIREBASE_API_KEY : 'window.ENV not available',
-      firebaseApiKeyType: typeof window !== 'undefined' && window.ENV ? typeof (window as any).ENV.VITE_FIREBASE_API_KEY : 'N/A',
-      elevenLabsAgentId: typeof window !== 'undefined' && window.ENV ? (window as any).ENV.VITE_ELEVENLABS_AGENT_ID : 'window.ENV not available',
-      timestamp: new Date().toISOString()
-    });
-
-    // Check if we can fetch the actual environment.js file to debug content
-    if (typeof window !== 'undefined') {
-      fetch('/environment.js')
-        .then(response => response.text())
-        .then(content => {
-          console.log('🔍 Raw environment.js content preview:', content.substring(0, 500) + '...');
-          
-          // Check if placeholders are still present
-          if (content.includes('__FIREBASE_API_KEY__')) {
-            console.error('🚨 CRITICAL: Placeholders detected in environment.js - Docker injection failed!');
-          } else {
-            console.log('✅ Placeholders appear to be replaced in environment.js');
-          }
-        })
-        .catch(err => console.log('⚠️ Could not fetch environment.js for debugging:', err.message));
-    }
-  }
+  // Debug logging can be enabled for troubleshooting if needed
+  // console.log('🔍 Debug window.ENV keys:', Object.keys((window as any).ENV || {}));
   
   return {
     firebase: {
@@ -352,22 +326,14 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
   };
 };
 
-// Create a singleton instance of the environment configuration
-export const env = getEnvironmentConfig();
+// Lazy-loaded singleton instance of the environment configuration
+let _environmentConfig: EnvironmentConfig | null = null;
 
-// Export individual parts of the configuration for convenience
-export const firebaseConfig = env.firebase;
-export const apiKeys = env.apiKeys;
-export const elevenLabs = env.elevenLabs;
-export const perplexity = env.perplexity;
-export const apiEndpoints = env.apiEndpoints;
-export const features = env.features;
-export const environment = env.environment;
-
-// Export a helper function to check if we're in production
-export const isProduction = env.environment === 'production';
-export const isDevelopment = env.environment === 'development';
-export const isTest = env.environment === 'test';
-
-// Export default configuration
-export default env; 
+export const env = new Proxy({} as EnvironmentConfig, {
+  get(target, prop) {
+    if (!_environmentConfig) {
+      _environmentConfig = getEnvironmentConfig();
+    }
+    return _environmentConfig[prop as keyof EnvironmentConfig];
+  }
+}); 
