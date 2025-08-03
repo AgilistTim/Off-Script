@@ -3,10 +3,12 @@
  * Provides rich context to the ElevenLabs Career-Aware Discussion Agent
  */
 
+import { env } from '../config/environment';
+
 export interface CareerDiscussionContext {
   // New Career-Aware Agent Configuration
   agentConfig: {
-    agentId: 'agent_3301k1j5rqq1fp29fsg4278fmtsa'; // Our new career-aware agent
+    agentId: string; // Dynamic agent ID from environment configuration
     name: 'OffScript Career-Aware Discussion Agent';
     purpose: 'specific_career_discussion';
   };
@@ -198,7 +200,7 @@ export class CareerDiscussionContextBuilder {
     // Set default agent config
     if (!this.context.agentConfig) {
       this.context.agentConfig = {
-        agentId: 'agent_3301k1j5rqq1fp29fsg4278fmtsa',
+        agentId: env.elevenLabs.agentId,
         name: 'OffScript Career-Aware Discussion Agent',
         purpose: 'specific_career_discussion'
       };

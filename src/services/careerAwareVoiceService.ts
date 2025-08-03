@@ -10,7 +10,7 @@ import careerPathwayService from './careerPathwayService';
 import { getUserById, updateUserProfile } from './userService';
 
 // ElevenLabs Career-Aware Agent Configuration
-const CAREER_AWARE_AGENT_ID = 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
+// Dynamic agent ID from environment configuration
 const CAREER_AWARE_AGENT_NAME = 'OffScript Career-Aware Discussion Agent';
 
 interface CareerDiscussionSession {

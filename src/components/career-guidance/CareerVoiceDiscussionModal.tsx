@@ -87,7 +87,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Get ElevenLabs configuration
-  const careerAwareAgentId = 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
+  const careerAwareAgentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
   const apiKey = getEnvVar('VITE_ELEVENLABS_API_KEY');
 
   // Initialize conversation with career-aware agent

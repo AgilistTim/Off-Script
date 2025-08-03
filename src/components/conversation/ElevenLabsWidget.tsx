@@ -126,14 +126,20 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
 
   // Dynamic agent selection based on user state and conversation context
   const getAgentId = useCallback((): string => {
+    const agentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
+    if (!agentId) {
+      console.error('Missing VITE_ELEVENLABS_AGENT_ID environment variable');
+      throw new Error('ElevenLabs agent ID not configured');
+    }
+    
     if (!currentUser) {
       // Guest user - use career-aware agent (unified architecture)
-      return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
+      return agentId;
     }
     
     // Authenticated users use the same agent with context injection
     // Context will be injected dynamically via UnifiedVoiceContextService
-    return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
+    return agentId;
   }, [currentUser]);
 
   // Use the helper function to get environment variables

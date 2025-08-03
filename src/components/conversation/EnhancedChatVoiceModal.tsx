@@ -152,18 +152,24 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
   // Determine agent based on user auth state and context
   const getAgentId = (): string => {
+    const agentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
+    if (!agentId) {
+      console.error('Missing VITE_ELEVENLABS_AGENT_ID environment variable');
+      throw new Error('ElevenLabs agent ID not configured');
+    }
+    
     if (!currentUser) {
       // Guest user - use unified career-aware agent
-      return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
+      return agentId;
     }
     
     if (careerContext && careerContext.title) {
       // Authenticated user with career context - use same agent with career context injection
-      return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
+      return agentId;
     }
     
     // Authenticated user without specific career context - use same agent with user context injection
-    return 'agent_3301k1j5rqq1fp29fsg4278fmtsa';
+    return agentId;
   };
 
   const agentId = getAgentId();
@@ -619,6 +625,9 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
   // Get agent display info
   const getAgentInfo = () => {
+    // Dynamic agent info based on current configuration
+    const currentAgentId = getEnvVar('VITE_ELEVENLABS_AGENT_ID');
+    
     switch (agentId) {
       case 'agent_01k0fkhhx0e8k8e6nwtz8ptkwb':
         return {
@@ -626,7 +635,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           description: currentUser ? 'Your personalized career assistant' : 'General career exploration guide',
           icon: <Sparkles className="w-5 h-5" />
         };
-      case 'agent_3301k1j5rqq1fp29fsg4278fmtsa':
+      case currentAgentId:
         return {
           name: 'Career Specialist',
           description: `Expert in ${careerContext?.title || 'career guidance'}`,
