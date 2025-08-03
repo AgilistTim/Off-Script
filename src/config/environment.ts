@@ -388,7 +388,7 @@ const getEnvironmentConfigSync = (): EnvironmentConfig => {
   console.error('📍 Stack trace:', new Error().stack);
   console.error('⚠️ This component should wait for Firebase initialization!');
   
-  // Only try Vite environment variables synchronously
+  // First try Vite environment variables synchronously
   const viteConfig = getViteEnvironment();
   
   // Check if Firebase config from Vite is valid
@@ -400,6 +400,50 @@ const getEnvironmentConfigSync = (): EnvironmentConfig => {
       apiEndpoints: generateApiEndpoints(viteConfig),
       environment: viteConfig.environment || 'development',
     } as EnvironmentConfig;
+  }
+  
+  // If Vite config is not valid, try window.ENV synchronously (for production)
+  if (typeof window !== 'undefined' && (window as any).ENV) {
+    console.log('🔄 Trying window.ENV synchronously as fallback...');
+    
+    const windowConfig = {
+      firebase: {
+        apiKey: (window as any).ENV.VITE_FIREBASE_API_KEY,
+        authDomain: (window as any).ENV.VITE_FIREBASE_AUTH_DOMAIN,
+        projectId: (window as any).ENV.VITE_FIREBASE_PROJECT_ID,
+        storageBucket: (window as any).ENV.VITE_FIREBASE_STORAGE_BUCKET,
+        messagingSenderId: (window as any).ENV.VITE_FIREBASE_MESSAGING_SENDER_ID,
+        appId: (window as any).ENV.VITE_FIREBASE_APP_ID,
+        measurementId: (window as any).ENV.VITE_FIREBASE_MEASUREMENT_ID,
+      },
+      apiKeys: {
+        youtube: (window as any).ENV.VITE_YOUTUBE_API_KEY,
+        recaptcha: (window as any).ENV.VITE_RECAPTCHA_SITE_KEY,
+        openai: (window as any).ENV.VITE_OPENAI_API_KEY,
+      },
+      elevenLabs: {
+        apiKey: (window as any).ENV.VITE_ELEVENLABS_API_KEY || undefined,
+        agentId: (window as any).ENV.VITE_ELEVENLABS_AGENT_ID || undefined,
+      },
+      perplexity: {
+        apiKey: (window as any).ENV.VITE_PERPLEXITY_API_KEY || undefined,
+      },
+      apiEndpoints: {
+        bumpupsProxy: (window as any).ENV.VITE_BUMPUPS_PROXY_URL,
+        openaiAssistant: (window as any).ENV.VITE_OPENAI_ASSISTANT_URL || undefined,
+      },
+      environment: viteConfig.environment || 'production',
+    };
+    
+    // Check if Firebase config from window.ENV is valid
+    if (windowConfig.firebase && validateFirebaseConfig(windowConfig.firebase)) {
+      console.log('✅ Using window.ENV synchronously (fallback)');
+      return {
+        ...windowConfig,
+        features: determineFeatureFlags(windowConfig),
+        apiEndpoints: generateApiEndpoints(windowConfig),
+      } as EnvironmentConfig;
+    }
   }
   
   // For production, provide a minimal config that will trigger async loading
