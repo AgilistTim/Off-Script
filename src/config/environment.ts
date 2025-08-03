@@ -130,10 +130,44 @@ const getViteEnvironment = (): Partial<EnvironmentConfig> => {
 };
 
 /**
- * Get environment variables from window.ENV (runtime configuration)
+ * Wait for window.ENV to be available with timeout
  */
-const getWindowEnvironment = (): Partial<EnvironmentConfig> => {
-  if (typeof window === 'undefined' || !window.ENV) {
+const waitForWindowEnv = (): Promise<boolean> => {
+  return new Promise((resolve) => {
+    // If window.ENV is already available, resolve immediately
+    if (typeof window !== 'undefined' && (window as any).ENV) {
+      resolve(true);
+      return;
+    }
+    
+    // Otherwise, poll for window.ENV with timeout
+    let attempts = 0;
+    const maxAttempts = 50; // 5 seconds total (50 * 100ms)
+    
+    const checkEnv = () => {
+      if (typeof window !== 'undefined' && (window as any).ENV) {
+        resolve(true);
+      } else if (attempts >= maxAttempts) {
+        console.warn('⚠️ window.ENV not available after timeout, using fallback configuration');
+        resolve(false);
+      } else {
+        attempts++;
+        setTimeout(checkEnv, 100); // Check every 100ms
+      }
+    };
+    
+    checkEnv();
+  });
+};
+
+/**
+ * Get environment variables from window.ENV (runtime configuration)
+ * Waits for window.ENV to be available to resolve race condition
+ */
+const getWindowEnvironment = async (): Promise<Partial<EnvironmentConfig>> => {
+  const envAvailable = await waitForWindowEnv();
+  
+  if (!envAvailable || typeof window === 'undefined' || !(window as any).ENV) {
     return {};
   }
   
@@ -263,12 +297,10 @@ const generateApiEndpoints = (config: Partial<EnvironmentConfig>): EnvironmentCo
 };
 
 /**
- * Get the environment configuration
- * 
- * This function prioritizes Vite environment variables (for development)
- * and falls back to window.ENV (for production) if needed.
+ * Async function to get the environment configuration
+ * Handles the window.ENV loading race condition properly
  */
-export const getEnvironmentConfig = (): EnvironmentConfig => {
+export const initializeEnvironmentConfig = async (): Promise<EnvironmentConfig> => {
   // First try Vite environment variables
   const viteConfig = getViteEnvironment();
   
@@ -283,8 +315,8 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
     } as EnvironmentConfig;
   }
   
-  // Fall back to window.ENV
-  const windowConfig = getWindowEnvironment();
+  // Fall back to window.ENV (with proper async waiting)
+  const windowConfig = await getWindowEnvironment();
   
   // Check if Firebase config from window.ENV is valid
   if (windowConfig.firebase && validateFirebaseConfig(windowConfig.firebase)) {
@@ -334,13 +366,97 @@ export const getEnvironmentConfig = (): EnvironmentConfig => {
   };
 };
 
-// Lazy-loaded singleton instance of the environment configuration
+/**
+ * Synchronous fallback function for backwards compatibility
+ * This will return immediately available config or fallback values
+ */
+const getEnvironmentConfigSync = (): EnvironmentConfig => {
+  // Only try Vite environment variables synchronously
+  const viteConfig = getViteEnvironment();
+  
+  // Check if Firebase config from Vite is valid
+  if (viteConfig.firebase && validateFirebaseConfig(viteConfig.firebase)) {
+    console.log('✅ Using Vite environment variables (sync)');
+    return {
+      ...viteConfig,
+      features: determineFeatureFlags(viteConfig),
+      apiEndpoints: generateApiEndpoints(viteConfig),
+      environment: viteConfig.environment || 'development',
+    } as EnvironmentConfig;
+  }
+  
+  // For production, provide a minimal config that will trigger async loading
+  console.warn('⚠️ Synchronous config access - async initialization required for production');
+  return {
+    firebase: {
+      apiKey: 'INITIALIZING',
+      authDomain: 'INITIALIZING',
+      projectId: 'INITIALIZING',
+      storageBucket: 'INITIALIZING',
+      messagingSenderId: 'INITIALIZING',
+      appId: 'INITIALIZING',
+      measurementId: 'INITIALIZING',
+    },
+    apiKeys: {
+      youtube: undefined,
+      recaptcha: undefined,
+      openai: undefined,
+    },
+    elevenLabs: {
+      apiKey: undefined,
+      agentId: undefined,
+    },
+    perplexity: {
+      apiKey: undefined,
+    },
+    apiEndpoints: generateApiEndpoints({}),
+    environment: viteConfig.environment || 'production',
+    features: determineFeatureFlags({}),
+  };
+};
+
+// Environment configuration state management
 let _environmentConfig: EnvironmentConfig | null = null;
+let _initializationPromise: Promise<EnvironmentConfig> | null = null;
+
+/**
+ * Initialize environment configuration asynchronously
+ * This should be called early in the application lifecycle
+ */
+export const initializeEnvironment = async (): Promise<EnvironmentConfig> => {
+  if (_environmentConfig) {
+    return _environmentConfig;
+  }
+  
+  if (!_initializationPromise) {
+    _initializationPromise = initializeEnvironmentConfig();
+  }
+  
+  _environmentConfig = await _initializationPromise;
+  return _environmentConfig;
+};
+
+/**
+ * Check if environment has been properly initialized
+ */
+export const isEnvironmentInitialized = (): boolean => {
+  return _environmentConfig !== null && 
+         _environmentConfig.firebase.apiKey !== 'INITIALIZING';
+};
 
 export const env = new Proxy({} as EnvironmentConfig, {
   get(target, prop) {
     if (!_environmentConfig) {
-      _environmentConfig = getEnvironmentConfig();
+      _environmentConfig = getEnvironmentConfigSync();
+      
+      // Trigger async initialization if we're using fallback config
+      if (!isEnvironmentInitialized()) {
+        initializeEnvironment().then(config => {
+          _environmentConfig = config;
+        }).catch(error => {
+          console.error('❌ Failed to initialize environment configuration:', error);
+        });
+      }
     }
     return _environmentConfig[prop as keyof EnvironmentConfig];
   }
@@ -387,6 +503,9 @@ export const features = new Proxy({} as EnvironmentConfig['features'], {
 export const isProduction = () => env.environment === 'production';
 export const isDevelopment = () => env.environment === 'development';
 export const isTest = () => env.environment === 'test';
+
+// Backwards compatibility exports
+export const getEnvironmentConfig = getEnvironmentConfigSync;
 
 // Default export for backwards compatibility
 export default env; 
