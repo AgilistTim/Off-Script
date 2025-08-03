@@ -464,7 +464,6 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
 
   // Initialize conversation with client tools that ElevenLabs calls
   const conversation = useConversation({
-    ...getConversationOverrides(),
     clientTools: {
       // Consolidated Tool 1: All career exploration and analysis
       explore_career_opportunities: async (parameters: { 
@@ -767,8 +766,12 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         console.warn('⚠️ Widget conversation will proceed with default agent configuration - this may result in poor user experience');
       }
       
+      // Get fresh overrides for this session start
+      const sessionOverrides = getConversationOverrides();
+      
       const result = await conversation.startSession({
-        agentId
+        agentId,
+        ...sessionOverrides
       });
       
       console.log('✅ Conversation started successfully:', result);
