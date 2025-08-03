@@ -66,15 +66,26 @@ export interface EnvironmentConfig {
 
 /**
  * Helper function to check if a value is a placeholder or invalid
+ * Enhanced to detect "undefined" strings and improve validation
  */
 export const isPlaceholder = (value: string): boolean => {
-  if (!value || typeof value !== 'string') return true;
+  // Check for falsy values, non-strings, or empty strings
+  if (!value || typeof value !== 'string' || value.trim() === '') {
+    return true;
+  }
   
+  // Check for "undefined" string (caused by undefined variable expansion)
+  if (value === 'undefined') {
+    return true;
+  }
+  
+  // Check for placeholder patterns
   return value.includes('YOUR_') || 
          value.includes('your-') || 
          value === '000000000000' || 
          value.includes('G-YOUR-') || 
          value.includes('__FIREBASE_') ||
+         value.includes('__') ||  // Enhanced: catch any remaining placeholder patterns
          value.includes('demo-') ||
          value.includes('REPLACE_WITH_') ||
          value.includes('placeholder') ||
@@ -125,9 +136,6 @@ const getWindowEnvironment = (): Partial<EnvironmentConfig> => {
   if (typeof window === 'undefined' || !window.ENV) {
     return {};
   }
-  
-  // Debug logging can be enabled for troubleshooting if needed
-  // console.log('🔍 Debug window.ENV keys:', Object.keys((window as any).ENV || {}));
   
   return {
     firebase: {
