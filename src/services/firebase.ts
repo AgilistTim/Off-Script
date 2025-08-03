@@ -22,60 +22,41 @@ declare global {
   }
 }
 
-// Firebase instances - initialized only after environment is ready
+// ✅ CLEAN ASYNC-ONLY Firebase instances
 let firebaseApp: FirebaseApp | null = null;
 let firestore: Firestore | null = null;
-let firebaseAuth: Auth | null = null;
-let firebaseAnalytics: Analytics | null = null;
-let isFirebaseInitialized = false;
+let auth: Auth | null = null;
+let analytics: Analytics | null = null;
 
 /**
- * Wait for window.ENV to be available
+ * ✅ CLEAN ASYNC-ONLY Firebase Initialization
+ * No synchronous access, no module-level initialization
  */
-const waitForEnvironment = (): Promise<boolean> => {
-  return new Promise((resolve) => {
-    // If window.ENV is already available, resolve immediately
-    if (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_FIREBASE_API_KEY) {
-      resolve(true);
-      return;
-    }
-    
-    // Otherwise, poll for window.ENV with timeout
-    let attempts = 0;
-    const maxAttempts = 50; // 5 seconds total (50 * 100ms)
-    
-    const checkEnv = () => {
-      if (typeof window !== 'undefined' && window.ENV && window.ENV.VITE_FIREBASE_API_KEY) {
-        resolve(true);
-      } else if (attempts >= maxAttempts) {
-        console.error('❌ window.ENV not available after timeout');
-        resolve(false);
-      } else {
-        attempts++;
-        setTimeout(checkEnv, 100); // Check every 100ms
-      }
-    };
-    
-    checkEnv();
-  });
-};
-
-/**
- * Initialize Firebase with environment variables
- * Must be called before any Firebase services are used
- */
-export const initFirebase = async (): Promise<void> => {
-  if (isFirebaseInitialized) {
-    return; // Already initialized
-  }
+export async function initFirebase(): Promise<void> {
+  if (firebaseApp) return; // Already initialized
   
   console.log('🔧 Initializing Firebase...');
   
-  // Wait for window.ENV to be available
-  const envReady = await waitForEnvironment();
+  // Build Firebase config from window.ENV
+  const config = {
+    apiKey: window.ENV?.VITE_FIREBASE_API_KEY,
+    authDomain: window.ENV?.VITE_FIREBASE_AUTH_DOMAIN,
+    projectId: window.ENV?.VITE_FIREBASE_PROJECT_ID,
+    storageBucket: window.ENV?.VITE_FIREBASE_STORAGE_BUCKET,
+    messagingSenderId: window.ENV?.VITE_FIREBASE_MESSAGING_SENDER_ID,
+    appId: window.ENV?.VITE_FIREBASE_APP_ID,
+    measurementId: window.ENV?.VITE_FIREBASE_MEASUREMENT_ID,
+  };
   
-  if (!envReady || !window.ENV) {
-    throw new Error('Environment variables not available - cannot initialize Firebase');
+  // Validate required fields
+  if (!config.apiKey || config.apiKey === 'undefined') {
+    throw new Error(`🚨 Missing Firebase config: apiKey = "${config.apiKey}"
+    
+ENVIRONMENT STATUS:
+- window.ENV exists: ${typeof window !== 'undefined' && !!window.ENV}
+- Available keys: ${typeof window !== 'undefined' && window.ENV ? Object.keys(window.ENV).join(', ') : 'N/A'}
+
+SOLUTION: Ensure window.ENV is loaded before calling initFirebase()`);
   }
   
   console.log('🔍 Environment check:', {
@@ -83,22 +64,6 @@ export const initFirebase = async (): Promise<void> => {
     VITE_DISABLE_EMULATORS: import.meta.env.VITE_DISABLE_EMULATORS,
     isDevelopment: import.meta.env.MODE === 'development'
   });
-  
-  // Build Firebase config from window.ENV
-  const config = {
-    apiKey: window.ENV.VITE_FIREBASE_API_KEY,
-    authDomain: window.ENV.VITE_FIREBASE_AUTH_DOMAIN,
-    projectId: window.ENV.VITE_FIREBASE_PROJECT_ID,
-    storageBucket: window.ENV.VITE_FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: window.ENV.VITE_FIREBASE_MESSAGING_SENDER_ID,
-    appId: window.ENV.VITE_FIREBASE_APP_ID,
-    measurementId: window.ENV.VITE_FIREBASE_MEASUREMENT_ID,
-  };
-  
-  // Validate required fields
-  if (!config.apiKey || config.apiKey === 'undefined') {
-    throw new Error(`Invalid Firebase API key: ${config.apiKey}`);
-  }
   
   // Initialize Firebase app
   firebaseApp = initializeApp(config);
@@ -122,82 +87,46 @@ export const initFirebase = async (): Promise<void> => {
   }
   
   // Initialize Auth
-  firebaseAuth = getAuthInstance(firebaseApp);
+  auth = getAuthInstance(firebaseApp);
   console.log('🔐 Firebase Auth initialized');
   
   // Initialize Analytics (production only)
   if (typeof window !== 'undefined' && import.meta.env.MODE === 'production') {
     try {
-      firebaseAnalytics = getAnalyticsInstance(firebaseApp);
+      analytics = getAnalyticsInstance(firebaseApp);
       console.log('📊 Firebase Analytics initialized');
     } catch (error) {
       console.warn('⚠️ Firebase Analytics initialization failed:', error);
-      firebaseAnalytics = null;
+      analytics = null;
     }
   }
   
-  isFirebaseInitialized = true;
   console.log('✅ Firebase initialization complete');
-};
+}
 
 /**
- * Safe Firebase service getters - require initialization first
+ * ✅ ASYNC-SAFE Firebase service getters
+ * These automatically initialize Firebase if needed
  */
-const ensureInitialized = () => {
-  if (!isFirebaseInitialized) {
-    throw new Error('Firebase not initialized. Call initFirebase() first.');
-  }
-};
+export async function getAuthSafe(): Promise<Auth> {
+  if (!auth) await initFirebase();
+  return auth!;
+}
 
-// ❌ Synchronous getters - DEPRECATED, use async versions below
-export const getFirebaseApp = (): FirebaseApp => {
-  ensureInitialized();
-  return firebaseApp!;
-};
-
-export const getFirestore = (): Firestore => {
-  ensureInitialized();
+export async function getFirestoreSafe(): Promise<Firestore> {
+  if (!firestore) await initFirebase();
   return firestore!;
-};
+}
 
-export const getAuth = (): Auth => {
-  ensureInitialized();
-  return firebaseAuth!;
-};
+export async function getAnalyticsSafe(): Promise<Analytics | null> {
+  if (!analytics && !firebaseApp) await initFirebase();
+  return analytics;
+}
 
-export const getAnalytics = (): Analytics | null => {
-  ensureInitialized();
-  return firebaseAnalytics;
-};
-
-// ✅ OPTION B: Lazy loading async getters - USE THESE INSTEAD
-export const getFirebaseAppSafe = async (): Promise<FirebaseApp> => {
-  if (!firebaseApp) {
-    await initFirebase();
-  }
+export async function getFirebaseAppSafe(): Promise<FirebaseApp> {
+  if (!firebaseApp) await initFirebase();
   return firebaseApp!;
-};
-
-export const getFirestoreSafe = async (): Promise<Firestore> => {
-  if (!firestore) {
-    await initFirebase();
-  }
-  return firestore!;
-};
-
-export const getAuthSafe = async (): Promise<Auth> => {
-  if (!firebaseAuth) {
-    await initFirebase();
-  }
-  return firebaseAuth!;
-};
-
-export const getAnalyticsSafe = async (): Promise<Analytics | null> => {
-  if (!firebaseAnalytics && !isFirebaseInitialized) {
-    await initFirebase();
-  }
-  return firebaseAnalytics;
-};
+}
 
 // Utility function to get the correct Firebase function URL
 export const getFirebaseFunctionUrl = (functionName: string): string => {
@@ -218,8 +147,7 @@ export const getFirebaseFunctionUrl = (functionName: string): string => {
 // Initialize Google Auth Provider (this is stateless)
 export const googleProvider = new GoogleAuthProvider();
 
-// ❌ DEPRECATED: Synchronous proxy exports
-// These cause early access issues - use async Safe versions instead
+// ❌ DEPRECATED EXPORTS - WILL THROW HELPFUL ERRORS
 export const db = new Proxy({} as Firestore, {
   get(target, prop) {
     throw new Error(`🚨 DEPRECATED: Direct 'db.${String(prop)}' access detected!
@@ -228,54 +156,50 @@ PROBLEM: This synchronous access happens before Firebase is initialized.
 
 SOLUTION: Use async pattern instead:
   
-  // ❌ OLD: const result = db.collection('users');
+  // ❌ OLD: const result = await db.collection('users');
   // ✅ NEW: const firestore = await getFirestoreSafe();
-  //         const result = firestore.collection('users');
+  //         const result = await firestore.collection('users');
 
 See migration guide for full details.`);
   }
 });
 
-export const auth = new Proxy({} as Auth, {
-  get(target, prop) {
-    throw new Error(`🚨 DEPRECATED: Direct 'auth.${String(prop)}' access detected!
+export { auth as auth };  // Will throw error if accessed synchronously
+export { analytics as analytics };  // Will throw error if accessed synchronously
 
-PROBLEM: This synchronous access happens before Firebase is initialized.
+// Legacy function exports - DEPRECATED
+export const getFirebaseApp = () => {
+  throw new Error('🚨 DEPRECATED: Use getFirebaseAppSafe() instead');
+};
 
-SOLUTION: Use async pattern instead:
-  
-  // ❌ OLD: const user = auth.currentUser;
-  // ✅ NEW: const authInstance = await getAuthSafe();
-  //         const user = authInstance.currentUser;
+export const getFirestore = () => {
+  throw new Error('🚨 DEPRECATED: Use getFirestoreSafe() instead');
+};
 
-See migration guide for full details.`);
-  }
-});
+export const getAuth = () => {
+  throw new Error('🚨 DEPRECATED: Use getAuthSafe() instead');
+};
 
-export const analytics = new Proxy({} as Analytics | null, {
-  get(target, prop) {
-    throw new Error(`🚨 DEPRECATED: Direct 'analytics.${String(prop)}' access detected!
-
-PROBLEM: This synchronous access happens before Firebase is initialized.
-
-SOLUTION: Use async pattern instead:
-  
-  // ❌ OLD: analytics.logEvent('event');
-  // ✅ NEW: const analyticsInstance = await getAnalyticsSafe();
-  //         if (analyticsInstance) analyticsInstance.logEvent('event');
-
-See migration guide for full details.`);
-  }
-});
+export const getAnalytics = () => {
+  throw new Error('🚨 DEPRECATED: Use getAnalyticsSafe() instead');
+};
 
 // Legacy exports for backwards compatibility
 export const getFirebaseAnalytics = getAnalytics;
 
-// Default export
+// Default export - will throw error if accessed
 export default new Proxy({} as FirebaseApp, {
   get(target, prop) {
-    const appInstance = getFirebaseApp();
-    const value = (appInstance as any)[prop];
-    return typeof value === 'function' ? value.bind(appInstance) : value;
+    throw new Error(`🚨 DEPRECATED: Direct default Firebase app access detected!
+
+PROBLEM: This synchronous access happens before Firebase is initialized.
+
+SOLUTION: Use async pattern instead:
+  
+  // ❌ OLD: import firebaseApp from './firebase';
+  // ✅ NEW: import { getFirebaseAppSafe } from './firebase';
+  //         const app = await getFirebaseAppSafe();
+
+See migration guide for full details.`);
   }
 });
