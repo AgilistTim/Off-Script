@@ -24,6 +24,7 @@ export interface EnvironmentConfig {
     youtube?: string;
     recaptcha?: string;
     openai?: string;
+    bumpups?: string;
   };
   
   // ElevenLabs configuration
@@ -51,6 +52,9 @@ export interface EnvironmentConfig {
     careerGuidance: boolean;
     videoRecommendations: boolean;
     adminPanel: boolean;
+    enableYouTubeIntegration: boolean;
+    enableBumpupsIntegration: boolean;
+    enablePerplexityEnhancement: boolean;
   };
 }
 
@@ -101,6 +105,7 @@ export const environmentConfig: EnvironmentConfig = {
     youtube: import.meta.env.VITE_YOUTUBE_API_KEY,
     recaptcha: import.meta.env.VITE_RECAPTCHA_SITE_KEY,
     openai: import.meta.env.VITE_OPENAI_API_KEY,
+    bumpups: import.meta.env.VITE_BUMPUPS_API_KEY,
   },
   
   elevenLabs: {
@@ -125,6 +130,9 @@ export const environmentConfig: EnvironmentConfig = {
     careerGuidance: true,
     videoRecommendations: true,
     adminPanel: import.meta.env.MODE === 'development',
+    enableYouTubeIntegration: true,
+    enableBumpupsIntegration: true,
+    enablePerplexityEnhancement: true,
   },
 };
 
@@ -176,7 +184,7 @@ export const apiKeys = environmentConfig.apiKeys;
 export const features = environmentConfig.features;
 export const elevenLabs = environmentConfig.elevenLabs;
 export const perplexity = environmentConfig.perplexity;
-export const env = environmentConfig.environment;
+export const env = environmentConfig;
 
 // Default export for convenience
 export default environmentConfig;
