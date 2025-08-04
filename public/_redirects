@@ -1,0 +1,11 @@
+# Redirect all routes to index.html for client-side routing (React Router)
+# This allows single-page applications to handle routing on the client side
+
+# Static assets (JS, CSS, images) should be served directly
+/assets/*  /assets/:splat  200
+
+# API routes (if any) should be handled by server
+/api/*  /api/:splat  200
+
+# All other routes should serve index.html to enable React Router
+/*  /index.html  200
