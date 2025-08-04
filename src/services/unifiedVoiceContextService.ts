@@ -8,7 +8,7 @@
  * 3. Career deep-dive - user profile + specific career details
  */
 
-import { environmentConfig } from '../config/environment';
+import environmentConfig from '../config/environment';
 import { User } from '../models/User';
 import { getUserById } from './userService';
 import { guestSessionService } from './guestSessionService';

@@ -62,7 +62,7 @@ import { mcpQueueService } from '../../services/mcpQueueService';
 import { progressAwareMCPService, MCPProgressUpdate } from '../../services/progressAwareMCPService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 import { guestSessionService } from '../../services/guestSessionService';
-import { environmentConfig } from '../../config/environment';
+import environmentConfig from '../../config/environment';
 
 
 
