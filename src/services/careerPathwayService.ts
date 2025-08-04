@@ -1558,14 +1558,6 @@ class CareerPathwayService {
         throw new Error('User ID is required');
       }
 
-      // Check cache first
-      const cacheKey = `guidance_${userId}`;
-      const cached = this.structuredGuidanceCache.get(cacheKey);
-      if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
-        console.log('✅ Using cached structured career guidance');
-        return cached.data;
-      }
-
       // Wait for authentication before making Firebase queries
       const { auth } = await import('./firebase');
       if (!auth.currentUser) {
@@ -1574,6 +1566,47 @@ class CareerPathwayService {
       
       const { db } = await import('./firebase');
       const { collection, query, where, orderBy, getDocs, limit } = await import('firebase/firestore');
+
+      // Check cache first, but validate against enhanced data
+      const cacheKey = `guidance_${userId}`;
+      const cached = this.structuredGuidanceCache.get(cacheKey);
+      
+      // If we have cached data within cache duration, check for enhanced data
+      if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
+        // Quick check for enhanced data to validate cache
+        const enhancedCheckQuery = query(
+          collection(db, 'threadCareerGuidance'),
+          where('userId', '==', userId),
+          orderBy('updatedAt', 'desc'),
+          limit(1)
+        );
+        
+        const enhancedSnapshot = await getDocs(enhancedCheckQuery);
+        
+        if (!enhancedSnapshot.empty) {
+          const latestDoc = enhancedSnapshot.docs[0];
+          const latestData = latestDoc.data();
+          
+          // If enhanced data exists and is newer than our cache, invalidate cache
+          if (latestData.lastEnhanced) {
+            const enhancedTimestamp = new Date(latestData.lastEnhanced).getTime();
+            if (enhancedTimestamp > cached.timestamp) {
+              console.log('🔄 Enhanced data detected, invalidating cache and fetching fresh data');
+              this.structuredGuidanceCache.delete(cacheKey);
+              // Continue to fetch fresh data below
+            } else {
+              console.log('✅ Using cached structured career guidance (no newer enhanced data)');
+              return cached.data;
+            }
+          } else {
+            console.log('✅ Using cached structured career guidance');
+            return cached.data;
+          }
+        } else {
+          console.log('✅ Using cached structured career guidance');
+          return cached.data;
+        }
+      }
 
       // Get the thread career guidance data (using updatedAt like existing queries)
       const guidanceQuery = query(
