@@ -170,5 +170,13 @@ export const isPlaceholder = (value: string): boolean => {
 
 // Environment validation handled by validateCriticalEnvVars() above
 
+// Backward-compatible named exports for existing services
+export const getEnvironmentConfig = () => environmentConfig;
+export const apiKeys = environmentConfig.apiKeys;
+export const features = environmentConfig.features;
+export const elevenLabs = environmentConfig.elevenLabs;
+export const perplexity = environmentConfig.perplexity;
+export const env = environmentConfig.environment;
+
 // Default export for convenience
 export default environmentConfig;

@@ -23,6 +23,10 @@ interface ImportMetaEnv {
   readonly VITE_OPENAI_ASSISTANT_URL: string;
   readonly VITE_OPENAI_API_KEY: string;
   readonly VITE_BUMPUPS_API_KEY: string;
+  readonly VITE_MCP_SERVER_URL: string;
+  
+  // Perplexity configuration
+  readonly VITE_PERPLEXITY_API_KEY: string;
   
   // Development flags
   readonly VITE_DISABLE_EMULATORS: string;
@@ -39,32 +43,4 @@ interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
 
-// Define window.ENV for production runtime injection
-declare global {
-  interface Window {
-    ENV: {
-      // Firebase configuration
-      VITE_FIREBASE_API_KEY: string;
-      VITE_FIREBASE_AUTH_DOMAIN: string;
-      VITE_FIREBASE_PROJECT_ID: string;
-      VITE_FIREBASE_STORAGE_BUCKET: string;
-      VITE_FIREBASE_MESSAGING_SENDER_ID: string;
-      VITE_FIREBASE_APP_ID: string;
-      VITE_FIREBASE_MEASUREMENT_ID: string;
-      
-      // Public API keys
-      VITE_YOUTUBE_API_KEY: string;
-      VITE_RECAPTCHA_SITE_KEY: string;
-      
-      // ElevenLabs configuration
-      VITE_ELEVENLABS_API_KEY: string;
-      VITE_ELEVENLABS_AGENT_ID: string;
-      
-      // API endpoints
-      VITE_BUMPUPS_PROXY_URL: string;
-      VITE_OPENAI_ASSISTANT_URL: string;
-      VITE_OPENAI_API_KEY: string;
-      VITE_BUMPUPS_API_KEY: string;
-    };
-  }
-}
+// Static site deployment - environment variables injected at build time via Vite
