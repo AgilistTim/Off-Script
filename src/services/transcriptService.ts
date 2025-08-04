@@ -1,4 +1,4 @@
-import { getEnvironmentConfig } from '../config/environment';
+import { environmentConfig } from '../config/environment';
 
 interface TranscriptSegment {
   start: number;
@@ -34,7 +34,7 @@ interface OpenAIAnalysisResult {
 }
 
 class TranscriptService {
-  private env = getEnvironmentConfig();
+
 
   /**
    * Extract transcript from YouTube video (DISABLED - returns failure)
@@ -65,7 +65,7 @@ class TranscriptService {
       // Check if emulators are disabled - if so, always use production URLs
       const useProductionUrls = import.meta.env.VITE_DISABLE_EMULATORS === 'true';
       
-      const functionUrl = useProductionUrls || this.env.environment === 'production'
+      const functionUrl = useProductionUrls || environmentConfig.environment === 'production'
         ? 'https://us-central1-offscript-8f6eb.cloudfunctions.net/generateTranscriptSummary'
         : 'http://127.0.0.1:5001/offscript-8f6eb/us-central1/generateTranscriptSummary';
 

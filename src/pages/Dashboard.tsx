@@ -35,7 +35,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { Button } from '../components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
-import { getFirestoreSafe } from '../services/firebase';
+import { firestore } from '../services/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import careerPathwayService from '../services/careerPathwayService';
 import { dashboardCareerEnhancementService, DashboardCareerCard } from '../services/dashboardCareerEnhancementService';
@@ -484,7 +484,7 @@ const Dashboard: React.FC = () => {
     
     try {
       // Get Firestore instance safely
-      const firestore = await getFirestoreSafe();
+  
       
       // Fallback to popular videos if no personalized recommendations
       const videosRef = collection(firestore, 'videos');
@@ -534,7 +534,7 @@ const Dashboard: React.FC = () => {
         ] = await Promise.allSettled([
           // Fetch video recommendations
           (async () => {
-            const firestore = await getFirestoreSafe();
+        
             const videosRef = collection(firestore, 'videos');
             const videosQuery = query(videosRef, orderBy('views', 'desc'), limit(4));
             const videosSnapshot = await getDocs(videosQuery);

@@ -2,7 +2,7 @@
 // Provides real-time, verified UK career data using Perplexity's search capabilities
 
 import { mcpBridgeService, PerplexitySearchParams, PerplexitySearchResult } from './mcpBridgeService';
-import { features } from '../config/environment';
+import { environmentConfig } from '../config/environment';
 
 export interface EnhancedCareerData {
   verifiedSalary: {
@@ -108,7 +108,7 @@ class PerplexityCareerEnhancementService {
    * Check if Perplexity enhancement is available
    */
   isEnhancementAvailable(): boolean {
-    return features.enablePerplexityEnhancement;
+    return environmentConfig.features.careerGuidance;
   }
 
   /**

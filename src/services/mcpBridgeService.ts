@@ -1,18 +1,20 @@
 // MCP Bridge Service - Connects main application to MCP server for enhanced conversation analysis
 // Browser-compatible version that can work with external MCP server or provide fallback
 
-// Helper function to get environment variables with window.ENV fallback
+import { environmentConfig } from '../config/environment';
+
+// Helper function to get environment variables from the environment configuration
 const getEnvVar = (key: string): string | undefined => {
-  const devValue = import.meta.env[key];
-  if (devValue && devValue !== 'undefined') return devValue;
-  
-  if (typeof window !== 'undefined' && window.ENV) {
-    const prodValue = window.ENV[key];
-    if (prodValue && !prodValue.includes('__MCP_SERVER_URL__')) {
-      return prodValue;
-    }
+  switch (key) {
+    case 'VITE_MCP_SERVER_URL':
+      return environmentConfig.apiEndpoints.mcpServer;
+    case 'VITE_PERPLEXITY_API_KEY':
+      return environmentConfig.perplexity.apiKey;
+    case 'VITE_OPENAI_API_KEY':
+      return environmentConfig.apiKeys.openai;
+    default:
+      return import.meta.env[key];
   }
-  return undefined;
 };
 
 export interface MCPMessage {
@@ -301,9 +303,7 @@ class MCPBridgeService {
    */
   async searchWithPerplexity(params: PerplexitySearchParams): Promise<PerplexitySearchResult> {
     try {
-      const { perplexity } = await import('../config/environment');
-      
-      if (!perplexity.apiKey) {
+      if (!environmentConfig.perplexity.apiKey) {
         return {
           success: false,
           error: 'Perplexity API key not configured'
@@ -315,7 +315,7 @@ class MCPBridgeService {
       const response = await fetch('https://api.perplexity.ai/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${perplexity.apiKey}`,
+          'Authorization': `Bearer ${environmentConfig.perplexity.apiKey}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({

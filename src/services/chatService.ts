@@ -16,11 +16,10 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import axios from 'axios';
-import { getEnvironmentConfig } from '../config/environment';
+import { environmentConfig } from '../config/environment';
 
 // Get environment configuration
-const env = getEnvironmentConfig();
-const apiBaseUrl = env.apiEndpoints.openaiAssistant || '/api/openai';
+const apiBaseUrl = environmentConfig.apiEndpoints.openaiAssistant || '/api/openai';
 
 // OpenAI Assistant ID
 const ASSISTANT_ID = 'asst_b6kBes7rHBC9gA4yJ9I5r5zm';

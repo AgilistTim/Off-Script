@@ -3,15 +3,15 @@ import OpenAI from 'openai';
 import { zodResponseFormat } from 'openai/helpers/zod';
 import { z } from 'zod';
 import { mcpBridgeService, MCPMessage, MCPAnalysisResult } from './mcpBridgeService';
-import { getEnvironmentConfig } from '../config/environment';
+import { environmentConfig } from '../config/environment';
 
 // Initialize OpenAI client lazily to avoid build issues
 let openaiClient: OpenAI | null = null;
 
 const getOpenAIClient = (): OpenAI => {
   if (!openaiClient) {
-    const env = getEnvironmentConfig();
-    const apiKey = env.apiKeys.openai;
+  
+    const apiKey = environmentConfig.apiKeys.openai;
     if (!apiKey) {
       throw new Error('OpenAI API key not found. Please set VITE_OPENAI_API_KEY environment variable.');
     }

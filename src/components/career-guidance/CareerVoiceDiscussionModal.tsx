@@ -34,7 +34,7 @@ import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
 import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '../../context/AuthContext';
-import { useAsyncEnvironment } from '../../hooks/useAsyncEnvironment';
+import { environmentConfig } from '../../config/environment';
 
 
 
@@ -62,7 +62,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
   isPrimary = true
 }) => {
   const { currentUser } = useAuth();
-  const { config: envConfig, loading: envLoading, error: envError } = useAsyncEnvironment();
+
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -77,8 +77,8 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
   const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   // Get ElevenLabs configuration
-  const careerAwareAgentId = envConfig?.elevenLabs?.agentId;
-  const apiKey = envConfig?.elevenLabs?.apiKey;
+  const careerAwareAgentId = environmentConfig.elevenLabs.agentId;
+  const apiKey = environmentConfig.elevenLabs.apiKey;
 
   // Initialize conversation with career-aware agent (only when environment config is ready)
   const conversation = useConversation({
@@ -232,44 +232,10 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
 
   if (!isOpen) return null;
 
-  // Handle environment loading state
-  if (envLoading) {
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl h-[80vh] bg-gradient-to-br from-primary-black to-primary-gray border border-electric-blue/30 text-primary-white overflow-hidden [&>button]:hidden">
-          <div className="flex items-center justify-center h-full">
-            <div className="flex flex-col items-center space-y-4">
-              <Loader2 className="h-8 w-8 animate-spin text-electric-blue" />
-              <p className="text-electric-blue">Loading environment configuration...</p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
 
-  // Handle environment error state
-  if (envError) {
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl h-[80vh] bg-gradient-to-br from-primary-black to-primary-gray border border-electric-blue/30 text-primary-white overflow-hidden [&>button]:hidden">
-          <div className="flex items-center justify-center h-full">
-            <div className="flex flex-col items-center space-y-4 text-center">
-              <X className="h-8 w-8 text-neon-pink" />
-              <h3 className="text-lg font-bold text-neon-pink">Configuration Error</h3>
-              <p className="text-primary-white">{envError}</p>
-              <Button onClick={onClose} variant="outline" className="border-electric-blue text-electric-blue hover:bg-electric-blue/10">
-                Close
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
 
   // Handle missing environment config
-  if (!envConfig || !apiKey || !careerAwareAgentId) {
+  if (!apiKey || !careerAwareAgentId) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-4xl h-[80vh] bg-gradient-to-br from-primary-black to-primary-gray border border-electric-blue/30 text-primary-white overflow-hidden [&>button]:hidden">

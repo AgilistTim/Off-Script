@@ -1,5 +1,5 @@
 // YouTube Data API v3 service for fetching video metadata
-import { apiKeys, features } from '../config/environment';
+import { environmentConfig } from '../config/environment';
 
 // Export an enhanced video metadata type
 export interface EnhancedVideoMetadata {
@@ -78,7 +78,7 @@ class YouTubeService {
 
   constructor() {
     // Get API key from centralized configuration
-    this.apiKey = apiKeys.youtube || '';
+    this.apiKey = environmentConfig.apiKeys.youtube || '';
     
     if (this.apiKey) {
       console.log('✅ YouTube API integration enabled');

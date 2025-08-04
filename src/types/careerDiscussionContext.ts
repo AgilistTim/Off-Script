@@ -3,7 +3,7 @@
  * Provides rich context to the ElevenLabs Career-Aware Discussion Agent
  */
 
-import { env } from '../config/environment';
+import { environmentConfig } from '../config/environment';
 
 export interface CareerDiscussionContext {
   // New Career-Aware Agent Configuration
@@ -200,7 +200,7 @@ export class CareerDiscussionContextBuilder {
     // Set default agent config
     if (!this.context.agentConfig) {
       this.context.agentConfig = {
-        agentId: env.elevenLabs.agentId,
+        agentId: environmentConfig.elevenLabs.agentId,
         name: 'OffScript Career-Aware Discussion Agent',
         purpose: 'specific_career_discussion'
       };

@@ -1,7 +1,7 @@
 import { User as FirebaseUser } from 'firebase/auth';
 import { User, UserProfile } from '../models/User';
 import { enhancedUserContextService, AgentContextPayload, UserContext } from './enhancedUserContextService';
-import { env } from '../config/environment';
+import { environmentConfig } from '../config/environment';
 
 interface AgentContext {
   greeting: string;
@@ -382,10 +382,10 @@ Use their name naturally in conversation and reference their known interests and
   ): string {
     if (agentType === 'career-deep-dive') {
       // Career deep-dive uses the unified agent with career context injection
-      return env.elevenLabs.agentId;
+      return environmentConfig.elevenLabs.agentId;
     } else {
       // Exploration uses the same unified agent with basic context injection
-      return env.elevenLabs.agentId;
+      return environmentConfig.elevenLabs.agentId;
     }
   }
 
@@ -399,16 +399,16 @@ Use their name naturally in conversation and reference their known interests and
   ): string {
     if (!user) {
       // Guest users get the unified agent with basic discovery context
-      return env.elevenLabs.agentId;
+      return environmentConfig.elevenLabs.agentId;
     }
 
     if (careerContext && careerContext.title && conversationDepth > 5) {
       // Deep career discussions use same agent with enhanced career context
-      return env.elevenLabs.agentId;
+      return environmentConfig.elevenLabs.agentId;
     }
 
     // General authenticated users get same agent with user profile context
-    return env.elevenLabs.agentId;
+    return environmentConfig.elevenLabs.agentId;
   }
 
   /**

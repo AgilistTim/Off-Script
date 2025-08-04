@@ -1,8 +1,7 @@
 // Optimized Bumpups service focused on timestamp-specific insights and emotional elements
-import { getEnvironmentConfig } from '../config/environment';
+import { environmentConfig } from '../config/environment';
 
-// Get environment configuration
-const env = getEnvironmentConfig();
+
 
 export interface BumpupsTimestampInsight {
   timestamp: number; // seconds
@@ -47,7 +46,7 @@ class OptimizedBumpupsService {
   private readonly ANALYSIS_VERSION = '2.0.0-optimized';
 
   constructor() {
-    this.apiUrl = env.apiEndpoints.bumpupsProxy || '';
+    this.apiUrl = environmentConfig.apiEndpoints.bumpupsProxy || '';
   }
 
   /**

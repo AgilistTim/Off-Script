@@ -294,7 +294,7 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
 
       hasSignificantData: () => {
         const state = get();
-        return (
+        const result = (
           state.careerCards.length > 0 || 
           state.conversationHistory.length >= 4 || // At least 2 exchanges
           (state.personProfile && (
@@ -303,6 +303,26 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
           )) ||
           state.videoProgress.videosWatched.length > 0
         );
+        
+        // 🔍 DETAILED DEBUGGING FOR hasSignificantData
+        console.log('🔍 hasSignificantData() called with state:', {
+          careerCardsCount: state.careerCards.length,
+          conversationCount: state.conversationHistory.length,
+          hasPersonProfile: !!state.personProfile,
+          personProfileInterests: state.personProfile?.interests?.length || 0,
+          personProfileGoals: state.personProfile?.goals?.length || 0,
+          videosWatchedCount: state.videoProgress.videosWatched.length,
+          criteria: {
+            hasCareerCards: state.careerCards.length > 0,
+            hasMinConversation: state.conversationHistory.length >= 4,
+            hasPersonProfileInterests: state.personProfile && state.personProfile.interests.length > 0,
+            hasPersonProfileGoals: state.personProfile && state.personProfile.goals.length > 0,
+            hasVideosWatched: state.videoProgress.videosWatched.length > 0
+          },
+          finalResult: result
+        });
+        
+        return result;
       }
     }),
     {

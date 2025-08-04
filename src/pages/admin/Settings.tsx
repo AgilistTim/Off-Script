@@ -10,7 +10,7 @@ import {
   Mail,
   Key
 } from 'lucide-react';
-import { apiKeys, features } from '../../config/environment';
+import { environmentConfig } from '../../config/environment';
 
 const AdminSettings: React.FC = () => {
   // General settings
@@ -47,13 +47,13 @@ const AdminSettings: React.FC = () => {
   // Load API keys from configuration
   useEffect(() => {
     // Only show masked values for security
-    if (apiKeys.youtube) {
-      const masked = maskApiKey(apiKeys.youtube);
+    if (environmentConfig.apiKeys.youtube) {
+      const masked = maskApiKey(environmentConfig.apiKeys.youtube);
       setYoutubeApiKey(masked);
     }
     
-    if (apiKeys.bumpups) {
-      const masked = maskApiKey(apiKeys.bumpups);
+    if (environmentConfig.apiKeys.openai) {
+      const masked = maskApiKey(environmentConfig.apiKeys.openai);
       setBumpupsApiKey(masked);
     }
     
@@ -409,7 +409,7 @@ const AdminSettings: React.FC = () => {
               />
             </div>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              This key is set via environment variables. Status: {features.enableYouTubeIntegration ? '✅ Active' : '❌ Not configured'}
+                                            This key is set via environment variables. Status: {environmentConfig.features.videoRecommendations ? '✅ Active' : '❌ Not configured'}
             </p>
           </div>
 
@@ -426,7 +426,7 @@ const AdminSettings: React.FC = () => {
               />
             </div>
             <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              This key is set via environment variables. Status: {features.enableBumpupsIntegration ? '✅ Active' : '❌ Not configured'}
+                                            This key is set via environment variables. Status: {environmentConfig.features.careerGuidance ? '✅ Active' : '❌ Not configured'}
             </p>
           </div>
         </SettingsSection>

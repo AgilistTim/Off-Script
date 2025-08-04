@@ -5,7 +5,7 @@
  */
 
 import { CareerDiscussionContext, CareerDiscussionService, CareerDiscussionContextBuilder } from '../types/careerDiscussionContext';
-import { elevenLabs } from '../config/environment';
+import { environmentConfig } from '../config/environment';
 import careerPathwayService from './careerPathwayService';
 import { getUserById, updateUserProfile } from './userService';
 
@@ -37,7 +37,7 @@ class CareerAwareVoiceService implements CareerDiscussionService {
   private elevenLabsApiKey: string | undefined;
 
   constructor() {
-    this.elevenLabsApiKey = elevenLabs.apiKey;
+    this.elevenLabsApiKey = environmentConfig.elevenLabs.apiKey;
   }
 
   /**

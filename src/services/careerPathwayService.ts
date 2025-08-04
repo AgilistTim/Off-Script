@@ -1,7 +1,7 @@
 import { ChatSummary } from './chatService';
-import { getEnvironmentConfig } from '../config/environment';
+import { environmentConfig } from '../config/environment';
 
-const env = getEnvironmentConfig();
+
 
 // Types for comprehensive career pathway data
 export interface TrainingOption {
@@ -2106,7 +2106,7 @@ class CareerPathwayService {
       });
 
       // Call OpenAI API through Firebase Function for comprehensive career pathway generation
-      const response = await fetch(`${env.apiEndpoints.openaiAssistant}/generateCareerPathways`, {
+      const response = await fetch(`${environmentConfig.apiEndpoints.openaiAssistant}/generateCareerPathways`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -1,7 +1,11 @@
+# Render deployment configuration for Off-Script
+# Uses standard Node.js build-time environment variable injection
 services:
   - type: web
     name: off-script-elevenlabs-preview
-    env: docker
+    env: node
+    buildCommand: npm install && npm run build
+    staticPublishPath: ./dist
     healthCheckPath: /
     autoDeploy: true
     envVars:
@@ -36,6 +40,8 @@ services:
       - key: VITE_ELEVENLABS_AGENT_ID
         sync: false
       - key: VITE_PERPLEXITY_API_KEY
+        sync: false
+      - key: VITE_MCP_SERVER_URL
         sync: false
 
   - type: web

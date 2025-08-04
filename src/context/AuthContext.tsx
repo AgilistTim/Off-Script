@@ -72,9 +72,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const guestSession = guestSessionService.getGuestSession();
     const hasGuestData = guestSessionService.hasSignificantData();
     
+    // 🔍 COMPREHENSIVE GUEST MIGRATION DEBUG
     console.log('🔄 SignUp: Guest data available:', hasGuestData);
+    console.log('🔍 MIGRATION DEBUG - Raw localStorage:', localStorage.getItem('guest-session-storage'));
+    console.log('🔍 MIGRATION DEBUG - Guest session object:', guestSession);
+    console.log('🔍 MIGRATION DEBUG - Career cards count:', guestSession?.careerCards?.length || 0);
+    console.log('🔍 MIGRATION DEBUG - Conversation count:', guestSession?.conversationHistory?.length || 0);
+    console.log('🔍 MIGRATION DEBUG - Person profile:', guestSession?.personProfile);
+    console.log('🔍 MIGRATION DEBUG - Video progress:', guestSession?.videoProgress);
+    
     if (hasGuestData) {
       console.log('📊 Guest data preview:', GuestMigrationService.getGuestDataPreview());
+    } else {
+      console.log('❌ MIGRATION DEBUG - Why no significant data?', {
+        careerCardsLength: guestSession?.careerCards?.length || 0,
+        conversationLength: guestSession?.conversationHistory?.length || 0,
+        hasPersonProfile: !!guestSession?.personProfile,
+        personProfileInterests: guestSession?.personProfile?.interests?.length || 0,
+        personProfileGoals: guestSession?.personProfile?.goals?.length || 0,
+        videosWatched: guestSession?.videoProgress?.videosWatched?.length || 0
+      });
     }
 
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);

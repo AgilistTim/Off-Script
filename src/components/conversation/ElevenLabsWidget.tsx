@@ -6,7 +6,7 @@ import { CareerCard, PersonProfile } from '../../types/careerCard';
 import { mcpQueueService } from '../../services/mcpQueueService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 import { EnhancedUserContextService } from '../../services/enhancedUserContextService';
-import { useAsyncEnvironment } from '../../hooks/useAsyncEnvironment';
+import { environmentConfig } from '../../config/environment';
 
 
 
@@ -28,7 +28,6 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   className = ''
 }) => {
   const { currentUser } = useAuth();
-  const { config: envConfig, loading: envLoading, error: envError } = useAsyncEnvironment();
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string; timestamp: Date }>>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
@@ -97,7 +96,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
 
   // Dynamic agent selection based on user state and conversation context
   const getAgentId = useCallback((): string => {
-    const agentId = envConfig?.elevenLabs?.agentId;
+    const agentId = environmentConfig.elevenLabs.agentId;
     if (!agentId) {
       console.error('Missing VITE_ELEVENLABS_AGENT_ID environment variable');
       throw new Error('ElevenLabs agent ID not configured');
@@ -111,11 +110,11 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     // Authenticated users use the same agent with context injection
     // Context will be injected dynamically via UnifiedVoiceContextService
     return agentId;
-  }, [currentUser, envConfig]);
+  }, [currentUser]);
 
   // Use the helper function to get environment variables
-  const agentId = envConfig ? getAgentId() : '';
-  const apiKey = envConfig?.elevenLabs?.apiKey;
+  const agentId = getAgentId();
+  const apiKey = environmentConfig.elevenLabs.apiKey;
   const mcpEndpoint = 'https://off-script-mcp-elevenlabs.onrender.com/mcp';
 
   // Helper function to update conversation history and persist to Firebase
@@ -182,7 +181,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     const currentHistory = conversationHistoryRef.current;
     
     // Allow analysis with cached conversation data even when disconnected
-    if (!envConfig || envLoading) { // Check if environment variables are loaded
+    if (!agentId || !apiKey) { // Check if environment variables are configured
       console.log('🚫 Analysis blocked - ElevenLabs environment not loaded');
       return 'Please ensure ElevenLabs configuration is correct.';
     }
@@ -379,7 +378,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       
       return 'Career analysis temporarily unavailable';
     }
-  }, [envConfig, envLoading, agentId, apiKey, onCareerCardsGenerated, onAnalysisStateChange]); // Removed conversationHistory dependency since using ref
+  }, [agentId, apiKey, onCareerCardsGenerated, onAnalysisStateChange]); // Removed conversationHistory dependency since using ref
 
   // Validate configuration on mount
   useEffect(() => {
@@ -799,29 +798,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
 
 
 
-  // Handle environment loading state
-  if (envLoading) {
-    return (
-      <div className={`flex items-center justify-center p-6 ${className}`}>
-        <div className="flex flex-col items-center space-y-2">
-          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
-          <p className="text-gray-600 text-sm">Loading environment configuration...</p>
-        </div>
-      </div>
-    );
-  }
 
-  // Handle environment error state
-  if (envError) {
-    return (
-      <div className={`p-6 border-2 border-dashed border-red-300 rounded-lg text-center ${className}`}>
-        <div className="text-red-500">
-          <p className="text-lg font-medium">Configuration Error</p>
-          <p className="text-sm mt-2">{envError}</p>
-        </div>
-      </div>
-    );
-  }
 
   const isConfigured = agentId && apiKey && 
     agentId !== 'your_elevenlabs_agent_id_here' && 

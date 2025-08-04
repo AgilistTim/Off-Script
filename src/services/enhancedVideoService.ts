@@ -5,7 +5,7 @@ import { db } from './firebase';
 import youtubeService from './youtubeService';
 import bumpupsService from './bumpupsService';
 import transcriptService from './transcriptService';
-import { getEnvironmentConfig } from '../config/environment';
+import { environmentConfig } from '../config/environment';
 import type { TranscriptResult, OpenAIAnalysisResult } from './transcriptService';
 
 // Type definitions for the EnhancedVideoData interface
@@ -123,8 +123,8 @@ class EnhancedVideoService {
 
     try {
       // Get the Firebase project ID from environment config
-      const envConfig = getEnvironmentConfig();
-      const projectId = envConfig.firebase.projectId;
+  
+      const projectId = environmentConfig.firebase.projectId;
       
       if (!projectId || projectId.includes('your-project') || projectId.includes('__FIREBASE_')) {
         throw new Error('Firebase project ID not configured properly');

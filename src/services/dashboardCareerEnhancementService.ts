@@ -5,7 +5,7 @@
 import { conversationAnalyzer } from './conversationAnalyzer';
 import { db } from './firebase';
 import { doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { getEnvironmentConfig } from '../config/environment';
+import { environmentConfig } from '../config/environment';
 
 export interface CareerCardEnhancementStatus {
   id: string;
@@ -312,8 +312,8 @@ class DashboardCareerEnhancementService {
     
     // Check environment configuration first
     try {
-      const env = getEnvironmentConfig();
-      const hasOpenAI = !!env.apiKeys?.openai;
+    
+      const hasOpenAI = !!environmentConfig.apiKeys?.openai;
       console.log(`🔍 Environment check - OpenAI API available: ${hasOpenAI}`);
       
       if (!hasOpenAI) {
