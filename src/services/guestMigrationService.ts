@@ -5,13 +5,18 @@ import {
   getDoc, 
   collection, 
   addDoc, 
-  serverTimestamp 
+  serverTimestamp,
+  query,
+  where,
+  orderBy,
+  limit,
+  getDocs
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { guestSessionService, GuestSession } from './guestSessionService';
 import { updateUserProfile } from './userService';
 import { UserProfile } from '../models/User';
-import { perplexityCareerEnhancementService } from './perplexityCareerEnhancementService';
+import { perplexityCareerEnhancementService, PerplexityEnhancedCareerCard } from './perplexityCareerEnhancementService';
 
 // Migration tracking interface
 interface MigrationRecord {
@@ -499,7 +504,7 @@ export class GuestMigrationService {
           
           // Note: In a production environment, this would ideally be handled by a job queue
           // For now, we'll run it as a background process
-          await perplexityCareerEnhancementService.batchEnhanceUserCareerCards(
+          const enhancedCards = await perplexityCareerEnhancementService.batchEnhanceUserCareerCards(
             userId,
             careerCards,
             (status) => {
@@ -507,6 +512,9 @@ export class GuestMigrationService {
               // TODO: Could emit real-time progress updates to the user via WebSocket/SSE
             }
           );
+
+          // Save enhanced data back to Firebase
+          await this.saveEnhancedCareerCardsToFirebase(userId, enhancedCards);
 
           console.log(`✅ Background Perplexity enhancement completed for user: ${userId}`);
         } catch (error) {
@@ -538,6 +546,165 @@ export class GuestMigrationService {
       interests: session.personProfile?.interests.length || 0,
       goals: session.personProfile?.goals.length || 0,
       videosWatched: session.videoProgress.videosWatched.length
+    };
+  }
+
+  /**
+   * Save enhanced Perplexity career cards back to Firebase
+   * Transforms Perplexity data format to UI-compatible format
+   */
+  private static async saveEnhancedCareerCardsToFirebase(
+    userId: string,
+    enhancedCards: PerplexityEnhancedCareerCard[]
+  ): Promise<void> {
+    try {
+      console.log(`💾 Saving ${enhancedCards.length} enhanced career cards to Firebase for user: ${userId}`);
+
+      // Get the user's most recent thread career guidance document
+      const guidanceQuery = query(
+        collection(db, 'threadCareerGuidance'),
+        where('userId', '==', userId),
+        orderBy('updatedAt', 'desc'),
+        limit(1)
+      );
+
+      const guidanceSnapshot = await getDocs(guidanceQuery);
+      
+      if (guidanceSnapshot.empty) {
+        console.warn('⚠️ No threadCareerGuidance document found for enhanced data save');
+        return;
+      }
+
+      const docRef = guidanceSnapshot.docs[0].ref;
+      const currentData = guidanceSnapshot.docs[0].data();
+      
+      if (!currentData.guidance) {
+        console.warn('⚠️ No guidance data found in document');
+        return;
+      }
+
+      // Transform Perplexity enhanced cards to UI-compatible format
+      const updatedGuidance = { ...currentData.guidance };
+
+      // Update primary pathway if enhanced
+      if (enhancedCards.length > 0 && updatedGuidance.primaryPathway) {
+        const primaryCard = enhancedCards[0]; // First card is typically the primary
+        if (primaryCard.enhancement.status === 'completed' && primaryCard.enhancedData) {
+          updatedGuidance.primaryPathway = {
+            ...updatedGuidance.primaryPathway,
+            ...this.transformPerplexityDataToUIFormat(primaryCard),
+            isEnhanced: true,
+            enhancedAt: new Date(),
+            enhancementSource: 'perplexity',
+            enhancementStatus: 'enhanced'
+          };
+          console.log(`✅ Enhanced primary pathway: ${primaryCard.title}`);
+        }
+      }
+
+      // Update alternative pathways if enhanced
+      if (enhancedCards.length > 1 && updatedGuidance.alternativePathways) {
+        enhancedCards.slice(1).forEach((card, index) => {
+          if (card.enhancement.status === 'completed' && card.enhancedData && 
+              updatedGuidance.alternativePathways[index]) {
+            updatedGuidance.alternativePathways[index] = {
+              ...updatedGuidance.alternativePathways[index],
+              ...this.transformPerplexityDataToUIFormat(card),
+              isEnhanced: true,
+              enhancedAt: new Date(),
+              enhancementSource: 'perplexity',
+              enhancementStatus: 'enhanced'
+            };
+            console.log(`✅ Enhanced alternative pathway ${index + 1}: ${card.title}`);
+          }
+        });
+      }
+
+      // Save the updated guidance back to Firebase
+      await updateDoc(docRef, {
+        guidance: updatedGuidance,
+        lastEnhanced: serverTimestamp()
+      });
+
+      console.log('✅ Successfully saved enhanced career cards to Firebase');
+
+    } catch (error) {
+      console.error('❌ Error saving enhanced career cards to Firebase:', error);
+      // Don't throw - this is enhancement, not critical functionality
+    }
+  }
+
+  /**
+   * Transform Perplexity enhanced data to UI-compatible format
+   */
+  private static transformPerplexityDataToUIFormat(enhancedCard: PerplexityEnhancedCareerCard): any {
+    if (!enhancedCard.enhancedData) {
+      return {};
+    }
+
+    const data = enhancedCard.enhancedData;
+    
+    return {
+      // Enhanced salary data
+      enhancedSalary: data.verifiedSalary ? {
+        entry: `£${data.verifiedSalary.entry.min.toLocaleString()} - £${data.verifiedSalary.entry.max.toLocaleString()}`,
+        experienced: `£${data.verifiedSalary.mid.min.toLocaleString()} - £${data.verifiedSalary.mid.max.toLocaleString()}`,
+        senior: `£${data.verifiedSalary.senior.min.toLocaleString()} - £${data.verifiedSalary.senior.max.toLocaleString()}`,
+        byRegion: data.verifiedSalary.byRegion
+      } : undefined,
+
+      // Industry trends
+      industryTrends: data.industryIntelligence ? [
+        `Growth outlook: ${data.industryIntelligence.growthProjection.outlook}`,
+        `Next year projection: ${data.industryIntelligence.growthProjection.nextYear}%`,
+        `Five year projection: ${data.industryIntelligence.growthProjection.fiveYear}%`,
+        ...data.industryIntelligence.emergingTrends.map(trend => `${trend.trend} (${trend.impact} impact)`)
+      ].filter(Boolean) : undefined,
+
+      // Top UK employers
+      topUKEmployers: data.currentOpportunities?.topEmployers?.map(employer => ({
+        name: employer.name,
+        openings: employer.openings,
+        salaryRange: `£${employer.salaryRange.min.toLocaleString()} - £${employer.salaryRange.max.toLocaleString()}`,
+        benefits: employer.benefits
+      })) || undefined,
+
+      // Work-life balance
+      workLifeBalance: data.industryIntelligence?.automationRisk ? {
+        automationRisk: data.industryIntelligence.automationRisk.level,
+        timeline: data.industryIntelligence.automationRisk.timeline,
+        mitigation: data.industryIntelligence.automationRisk.mitigation
+      } : undefined,
+
+      // Professional associations (from education data)
+      professionalAssociations: data.verifiedEducation?.professionalBodies?.map(body => ({
+        name: body.name,
+        certification: body.certification,
+        cost: `£${body.cost.toLocaleString()}`,
+        renewalPeriod: body.renewalPeriod,
+        url: body.url
+      })) || undefined,
+
+      // Additional qualifications
+      additionalQualifications: data.verifiedEducation?.pathways?.map(pathway => ({
+        type: pathway.type,
+        title: pathway.title,
+        provider: pathway.provider,
+        duration: pathway.duration,
+        cost: `£${pathway.cost.min.toLocaleString()} - £${pathway.cost.max.toLocaleString()}`,
+        entryRequirements: pathway.entryRequirements,
+        verified: pathway.verified
+      })) || undefined,
+
+      // In-demand skills
+      inDemandSkills: data.currentOpportunities?.skillsInDemand?.map(skill => ({
+        skill: skill.skill,
+        frequency: `${skill.frequency}% of job postings`,
+        salaryPremium: `${skill.salaryPremium}% increase`
+      })) || undefined,
+
+      // Enhanced sources
+      enhancedSources: enhancedCard.enhancement.sources?.map(source => source.url) || []
     };
   }
 }

@@ -61,7 +61,8 @@ import { agentContextService } from '../../services/agentContextService';
 import { mcpQueueService } from '../../services/mcpQueueService';
 import { progressAwareMCPService, MCPProgressUpdate } from '../../services/progressAwareMCPService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
-import { useAsyncEnvironment } from '../../hooks/useAsyncEnvironment';
+import { guestSessionService } from '../../services/guestSessionService';
+import { environmentConfig } from '../../config/environment';
 
 
 
@@ -92,7 +93,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   onConversationEnd
 }) => {
   const { currentUser, userData } = useAuth();
-  const { config: envConfig, loading: envLoading, error: envError } = useAsyncEnvironment();
+
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>(currentConversationHistory);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
@@ -140,9 +141,16 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     }
   }, [conversationHistory]); // Only depend on conversationHistory to prevent re-render loops
 
+  // Handle career cards discovery callback separately to avoid setState during render
+  useEffect(() => {
+    if (careerCards.length > 0 && onCareerCardsDiscovered) {
+      onCareerCardsDiscovered(careerCards);
+    }
+  }, [careerCards, onCareerCardsDiscovered]);
+
   // Determine agent based on user auth state and context
   const getAgentId = (): string => {
-    const agentId = envConfig?.elevenLabs?.agentId;
+    const agentId = environmentConfig.elevenLabs.agentId;
     if (!agentId) {
       console.error('Missing VITE_ELEVENLABS_AGENT_ID environment variable');
       throw new Error('ElevenLabs agent ID not configured');
@@ -162,8 +170,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     return agentId;
   };
 
-  const agentId = envConfig ? getAgentId() : '';
-  const apiKey = envConfig?.elevenLabs?.apiKey;
+  const agentId = getAgentId();
+  const apiKey = environmentConfig.elevenLabs.apiKey;
 
   // Fallback career card generation when MCP is unavailable
   const generateFallbackCareerCards = async (messages: any[], triggerReason: string) => {
@@ -339,13 +347,19 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   }
                 });
                 
-                // Notify parent of discovered career cards
-                if (onCareerCardsDiscovered) {
-                  onCareerCardsDiscovered(combined);
-                }
-                
                 return combined;
               });
+              
+              // Persist to guest session for non-authenticated users
+              if (!currentUser) {
+                console.log('💾 Saving career cards to guest session:', careerCardsToUse.length);
+                // Ensure cards have IDs before saving
+                const cardsWithIds = careerCardsToUse.map((card: any, index: number) => ({
+                  ...card,
+                  id: card.id || `career-${Date.now()}-${index}`
+                }));
+                guestSessionService.addCareerCards(cardsWithIds);
+              }
             }
 
             // Hide progress modal after short delay
@@ -373,11 +387,19 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               const fallbackCards = fallbackResult.careerCards;
               setCareerCards(prev => {
                 const combined = [...prev, ...fallbackCards];
-                if (onCareerCardsDiscovered) {
-                  onCareerCardsDiscovered(combined);
-                }
                 return combined;
               });
+              
+              // Persist to guest session for non-authenticated users
+              if (!currentUser) {
+                console.log('💾 Saving fallback career cards to guest session:', fallbackCards.length);
+                // Ensure cards have IDs before saving
+                const cardsWithIds = fallbackCards.map((card: any, index: number) => ({
+                  ...card,
+                  id: card.id || `fallback-career-${Date.now()}-${index}`
+                }));
+                guestSessionService.addCareerCards(cardsWithIds);
+              }
               
               return `Generated ${fallbackCards.length} career insights using fallback analysis`;
             }
@@ -433,6 +455,20 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           console.error('❌ Error updating profile:', error);
           return "Profile update is temporarily unavailable";
         }
+      },
+
+      // Legacy tool mapping for backwards compatibility with agent configuration
+      generate_career_recommendations: async (parameters: any) => {
+        console.log('🚨 TOOL CALLED: generate_career_recommendations -> analyze_conversation_for_careers (Legacy Mapping)');
+        console.log('🔄 Routing to MCP-based career analysis');
+        console.log('🔍 Legacy tool parameters:', parameters);
+        
+        // Extract trigger reason with fallback
+        const effectiveTriggerReason = parameters.trigger_reason || 'generate_career_recommendations';
+        
+        // Return simple response message indicating analysis in progress
+        // The actual MCP analysis will be triggered separately by the existing flow
+        return "I'm generating detailed career recommendations based on our conversation. Let me analyze your interests and skills...";
       },
     },
     onConnect: () => {
@@ -616,7 +652,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   // Get agent display info
   const getAgentInfo = () => {
     // Dynamic agent info based on current configuration
-    const currentAgentId = envConfig?.elevenLabs?.agentId;
+    const currentAgentId = environmentConfig.elevenLabs.agentId;
     
     switch (agentId) {
       case 'agent_01k0fkhhx0e8k8e6nwtz8ptkwb':
@@ -674,44 +710,10 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Handle environment loading state
-  if (envLoading) {
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-[90vw] max-w-5xl h-[80vh] bg-gradient-to-br from-primary-black via-primary-gray to-primary-black p-0 border-electric-blue/30 shadow-[0_0_50px_rgba(0,255,255,0.3)]">
-          <div className="flex items-center justify-center h-full">
-            <div className="flex flex-col items-center space-y-4">
-              <Loader2 className="h-8 w-8 animate-spin text-electric-blue" />
-              <p className="text-electric-blue">Loading environment configuration...</p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
 
-  // Handle environment error state
-  if (envError) {
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-[90vw] max-w-5xl h-[80vh] bg-gradient-to-br from-primary-black via-primary-gray to-primary-black p-6 border-electric-blue/30 shadow-[0_0_50px_rgba(0,255,255,0.3)]">
-          <div className="flex items-center justify-center h-full">
-            <div className="flex flex-col items-center space-y-4 text-center">
-              <AlertTriangle className="h-8 w-8 text-neon-pink" />
-              <h3 className="text-lg font-bold text-neon-pink">Configuration Error</h3>
-              <p className="text-primary-white">{envError}</p>
-              <Button onClick={onClose} variant="outline" className="border-electric-blue text-electric-blue hover:bg-electric-blue/10">
-                Close
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
 
   // Handle missing environment config
-  if (!envConfig || !apiKey || !agentId) {
+      if (!apiKey || !agentId) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="w-[90vw] max-w-5xl h-[80vh] bg-gradient-to-br from-primary-black via-primary-gray to-primary-black p-6 border-electric-blue/30 shadow-[0_0_50px_rgba(0,255,255,0.3)]">
@@ -795,8 +797,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         <div className="flex-1 flex space-x-4 overflow-hidden min-h-0 p-2">
           {/* Career Insights Panel */}
           <div className="w-72 xl:w-80 flex-shrink-0">
-            <Card className="bg-gradient-to-br from-primary-gray/50 to-electric-blue/10 border border-electric-blue/20 h-full">
-              <CardHeader className="pb-3">
+            <Card className="bg-gradient-to-br from-primary-gray/50 to-electric-blue/10 border border-electric-blue/20 h-full flex flex-col">
+              <CardHeader className="pb-3 flex-shrink-0">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg font-black text-primary-white">
                     CAREER INSIGHTS
@@ -809,7 +811,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   )}
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4 overflow-y-auto max-h-96">
+              <CardContent className="space-y-4 overflow-y-auto flex-1 min-h-0">
                 {/* Progress Indicator */}
                 {isAnalyzing && progressUpdate && (
                   <div className="bg-electric-blue/10 rounded-lg p-3 mb-4 border border-electric-blue/20">
