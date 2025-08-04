@@ -1,5 +1,7 @@
 version: '3.8'
 
+# NOTE: This docker-compose.yml is for local development/testing only.
+# In production, Render uses build-time environment variable injection.
 services:
   offscript-app:
     build: .
