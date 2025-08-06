@@ -120,6 +120,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (migrationResult) {
           console.log('✅ Guest data migration completed:', migrationResult);
+          
+          // Refresh user data immediately after migration
+          console.log('🔄 Refreshing user data after migration...');
+          await fetchUserData(userCredential.user);
         }
       } catch (migrationError) {
         console.error('⚠️ Guest data migration failed (registration continues):', migrationError);
@@ -167,6 +171,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           if (migrationResult) {
             console.log('✅ Guest data migration completed:', migrationResult);
+            
+            // Refresh user data immediately after migration
+            console.log('🔄 Refreshing user data after migration...');
+            await fetchUserData(userCredential.user);
           }
         } else {
           // User declined migration, clear guest session

@@ -18,7 +18,9 @@ import { db, auth } from './firebase';
 import { User, UserPreferences, UserProfile } from '../models/User';
 import { PersonProfile } from '../types/careerCard';
 import { sendPasswordResetEmail as firebaseSendPasswordResetEmail } from 'firebase/auth';
-import { perplexityCareerEnhancementService } from './perplexityCareerEnhancementService';
+import { dashboardCareerEnhancer } from './dashboardCareerEnhancer';
+import { serializeForFirebase, validateFirebaseData, flattenNestedArraysForFirebase } from '../lib/utils';
+import { prepareDataForFirebase, retryFirebaseOperation, logFirebaseOperation, validateUserProfileData } from '../lib/firebase-utils';
 
 // Convert Firestore timestamp to Date
 const convertTimestamps = (data: any): any => {
@@ -96,13 +98,53 @@ export const updateUserProfile = async (uid: string, profile: Partial<UserProfil
     const userData = userDoc.data();
     const currentProfile = userData.profile || {};
     
-    // Update only the profile field, preserving existing data
-    await updateDoc(userRef, { 
-      profile: {
-        ...currentProfile,
-        ...profile
-      } 
-    });
+    console.log('🔍 USER SERVICE DEBUG - Input profile:', JSON.stringify(profile, null, 2));
+    console.log('🔍 USER SERVICE DEBUG - Current profile:', JSON.stringify(currentProfile, null, 2));
+    
+    // Merge profile data
+    const mergedProfile = {
+      ...currentProfile,
+      ...profile
+    };
+    console.log('🔍 USER SERVICE DEBUG - Merged profile:', JSON.stringify(mergedProfile, null, 2));
+    
+    // Validate user profile structure
+    const structureValidation = validateUserProfileData(mergedProfile);
+    if (!structureValidation.isValid) {
+      console.error('❌ User profile structure validation failed:', structureValidation.errors);
+      throw new Error(`Invalid user profile structure: ${structureValidation.errors.join(', ')}`);
+    }
+    console.log('✅ USER SERVICE DEBUG - Structure validation passed');
+    
+    // Prepare data for Firebase with comprehensive validation
+    const dataPrep = prepareDataForFirebase(mergedProfile);
+    console.log('🔍 USER SERVICE DEBUG - Data prep result:', dataPrep);
+    if (!dataPrep.success) {
+      console.error('❌ Profile data preparation failed:', dataPrep.errors);
+      throw new Error(`Failed to prepare profile data for Firebase: ${dataPrep.errors?.join(', ')}`);
+    }
+    console.log('🔍 USER SERVICE DEBUG - Final data for Firebase:', JSON.stringify(dataPrep.data, null, 2));
+
+    // Final validation to prevent [Object] saves
+    const profileString = JSON.stringify({ profile: dataPrep.data });
+    if (profileString.includes('[object Object]')) {
+      console.error('❌ CRITICAL: Detected [Object] in profile data before save:', profileString);
+      throw new Error('Profile data contains [Object] - preventing corrupt save to Firebase');
+    }
+    console.log('✅ USER SERVICE DEBUG - Pre-save validation passed, no [Object] detected');
+
+    // Update profile with retry mechanism
+    const updateResult = await retryFirebaseOperation(
+      () => updateDoc(userRef, { profile: dataPrep.data }),
+      { maxRetries: 3, initialDelayMs: 500 }
+    );
+
+    if (!updateResult.success) {
+      logFirebaseOperation('User Profile Update', dataPrep.data, 'error', updateResult.error);
+      throw new Error(`Failed to update user profile after ${updateResult.retryCount} retries: ${updateResult.error}`);
+    }
+
+    logFirebaseOperation('User Profile Update', dataPrep.data, 'success', { retries: updateResult.retryCount });
   } catch (error) {
     console.error('Error updating user profile:', error);
     throw error;
@@ -130,9 +172,20 @@ export const updateCareerProfile = async (uid: string, careerProfile: Partial<Pe
       lastUpdated: new Date().toLocaleDateString()
     };
     
+    // Flatten nested arrays and serialize for Firebase compatibility
+    const flattenedCareerProfile = flattenNestedArraysForFirebase(mergedCareerProfile);
+    const serializedCareerProfile = serializeForFirebase(flattenedCareerProfile);
+    
+    // Validate career profile data before saving
+    const validation = validateFirebaseData(serializedCareerProfile);
+    if (!validation.isValid) {
+      console.error('❌ Career profile data validation failed:', validation.errors);
+      throw new Error(`Invalid career profile data for Firebase: ${validation.errors.join(', ')}`);
+    }
+    
     // Update career profile field
     await updateDoc(userRef, { 
-      careerProfile: mergedCareerProfile
+      careerProfile: serializedCareerProfile
     });
   } catch (error) {
     console.error('Error updating career profile:', error);
@@ -176,12 +229,35 @@ export const updateUserPreferences = async (uid: string, preferences: Partial<Us
     const userData = userDoc.data();
     const currentPreferences = userData.preferences || {};
     
+    console.log('🔍 PREFERENCES DEBUG - Input preferences:', JSON.stringify(preferences, null, 2));
+    console.log('🔍 PREFERENCES DEBUG - Current preferences:', JSON.stringify(currentPreferences, null, 2));
+    
+    // Merge preferences data
+    const mergedPreferences = {
+      ...currentPreferences,
+      ...preferences
+    };
+    console.log('🔍 PREFERENCES DEBUG - Merged preferences:', JSON.stringify(mergedPreferences, null, 2));
+    
+    // Prepare preferences for Firebase with comprehensive validation
+    const dataPrep = prepareDataForFirebase(mergedPreferences);
+    console.log('🔍 PREFERENCES DEBUG - Data prep result:', dataPrep);
+    if (!dataPrep.success) {
+      console.error('❌ Preferences data preparation failed:', dataPrep.errors);
+      throw new Error(`Failed to prepare preferences data for Firebase: ${dataPrep.errors?.join(', ')}`);
+    }
+    
+    // Final validation to prevent [Object] saves
+    const preferencesString = JSON.stringify({ preferences: dataPrep.data });
+    if (preferencesString.includes('[object Object]')) {
+      console.error('❌ CRITICAL: Detected [Object] in preferences data before save:', preferencesString);
+      throw new Error('Preferences data contains [Object] - preventing corrupt save to Firebase');
+    }
+    console.log('✅ PREFERENCES DEBUG - Pre-save validation passed, no [Object] detected');
+    
     // Update only the preferences field, preserving existing data
     await updateDoc(userRef, { 
-      preferences: {
-        ...currentPreferences,
-        ...preferences
-      } 
+      preferences: dataPrep.data
     });
   } catch (error) {
     console.error('Error updating user preferences:', error);
@@ -254,8 +330,8 @@ export const sendPasswordResetEmail = async (email: string): Promise<void> => {
  */
 const checkEnhancementOpportunities = async (userId: string): Promise<void> => {
   try {
-    // Only check if Perplexity enhancement is available
-    if (!perplexityCareerEnhancementService.isEnhancementAvailable()) {
+    // Only check if enhancement is available
+    if (!dashboardCareerEnhancer.isEnhancementAvailable()) {
       return;
     }
 
@@ -272,7 +348,7 @@ const checkEnhancementOpportunities = async (userId: string): Promise<void> => {
         try {
           console.log(`🚀 Starting background refresh for ${staleCards.length} stale career cards`);
           
-          await perplexityCareerEnhancementService.batchEnhanceUserCareerCards(
+          await dashboardCareerEnhancer.batchEnhanceUserCareerCards(
             userId,
             staleCards,
             (status) => {

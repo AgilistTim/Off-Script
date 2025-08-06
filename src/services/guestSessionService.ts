@@ -183,6 +183,13 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
           lastActive: new Date().toISOString()
         });
         
+        console.log('💾 [GUEST SESSION] Message added to conversation history:', {
+          role: message.role,
+          messagePreview: message.content.substring(0, 50) + '...',
+          totalMessages: state.conversationHistory.length + 1,
+          sessionId: state.sessionId
+        });
+        
         if (role === 'user') {
           get().incrementMessageCount();
         }
@@ -289,7 +296,18 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
       },
 
       getSessionForMigration: () => {
-        return get();
+        const session = get();
+        console.log('📤 [GUEST SESSION] Retrieved session for migration:', {
+          sessionId: session.sessionId,
+          conversationHistoryLength: session.conversationHistory.length,
+          careerCardsCount: session.careerCards.length,
+          hasPersonProfile: !!session.personProfile,
+          sampleMessages: session.conversationHistory.slice(0, 2).map(msg => ({
+            role: msg.role,
+            preview: msg.content.substring(0, 30) + '...'
+          }))
+        });
+        return session;
       },
 
       hasSignificantData: () => {

@@ -19,7 +19,9 @@ import {
   Rocket,
   Star,
   BookOpen,
-  PoundSterling
+  PoundSterling,
+  Lightbulb,
+  Smile
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
@@ -93,8 +95,9 @@ const Profile: React.FC = () => {
         };
         
         setProfile(newProfileData);
+        console.log("✅ Profile data loaded successfully:", newProfileData);
       } else {
-        console.log("No profile data in userData");
+        console.log("No profile data in userData, will attempt to load migrated data");
       }
       
       // Load preferences data
@@ -106,7 +109,7 @@ const Profile: React.FC = () => {
         });
       }
     } else {
-      console.log("No userData available");
+      console.log("No userData available, user may still be loading");
     }
   }, [userData]);
 
@@ -115,64 +118,90 @@ const Profile: React.FC = () => {
     const fetchCareerInsights = async () => {
       if (!currentUser) return;
       
-      // Skip fetching if we already have comprehensive user profile data
-      const hasComprehensiveUserData = userData?.profile && (
+      console.log('🔍 PROFILE DEBUG - Checking for migrated career data');
+      
+      // Check if we already have profile data loaded
+      const hasCurrentProfileData = profile.interests?.length || profile.careerGoals?.length || profile.skills?.length;
+      
+      // Check userData profile 
+      const hasUserDataProfile = userData?.profile && (
         (userData.profile.interests?.length || 0) + 
         (userData.profile.careerGoals?.length || 0) + 
         (userData.profile.skills?.length || 0)
-      ) >= 3; // At least 3 items across interests, goals, and skills
+      ) >= 2; // At least 2 items across interests, goals, and skills
       
-      if (hasComprehensiveUserData) {
-        console.log('Skipping career insights fetch - comprehensive user data already exists');
+      console.log('🔍 PROFILE DEBUG - Current state:', {
+        hasCurrentProfileData,
+        hasUserDataProfile,
+        currentProfileInterests: profile.interests?.length || 0,
+        currentProfileGoals: profile.careerGoals?.length || 0,
+        currentProfileSkills: profile.skills?.length || 0,
+        userDataProfileExists: !!userData?.profile
+      });
+      
+      // If we already have comprehensive data, skip fetching
+      if (hasCurrentProfileData && hasUserDataProfile) {
+        console.log('✅ PROFILE DEBUG - Comprehensive profile data already exists, skipping fetch');
         return;
       }
       
       try {
+        console.log('🔍 PROFILE DEBUG - Attempting to fetch migrated data');
+        
         // Get migrated profile from career pathway service
         const migratedData = await careerPathwayService.getMigratedPersonProfile(currentUser.uid);
         if (migratedData) {
+          console.log('🔍 PROFILE DEBUG - Migrated data found:', migratedData);
           setMigratedProfile(migratedData);
+        } else {
+          console.log('🔍 PROFILE DEBUG - No migrated data found');
         }
         
         // Get combined profile 
         const combinedData = await careerPathwayService.getCombinedUserProfile(currentUser.uid);
         if (combinedData) {
+          console.log('🔍 [PROFILE UI] Combined data found with enhanced insights:', {
+            hasEnhancedPersonalData: !!combinedData.enhancedPersonalData,
+            extractedName: combinedData.enhancedPersonalData?.extractedName,
+            personalityTraitsCount: combinedData.enhancedPersonalData?.personalityTraits?.length || 0,
+            communicationStyle: combinedData.enhancedPersonalData?.communicationStyle,
+            motivationsCount: combinedData.enhancedPersonalData?.motivations?.length || 0,
+            concernsCount: combinedData.enhancedPersonalData?.concerns?.length || 0,
+            preferencesCount: combinedData.enhancedPersonalData?.preferences?.length || 0,
+            source: combinedData.source
+          });
           setCombinedProfile(combinedData);
           
-          // Update profile state with combined data if user's profile is empty
-          setProfile(prev => {
-            const hasExistingData = prev.interests?.length || prev.careerGoals?.length || prev.skills?.length;
-            const hasUserDataProfile = userData?.profile && (
-              userData.profile.interests?.length || 
-              userData.profile.careerGoals?.length || 
-              userData.profile.skills?.length ||
-              userData.profile.school ||
-              userData.profile.grade ||
-              userData.profile.bio
-            );
+          // Update profile state with combined data if we don't have comprehensive userData profile
+          if (!hasUserDataProfile && (combinedData.interests?.length || combinedData.careerGoals?.length || combinedData.skills?.length)) {
+            console.log('🔄 PROFILE DEBUG - Updating profile with combined/migrated data');
             
-            // Only use combined data if we have no existing data AND no userData profile
-            if (!hasExistingData && !hasUserDataProfile && (combinedData.interests?.length || combinedData.careerGoals?.length || combinedData.skills?.length)) {
-              console.log('Updating profile with combined data:', combinedData);
+            setProfile(prev => {
               const newProfile = {
                 ...prev,
-                interests: combinedData.interests || prev.interests || [],
-                careerGoals: combinedData.careerGoals || prev.careerGoals || [],
-                skills: combinedData.skills || prev.skills || []
+                displayName: combinedData.enhancedPersonalData?.extractedName || prev.displayName || '',
+                interests: combinedData.interests?.length ? combinedData.interests : prev.interests || [],
+                careerGoals: combinedData.careerGoals?.length ? combinedData.careerGoals : prev.careerGoals || [],
+                skills: combinedData.skills?.length ? combinedData.skills : prev.skills || []
               };
+              console.log('✅ PROFILE DEBUG - Profile updated with migrated data:', newProfile);
               return newProfile;
-            }
-            
-            return prev;
-          });
+            });
+          } else {
+            console.log('🔍 PROFILE DEBUG - Not updating profile - comprehensive userData exists or no combined data');
+          }
+        } else {
+          console.log('🔍 PROFILE DEBUG - No combined data found');
         }
       } catch (error) {
-        console.error('Error fetching career insights:', error);
+        console.error('❌ PROFILE DEBUG - Error fetching career insights:', error);
       }
     };
     
-    fetchCareerInsights();
-  }, [currentUser]);
+    // Add a small delay to ensure userData has loaded first
+    const timer = setTimeout(fetchCareerInsights, 500);
+    return () => clearTimeout(timer);
+  }, [currentUser, userData]); // Add userData as dependency
   
   // Handle profile form submission
   const handleProfileSubmit = async (e: React.FormEvent) => {
@@ -366,7 +395,11 @@ const Profile: React.FC = () => {
           (combinedProfile.interests?.length || 0) + 
           (combinedProfile.careerGoals?.length || 0) + 
           (combinedProfile.skills?.length || 0)
-        ) >= 3)) && (
+        ) >= 1) || (profile && (
+          (profile.interests?.length || 0) + 
+          (profile.careerGoals?.length || 0) + 
+          (profile.skills?.length || 0)
+        ) >= 1)) && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -417,12 +450,12 @@ const Profile: React.FC = () => {
                         />
                       </div>
                     </div>
-                  ) : combinedProfile ? (
+                  ) : (combinedProfile || profile) ? (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                       <div>
                         <h4 className="text-lg font-black text-electric-blue mb-3">INTERESTS</h4>
                         <TagDisplay
-                          items={combinedProfile.interests || []}
+                          items={(combinedProfile?.interests?.length ? combinedProfile.interests : profile.interests) || []}
                           color="bg-gradient-to-r from-neon-pink to-cyber-yellow text-primary-black"
                           icon={<Heart className="w-4 h-4" />}
                           emptyMessage="No interests identified yet"
@@ -432,7 +465,7 @@ const Profile: React.FC = () => {
                       <div>
                         <h4 className="text-lg font-black text-neon-pink mb-3">CAREER GOALS</h4>
                         <TagDisplay
-                          items={combinedProfile.careerGoals || []}
+                          items={(combinedProfile?.careerGoals?.length ? combinedProfile.careerGoals : profile.careerGoals) || []}
                           color="bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white"
                           icon={<Target className="w-4 h-4" />}
                           emptyMessage="No career goals identified yet"
@@ -442,7 +475,7 @@ const Profile: React.FC = () => {
                       <div>
                         <h4 className="text-lg font-black text-acid-green mb-3">SKILLS</h4>
                         <TagDisplay
-                          items={combinedProfile.skills || []}
+                          items={(combinedProfile?.skills?.length ? combinedProfile.skills : profile.skills) || []}
                           color="bg-gradient-to-r from-acid-green to-electric-blue text-primary-black"
                           icon={<Star className="w-4 h-4" />}
                           emptyMessage="No skills identified yet"
@@ -457,6 +490,75 @@ const Profile: React.FC = () => {
                     </div>
                   )}
                 </div>
+              </div>
+            </ProfileSection>
+          </motion.div>
+        )}
+
+        {/* Enhanced Personal Insights - Show if available from conversation analysis */}
+        {combinedProfile?.enhancedPersonalData && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-8"
+          >
+            <ProfileSection
+              title="CONVERSATION INSIGHTS"
+              icon={<Lightbulb className="w-6 h-6 text-primary-white" />}
+              gradient="bg-gradient-to-br from-neon-pink/20 to-electric-blue/20"
+            >
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Personal Traits */}
+                {combinedProfile.enhancedPersonalData.personalityTraits?.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-black text-neon-pink mb-3">PERSONALITY TRAITS</h4>
+                    <TagDisplay
+                      items={combinedProfile.enhancedPersonalData.personalityTraits}
+                      color="bg-gradient-to-r from-neon-pink to-electric-blue text-primary-white"
+                      icon={<Smile className="w-4 h-4" />}
+                      emptyMessage="No traits identified"
+                    />
+                  </div>
+                )}
+
+                {/* Motivations */}
+                {combinedProfile.enhancedPersonalData.motivations?.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-black text-cyber-yellow mb-3">MOTIVATIONS</h4>
+                    <TagDisplay
+                      items={combinedProfile.enhancedPersonalData.motivations}
+                      color="bg-gradient-to-r from-cyber-yellow to-acid-green text-primary-black"
+                      icon={<Zap className="w-4 h-4" />}
+                      emptyMessage="No motivations identified"
+                    />
+                  </div>
+                )}
+
+                {/* Communication Style */}
+                {combinedProfile.enhancedPersonalData.communicationStyle && (
+                  <div>
+                    <h4 className="text-lg font-black text-electric-blue mb-3">COMMUNICATION STYLE</h4>
+                    <div className="bg-primary-white/10 rounded-lg p-4">
+                      <div className="text-primary-white font-medium">
+                        {combinedProfile.enhancedPersonalData.communicationStyle}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Preferences */}
+                {combinedProfile.enhancedPersonalData.preferences?.length > 0 && (
+                  <div>
+                    <h4 className="text-lg font-black text-acid-green mb-3">PREFERENCES</h4>
+                    <TagDisplay
+                      items={combinedProfile.enhancedPersonalData.preferences}
+                      color="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black"
+                      icon={<Heart className="w-4 h-4" />}
+                      emptyMessage="No preferences identified"
+                    />
+                  </div>
+                )}
               </div>
             </ProfileSection>
           </motion.div>

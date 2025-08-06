@@ -6,7 +6,7 @@
  */
 
 import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFirestore, Firestore, connectFirestoreEmulator, initializeFirestore } from 'firebase/firestore';
 import { getAuth, GoogleAuthProvider, Auth } from 'firebase/auth';
 import { getAnalytics, Analytics } from 'firebase/analytics';
 import { firebaseConfig } from '../config/environment';
@@ -33,12 +33,15 @@ export const firebaseApp: FirebaseApp = initializeApp(firebaseConfig);
 console.log('🚀 Firebase app initialized');
 
 /**
- * Initialize Firestore with emulator support for development
+ * Initialize Firestore with proper settings and emulator support for development
  */
 const isDev = import.meta.env.MODE === 'development';
 const useEmulators = isDev && import.meta.env.VITE_DISABLE_EMULATORS !== 'true';
 
-export const firestore: Firestore = getFirestore(firebaseApp);
+// Configure Firestore with proper serialization settings
+export const firestore: Firestore = initializeFirestore(firebaseApp, {
+  ignoreUndefinedProperties: true, // Prevent serialization errors from undefined values
+});
 
 if (useEmulators) {
   connectFirestoreEmulator(firestore, '127.0.0.1', 8080);

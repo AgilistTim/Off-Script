@@ -3,6 +3,7 @@
 
 import { mcpBridgeService, PerplexitySearchParams, PerplexitySearchResult } from './mcpBridgeService';
 import { environmentConfig } from '../config/environment';
+import { UnifiedVoiceContextService } from './unifiedVoiceContextService';
 
 export interface EnhancedCareerData {
   verifiedSalary: {
@@ -208,6 +209,9 @@ class PerplexityCareerEnhancementService {
 
     console.log(`✅ Premium enhancement completed: ${enhancedCards.length} cards processed, ${errors.length} errors`);
     
+    // Trigger ElevenLabs context update for enhanced cards
+    await this.triggerEnhancementContextUpdate(userId, enhancedCards);
+    
     return enhancedCards;
   }
 
@@ -380,53 +384,21 @@ class PerplexityCareerEnhancementService {
     }
   ): Promise<EnhancedCareerData> {
     
-    // For now, return a structured placeholder that will be parsed from the search results
-    // In a full implementation, this would use an LLM to parse the search results into structured data
+    // This service is deprecated in favor of the new structured JSON approach
+    // Refusing to return misleading placeholder data
+    console.error('❌ DEPRECATED: perplexityCareerEnhancementService should not be used - use structured JSON API instead');
+    throw new Error('This service returns misleading placeholder data and has been deprecated. Use the new structured JSON API approach in dashboardCareerEnhancer.ts instead.');
     
-    return {
-      verifiedSalary: {
-        entry: { min: 18000, max: 25000, currency: 'GBP', sources: searchResults.marketData.sources?.map(s => s.url) || [] },
-        mid: { min: 25000, max: 40000, currency: 'GBP', sources: searchResults.marketData.sources?.map(s => s.url) || [] },
-        senior: { min: 40000, max: 60000, currency: 'GBP', sources: searchResults.marketData.sources?.map(s => s.url) || [] },
-        byRegion: {
-          london: { min: 30000, max: 70000 },
-          manchester: { min: 22000, max: 45000 },
-          birmingham: { min: 20000, max: 42000 },
-          scotland: { min: 18000, max: 40000 }
-        }
-      },
-      demandIndicators: {
-        jobPostingVolume: 0, // Would be parsed from search results
-        growthRate: 0,
-        competitionLevel: 'Medium',
-        sources: searchResults.marketData.sources?.map(s => s.url) || []
-      },
-      verifiedEducation: {
-        pathways: [], // Would be parsed from education search results
-        professionalBodies: []
-      },
-      industryIntelligence: {
-        growthProjection: {
-          nextYear: 0,
-          fiveYear: 0,
-          outlook: 'Stable',
-          factors: [],
-          sources: searchResults.growthData.sources?.map(s => s.url) || []
-        },
-        emergingTrends: [],
-        automationRisk: {
-          level: 'Medium',
-          timeline: 'Unknown',
-          mitigation: [],
-          source: ''
-        }
-      },
-      currentOpportunities: {
-        activeJobCount: 0, // Would be parsed from opportunities search
-        topEmployers: [],
-        skillsInDemand: []
-      }
-    };
+    /* REMOVED MISLEADING PLACEHOLDER DATA - this was attaching real source URLs to completely fabricated salary figures
+     * The following commented code shows what was removed:
+     * - Fake salary ranges (£18k-£60k) attached to real source URLs
+     * - Fake job posting volumes (0) with real sources
+     * - Fake market outlooks ('Medium', 'Stable') presented as verified data
+     * - Generic automation risk assessments with no real analysis
+     * 
+     * This violated user trust and could have seriously misled career decisions.
+     * The new structured JSON API approach provides real, verified data instead.
+     */
   }
 
   /**
@@ -459,7 +431,61 @@ class PerplexityCareerEnhancementService {
     const estimatedMinutes = Math.ceil((remainingCards * 3) / 60); // 3 seconds per card
     return estimatedMinutes <= 1 ? '< 1 minute' : `${estimatedMinutes} minutes`;
   }
+
+  /**
+   * Trigger ElevenLabs context update for enhanced career cards
+   */
+  private async triggerEnhancementContextUpdate(
+    userId: string, 
+    enhancedCards: PerplexityEnhancedCareerCard[]
+  ): Promise<void> {
+    try {
+      console.log(`🎯 Triggering ElevenLabs context update for ${enhancedCards.length} enhanced career cards`);
+      
+      // Create UnifiedVoiceContextService instance
+      const voiceContextService = new UnifiedVoiceContextService();
+      
+      // Get user data for context personalization
+      const { getUserById } = await import('./userService');
+      const userData = await getUserById(userId);
+      const userName = userData?.careerProfile?.name || userData?.displayName;
+      
+      // Convert enhanced cards to CareerCard format for context update
+      const careerCards = enhancedCards.map(enhancedCard => ({
+        id: enhancedCard.id,
+        title: enhancedCard.title,
+        description: enhancedCard.description,
+        confidence: enhancedCard.enhancement?.confidence || 0.8,
+        enhancement: enhancedCard.enhancement,
+        perplexityData: enhancedCard.enhancedData,
+        // Add enhanced data fields for context formatting
+        compensationRewards: enhancedCard.enhancedData?.verifiedSalary,
+        competencyRequirements: enhancedCard.enhancedData?.verifiedEducation,
+        labourMarketDynamics: enhancedCard.enhancedData?.industryIntelligence
+      }));
+      
+      // Trigger context update with enhanced career data
+      // Note: Since we don't have active agent IDs in background processing,
+      // this prepares the context for future conversations
+      // In a production environment, you might maintain a registry of active agents
+      
+      // Clear caches to ensure fresh data for next context retrieval
+      voiceContextService.clearCareerCardCache(userId);
+      
+      // Also clear the structured career guidance cache used by Dashboard
+      const { careerPathwayService } = await import('./careerPathwayService');
+      careerPathwayService.clearStructuredGuidanceCache(userId);
+      
+      console.log(`✅ ElevenLabs context update triggered for user ${userId} with ${careerCards.length} enhanced cards`);
+      console.log('📝 Enhanced context will be available for next voice conversation');
+      
+    } catch (error) {
+      console.error('❌ Error triggering ElevenLabs context update:', error);
+      // Don't throw - this shouldn't break the enhancement process
+    }
+  }
 }
 
-// Export singleton instance
-export const perplexityCareerEnhancementService = new PerplexityCareerEnhancementService();
+// DEPRECATED SERVICE - DO NOT USE
+// This service has been replaced by dashboardCareerEnhancer.ts with structured JSON API
+// export const perplexityCareerEnhancementService = new PerplexityCareerEnhancementService();

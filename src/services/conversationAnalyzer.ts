@@ -1294,7 +1294,81 @@ CRITICAL: Only include information found through current web search. Use specifi
   reset(): void {
     this.profile = this.createProfile();
   }
+
+  /**
+   * Analyze conversation for personal insights (name, personality, etc.)
+   */
+  async analyzeForPersonalInsights(conversationText: string): Promise<{
+    name: string | null;
+    personalityTraits: string[];
+    communicationStyle: string;
+    motivations: string[];
+    concerns: string[];
+    preferences: string[];
+  }> {
+    try {
+      const openai = getOpenAIClient();
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-2024-08-06",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert conversation analyst. Analyze the conversation and extract personal insights about the user.
+
+Focus on:
+1. Name: Extract the user's name if mentioned
+2. Personality traits: Key character traits evident from communication
+3. Communication style: How they express themselves
+4. Motivations: What drives them
+5. Concerns: What worries or challenges them
+6. Preferences: Their stated preferences or implied likes/dislikes
+
+Be accurate and only include insights that are clearly evident from the conversation.`
+          },
+          {
+            role: "user", 
+            content: `Analyze this conversation for personal insights:
+
+${conversationText}`
+          }
+        ],
+        response_format: zodResponseFormat(PersonalInsightsSchema, "personal_insights"),
+        temperature: 0.3
+      });
+
+      const content = response.choices[0]?.message?.content;
+      if (!content) {
+        throw new Error('No response from OpenAI');
+      }
+
+      const insights = PersonalInsightsSchema.parse(JSON.parse(content));
+      
+      return {
+        name: insights.extractedName || null,
+        personalityTraits: insights.personalityTraits || [],
+        communicationStyle: insights.communicationStyle || 'unknown',
+        motivations: insights.motivations || [],
+        concerns: insights.concerns || [],
+        preferences: insights.preferences || []
+      };
+
+    } catch (error) {
+      console.error('Error analyzing conversation for personal insights:', error);
+      throw error;
+    }
+  }
 }
+
+// Personal Insights Schema
+const PersonalInsightsSchema = z.object({
+  extractedName: z.string().nullable(),
+  personalityTraits: z.array(z.string()),
+  communicationStyle: z.string(),
+  motivations: z.array(z.string()),
+  concerns: z.array(z.string()),
+  preferences: z.array(z.string())
+});
 
 // Export singleton instance for backward compatibility
 export const conversationAnalyzer = new ConversationAnalyzer(); 

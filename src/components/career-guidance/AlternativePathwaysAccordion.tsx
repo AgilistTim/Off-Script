@@ -124,11 +124,19 @@ const AlternativePathwaysAccordion: React.FC<AlternativePathwaysAccordionProps> 
                             <h3 className="text-xl font-bold text-primary-white truncate">
                               {pathway.title}
                             </h3>
-                            <Badge 
-                              className={`bg-gradient-to-r ${getConfidenceColor(pathway.confidence)} text-primary-white font-bold text-xs px-2 py-1 flex-shrink-0`}
-                            >
-                              #{pathway.rank} • {pathway.confidence}% match
-                            </Badge>
+                            <div className="flex items-center space-x-2 flex-shrink-0">
+                              <Badge 
+                                className={`bg-gradient-to-r ${getConfidenceColor(pathway.confidence)} text-primary-white font-bold text-xs px-2 py-1`}
+                              >
+                                #{pathway.rank} • {pathway.confidence}% match
+                              </Badge>
+                              {pathway.isEnhanced && (
+                                <Badge className="bg-gradient-to-r from-neon-pink to-electric-blue text-primary-white font-bold text-xs px-2 py-1">
+                                  <Sparkles className="w-3 h-3 mr-1" />
+                                  ENHANCED
+                                </Badge>
+                              )}
+                            </div>
                           </div>
                           
                           <div className="flex items-center space-x-4 text-sm text-primary-white/60">

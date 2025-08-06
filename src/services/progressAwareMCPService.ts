@@ -1,5 +1,5 @@
 import { mcpQueueService } from './mcpQueueService';
-import { perplexityCareerEnhancementService, CareerCardEnhancementStatus } from './perplexityCareerEnhancementService';
+import { dashboardCareerEnhancer } from './dashboardCareerEnhancer';
 
 export interface MCPProgressUpdate {
   stage: 'initializing' | 'analyzing' | 'generating_cards' | 'enhancing_cards' | 'completed' | 'error';
@@ -91,12 +91,12 @@ class ProgressAwareMCPService {
         };
       }
 
-      // Stage 4: Enhance with Perplexity (for authenticated users)
-      if (perplexityCareerEnhancementService.isEnhancementAvailable() && basicCards.length > 0) {
+      // Stage 4: Enhance with structured API (for authenticated users)
+      if (dashboardCareerEnhancer.isEnhancementAvailable() && basicCards.length > 0) {
         updateProgress('enhancing_cards', 'Enhancing career recommendations with real-time market data...', 70);
         
         try {
-          const enhancedCards = await perplexityCareerEnhancementService.batchEnhanceUserCareerCards(
+          const enhancedCards = await dashboardCareerEnhancer.batchEnhanceUserCareerCards(
             userId,
             basicCards,
             (status) => {
@@ -150,8 +150,8 @@ class ProgressAwareMCPService {
         updateProgress('completed', 'Career analysis completed (premium enhancement not available)', 100, {
           cardCount: basicCards.length,
           type: 'basic',
-          enhancementReason: !perplexityCareerEnhancementService.isEnhancementAvailable() 
-            ? 'Perplexity API not configured'
+          enhancementReason: !dashboardCareerEnhancer.isEnhancementAvailable() 
+            ? 'Enhancement API not configured'
             : 'No cards to enhance'
         });
 

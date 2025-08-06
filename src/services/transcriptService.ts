@@ -109,63 +109,13 @@ class TranscriptService {
         console.warn('⚠️ OpenAI analysis function call failed:', fetchError);
       }
 
-      // Fallback to structured mock result if Firebase Function fails
-      const mockAnalysis = {
-        keyThemes: [
-          "Professional development and skill building",
-          "Career pathway exploration", 
-          "Industry insights and opportunities",
-          "Work-life balance considerations",
-          "Educational requirements and progression"
-        ],
-        softSkills: [
-          "Communication and presentation",
-          "Problem-solving and critical thinking",
-          "Leadership and teamwork",
-          "Adaptability and resilience",
-          "Time management and organization"
-        ],
-        challenges: [
-          "Navigating competitive job markets",
-          "Balancing education with experience",
-          "Building professional networks",
-          "Developing technical expertise",
-          "Managing career transitions"
-        ],
-        aspirationalElements: [
-          {
-            timestamp: "0:01:30",
-            quote: "Success comes from continuous learning and adapting to change"
-          },
-          {
-            timestamp: "0:03:45", 
-            quote: "Building meaningful connections is key to career growth"
-          }
-        ],
-        hashtags: [
-          "#CareerExploration",
-          "#ProfessionalDevelopment", 
-          "#YouthCareers",
-          "#SkillBuilding",
-          "#WorkLifeBalance",
-          `#${category.replace(/\s+/g, '')}`
-        ],
-        careerPaths: [
-          `${category} Specialist`,
-          `${category} Manager`,
-          `${category} Consultant`,
-          "Entrepreneur",
-          "Team Leader"
-        ],
-        summary: `This video provides valuable insights into ${category} careers, highlighting key skills, challenges, and opportunities for young professionals. The content emphasizes the importance of continuous learning, building strong professional relationships, and developing both technical and soft skills to succeed in today's dynamic job market.`
-      };
-
-      console.log('✅ OpenAI analysis completed (mock data)');
+      // Refuse to provide fake analysis data - return error instead
+      console.error('❌ OpenAI video analysis failed - refusing to provide misleading mock analysis with fake quotes and timestamps');
       
       return {
-        success: true,
-        analysis: mockAnalysis,
-        tokensUsed: 1200 // Mock token usage
+        success: false,
+        error: 'Video analysis temporarily unavailable. Our AI analysis service is currently offline. Please try again later.',
+        analysis: null
       };
 
     } catch (error) {

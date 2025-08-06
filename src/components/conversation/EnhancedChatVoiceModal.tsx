@@ -308,10 +308,23 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             messageCount: validMessages.length
           });
 
+          const progressStartTime = Date.now();
+          
           // Progress callback to update UI
           const handleProgress = (update: MCPProgressUpdate) => {
-            console.log('📊 Progress update:', update);
+            console.log('📊 [MCP PROGRESS] Career analysis update:', {
+              stage: update.stage,
+              progress: update.progress,
+              message: update.message,
+              timeElapsed: Date.now() - (progressStartTime || Date.now()),
+              estimatedTotal: '65+ seconds for deep analysis'
+            });
             setProgressUpdate(update);
+            
+            // Inform user about longer operations
+            if (update.progress > 10 && update.progress < 50) {
+              console.log('⏰ [USER INFO] Deep career analysis in progress - this enables enhanced personal insights and accurate career matching');
+            }
           };
 
           // Use progress-aware MCP service
@@ -441,12 +454,32 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             personalQualities: parseInsights(parameters.personalQualities)
           };
 
+          // Update local state for immediate UI feedback
           setDiscoveredInsights(prev => ({
             interests: [...new Set([...prev.interests, ...newInsights.interests])],
             goals: [...new Set([...prev.goals, ...newInsights.goals])],
             skills: [...new Set([...prev.skills, ...newInsights.skills])],
             personalQualities: [...new Set([...prev.personalQualities, ...newInsights.personalQualities])]
           }));
+
+          // CRITICAL: Also save to guest session if user is not logged in
+          if (!currentUser) {
+            const { guestSessionService } = await import('../../services/guestSessionService');
+            
+            const profileData = {
+              name: parameters.name || null,
+              interests: newInsights.interests,
+              goals: newInsights.goals,
+              skills: newInsights.skills,
+              values: newInsights.personalQualities, // Map personalQualities to values
+              workStyle: parseInsights(parameters.workStyle),
+              careerStage: parameters.careerStage || 'exploring',
+              lastUpdated: new Date().toISOString()
+            };
+
+            guestSessionService.updatePersonProfile(profileData);
+            console.log('💾 Profile saved to guest session for migration:', profileData);
+          }
 
           console.log('✅ Profile insights updated:', newInsights);
           return "Profile insights updated successfully based on conversation";
@@ -514,6 +547,23 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         const updated = [...prev, newMessage];
         conversationHistoryRef.current = updated; // Keep ref in sync
         console.log(`📝 Message added to history. Total messages: ${updated.length}`);
+        
+        // Save message to guest session for migration
+        if (!currentUser) {
+          try {
+            guestSessionService.addConversationMessage(newMessage.role, newMessage.content);
+            const guestSession = guestSessionService.getGuestSession();
+            console.log('💾 [GUEST FLOW] Saved message to guest session for migration:', {
+              messageRole: newMessage.role,
+              messagePreview: newMessage.content.substring(0, 50) + '...',
+              totalMessages: guestSession.conversationHistory.length,
+              sessionId: guestSession.sessionId
+            });
+          } catch (error) {
+            console.error('❌ [GUEST FLOW] Failed to save message to guest session:', error);
+          }
+        }
+        
         return updated;
       });
     },

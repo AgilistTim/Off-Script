@@ -25,7 +25,10 @@ import {
   Trash2,
   Loader2,
   Heart,
-  Building
+  Building,
+  BarChart3,
+  Shield,
+  MapPin
 } from 'lucide-react';
 import { getVideoById } from '../services/videoService';
 import VideoCard from '../components/video/VideoCard';
@@ -38,7 +41,9 @@ import { Badge } from '../components/ui/badge';
 import { firestore } from '../services/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
 import careerPathwayService from '../services/careerPathwayService';
-import { dashboardCareerEnhancementService, DashboardCareerCard } from '../services/dashboardCareerEnhancementService';
+import { DashboardCareerCard } from '../services/dashboardCareerEnhancementService';
+import { dashboardCareerEnhancer } from '../services/dashboardCareerEnhancer';
+import type { CareerCard } from '../types/careerCard';
 import PrimaryPathwayHero from '../components/career-guidance/PrimaryPathwayHero';
 import AlternativePathwaysAccordion from '../components/career-guidance/AlternativePathwaysAccordion';
 import { CareerVoiceDiscussionModal } from '../components/career-guidance/CareerVoiceDiscussionModal';
@@ -277,7 +282,63 @@ const Dashboard: React.FC = () => {
     }
   }, [currentUser, loading]); // Removed state dependencies that cause infinite loops
 
-  // Enhanced career card fetching with caching
+  // Add real-time listener for enhanced career data updates
+  useEffect(() => {
+    if (!currentUser) return;
+
+    // Set up a listener for enhanced career data updates
+    const enhancementCheckInterval = setInterval(async () => {
+      try {
+        // Check if we have career guidance
+        if (structuredGuidance.totalPathways > 0) {
+          console.log('🔍 Checking for enhanced data updates...');
+          
+          // Force refresh to bypass cache and get latest data
+          const freshData = await careerPathwayService.forceRefreshStructuredGuidance(currentUser.uid);
+          
+          // Check if primary pathway got enhanced
+          const primaryWasEnhanced = !structuredGuidance.primaryPathway?.isEnhanced && 
+                                    freshData.primaryPathway?.isEnhanced;
+          
+          // Check if any alternatives got enhanced
+          const alternativesWereEnhanced = structuredGuidance.alternativePathways.some((pathway, index) => 
+            !pathway.isEnhanced && freshData.alternativePathways[index]?.isEnhanced
+          );
+
+          // Check for new perplexityData
+          const hasNewPerplexityData = freshData.primaryPathway?.perplexityData && 
+                                      !structuredGuidance.primaryPathway?.perplexityData;
+
+          if (primaryWasEnhanced || alternativesWereEnhanced || hasNewPerplexityData) {
+            console.log('🔄 Enhancement detected, updating UI with fresh data...', {
+              primaryWasEnhanced,
+              alternativesWereEnhanced,
+              hasNewPerplexityData,
+              freshPrimaryEnhanced: freshData.primaryPathway?.isEnhanced,
+              freshPerplexityData: !!freshData.primaryPathway?.perplexityData
+            });
+            
+            // Update state immediately with fresh data
+            setStructuredGuidance(freshData);
+            setCareerCardCache(new Map()); // Clear cache
+            setDataRefreshKey(prev => prev + 1);
+            
+            setNotification({
+              message: '✨ Your career insights have been enhanced with real-time market data!',
+              type: 'success'
+            });
+          }
+        }
+      } catch (error) {
+        console.warn('Enhancement check failed:', error);
+      }
+    }, 15000); // Check every 15 seconds (reduced frequency)
+
+    // Cleanup interval on unmount
+    return () => clearInterval(enhancementCheckInterval);
+  }, [currentUser?.uid, structuredGuidance.totalPathways]); // Fixed dependencies
+
+  // Enhanced career card fetching with caching and progressive enhancement
   const fetchCareerCardDetails = useCallback(async (threadId: string) => {
     if (!currentUser || loading) {
       return;
@@ -289,6 +350,32 @@ const Dashboard: React.FC = () => {
       setSelectedCareerCard(cachedCard);
       setShowCareerCardModal(true);
       console.log('✅ Loaded cached career card:', cachedCard);
+      
+      // Still trigger enhancement if card isn't already enhanced
+      if (!cachedCard.enhancement?.status || cachedCard.enhancement.status !== 'completed') {
+        console.log('🔄 Cached card needs enhancement, triggering progressive enhancement...');
+        
+        // Convert CareerPathway to CareerCard format for enhancement
+        const cachedCardForEnhancement: CareerCard = {
+          ...cachedCard,
+          nextSteps: cachedCard.nextSteps ? [
+            ...(cachedCard.nextSteps.immediate || []),
+            ...(cachedCard.nextSteps.shortTerm || []),
+            ...(cachedCard.nextSteps.longTerm || [])
+          ] : undefined
+        };
+        
+        dashboardCareerEnhancer.enhanceDashboardCards([cachedCardForEnhancement])
+          .then(enhancedCards => {
+            if (enhancedCards[0] && enhancedCards[0].enhancement?.status === 'completed') {
+              console.log('✅ Enhanced cached card with real-time data');
+              setSelectedCareerCard(enhancedCards[0]);
+              // Update cache with enhanced data
+              setCareerCardCache(prev => new Map(prev.set(threadId, enhancedCards[0])));
+            }
+          })
+          .catch(error => console.warn('⚠️ Enhancement failed for cached card:', error));
+      }
       return;
     }
 
@@ -301,11 +388,40 @@ const Dashboard: React.FC = () => {
         // Use the primary pathway as the career card data
         const careerCard = careerGuidance.primaryPathway;
         
-        // Cache the result
+        // Cache the basic result and show immediately (non-blocking)
         setCareerCardCache(prev => new Map(prev.set(threadId, careerCard)));
         setSelectedCareerCard(careerCard);
         setShowCareerCardModal(true);
         console.log('✅ Loaded and cached career card details:', careerCard);
+
+        // NEW: Trigger progressive enhancement after basic card is displayed
+        console.log('🚀 Starting progressive enhancement with Perplexity real-time data...');
+        
+        // Convert CareerPathway to CareerCard format for enhancement
+        const careerCardForEnhancement: CareerCard = {
+          ...careerCard,
+          // Handle nextSteps conversion from CareerPathway format to CareerCard format
+          nextSteps: careerCard.nextSteps ? [
+            ...(careerCard.nextSteps.immediate || []),
+            ...(careerCard.nextSteps.shortTerm || []),
+            ...(careerCard.nextSteps.longTerm || [])
+          ] : undefined
+        };
+        
+        dashboardCareerEnhancer.enhanceDashboardCards([careerCardForEnhancement])
+          .then(enhancedCards => {
+            if (enhancedCards[0] && enhancedCards[0].enhancement?.status === 'completed') {
+              console.log('✅ Successfully enhanced career card with real-time UK market data');
+              setSelectedCareerCard(enhancedCards[0]);
+              // Update cache with enhanced data
+              setCareerCardCache(prev => new Map(prev.set(threadId, enhancedCards[0])));
+            }
+          })
+          .catch(error => {
+            console.warn('⚠️ Enhancement failed, but basic card functionality preserved:', error);
+            // Enhancement failure doesn't break the user experience
+            // Basic card remains functional
+          });
       } else {
         setNotification({
           message: 'Could not load career card details. The data may still be processing.',
@@ -543,23 +659,71 @@ const Dashboard: React.FC = () => {
           
           // Fetch structured career guidance data
           (async () => {
-            console.log('🔍 DEBUG: Starting structured career guidance fetch for user:', currentUser.uid);
+            console.log('🔍 DASHBOARD DEBUG - Starting structured career guidance fetch for user:', currentUser.uid);
             
-            // Get structured guidance using the new service method
-            const structuredData = await careerPathwayService.getStructuredCareerGuidance(currentUser.uid);
-            console.log('🔍 DEBUG: Service returned structured data:', {
+            // Force refresh to ensure we get the latest data including enhancements
+            const structuredData = await careerPathwayService.forceRefreshStructuredGuidance(currentUser.uid);
+            console.log('🔍 DASHBOARD DEBUG - Service returned structured data:', {
               hasPrimary: !!structuredData.primaryPathway,
               primaryTitle: structuredData.primaryPathway?.title,
+              primaryIsEnhanced: structuredData.primaryPathway?.isEnhanced,
+              primaryHasEnhancedSalary: !!structuredData.primaryPathway?.enhancedSalary,
+              primaryHasPerplexityData: !!structuredData.primaryPathway?.perplexityData,
+              primaryHasCompensationRewards: !!structuredData.primaryPathway?.compensationRewards,
               alternativesCount: structuredData.alternativePathways.length,
               totalPathways: structuredData.totalPathways
             });
             
+            // Debug primary pathway data structure
+            if (structuredData.primaryPathway) {
+              console.log('🔍 DASHBOARD DEBUG - Primary pathway detailed structure:', {
+                title: structuredData.primaryPathway.title,
+                isEnhanced: structuredData.primaryPathway.isEnhanced,
+                enhancedAt: structuredData.primaryPathway.enhancedAt,
+                enhancementSource: structuredData.primaryPathway.enhancementSource,
+                hasEnhancedSalary: !!structuredData.primaryPathway.enhancedSalary,
+                hasCompensationRewards: !!structuredData.primaryPathway.compensationRewards,
+                hasLabourMarketDynamics: !!structuredData.primaryPathway.labourMarketDynamics,
+                hasCareerProgression: !!structuredData.primaryPathway.careerProgression,
+                hasDayInTheLife: !!structuredData.primaryPathway.dayInTheLife,
+                hasIndustryTrends: !!structuredData.primaryPathway.industryTrends,
+                enhancedSalaryType: typeof structuredData.primaryPathway.enhancedSalary,
+                compensationRewardsType: typeof structuredData.primaryPathway.compensationRewards
+              });
+              
+              // Check if enhanced data is actually present
+              if (structuredData.primaryPathway.enhancedSalary) {
+                console.log('🔍 DASHBOARD DEBUG - Enhanced salary data found:', structuredData.primaryPathway.enhancedSalary);
+              } else {
+                console.log('⚠️ DASHBOARD DEBUG - No enhanced salary data found in primary pathway');
+              }
+              
+              if (structuredData.primaryPathway.compensationRewards) {
+                console.log('🔍 DASHBOARD DEBUG - Compensation rewards data found:', structuredData.primaryPathway.compensationRewards);
+              } else {
+                console.log('⚠️ DASHBOARD DEBUG - No compensation rewards data found in primary pathway');
+              }
+            }
+            
+            // Debug alternative pathways
+            if (structuredData.alternativePathways.length > 0) {
+              console.log('🔍 DASHBOARD DEBUG - Alternative pathways structure:', 
+                structuredData.alternativePathways.map((pathway, index) => ({
+                  index,
+                  title: pathway.title,
+                  isEnhanced: pathway.isEnhanced,
+                  hasEnhancedSalary: !!pathway.enhancedSalary,
+                  hasCompensationRewards: !!pathway.compensationRewards
+                }))
+              );
+            }
+            
             if (structuredData.totalPathways === 0) {
-              console.log('🔄 No career guidance found on first load - they may still be processing');
+              console.log('🔄 DASHBOARD DEBUG - No career guidance found on first load - they may still be processing');
               return structuredData;
             }
             
-            console.log('✅ Structured career guidance loaded successfully');
+            console.log('✅ DASHBOARD DEBUG - Structured career guidance loaded successfully');
             return structuredData;
           })()
         ]);
@@ -702,20 +866,25 @@ const Dashboard: React.FC = () => {
                       )}
                       
                       {/* Enhancement status badges */}
-                      {selectedCareerCard.isEnhanced || selectedCareerCard.webSearchVerified ? (
+                      {selectedCareerCard.enhancement?.status === 'completed' ? (
                         <Badge className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black font-bold">
                           <Sparkles className="w-3 h-3 mr-1" />
                           ENHANCED WITH REAL UK DATA
                         </Badge>
-                      ) : selectedCareerCard.enhancementStatus === 'failed' ? (
+                      ) : selectedCareerCard.enhancement?.status === 'failed' ? (
                         <Badge className="bg-gradient-to-r from-sunset-orange to-neon-pink text-primary-white font-bold">
                           <RefreshCw className="w-3 h-3 mr-1" />
-                          BASIC CARD
+                          ENHANCEMENT FAILED
                         </Badge>
-                      ) : selectedCareerCard.enhancementStatus === 'pending' ? (
+                      ) : selectedCareerCard.enhancement?.status === 'pending' ? (
                         <Badge className="bg-gradient-to-r from-electric-blue to-cyber-blue text-primary-white font-bold">
                           <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                          ENHANCING...
+                          ENHANCING WITH PERPLEXITY...
+                        </Badge>
+                      ) : selectedCareerCard.isEnhanced || selectedCareerCard.webSearchVerified ? (
+                        <Badge className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black font-bold">
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          ENHANCED WITH REAL UK DATA
                         </Badge>
                       ) : (
                         <Badge className="bg-gradient-to-r from-primary-gray to-primary-white/20 text-primary-white/70 font-bold">
@@ -740,26 +909,82 @@ const Dashboard: React.FC = () => {
                     {selectedCareerCard.description}
                   </p>
                   
-                  {selectedCareerCard.averageSalary && (
+                  {(selectedCareerCard.perplexityData?.verifiedSalaryRanges || selectedCareerCard.compensationRewards?.salaryRange || selectedCareerCard.averageSalary) && (
                     <div className="bg-gradient-to-r from-electric-blue/20 to-neon-pink/20 rounded-2xl p-6 border border-electric-blue/30">
                       <h3 className="text-xl font-black text-acid-green mb-4 flex items-center">
                         <PoundSterling className="w-6 h-6 mr-2" />
-                        SALARY BREAKDOWN
+                        {selectedCareerCard.perplexityData?.verifiedSalaryRanges ? 'VERIFIED UK SALARY RANGES' : 'SALARY BREAKDOWN'}
                       </h3>
-                      <div className="grid grid-cols-3 gap-6">
-                        <div className="text-center">
-                          <div className="text-primary-white/60 font-bold mb-2">ENTRY</div>
-                          <div className="text-2xl font-black text-electric-blue">{selectedCareerCard.averageSalary.entry}</div>
+                      {(selectedCareerCard.perplexityData?.verifiedSalaryRanges || selectedCareerCard.compensationRewards?.salaryRange) ? (
+                        <>
+                          {(() => {
+                            // Get salary data from either perplexityData or compensationRewards
+                            const salaryData = selectedCareerCard.perplexityData?.verifiedSalaryRanges || 
+                                             selectedCareerCard.compensationRewards?.salaryRange;
+                            if (!salaryData) return null;
+                            
+                            return (
+                              <div className="grid grid-cols-3 gap-6 mb-4">
+                                <div className="text-center">
+                                  <div className="text-primary-white/60 font-bold mb-2">ENTRY LEVEL</div>
+                                  <div className="text-2xl font-black text-electric-blue">
+                                    £{(salaryData.entry?.min || salaryData.entry).toLocaleString()}-{(salaryData.entry?.max || salaryData.entry).toLocaleString()}
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-primary-white/60 font-bold mb-2">MID LEVEL</div>
+                                  <div className="text-2xl font-black text-neon-pink">
+                                    £{(salaryData.mid?.min || salaryData.mid).toLocaleString()}-{(salaryData.mid?.max || salaryData.mid).toLocaleString()}
+                                  </div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-primary-white/60 font-bold mb-2">SENIOR LEVEL</div>
+                                  <div className="text-2xl font-black text-cyber-yellow">
+                                    £{(salaryData.senior?.min || salaryData.senior).toLocaleString()}-{(salaryData.senior?.max || salaryData.senior).toLocaleString()}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })()}
+                          {(selectedCareerCard.perplexityData?.verifiedSalaryRanges?.byRegion || selectedCareerCard.compensationRewards?.salaryRange?.byRegion) && (
+                            <div className="mt-4 pt-4 border-t border-electric-blue/30">
+                              <h4 className="text-lg font-bold text-primary-white/80 mb-3">Regional Variations</h4>
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                                {(() => {
+                                  const byRegion = selectedCareerCard.perplexityData?.verifiedSalaryRanges?.byRegion || 
+                                                 selectedCareerCard.compensationRewards?.salaryRange?.byRegion;
+                                  if (!byRegion) return null;
+                                  
+                                  return Object.entries(byRegion).map(([region, range]) => {
+                                    const { min, max } = range as { min: number; max: number };
+                                    return (
+                                      <div key={region} className="text-center bg-primary-black/40 rounded-lg p-3">
+                                        <div className="text-primary-white/60 font-bold mb-1 capitalize">{region}</div>
+                                        <div className="text-primary-white font-bold">£{min.toLocaleString()}-{max.toLocaleString()}</div>
+                                      </div>
+                                    );
+                                  });
+                                })()}
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-6">
+                          <div className="text-center">
+                            <div className="text-primary-white/60 font-bold mb-2">ENTRY</div>
+                            <div className="text-2xl font-black text-electric-blue">{selectedCareerCard.averageSalary.entry}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-primary-white/60 font-bold mb-2">EXPERIENCED</div>
+                            <div className="text-2xl font-black text-neon-pink">{selectedCareerCard.averageSalary.experienced}</div>
+                          </div>
+                          <div className="text-center">
+                            <div className="text-primary-white/60 font-bold mb-2">SENIOR</div>
+                            <div className="text-2xl font-black text-cyber-yellow">{selectedCareerCard.averageSalary.senior}</div>
+                          </div>
                         </div>
-                        <div className="text-center">
-                          <div className="text-primary-white/60 font-bold mb-2">EXPERIENCED</div>
-                          <div className="text-2xl font-black text-neon-pink">{selectedCareerCard.averageSalary.experienced}</div>
-                        </div>
-                        <div className="text-center">
-                          <div className="text-primary-white/60 font-bold mb-2">SENIOR</div>
-                          <div className="text-2xl font-black text-cyber-yellow">{selectedCareerCard.averageSalary.senior}</div>
-                        </div>
-                      </div>
+                      )}
                     </div>
                   )}
                   
@@ -802,8 +1027,8 @@ const Dashboard: React.FC = () => {
                     </div>
                   )}
                   
-                  {/* Enhanced sections - only show if card is enhanced */}
-                  {selectedCareerCard.isEnhanced && (
+                  {/* Enhanced sections - only show if card has Perplexity data */}
+                  {selectedCareerCard.perplexityData && (
                     <>
                       {selectedCareerCard.careerProgression && selectedCareerCard.careerProgression.length > 0 && (
                         <div className="bg-gradient-to-r from-neon-pink/20 to-cyber-yellow/20 rounded-2xl p-6 border border-neon-pink/30">
@@ -893,6 +1118,188 @@ const Dashboard: React.FC = () => {
                               </div>
                             ))}
                           </div>
+                        </div>
+                      )}
+                      
+                      {/* Real-time Market Demand */}
+                      {selectedCareerCard.perplexityData.realTimeMarketDemand && (
+                        <div className="bg-gradient-to-r from-electric-blue/20 to-cyber-blue/20 rounded-2xl p-6 border border-electric-blue/30">
+                          <h3 className="text-xl font-black text-electric-blue mb-4 flex items-center">
+                            <BarChart3 className="w-6 h-6 mr-2" />
+                            REAL-TIME MARKET DEMAND
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="text-center bg-primary-black/40 rounded-lg p-4">
+                              <div className="text-primary-white/60 font-bold mb-2">Job Postings (30 days)</div>
+                              <div className="text-2xl font-black text-electric-blue">
+                                {selectedCareerCard.perplexityData.realTimeMarketDemand.jobPostingVolume.toLocaleString()}
+                              </div>
+                            </div>
+                            <div className="text-center bg-primary-black/40 rounded-lg p-4">
+                              <div className="text-primary-white/60 font-bold mb-2">Growth Rate (YoY)</div>
+                              <div className="text-2xl font-black text-acid-green">
+                                {(selectedCareerCard.perplexityData.realTimeMarketDemand.growthRate * 100).toFixed(1)}%
+                              </div>
+                            </div>
+                            <div className="text-center bg-primary-black/40 rounded-lg p-4">
+                              <div className="text-primary-white/60 font-bold mb-2">Competition Level</div>
+                              <div className="text-2xl font-black text-neon-pink">
+                                {selectedCareerCard.perplexityData.realTimeMarketDemand.competitionLevel}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Work Environment Details */}
+                      {selectedCareerCard.perplexityData.workEnvironmentDetails && (
+                        <div className="bg-gradient-to-r from-acid-green/20 to-cyber-yellow/20 rounded-2xl p-6 border border-acid-green/30">
+                          <h3 className="text-xl font-black text-acid-green mb-4 flex items-center">
+                            <Heart className="w-6 h-6 mr-2" />
+                            WORK ENVIRONMENT & LIFESTYLE
+                          </h3>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                            <div className="bg-primary-black/40 rounded-lg p-4 text-center">
+                              <div className="text-primary-white/60 font-bold mb-2">Remote Work</div>
+                              <div className="text-primary-white font-bold">
+                                {selectedCareerCard.perplexityData.workEnvironmentDetails.remoteOptions ? 'Available' : 'Not Available'}
+                              </div>
+                            </div>
+                            <div className="bg-primary-black/40 rounded-lg p-4 text-center">
+                              <div className="text-primary-white/60 font-bold mb-2">Flexibility</div>
+                              <div className="text-primary-white font-bold">
+                                {selectedCareerCard.perplexityData.workEnvironmentDetails.flexibilityLevel}
+                              </div>
+                            </div>
+                            <div className="bg-primary-black/40 rounded-lg p-4 text-center">
+                              <div className="text-primary-white/60 font-bold mb-2">Typical Hours</div>
+                              <div className="text-primary-white font-bold">
+                                {selectedCareerCard.perplexityData.workEnvironmentDetails.typicalHours}
+                              </div>
+                            </div>
+                            <div className="bg-primary-black/40 rounded-lg p-4 text-center">
+                              <div className="text-primary-white/60 font-bold mb-2">Stress Level</div>
+                              <div className="text-primary-white font-bold">
+                                {selectedCareerCard.perplexityData.workEnvironmentDetails.stressLevel}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Current Education Pathways */}
+                      {selectedCareerCard.perplexityData.currentEducationPathways && selectedCareerCard.perplexityData.currentEducationPathways.length > 0 && (
+                        <div className="bg-gradient-to-r from-cyber-yellow/20 to-sunset-orange/20 rounded-2xl p-6 border border-cyber-yellow/30">
+                          <h3 className="text-xl font-black text-cyber-yellow mb-4 flex items-center">
+                            <BookOpen className="w-6 h-6 mr-2" />
+                            CURRENT TRAINING PATHWAYS
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {selectedCareerCard.perplexityData.currentEducationPathways.map((pathway, index) => (
+                              <div key={index} className="bg-primary-black/40 rounded-lg p-4">
+                                <div className="flex items-center justify-between mb-2">
+                                  <h4 className="font-bold text-primary-white">{pathway.title}</h4>
+                                  <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                    pathway.verified ? 'bg-acid-green text-primary-black' : 'bg-primary-gray text-primary-white'
+                                  }`}>
+                                    {pathway.verified ? 'VERIFIED' : 'UNVERIFIED'}
+                                  </span>
+                                </div>
+                                <p className="text-primary-white/70 text-sm mb-2">{pathway.provider}</p>
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-primary-white/60">{pathway.duration}</span>
+                                  <span className="text-acid-green font-bold">
+                                    £{pathway.cost.min.toLocaleString()}-{pathway.cost.max.toLocaleString()}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Automation Risk Assessment */}
+                      {selectedCareerCard.perplexityData.automationRiskAssessment && (
+                        <div className="bg-gradient-to-r from-neon-pink/20 to-sunset-orange/20 rounded-2xl p-6 border border-neon-pink/30">
+                          <h3 className="text-xl font-black text-neon-pink mb-4 flex items-center">
+                            <Shield className="w-6 h-6 mr-2" />
+                            AUTOMATION RISK ASSESSMENT
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="space-y-3">
+                              <div className="flex justify-between items-center">
+                                <span className="text-primary-white/60 font-bold">Risk Level:</span>
+                                <span className={`px-3 py-1 rounded-full font-bold text-sm ${
+                                  selectedCareerCard.perplexityData.automationRiskAssessment.level === 'Low' ? 'bg-acid-green text-primary-black' :
+                                  selectedCareerCard.perplexityData.automationRiskAssessment.level === 'Medium' ? 'bg-cyber-yellow text-primary-black' :
+                                  'bg-neon-pink text-primary-white'
+                                }`}>
+                                  {selectedCareerCard.perplexityData.automationRiskAssessment.level}
+                                </span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-primary-white/60 font-bold">Timeline:</span>
+                                <span className="text-primary-white font-bold">
+                                  {selectedCareerCard.perplexityData.automationRiskAssessment.timeline}
+                                </span>
+                              </div>
+                            </div>
+                            {selectedCareerCard.perplexityData.automationRiskAssessment.futureSkillsNeeded.length > 0 && (
+                              <div>
+                                <h4 className="text-primary-white/80 font-bold mb-2">Future Skills Needed:</h4>
+                                <div className="flex flex-wrap gap-2">
+                                  {selectedCareerCard.perplexityData.automationRiskAssessment.futureSkillsNeeded.map((skill, index) => (
+                                    <span key={index} className="px-3 py-1 bg-electric-blue/20 text-electric-blue rounded-full text-sm font-bold">
+                                      {skill}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Industry Growth Projection */}
+                      {selectedCareerCard.perplexityData.industryGrowthProjection && (
+                        <div className="bg-gradient-to-r from-electric-blue/20 to-acid-green/20 rounded-2xl p-6 border border-electric-blue/30">
+                          <h3 className="text-xl font-black text-electric-blue mb-4 flex items-center">
+                            <TrendingUp className="w-6 h-6 mr-2" />
+                            INDUSTRY GROWTH PROJECTION
+                          </h3>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div className="text-center bg-primary-black/40 rounded-lg p-4">
+                              <div className="text-primary-white/60 font-bold mb-2">Next Year</div>
+                              <div className="text-2xl font-black text-acid-green">
+                                {(selectedCareerCard.perplexityData.industryGrowthProjection.nextYear * 100).toFixed(1)}%
+                              </div>
+                            </div>
+                            <div className="text-center bg-primary-black/40 rounded-lg p-4">
+                              <div className="text-primary-white/60 font-bold mb-2">5-Year Outlook</div>
+                              <div className="text-2xl font-black text-cyber-yellow">
+                                {(selectedCareerCard.perplexityData.industryGrowthProjection.fiveYear * 100).toFixed(1)}%
+                              </div>
+                            </div>
+                            <div className="text-center bg-primary-black/40 rounded-lg p-4">
+                              <div className="text-primary-white/60 font-bold mb-2">Overall Outlook</div>
+                              <div className="text-2xl font-black text-neon-pink">
+                                {selectedCareerCard.perplexityData.industryGrowthProjection.outlook}
+                              </div>
+                            </div>
+                          </div>
+                          {selectedCareerCard.perplexityData.industryGrowthProjection.factors.length > 0 && (
+                            <div>
+                              <h4 className="text-primary-white/80 font-bold mb-2">Key Growth Drivers:</h4>
+                              <ul className="space-y-2">
+                                {selectedCareerCard.perplexityData.industryGrowthProjection.factors.map((factor, index) => (
+                                  <li key={index} className="flex items-start">
+                                    <ArrowRight className="w-4 h-4 text-electric-blue mr-2 mt-1 flex-shrink-0" />
+                                    <span className="text-primary-white/90 text-sm">{factor}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
                         </div>
                       )}
                     </>
@@ -1008,7 +1415,7 @@ const Dashboard: React.FC = () => {
             <div className="w-12 h-12 bg-gradient-to-br from-electric-blue to-neon-pink rounded-xl flex items-center justify-center shadow-lg">
               <GraduationCap className="h-6 w-6 text-primary-white" />
             </div>
-            <div>
+            <div className="flex-1">
               <h2 className="text-2xl font-street font-black text-primary-white">
                 YOUR CAREER DISCOVERIES
               </h2>
@@ -1017,8 +1424,30 @@ const Dashboard: React.FC = () => {
                 {structuredGuidance.primaryPathway?.isEnhanced && (
                   <span className="ml-2 text-acid-green">• Enhanced with real UK data</span>
                 )}
+                {structuredGuidance.primaryPathway?.perplexityData && (
+                  <span className="ml-2 text-electric-blue">• Perplexity Data Available</span>
+                )}
               </p>
             </div>
+            <Button
+              onClick={async () => {
+                console.log('🔄 Manual refresh triggered');
+                if (currentUser) {
+                  const freshData = await careerPathwayService.forceRefreshStructuredGuidance(currentUser.uid);
+                  setStructuredGuidance(freshData);
+                  setNotification({
+                    message: '🔄 Career data refreshed!',
+                    type: 'info'
+                  });
+                }
+              }}
+              variant="outline"
+              size="sm"
+              className="bg-primary-black/60 border-electric-blue/50 text-electric-blue hover:bg-electric-blue/20"
+            >
+              <RefreshCw className="h-4 w-4 mr-2" />
+              Refresh Data
+            </Button>
           </div>
           
           {/* Primary Pathway Hero */}

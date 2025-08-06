@@ -96,6 +96,12 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
                     <Star className="w-3 h-3 mr-1" />
                     YOUR BEST MATCH
                   </Badge>
+                  {pathway.isEnhanced && (
+                    <Badge className="bg-gradient-to-r from-neon-pink to-electric-blue text-primary-white font-bold px-3 py-1">
+                      <Sparkles className="w-3 h-3 mr-1" />
+                      ENHANCED DATA
+                    </Badge>
+                  )}
                   <Badge 
                     className={`bg-gradient-to-r ${getConfidenceColor(pathway.confidence || 95)} text-primary-black font-bold px-3 py-1`}
                   >

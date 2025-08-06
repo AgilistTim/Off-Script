@@ -1,6 +1,12 @@
 /**
  * Centralized Career Card Type Definitions
- * Supports both legacy and comprehensive 10-section schema
+ * Supports legacy fields, comprehensive 10-section schema, and Perplexity enhancement data
+ * 
+ * Features:
+ * - Backward compatibility with existing basic career cards
+ * - Comprehensive 10-section career intelligence framework
+ * - Optional Perplexity real-time market data enhancement
+ * - Type safety with TypeScript interfaces and type guards
  */
 
 // Core Career Card interface - comprehensive schema with backward compatibility
@@ -208,10 +214,88 @@ export interface CareerCard {
       culturalAdaptability: string;
     };
   };
+  
+  // Perplexity Enhancement fields (optional, for real-time market data)
+  enhancement?: {
+    status: 'pending' | 'completed' | 'failed';
+    lastUpdated: string;
+    source: 'perplexity';
+    confidence: number;
+    staleAt: string;
+  };
+  
+  perplexityData?: {
+    verifiedSalaryRanges?: {
+      entry: { min: number; max: number; currency: 'GBP'; sources: string[] };
+      mid: { min: number; max: number; currency: 'GBP'; sources: string[] };
+      senior: { min: number; max: number; currency: 'GBP'; sources: string[] };
+      byRegion?: {
+        london: { min: number; max: number };
+        manchester: { min: number; max: number };
+        birmingham: { min: number; max: number };
+        scotland: { min: number; max: number };
+      };
+    };
+    realTimeMarketDemand?: {
+      jobPostingVolume: number; // Last 30 days
+      growthRate: number; // YoY percentage
+      competitionLevel: 'Low' | 'Medium' | 'High';
+      sources: string[];
+    };
+    currentEducationPathways?: Array<{
+      type: 'University' | 'Apprenticeship' | 'Professional' | 'Online';
+      title: string;
+      provider: string;
+      duration: string;
+      cost: { min: number; max: number; currency: 'GBP' };
+      entryRequirements: string[];
+      url?: string;
+      verified: boolean;
+    }>;
+    workEnvironmentDetails?: {
+      remoteOptions: boolean;
+      flexibilityLevel: 'High' | 'Medium' | 'Low';
+      typicalHours: string;
+      workLifeBalance: string;
+      stressLevel: 'Low' | 'Medium' | 'High';
+    };
+    automationRiskAssessment?: {
+      level: 'Low' | 'Medium' | 'High';
+      timeline: string;
+      mitigationStrategies: string[];
+      futureSkillsNeeded: string[];
+    };
+    industryGrowthProjection?: {
+      nextYear: number; // % change
+      fiveYear: number; // % change
+      outlook: 'Excellent' | 'Good' | 'Stable' | 'Declining';
+      factors: string[]; // Key growth drivers
+    };
+  };
 }
 
-// Alias for backward compatibility with existing code
+// Type aliases for backward compatibility and clarity
 export type CareerCardData = CareerCard;
+
+// Enhanced Career Card type (same as CareerCard but more explicit naming)
+export type EnhancedCareerCard = CareerCard;
+
+// Type guard to check if a career card has been enhanced with Perplexity data
+export function isEnhancedCareerCard(card: CareerCard): card is EnhancedCareerCard {
+  return !!(card.enhancement?.status === 'completed' && card.perplexityData);
+}
+
+// Type for career cards with verified enhancement status
+export type VerifiedEnhancedCareerCard = CareerCard & {
+  enhancement: {
+    status: 'completed';
+    lastUpdated: string;
+    source: 'perplexity';
+    confidence: number;
+    staleAt: string;
+  };
+  perplexityData: NonNullable<CareerCard['perplexityData']>;
+};
 
 // Person Profile interface
 export interface PersonProfile {

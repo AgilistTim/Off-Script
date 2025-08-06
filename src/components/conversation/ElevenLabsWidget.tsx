@@ -3,6 +3,7 @@ import { useConversation } from '@elevenlabs/react';
 import { useAuth } from '../../context/AuthContext';
 import { guestSessionService } from '../../services/guestSessionService';
 import { CareerCard, PersonProfile } from '../../types/careerCard';
+import { saveConversationToFirebase, generateConversationId } from '../../services/chatService';
 import { mcpQueueService } from '../../services/mcpQueueService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 import { EnhancedUserContextService } from '../../services/enhancedUserContextService';
@@ -28,6 +29,9 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   className = ''
 }) => {
   const { currentUser } = useAuth();
+  
+  // Generate a persistent conversation ID for this session
+  const conversationIdRef = useRef<string>(generateConversationId());
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string; timestamp: Date }>>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
@@ -118,45 +122,48 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   const mcpEndpoint = 'https://off-script-mcp-elevenlabs.onrender.com/mcp';
 
   // Helper function to update conversation history and persist to Firebase
-  const updateConversationHistory = useCallback((role: 'user' | 'assistant', content: string) => {
+  const updateConversationHistory = useCallback(async (role: 'user' | 'assistant', content: string) => {
     if (!content || content.trim().length === 0) {
       console.log('⚠️ Empty content, skipping history update');
       return;
     }
 
+    // Check for duplicates first
+    const isDuplicate = conversationHistory.length > 0 && 
+      conversationHistory[conversationHistory.length - 1]?.role === role && 
+      conversationHistory[conversationHistory.length - 1]?.content === content.trim();
+    
+    if (isDuplicate) {
+      console.log('⚠️ Skipping duplicate message:', role, content.substring(0, 30) + '...');
+      return;
+    }
+
+    // Update state
     setConversationHistory(prev => {
-      const lastMessage = prev[prev.length - 1];
-      if (lastMessage?.role === role && lastMessage?.content === content.trim()) {
-        console.log('⚠️ Skipping duplicate message:', role, content.substring(0, 30) + '...');
-        return prev; // Skip duplicate
-      }
-      
       const updated = [...prev, { role, content: content.trim(), timestamp: new Date() }];
       console.log(`✅ Added ${role} message. New history length:`, updated.length);
-      
-      // Save conversation to Firebase for logged-in users
-      if (currentUser?.uid) {
-        console.log('📝 TODO: Save conversation to Firebase for user:', currentUser.uid);
-        // Future implementation:
-        // await saveConversationToFirebase(currentUser.uid, { 
-        //   role, 
-        //   content: content.trim(), 
-        //   timestamp: new Date(),
-        //   conversationId: conversation?.getConversationId?.() || 'unknown'
-        // });
-      } else {
-        // Save to guest session for non-logged-in users
-        try {
-          guestSessionService.addConversationMessage(role, content.trim());
-          console.log('💾 Saved message to guest session');
-        } catch (error) {
-          console.error('Failed to save message to guest session:', error);
-        }
-      }
-      
       return updated;
     });
-  }, [currentUser?.uid]);
+
+    // Save to Firebase or guest session asynchronously
+    try {
+      if (currentUser?.uid) {
+        console.log('📝 Saving conversation to Firebase for user:', currentUser.uid);
+        await saveConversationToFirebase(currentUser.uid, { 
+          role, 
+          content: content.trim(), 
+          timestamp: new Date(),
+          conversationId: conversationIdRef.current
+        });
+      } else {
+        // Save to guest session for non-logged-in users
+        guestSessionService.addConversationMessage(role, content.trim());
+        console.log('💾 Saved message to guest session');
+      }
+    } catch (error) {
+      console.error('Failed to save message:', error);
+    }
+  }, [currentUser?.uid, conversationHistory]);
 
   // Removed generateLocalCareerCards - using OpenAI analysis only
   // If OpenAI fails, we show error rather than confusing with hardcoded data
@@ -395,15 +402,15 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   const getConversationOverrides = useCallback(() => {
     if (currentUser && userProfileData) {
       // Authenticated user with profile data
-      const userName = userProfileData.name || 'there';
-      const interests = userProfileData.interests.slice(0, 3); // Show max 3 interests
+      const userName = userProfileData.name || currentUser.displayName || 'there';
+      const interests = userProfileData.interests.slice(0, 2); // Show max 2 interests
       const interestsText = interests.length > 0 ? 
-        ` I can see your interests in ${interests.join(', ')}.` : '';
+        ` I remember your interest in ${interests.join(' and ')}.` : '';
       
       return {
         overrides: {
           agent: {
-            firstMessage: `Hi ${userName}! Welcome back.${interestsText} What would you like to explore about your career journey today?`
+            firstMessage: `Welcome back ${userName}!${interestsText} What would you like to explore today?`
           }
         }
       };
@@ -413,7 +420,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       return {
         overrides: {
           agent: {
-            firstMessage: `Hi ${userName}! Welcome back. What would you like to explore about your career journey today?`
+            firstMessage: `Welcome back ${userName}! What would you like to explore about your career journey today?`
           }
         }
       };
@@ -431,7 +438,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       return {
         overrides: {
           agent: {
-            firstMessage: "Hi! I'm here to help you explore career possibilities. What's your name, and what interests you about your future career?"
+            firstMessage: "Hi I'm Sarah an AI assistant, what's your name?"
           }
         }
       };

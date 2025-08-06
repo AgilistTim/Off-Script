@@ -3,6 +3,25 @@ import { vi } from 'vitest';
 
 // Removed window.ENV mock - using import.meta.env instead for Vite compatibility
 
+// Global mocks
+vi.mock('firebase/firestore', () => {
+  return {
+    getFirestore: vi.fn(),
+    doc: vi.fn(),
+    collection: vi.fn(),
+    getDoc: vi.fn().mockResolvedValue({ exists: () => false }),
+    setDoc: vi.fn(),
+    serverTimestamp: vi.fn(),
+  };
+});
+
+vi.mock('firebase/app', () => {
+  return {
+    initializeApp: vi.fn(),
+    getApps: vi.fn().mockReturnValue([]),
+  };
+});
+
 // Mock import.meta.env for testing
 vi.stubGlobal('import.meta', {
   env: {

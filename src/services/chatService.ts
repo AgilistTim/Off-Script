@@ -601,4 +601,96 @@ export const updateChatThreadTitle = async (firestoreThreadId: string, summary: 
     console.error('Error updating chat thread title:', error);
     throw new Error('Failed to update chat thread title');
   }
+};
+
+/**
+ * Generate a unique conversation ID for ElevenLabs conversations
+ */
+export const generateConversationId = (): string => {
+  return `elevenlabs_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+};
+
+/**
+ * Save conversation message to Firebase for logged-in users
+ */
+export const saveConversationToFirebase = async (
+  userId: string, 
+  messageData: {
+    role: 'user' | 'assistant';
+    content: string;
+    timestamp: Date;
+    conversationId: string;
+  }
+): Promise<void> => {
+  try {
+    // Create or get existing conversation thread
+    const threadId = messageData.conversationId;
+    const conversationRef = doc(db, 'elevenLabsConversations', threadId);
+    const conversationDoc = await getDoc(conversationRef);
+    
+    if (!conversationDoc.exists()) {
+      // Create new conversation document
+      const { setDoc } = await import('firebase/firestore');
+      await setDoc(conversationRef, {
+        userId,
+        conversationId: threadId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        messageCount: 0,
+        participants: [userId, 'elevenlabs_agent'],
+        status: 'active'
+      });
+    }
+    
+    // Add message to messages subcollection
+    const messagesRef = collection(db, 'elevenLabsConversations', threadId, 'messages');
+    await addDoc(messagesRef, {
+      role: messageData.role,
+      content: messageData.content,
+      timestamp: serverTimestamp(),
+      userId: messageData.role === 'user' ? userId : 'elevenlabs_agent',
+      createdAt: serverTimestamp()
+    });
+    
+    // Update conversation metadata
+    await updateDoc(conversationRef, {
+      updatedAt: serverTimestamp(),
+      lastMessage: messageData.content.substring(0, 100) + (messageData.content.length > 100 ? '...' : ''),
+      lastMessageRole: messageData.role,
+      messageCount: conversationDoc.exists() ? (conversationDoc.data()?.messageCount || 0) + 1 : 1
+    });
+    
+    console.log(`💾 Saved ${messageData.role} message to Firebase conversation:`, threadId);
+    
+  } catch (error) {
+    console.error('Error saving conversation to Firebase:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get conversation transcript from Firebase
+ */
+export const getConversationTranscript = async (
+  userId: string, 
+  conversationId: string
+): Promise<Array<{role: 'user' | 'assistant'; content: string; timestamp: Date}>> => {
+  try {
+    const messagesRef = collection(db, 'elevenLabsConversations', conversationId, 'messages');
+    const messagesQuery = query(messagesRef, orderBy('timestamp', 'asc'));
+    const messagesSnapshot = await getDocs(messagesQuery);
+    
+    return messagesSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        role: data.role,
+        content: data.content,
+        timestamp: data.timestamp?.toDate() || new Date()
+      };
+    });
+    
+  } catch (error) {
+    console.error('Error getting conversation transcript:', error);
+    return [];
+  }
 }; 

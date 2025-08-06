@@ -144,6 +144,12 @@ service cloud.firestore {
       allow read: if isAuthenticated() && isAdmin();
     }
     
+    // Enhanced career cards cache - allow authenticated users to read, system to write
+    match /enhancedCareerCards/{careerTitle} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated(); // Allow system to cache enhanced data
+    }
+    
     // Default deny
     match /{document=**} {
       allow read, write: if false;

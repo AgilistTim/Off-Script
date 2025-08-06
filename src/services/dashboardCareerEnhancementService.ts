@@ -6,6 +6,7 @@ import { conversationAnalyzer } from './conversationAnalyzer';
 import { db } from './firebase';
 import { doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { environmentConfig } from '../config/environment';
+import { serializeForFirebase, validateFirebaseData, flattenNestedArraysForFirebase } from '../lib/utils';
 
 export interface CareerCardEnhancementStatus {
   id: string;
@@ -193,43 +194,70 @@ class DashboardCareerEnhancementService {
    */
   private async saveEnhancementToFirebase(originalCard: any, enhancedCard: DashboardCareerCard): Promise<void> {
     try {
+      console.log('🔍 ENHANCEMENT DEBUG - Starting saveEnhancementToFirebase');
+      console.log('🔍 ENHANCEMENT DEBUG - Original card:', {
+        title: originalCard.title,
+        firebaseDocId: originalCard.firebaseDocId,
+        pathwayType: originalCard.pathwayType,
+        pathwayIndex: originalCard.pathwayIndex
+      });
+      console.log('🔍 ENHANCEMENT DEBUG - Enhanced card data:', {
+        title: enhancedCard.title,
+        isEnhanced: enhancedCard.isEnhanced,
+        enhancementStatus: enhancedCard.enhancementStatus,
+        hasEnhancedSalary: !!enhancedCard.enhancedSalary,
+        hasCareerProgression: !!enhancedCard.careerProgression,
+        hasDayInTheLife: !!enhancedCard.dayInTheLife,
+        hasIndustryTrends: !!enhancedCard.industryTrends
+      });
+
       // Only save if we have Firebase metadata (firebaseDocId)
       if (!originalCard.firebaseDocId) {
         console.log(`⚠️ No Firebase metadata for card ${originalCard.title}, skipping save`);
         return;
       }
       
-      console.log(`💾 Saving enhancement to Firebase for: ${originalCard.title}`);
+      console.log(`💾 ENHANCEMENT DEBUG - Saving enhancement to Firebase for: ${originalCard.title}`);
+      console.log(`🔍 ENHANCEMENT DEBUG - Firebase document ID: ${originalCard.firebaseDocId}`);
       
       const docRef = doc(db, 'threadCareerGuidance', originalCard.firebaseDocId);
       
       // Check if document exists first
       const docSnapshot = await getDoc(docRef);
       if (!docSnapshot.exists()) {
-        console.warn(`⚠️ Firebase document not found: ${originalCard.firebaseDocId}`);
+        console.warn(`⚠️ ENHANCEMENT DEBUG - Firebase document not found: ${originalCard.firebaseDocId}`);
         return;
       }
       
       const currentData = docSnapshot.data();
+      console.log('🔍 ENHANCEMENT DEBUG - Current Firebase data structure:', {
+        hasGuidance: !!currentData.guidance,
+        hasPrimaryPathway: !!currentData.guidance?.primaryPathway,
+        hasAlternativePathways: !!currentData.guidance?.alternativePathways,
+        alternativePathwaysCount: currentData.guidance?.alternativePathways?.length || 0,
+        lastEnhanced: currentData.lastEnhanced
+      });
       
       // Update the specific pathway that was enhanced
       // Map pathwayType correctly: 'primary' -> 'primaryPathway', 'alternative' -> 'alternativePathways'
       const cardPathwayType = originalCard.pathwayType || 'primary';
       const pathwayIndex = originalCard.pathwayIndex;
       
-      console.log(`🔍 Saving enhancement for ${cardPathwayType} pathway`, {
+      console.log(`🔍 ENHANCEMENT DEBUG - Saving enhancement for ${cardPathwayType} pathway`, {
         cardPathwayType,
         pathwayIndex,
         hasIndex: typeof pathwayIndex === 'number'
       });
       
       if (cardPathwayType === 'primary') {
+        console.log('🔍 ENHANCEMENT DEBUG - Processing primary pathway enhancement');
+        
         // Update primary pathway
         const enhancementData = {
           // Preserve all original data from primaryPathway
           ...currentData.guidance?.primaryPathway,
           
-          // Add enhanced fields
+          // Add enhanced fields (for backward compatibility)
           enhancedSalary: enhancedCard.enhancedSalary,
           careerProgression: enhancedCard.careerProgression,
           dayInTheLife: enhancedCard.dayInTheLife,
@@ -242,6 +270,9 @@ class DashboardCareerEnhancementService {
           professionalAssociations: enhancedCard.professionalAssociations,
           enhancedSources: enhancedCard.enhancedSources,
           
+          // Map to comprehensive schema for career modal compatibility
+          ...this.transformEnhancedFieldsToComprehensiveSchema(enhancedCard),
+          
           // Enhancement metadata (use Date.now() instead of serverTimestamp() for arrays)
           isEnhanced: true,
           enhancedAt: new Date(),
@@ -249,12 +280,56 @@ class DashboardCareerEnhancementService {
           enhancementStatus: 'enhanced'
         };
         
+        console.log('🔍 ENHANCEMENT DEBUG - Primary pathway enhancement data prepared:', {
+          title: enhancementData.title,
+          isEnhanced: enhancementData.isEnhanced,
+          hasEnhancedSalary: !!enhancementData.enhancedSalary,
+          hasCompensationRewards: !!enhancementData.compensationRewards,
+          hasLabourMarketDynamics: !!enhancementData.labourMarketDynamics
+        });
+        
+        // Flatten nested arrays and serialize data for Firebase compatibility
+        console.log('🔍 ENHANCEMENT DEBUG - Starting data preparation for Firebase');
+        const flattenedData = flattenNestedArraysForFirebase(enhancementData);
+        console.log('🔍 ENHANCEMENT DEBUG - Data after flattening:', {
+          hasEnhancedSalary: !!flattenedData.enhancedSalary,
+          hasCompensationRewards: !!flattenedData.compensationRewards,
+          hasLabourMarketDynamics: !!flattenedData.labourMarketDynamics
+        });
+        
+        const serializedData = serializeForFirebase(flattenedData);
+        console.log('🔍 ENHANCEMENT DEBUG - Data after serialization:', {
+          hasEnhancedSalary: !!serializedData.enhancedSalary,
+          hasCompensationRewards: !!serializedData.compensationRewards,
+          hasLabourMarketDynamics: !!serializedData.labourMarketDynamics,
+          dataType: typeof serializedData,
+          isObject: typeof serializedData === 'object'
+        });
+        
+        // Validate data before saving
+        const validation = validateFirebaseData(serializedData);
+        if (!validation.isValid) {
+          console.error('❌ ENHANCEMENT DEBUG - Primary pathway data validation failed:', validation.errors);
+          throw new Error(`Invalid primary pathway data for Firebase: ${validation.errors.join(', ')}`);
+        }
+        
+        console.log('✅ ENHANCEMENT DEBUG - Primary pathway data validation passed');
+
+        console.log('🔍 ENHANCEMENT DEBUG - About to call updateDoc with data:', {
+          'guidance.primaryPathway': typeof serializedData,
+          lastEnhanced: 'serverTimestamp'
+        });
+        
         await updateDoc(docRef, {
-          'guidance.primaryPathway': enhancementData,
+          'guidance.primaryPathway': serializedData,
           lastEnhanced: serverTimestamp()
         });
         
+        console.log('✅ ENHANCEMENT DEBUG - Primary pathway enhancement saved successfully to Firebase');
+        
       } else if (cardPathwayType === 'alternative' && typeof pathwayIndex === 'number') {
+        console.log('🔍 ENHANCEMENT DEBUG - Processing alternative pathway enhancement');
+        
         // Update specific alternative pathway by index
         const alternativePathways = currentData.guidance?.alternativePathways || [];
         
@@ -265,7 +340,7 @@ class DashboardCareerEnhancementService {
             // Preserve all original data from this alternative pathway
             ...alternativePathways[pathwayIndex],
             
-            // Add enhanced fields
+            // Add enhanced fields (for backward compatibility)
             enhancedSalary: enhancedCard.enhancedSalary,
             careerProgression: enhancedCard.careerProgression,
             dayInTheLife: enhancedCard.dayInTheLife,
@@ -278,6 +353,9 @@ class DashboardCareerEnhancementService {
             professionalAssociations: enhancedCard.professionalAssociations,
             enhancedSources: enhancedCard.enhancedSources,
             
+            // Map to comprehensive schema for career modal compatibility
+            ...this.transformEnhancedFieldsToComprehensiveSchema(enhancedCard),
+            
             // Enhancement metadata (use Date.now() instead of serverTimestamp() for arrays)
             isEnhanced: true,
             enhancedAt: new Date(),
@@ -285,22 +363,51 @@ class DashboardCareerEnhancementService {
             enhancementStatus: 'enhanced'
           };
           
+          console.log('🔍 ENHANCEMENT DEBUG - Alternative pathway enhancement data prepared:', {
+            pathwayIndex,
+            title: updatedAlternatives[pathwayIndex].title,
+            isEnhanced: updatedAlternatives[pathwayIndex].isEnhanced,
+            hasEnhancedSalary: !!updatedAlternatives[pathwayIndex].enhancedSalary
+          });
+          
+          // Flatten nested arrays and serialize data for Firebase compatibility
+          const flattenedAlternatives = flattenNestedArraysForFirebase(updatedAlternatives);
+          const serializedAlternatives = serializeForFirebase(flattenedAlternatives);
+          
+          // Validate data before saving
+          const validation = validateFirebaseData(serializedAlternatives);
+          if (!validation.isValid) {
+            console.error('❌ ENHANCEMENT DEBUG - Alternative pathway data validation failed:', validation.errors);
+            throw new Error(`Invalid alternative pathway data for Firebase: ${validation.errors.join(', ')}`);
+          }
+          
+          console.log('✅ ENHANCEMENT DEBUG - Alternative pathway data validation passed');
+
           await updateDoc(docRef, {
-            'guidance.alternativePathways': updatedAlternatives,
+            'guidance.alternativePathways': serializedAlternatives,
             lastEnhanced: serverTimestamp()
           });
+          
+          console.log('✅ ENHANCEMENT DEBUG - Alternative pathway enhancement saved successfully to Firebase');
+          
         } else {
-          console.warn(`⚠️ Invalid pathway index ${pathwayIndex} for alternatives array length ${alternativePathways.length}`);
+          console.warn(`⚠️ ENHANCEMENT DEBUG - Invalid pathway index: ${pathwayIndex} for ${alternativePathways.length} alternatives`);
         }
       } else {
-        console.warn(`⚠️ Unknown pathway type: ${cardPathwayType}`);
+        console.warn(`⚠️ ENHANCEMENT DEBUG - Invalid pathway type or index: ${cardPathwayType}, ${pathwayIndex}`);
       }
       
-      console.log(`✅ Saved enhancement for: ${originalCard.title}`);
+      console.log('✅ ENHANCEMENT DEBUG - saveEnhancementToFirebase completed successfully');
       
     } catch (error) {
-      console.error(`❌ Failed to save enhancement to Firebase:`, error);
-      // Don't throw - enhancement was successful, saving is just a bonus
+      console.error('❌ ENHANCEMENT DEBUG - Error in saveEnhancementToFirebase:', error);
+      console.error('❌ ENHANCEMENT DEBUG - Error details:', {
+        message: error.message,
+        stack: error.stack,
+        originalCard: originalCard.title,
+        enhancedCard: enhancedCard.title
+      });
+      throw error;
     }
   }
   
@@ -418,6 +525,157 @@ class DashboardCareerEnhancementService {
     });
     
     return stats;
+  }
+
+  /**
+   * Transform enhanced fields from OpenAI web search to comprehensive 10-section schema
+   * Maps fields like enhancedSalary, industryTrends to compensationRewards, labourMarketDynamics etc.
+   */
+  private transformEnhancedFieldsToComprehensiveSchema(enhancedCard: DashboardCareerCard): any {
+    const comprehensiveFields: any = {};
+
+    // Map enhancedSalary to compensationRewards schema
+    if (enhancedCard.enhancedSalary) {
+      const salary = enhancedCard.enhancedSalary;
+      if (salary.entry || salary.experienced || salary.senior) {
+        // Extract numeric values from strings like "£35,000 - £45,000"
+        const extractSalaryNumber = (salaryStr: string): number => {
+          if (!salaryStr) return 0;
+          const match = salaryStr.replace(/[,£]/g, '').match(/\d+/);
+          return match ? parseInt(match[0]) : 0;
+        };
+
+        comprehensiveFields.compensationRewards = {
+          salaryRange: {
+            entry: extractSalaryNumber(salary.entry),
+            mid: extractSalaryNumber(salary.experienced),
+            senior: extractSalaryNumber(salary.senior),
+            exceptional: Math.round(extractSalaryNumber(salary.senior) * 1.3), // Estimate exceptional as 30% higher than senior
+            currency: 'GBP'
+          },
+          variablePay: {
+            bonuses: "Performance-based (market data)",
+            commissions: "None",
+            equity: "Possible in startups",
+            profitShare: "Varies by company"
+          },
+          nonFinancialBenefits: {
+            pension: "Standard employer contribution",
+            healthcare: "Private healthcare options",
+            leavePolicy: "25+ days annual leave",
+            professionalDevelopment: "Training budgets",
+            perks: ["Remote work", "Flexible hours", "Professional development"]
+          }
+        };
+      }
+    }
+
+    // Map industryTrends to labourMarketDynamics schema
+    if (enhancedCard.industryTrends && enhancedCard.industryTrends.length > 0) {
+      comprehensiveFields.labourMarketDynamics = {
+        demandOutlook: {
+          growthForecast: enhancedCard.industryTrends[0] || "Growing demand",
+          timeHorizon: "5-10 years",
+          regionalHotspots: ["London", "Manchester", "Edinburgh", "Bristol"]
+        },
+        supplyProfile: {
+          talentScarcity: "Moderate",
+          competitionLevel: "High",
+          barriers: ["Technical skills", "Experience requirements"]
+        },
+        economicSensitivity: {
+          recessionImpact: "Moderate",
+          techDisruption: "Low",
+          cyclicalPatterns: "Stable growth"
+        }
+      };
+    }
+
+    // Map inDemandSkills to competencyRequirements schema
+    if (enhancedCard.inDemandSkills && enhancedCard.inDemandSkills.length > 0) {
+      const skills = Array.isArray(enhancedCard.inDemandSkills) 
+        ? enhancedCard.inDemandSkills 
+        : [enhancedCard.inDemandSkills];
+
+      comprehensiveFields.competencyRequirements = {
+        technicalSkills: skills.slice(0, 5),
+        softSkills: ["Problem-solving", "Communication", "Analytical thinking", "Leadership"],
+        tools: skills.filter(skill => 
+          typeof skill === 'string' && (
+            skill.toLowerCase().includes('python') || 
+            skill.toLowerCase().includes('sql') ||
+            skill.toLowerCase().includes('tableau') ||
+            skill.toLowerCase().includes('excel')
+          )
+        ),
+        certifications: enhancedCard.professionalAssociations?.map(assoc => 
+          typeof assoc === 'object' ? assoc.certification : assoc
+        ) || [],
+        qualificationPathway: {
+          degrees: ["Bachelor's degree in relevant field", "Master's degree (preferred)"],
+          licenses: [],
+          alternativeRoutes: ["Online courses", "Professional certifications"],
+          apprenticeships: ["Digital apprenticeships", "Technology apprenticeships"],
+          bootcamps: ["Industry-specific bootcamps"]
+        },
+        learningCurve: {
+          timeToCompetent: "1-3 years",
+          difficultyLevel: "Medium to High",
+          prerequisites: ["Basic technical knowledge", "Problem-solving skills"]
+        }
+      };
+    }
+
+    // Map topUKEmployers to workEnvironmentCulture schema
+    if (enhancedCard.topUKEmployers && enhancedCard.topUKEmployers.length > 0) {
+      comprehensiveFields.workEnvironmentCulture = {
+        typicalEmployers: enhancedCard.topUKEmployers.slice(0, 3).map(emp => 
+          typeof emp === 'object' ? emp.name : emp
+        ),
+        teamStructures: ["Cross-functional teams", "Agile teams", "Project-based teams"],
+        culturalNorms: {
+          pace: "Fast-paced",
+          formality: "Informal to business casual",
+          decisionMaking: "Data-driven and collaborative",
+          diversityInclusion: "High emphasis"
+        },
+        physicalContext: ["Office", "Remote", "Hybrid"]
+      };
+    }
+
+    // Map workLifeBalance to lifestyleFit schema
+    if (enhancedCard.workLifeBalance) {
+      const wlb = enhancedCard.workLifeBalance;
+      comprehensiveFields.lifestyleFit = {
+        workingHours: {
+          typical: typeof wlb === 'object' ? (wlb.typical_hours || "40 hours/week") : "40 hours/week",
+          flexibility: "High",
+          shiftWork: false,
+          onCall: false
+        },
+        remoteOptions: {
+          remoteWork: true,
+          hybridOptions: true,
+          travelRequirements: {
+            frequency: "Rare",
+            duration: "Short",
+            international: false
+          }
+        },
+        stressProfile: {
+          intensity: typeof wlb === 'object' ? (wlb.stress_level || "Moderate") : "Moderate",
+          volatility: "Low",
+          emotionalLabour: "Low"
+        },
+        workLifeBoundaries: {
+          flexibility: typeof wlb === 'object' ? (wlb.flexibility || "High") : "High",
+          autonomy: "High",
+          predictability: "Moderate"
+        }
+      };
+    }
+
+    return comprehensiveFields;
   }
 }
 

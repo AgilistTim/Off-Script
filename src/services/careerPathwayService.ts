@@ -1,5 +1,7 @@
 import { ChatSummary } from './chatService';
 import { environmentConfig } from '../config/environment';
+import { serializeForFirebase, validateFirebaseData, flattenNestedArraysForFirebase } from '../lib/utils';
+import { prepareDataForFirebase, retryFirebaseOperation, logFirebaseOperation, cleanObjectForFirebase, convertFirestoreTimestampToMillis } from '../lib/firebase-utils';
 
 
 
@@ -315,6 +317,33 @@ class CareerPathwayService {
   private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
   
   /**
+   * Clear the structured career guidance cache for a specific user
+   * Used after enhancement to force fresh data retrieval
+   */
+  clearStructuredGuidanceCache(userId: string): void {
+    const cacheKey = `guidance_${userId}`;
+    this.structuredGuidanceCache.delete(cacheKey);
+    console.log(`🧹 Cleared structured guidance cache for user: ${userId}`);
+  }
+
+  /**
+   * Force refresh of structured guidance data (bypass cache completely)
+   */
+  async forceRefreshStructuredGuidance(userId: string): Promise<{
+    primaryPathway: any | null;
+    alternativePathways: any[];
+    totalPathways: number;
+  }> {
+    console.log('🔄 FORCE REFRESH - Clearing cache and fetching fresh data for user:', userId);
+    
+    // Clear cache first
+    this.clearStructuredGuidanceCache(userId);
+    
+    // Get fresh data
+    return this.getStructuredCareerGuidance(userId);
+  }
+  
+  /**
    * Extract next steps array from either array or object format
    * Handles data structure changes during migration
    */
@@ -579,7 +608,15 @@ class CareerPathwayService {
       
       console.log('🔍 CareerPathwayService: Storing guidance data:', guidanceData);
       
-      await setDoc(doc(db, 'threadCareerGuidance', guidanceData.id), guidanceData);
+      // Clean the guidance data for proper Firebase serialization
+      const cleanedGuidanceData = cleanObjectForFirebase(guidanceData);
+      console.log('🧹 CareerPathwayService: Applied object cleaning for serialization:', {
+        originalSize: JSON.stringify(guidanceData).length,
+        cleanedSize: JSON.stringify(cleanedGuidanceData).length,
+        hasGuidanceData: !!(cleanedGuidanceData as any)?.guidance
+      });
+      
+      await setDoc(doc(db, 'threadCareerGuidance', guidanceData.id), cleanedGuidanceData);
       console.log('✅ Stored thread-specific career guidance with ID:', guidanceData.id);
       
     } catch (error) {
@@ -654,7 +691,15 @@ class CareerPathwayService {
         updatedAt: new Date()
       };
       
-      await setDoc(doc(db, 'threadCareerGuidance', guidanceData.id), guidanceData);
+      // Clean the guidance data for proper Firebase serialization
+      const cleanedGuidanceData = cleanObjectForFirebase(guidanceData);
+      console.log('🧹 CareerPathwayService: Applied object cleaning for conversation career cards:', {
+        originalSize: JSON.stringify(guidanceData).length,
+        cleanedSize: JSON.stringify(cleanedGuidanceData).length,
+        hasGuidanceData: !!(cleanedGuidanceData as any)?.guidance
+      });
+      
+      await setDoc(doc(db, 'threadCareerGuidance', guidanceData.id), cleanedGuidanceData);
       
       console.log('✅ Successfully saved conversation career cards to threadCareerGuidance:', guidanceData.id);
       console.log('📊 Data flow: Live conversation → threadCareerGuidance (no dual storage)');
@@ -802,7 +847,26 @@ class CareerPathwayService {
         
         if (needsUpdate) {
           data.updatedAt = new Date();
-          await updateDoc(doc(db, 'threadCareerGuidance', docSnap.id), data);
+          
+          // Prepare data for Firebase with comprehensive validation
+          const dataPrep = prepareDataForFirebase(data);
+          if (!dataPrep.success) {
+            console.error('❌ Data preparation failed:', dataPrep.errors);
+            throw new Error(`Failed to prepare data for Firebase: ${dataPrep.errors?.join(', ')}`);
+          }
+          
+          // Save to Firebase with retry mechanism
+          const saveResult = await retryFirebaseOperation(
+            () => updateDoc(doc(db, 'threadCareerGuidance', docSnap.id), dataPrep.data),
+            { maxRetries: 3, initialDelayMs: 1000 }
+          );
+
+          if (!saveResult.success) {
+            logFirebaseOperation('Career Guidance Update', dataPrep.data, 'error', saveResult.error);
+            throw new Error(`Failed to update career guidance after ${saveResult.retryCount} retries: ${saveResult.error}`);
+          }
+
+          logFirebaseOperation('Career Guidance Update', dataPrep.data, 'success', { retries: saveResult.retryCount });
           updated = true;
           console.log('✅ Updated career guidance document:', docSnap.id);
         }
@@ -1066,12 +1130,52 @@ class CareerPathwayService {
           let allGoals: string[] = [];
           let allSkills: string[] = [];
           let latestSummary: any = null;
+          let enhancedProfile: any = null;
           
           summariesSnapshot.docs.forEach(doc => {
             const data = doc.data();
-            allInterests = [...allInterests, ...(data.interests || [])];
-            allGoals = [...allGoals, ...(data.careerGoals || [])];
-            allSkills = [...allSkills, ...(data.skills || [])];
+            
+            // Handle case where arrays might be stored as strings (defensive parsing)
+            const parseArrayField = (field: any): string[] => {
+              if (Array.isArray(field)) return field;
+              if (typeof field === 'string') {
+                try {
+                  // Try to parse string representation of array
+                  const parsed = JSON.parse(field);
+                  return Array.isArray(parsed) ? parsed : [];
+                } catch {
+                  // If JSON parse fails, treat as single item or empty
+                  return field.trim() ? [field] : [];
+                }
+              }
+              return [];
+            };
+            
+            allInterests = [...allInterests, ...parseArrayField(data.interests)];
+            allGoals = [...allGoals, ...parseArrayField(data.careerGoals)];
+            allSkills = [...allSkills, ...parseArrayField(data.skills)];
+            
+            // Extract enhanced profile data if available (from migration)
+            if (data.enhancedProfile && !enhancedProfile) {
+              // Handle case where enhancedProfile might be malformed (stored as string "[Object]")
+              if (typeof data.enhancedProfile === 'string') {
+                console.warn('⚠️ [PROFILE FLOW] Enhanced profile stored as string, skipping malformed data:', {
+                  summaryId: doc.id,
+                  enhancedProfileValue: data.enhancedProfile
+                });
+              } else if (typeof data.enhancedProfile === 'object' && data.enhancedProfile !== null) {
+                enhancedProfile = data.enhancedProfile;
+                console.log('🔍 [PROFILE FLOW] Found enhanced profile data in chat summary:', {
+                  summaryId: doc.id,
+                  extractedName: enhancedProfile.extractedName,
+                  personalityTraitsCount: enhancedProfile.personalityTraits?.length || 0,
+                  communicationStyle: enhancedProfile.communicationStyle,
+                  motivationsCount: enhancedProfile.motivations?.length || 0,
+                  concernsCount: enhancedProfile.concerns?.length || 0,
+                  preferencesCount: enhancedProfile.preferences?.length || 0
+                });
+              }
+            }
             
             if (!latestSummary) {
               latestSummary = data;
@@ -1081,6 +1185,7 @@ class CareerPathwayService {
                 interests: data.interests,
                 careerGoals: data.careerGoals,
                 skills: data.skills,
+                hasEnhancedProfile: !!data.enhancedProfile,
                 summary: data.summary?.substring(0, 100) + '...'
               });
             }
@@ -1090,16 +1195,31 @@ class CareerPathwayService {
             interests: [...new Set(allInterests)], // Remove duplicates
             goals: [...new Set(allGoals)],
             skills: [...new Set(allSkills)],
-            values: [], // Not typically in chat summaries
+            values: enhancedProfile?.personalityTraits || [], // Use personality traits as values
             careerStage: 'exploring',
-            workStyle: [], // Not typically in chat summaries
+            workStyle: enhancedProfile?.preferences || [], // Use preferences as work style
+            // Enhanced personal insights from conversation analysis
+            enhancedPersonalData: enhancedProfile ? {
+              extractedName: enhancedProfile.extractedName,
+              personalityTraits: enhancedProfile.personalityTraits,
+              communicationStyle: enhancedProfile.communicationStyle,
+              motivations: enhancedProfile.motivations,
+              concerns: enhancedProfile.concerns,
+              preferences: enhancedProfile.preferences
+            } : null,
             source: 'combined_chat_summaries',
             lastUpdated: latestSummary?.createdAt?.toDate ? latestSummary.createdAt.toDate() : new Date()
           };
-          console.log('✅ Found combined user profile from chat summaries:', {
+          console.log('✅ [PROFILE FLOW] Found combined user profile from chat summaries:', {
             totalInterests: profileData.interests.length,
             totalGoals: profileData.goals.length,
-            totalSkills: profileData.skills.length
+            totalSkills: profileData.skills.length,
+            hasEnhancedPersonalData: !!profileData.enhancedPersonalData,
+            enhancedDataPreview: profileData.enhancedPersonalData ? {
+              extractedName: profileData.enhancedPersonalData.extractedName,
+              personalityTraitsCount: profileData.enhancedPersonalData.personalityTraits?.length || 0,
+              communicationStyle: profileData.enhancedPersonalData.communicationStyle
+            } : null
           });
         } else {
           console.log('❌ No chat summaries found for user');
@@ -1231,6 +1351,8 @@ class CareerPathwayService {
           ...(currentProfile?.workStyle || []),
           ...(migratedProfile?.workStyle || [])
         ])],
+        // Include enhanced personal data from conversation analysis (prioritize current profile)
+        enhancedPersonalData: currentProfile?.enhancedPersonalData || migratedProfile?.enhancedPersonalData || null,
         hasBothSources: !!(currentProfile && migratedProfile),
         hasCurrentData: !!currentProfile,
         hasMigratedData: !!migratedProfile,
@@ -1242,7 +1364,13 @@ class CareerPathwayService {
         migratedData: !!migratedProfile,
         totalInterests: combinedProfile.interests.length,
         totalGoals: combinedProfile.careerGoals.length,
-        totalSkills: combinedProfile.skills.length
+        totalSkills: combinedProfile.skills.length,
+        hasEnhancedPersonalData: !!combinedProfile.enhancedPersonalData,
+        enhancedDataPreview: combinedProfile.enhancedPersonalData ? {
+          extractedName: combinedProfile.enhancedPersonalData.extractedName,
+          personalityTraitsCount: combinedProfile.enhancedPersonalData.personalityTraits?.length || 0,
+          communicationStyle: combinedProfile.enhancedPersonalData.communicationStyle
+        } : null
       });
       
       return combinedProfile;
@@ -1552,7 +1680,7 @@ class CareerPathwayService {
     totalPathways: number;
   }> {
     try {
-      console.log('🔍 DEBUG: Getting structured career guidance for user:', userId);
+      console.log('🔍 CAREER PATHWAY DEBUG - Getting structured career guidance for user:', userId);
       
       if (!userId) {
         throw new Error('User ID is required');
@@ -1571,43 +1699,66 @@ class CareerPathwayService {
       const cacheKey = `guidance_${userId}`;
       const cached = this.structuredGuidanceCache.get(cacheKey);
       
-      // If we have cached data within cache duration, check for enhanced data
-      if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION) {
-        // Quick check for enhanced data to validate cache
-        const enhancedCheckQuery = query(
-          collection(db, 'threadCareerGuidance'),
-          where('userId', '==', userId),
-          orderBy('updatedAt', 'desc'),
-          limit(1)
-        );
+      console.log('🔍 CAREER PATHWAY DEBUG - Cache status:', {
+        hasCached: !!cached,
+        cacheAge: cached ? Date.now() - cached.timestamp : 'N/A',
+        cacheDuration: this.CACHE_DURATION
+      });
+      
+      // CRITICAL: Always check for enhanced data first, then decide on cache
+      const enhancedCheckQuery = query(
+        collection(db, 'threadCareerGuidance'),
+        where('userId', '==', userId),
+        orderBy('updatedAt', 'desc'),
+        limit(1)
+      );
+      
+      const enhancedSnapshot = await getDocs(enhancedCheckQuery);
+      let shouldBypassCache = false;
+      
+      if (!enhancedSnapshot.empty) {
+        const latestDoc = enhancedSnapshot.docs[0];
+        const latestData = latestDoc.data();
         
-        const enhancedSnapshot = await getDocs(enhancedCheckQuery);
+        console.log('🔍 CAREER PATHWAY DEBUG - Latest Firebase data check:', {
+          docId: latestDoc.id,
+          hasLastEnhanced: !!latestData.lastEnhanced,
+          lastEnhanced: latestData.lastEnhanced,
+          cacheTimestamp: cached?.timestamp
+        });
         
-        if (!enhancedSnapshot.empty) {
-          const latestDoc = enhancedSnapshot.docs[0];
-          const latestData = latestDoc.data();
+        // Check if enhanced data exists and is newer than our cache
+        if (latestData.lastEnhanced && cached) {
+          const enhancedTimestamp = convertFirestoreTimestampToMillis(latestData.lastEnhanced);
           
-          // If enhanced data exists and is newer than our cache, invalidate cache
-          if (latestData.lastEnhanced) {
-            const enhancedTimestamp = new Date(latestData.lastEnhanced).getTime();
-            if (enhancedTimestamp > cached.timestamp) {
-              console.log('🔄 Enhanced data detected, invalidating cache and fetching fresh data');
-              this.structuredGuidanceCache.delete(cacheKey);
-              // Continue to fetch fresh data below
-            } else {
-              console.log('✅ Using cached structured career guidance (no newer enhanced data)');
-              return cached.data;
-            }
-          } else {
-            console.log('✅ Using cached structured career guidance');
-            return cached.data;
+          console.log('🔍 CAREER PATHWAY DEBUG - Timestamp conversion:', {
+            rawLastEnhanced: latestData.lastEnhanced,
+            convertedTimestamp: enhancedTimestamp,
+            cacheTimestamp: cached.timestamp,
+            isNewer: enhancedTimestamp ? enhancedTimestamp > cached.timestamp : false
+          });
+          
+          if (enhancedTimestamp && enhancedTimestamp > cached.timestamp) {
+            console.log('🔄 CAREER PATHWAY DEBUG - Enhanced data detected, bypassing cache');
+            shouldBypassCache = true;
+          } else if (enhancedTimestamp === null) {
+            console.warn('⚠️ CAREER PATHWAY DEBUG - Failed to convert timestamp, bypassing cache for safety');
+            shouldBypassCache = true;
           }
-        } else {
-          console.log('✅ Using cached structured career guidance');
-          return cached.data;
+        } else if (latestData.lastEnhanced && !cached) {
+          console.log('🔄 CAREER PATHWAY DEBUG - Enhanced data exists but no cache, fetching fresh');
+          shouldBypassCache = true;
         }
       }
+      
+      // Use cached data only if it's within duration AND no newer enhanced data
+      if (cached && (Date.now() - cached.timestamp) < this.CACHE_DURATION && !shouldBypassCache) {
+        console.log('✅ CAREER PATHWAY DEBUG - Using cached structured career guidance (validated against enhanced data)');
+        return cached.data;
+      }
 
+      console.log('🔍 CAREER PATHWAY DEBUG - Fetching fresh data from Firebase');
+      
       // Get the thread career guidance data (using updatedAt like existing queries)
       const guidanceQuery = query(
         collection(db, 'threadCareerGuidance'),
@@ -1619,7 +1770,7 @@ class CareerPathwayService {
       const guidanceSnapshot = await getDocs(guidanceQuery);
       
       if (guidanceSnapshot.empty) {
-        console.log('✅ No thread career guidance found for structured response');
+        console.log('✅ CAREER PATHWAY DEBUG - No thread career guidance found for structured response');
         return {
           primaryPathway: null,
           alternativePathways: [],
@@ -1630,9 +1781,19 @@ class CareerPathwayService {
       const doc = guidanceSnapshot.docs[0];
       const data = doc.data();
       const guidance = data.guidance;
+      
+      console.log('🔍 CAREER PATHWAY DEBUG - Raw Firebase data structure:', {
+        docId: doc.id,
+        hasGuidance: !!guidance,
+        hasPrimaryPathway: !!guidance?.primaryPathway,
+        hasAlternativePathways: !!guidance?.alternativePathways,
+        alternativePathwaysCount: guidance?.alternativePathways?.length || 0,
+        lastEnhanced: data.lastEnhanced,
+        updatedAt: data.updatedAt
+      });
 
       if (!guidance?.primaryPathway) {
-        console.log('⚠️ No primary pathway found in guidance data');
+        console.log('⚠️ CAREER PATHWAY DEBUG - No primary pathway found in guidance data');
         return {
           primaryPathway: null,
           alternativePathways: [],
@@ -1642,6 +1803,18 @@ class CareerPathwayService {
 
       // Process primary pathway
       const primary = guidance.primaryPathway;
+      console.log('🔍 CAREER PATHWAY DEBUG - Primary pathway raw data:', {
+        title: primary.title,
+        isEnhanced: primary.isEnhanced,
+        enhancedAt: primary.enhancedAt,
+        enhancementSource: primary.enhancementSource,
+        hasEnhancedSalary: !!primary.enhancedSalary,
+        hasCompensationRewards: !!primary.compensationRewards,
+        hasLabourMarketDynamics: !!primary.labourMarketDynamics,
+        enhancedSalaryType: typeof primary.enhancedSalary,
+        compensationRewardsType: typeof primary.compensationRewards
+      });
+      
       const primaryCardData = {
         id: `guidance-${doc.id}-primary`,
         title: primary.title,
@@ -1653,7 +1826,7 @@ class CareerPathwayService {
           senior: `£${primary.compensationRewards.salaryRange.senior?.toLocaleString() || '50,000'}`
         } : primary.averageSalary || {
           entry: '£25,000',
-          experienced: '£35,000', 
+          experienced: '£35,000',
           senior: '£50,000'
         },
         growthOutlook: primary.labourMarketDynamics?.demandOutlook?.growthForecast || primary.growthOutlook || 'Growing demand',
@@ -1864,11 +2037,31 @@ class CareerPathwayService {
           const newPrimary = guidanceData.guidance.alternativePathways[0];
           const remainingAlternatives = guidanceData.guidance.alternativePathways.slice(1);
           
-          await updateDoc(guidanceRef, {
+          // Prepare data for Firebase with comprehensive validation
+          const updateData = {
             'guidance.primaryPathway': newPrimary,
             'guidance.alternativePathways': remainingAlternatives,
             updatedAt: new Date()
-          });
+          };
+          
+          const dataPrep = prepareDataForFirebase(updateData);
+          if (!dataPrep.success) {
+            console.error('❌ Data preparation failed:', dataPrep.errors);
+            throw new Error(`Failed to prepare data for Firebase: ${dataPrep.errors?.join(', ')}`);
+          }
+          
+          // Save to Firebase with retry mechanism
+          const saveResult = await retryFirebaseOperation(
+            () => updateDoc(guidanceRef, dataPrep.data),
+            { maxRetries: 3, initialDelayMs: 1000 }
+          );
+
+          if (!saveResult.success) {
+            logFirebaseOperation('Career Card Deletion Update', dataPrep.data, 'error', saveResult.error);
+            throw new Error(`Failed to update career guidance after deletion: ${saveResult.error}`);
+          }
+
+          logFirebaseOperation('Career Card Deletion Update', dataPrep.data, 'success', { retries: saveResult.retryCount });
           console.log('✅ Promoted alternative to primary and removed original primary');
         } else {
           // No alternatives left, delete entire document
@@ -1890,10 +2083,30 @@ class CareerPathwayService {
           const removedPathway = alternatives[pathwayIndex];
           alternatives.splice(pathwayIndex, 1);
           
-          await updateDoc(guidanceRef, {
+          // Prepare data for Firebase with comprehensive validation
+          const updateData = {
             'guidance.alternativePathways': alternatives,
             updatedAt: new Date()
-          });
+          };
+          
+          const dataPrep = prepareDataForFirebase(updateData);
+          if (!dataPrep.success) {
+            console.error('❌ Data preparation failed:', dataPrep.errors);
+            throw new Error(`Failed to prepare data for Firebase: ${dataPrep.errors?.join(', ')}`);
+          }
+          
+          // Save to Firebase with retry mechanism
+          const saveResult = await retryFirebaseOperation(
+            () => updateDoc(guidanceRef, dataPrep.data),
+            { maxRetries: 3, initialDelayMs: 1000 }
+          );
+
+          if (!saveResult.success) {
+            logFirebaseOperation('Alternative Pathway Deletion', dataPrep.data, 'error', saveResult.error);
+            throw new Error(`Failed to update alternative pathways after deletion: ${saveResult.error}`);
+          }
+
+          logFirebaseOperation('Alternative Pathway Deletion', dataPrep.data, 'success', { retries: saveResult.retryCount });
           console.log('✅ Removed alternative pathway:', removedPathway.title, 'at index:', pathwayIndex);
         } else {
           console.error('❌ Alternative pathway index out of range!', {
@@ -1916,10 +2129,30 @@ class CareerPathwayService {
             const removedPathway = alternatives[alternativeIndex];
             alternatives.splice(alternativeIndex, 1);
             
-            await updateDoc(guidanceRef, {
+            // Prepare data for Firebase with comprehensive validation
+            const updateData = {
               'guidance.alternativePathways': alternatives,
               updatedAt: new Date()
-            });
+            };
+            
+            const dataPrep = prepareDataForFirebase(updateData);
+            if (!dataPrep.success) {
+              console.error('❌ Data preparation failed:', dataPrep.errors);
+              throw new Error(`Failed to prepare data for Firebase: ${dataPrep.errors?.join(', ')}`);
+            }
+            
+            // Save to Firebase with retry mechanism
+            const saveResult = await retryFirebaseOperation(
+              () => updateDoc(guidanceRef, dataPrep.data),
+              { maxRetries: 3, initialDelayMs: 1000 }
+            );
+
+            if (!saveResult.success) {
+              logFirebaseOperation('Alternative Pathway Deletion by Title', dataPrep.data, 'error', saveResult.error);
+              throw new Error(`Failed to update alternative pathways after title-based deletion: ${saveResult.error}`);
+            }
+
+            logFirebaseOperation('Alternative Pathway Deletion by Title', dataPrep.data, 'success', { retries: saveResult.retryCount });
             console.log('✅ Removed alternative pathway by title match:', removedPathway.title);
           } else {
             throw new Error(`Cannot find pathway to delete. Index ${pathwayIndex} out of range (0-${alternatives.length - 1})`);
