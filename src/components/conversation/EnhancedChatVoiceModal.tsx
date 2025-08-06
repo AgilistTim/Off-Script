@@ -542,12 +542,33 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         console.log('🔄 Routing to MCP-based career analysis');
         console.log('🔍 Legacy tool parameters:', parameters);
         
-        // Extract trigger reason with fallback
-        const effectiveTriggerReason = parameters.trigger_reason || 'generate_career_recommendations';
-        
-        // Return simple response message indicating analysis in progress
-        // The actual MCP analysis will be triggered separately by the existing flow
-        return "I'm generating detailed career recommendations based on our conversation. Let me analyze your interests and skills...";
+        try {
+          // Extract trigger reason with fallback
+          const effectiveTriggerReason = parameters.trigger_reason || 'generate_career_recommendations';
+          
+          // **CRITICAL FIX**: Actually call the MCP service instead of returning fake response
+          console.log('🚀 EXECUTING ACTUAL MCP ANALYSIS (was previously just fake response)');
+          
+          // Get conversation history for analysis
+          const conversationHistory = messages.map(msg => ({
+            role: msg.source === 'ai' ? 'assistant' : 'user',
+            content: msg.message
+          }));
+          
+          if (conversationHistory.length === 0) {
+            return "I need a bit more conversation to analyze your interests. Could you tell me more about what you enjoy doing?";
+          }
+
+          // **THIS IS THE ACTUAL FIX**: Call the MCP analysis service
+          await handleMCPAnalysis(effectiveTriggerReason, conversationHistory);
+          
+          // Return acknowledgment that analysis is starting (not fake completion)
+          return "Perfect! I'm analyzing our conversation to create personalized career cards for you. This will take about 30-40 seconds...";
+          
+        } catch (error) {
+          console.error('❌ Error in generate_career_recommendations tool:', error);
+          return "I'm having trouble accessing the career analysis system right now. Could you tell me more about your interests while I try again?";
+        }
       },
     },
     onConnect: () => {
