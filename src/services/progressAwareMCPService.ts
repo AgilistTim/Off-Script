@@ -13,6 +13,10 @@ export interface MCPProgressCallback {
   (update: MCPProgressUpdate): void;
 }
 
+export interface MCPCompletionCallback {
+  (result: ProgressAwareMCPResult): void;
+}
+
 export interface ProgressAwareMCPResult {
   success: boolean;
   analysis?: any;
@@ -31,7 +35,8 @@ class ProgressAwareMCPService {
     triggerReason: string = 'agent_request',
     userId?: string,
     onProgress?: MCPProgressCallback,
-    enablePerplexityEnhancement: boolean = false
+    enablePerplexityEnhancement: boolean = false,
+    onCompletion?: MCPCompletionCallback
   ): Promise<ProgressAwareMCPResult> {
     
     const updateProgress = (stage: MCPProgressUpdate['stage'], message: string, progress: number, details?: any) => {
@@ -61,10 +66,12 @@ class ProgressAwareMCPService {
 
       if (!basicResult.success) {
         updateProgress('error', `Analysis failed: ${basicResult.error}`, 0, { error: basicResult.error });
-        return {
+        const errorResult = {
           success: false,
           error: basicResult.error
         };
+        onCompletion?.(errorResult);
+        return errorResult;
       }
 
       // Stage 3: Generate basic career cards
@@ -84,11 +91,13 @@ class ProgressAwareMCPService {
           type: 'basic'
         });
         
-        return {
+        const simpleResult = {
           success: true,
           analysis: basicResult.analysis,
           basicCareerCards: basicCards
         };
+        onCompletion?.(simpleResult);
+        return simpleResult;
       }
 
       // Stage 4: Enhance with structured API (for authenticated users)
@@ -121,12 +130,14 @@ class ProgressAwareMCPService {
             features: ['market_data', 'education_paths', 'growth_projections', 'opportunities']
           });
 
-          return {
+          const enhancedResult = {
             success: true,
             analysis: basicResult.analysis,
             basicCareerCards: basicCards,
             enhancedCareerCards: enhancedCards
           };
+          onCompletion?.(enhancedResult);
+          return enhancedResult;
 
         } catch (enhancementError) {
           // If enhancement fails, still return basic cards
@@ -138,12 +149,14 @@ class ProgressAwareMCPService {
             enhancementError: enhancementError instanceof Error ? enhancementError.message : 'Unknown error'
           });
 
-          return {
+          const fallbackResult = {
             success: true,
             analysis: basicResult.analysis,
             basicCareerCards: basicCards,
             error: `Enhancement failed: ${enhancementError instanceof Error ? enhancementError.message : 'Unknown error'}`
           };
+          onCompletion?.(fallbackResult);
+          return fallbackResult;
         }
       } else {
         // Perplexity not available
@@ -155,21 +168,25 @@ class ProgressAwareMCPService {
             : 'No cards to enhance'
         });
 
-        return {
+        const noEnhancementResult = {
           success: true,
           analysis: basicResult.analysis,
           basicCareerCards: basicCards
         };
+        onCompletion?.(noEnhancementResult);
+        return noEnhancementResult;
       }
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
       updateProgress('error', `Analysis failed: ${errorMessage}`, 0, { error: errorMessage });
       
-      return {
+      const catchErrorResult = {
         success: false,
         error: errorMessage
       };
+      onCompletion?.(catchErrorResult);
+      return catchErrorResult;
     }
   }
 

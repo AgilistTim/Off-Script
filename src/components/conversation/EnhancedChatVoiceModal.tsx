@@ -292,7 +292,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
           if (validMessages.length === 0) {
             console.log('⚠️ No valid messages for analysis - conversation may be too new');
-            return "I'm analyzing our conversation. Please continue chatting and I'll generate career insights shortly.";
+            return "I'm starting a deep analysis of our conversation to create personalized career cards. This comprehensive process takes 60-90 seconds to ensure accuracy - I'll share specific results as soon as they're ready.";
           }
 
           // Show progress and start analysis
@@ -327,13 +327,36 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             }
           };
 
-          // Use progress-aware MCP service
+          // Create completion callback to notify agent when cards are ready
+          const handleCompletion = (result: any) => {
+            if (result.success) {
+              const careerCards = result.enhancedCareerCards || result.basicCareerCards || [];
+              const cardCount = careerCards.length;
+              const cardTitles = careerCards.map((card: any) => card.title).slice(0, 3); // Show first 3 titles
+              const hasEnhancement = !!result.enhancedCareerCards?.length;
+              
+              const completionMessage = `✅ Analysis complete! I've created ${cardCount} personalized career cards: ${cardTitles.join(', ')}${cardCount > 3 ? ' and more' : ''}. Each includes ${hasEnhancement ? 'verified salary data, training pathways, and market insights from my latest research' : 'detailed analysis of skills, progression paths, and market demand'}. Which career would you like to explore first?`;
+              
+              // Inject completion message into conversation
+              setTimeout(() => {
+                injectCompletionMessage(completionMessage);
+              }, 1000); // Small delay to ensure UI is ready
+            } else {
+              const errorMessage = `❌ I encountered an issue while generating your career cards: ${result.error}. Please try again or continue our conversation and I'll analyze your interests differently.`;
+              setTimeout(() => {
+                injectCompletionMessage(errorMessage);
+              }, 1000);
+            }
+          };
+
+          // Use progress-aware MCP service with completion callback
           const analysisResult = await progressAwareMCPService.analyzeConversationWithProgress(
             validMessages,
             parameters.trigger_reason,
             currentUser?.uid,
             handleProgress,
-            enableEnhancement
+            enableEnhancement,
+            handleCompletion
           );
 
           if (analysisResult.success) {
@@ -595,6 +618,41 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       conversationHistoryRef.current = currentConversationHistory; // Keep ref in sync
     }
   }, [currentConversationHistory, isConnected]);
+
+  // Function to inject completion messages into the agent conversation
+  const injectCompletionMessage = (message: string) => {
+    console.log('📤 Injecting completion message to agent:', message);
+    
+    const completionMessage: ConversationMessage = {
+      role: 'assistant',
+      content: message,
+      timestamp: new Date()
+    };
+    
+    setConversationHistory(prev => {
+      const updated = [...prev, completionMessage];
+      conversationHistoryRef.current = updated; // Keep ref in sync
+      console.log(`📝 Completion message added to history. Total messages: ${updated.length}`);
+      
+      // Save message to guest session for migration
+      if (!currentUser) {
+        try {
+          guestSessionService.addConversationMessage(completionMessage.role, completionMessage.content);
+          const guestSession = guestSessionService.getGuestSession();
+          console.log('💾 [GUEST FLOW] Saved completion message to guest session for migration:', {
+            messageRole: completionMessage.role,
+            messagePreview: completionMessage.content.substring(0, 50) + '...',
+            totalMessages: guestSession.conversationHistory.length,
+            sessionId: guestSession.sessionId
+          });
+        } catch (error) {
+          console.error('❌ [GUEST FLOW] Failed to save completion message to guest session:', error);
+        }
+      }
+      
+      return updated;
+    });
+  };
 
   // Cleanup conversation on unmount to prevent WebSocket conflicts
   useEffect(() => {
