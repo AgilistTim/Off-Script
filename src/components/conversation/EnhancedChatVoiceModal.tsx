@@ -328,7 +328,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           };
 
           // Create completion callback to notify agent when cards are ready
-          const handleCompletion = (result: any) => {
+          const handleCompletion = async (result: any) => {
             if (result.success) {
               const careerCards = result.enhancedCareerCards || result.basicCareerCards || [];
               const cardCount = careerCards.length;
@@ -337,10 +337,33 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               
               const completionMessage = `✅ Analysis complete! I've created ${cardCount} personalized career cards: ${cardTitles.join(', ')}${cardCount > 3 ? ' and more' : ''}. Each includes ${hasEnhancement ? 'verified salary data, training pathways, and market insights from my latest research' : 'detailed analysis of skills, progression paths, and market demand'}. Which career would you like to explore first?`;
               
-              // Inject completion message into conversation
+              // **NEW: Update agent context with fresh career cards BEFORE sending completion message**
+              try {
+                console.log('🔄 Updating agent context with new career cards before completion message...');
+                const service = new UnifiedVoiceContextService();
+                
+                // Update agent with new career card context
+                const currentAgentId = getAgentId();
+                if (currentAgentId && careerCards.length > 0) {
+                  const userName = currentUser?.displayName || currentUser?.careerProfile?.name;
+                  await service.updateAgentWithCareerCards(
+                    currentAgentId, 
+                    careerCards, 
+                    userName,
+                    'new_cards'
+                  );
+                  console.log('✅ Agent context updated with new career cards');
+                } else {
+                  console.log('⚠️ No agent ID or career cards available for context update');
+                }
+              } catch (error) {
+                console.error('❌ Failed to update agent context with new career cards:', error);
+              }
+              
+              // Inject completion message into conversation (after context update)
               setTimeout(() => {
                 injectCompletionMessage(completionMessage);
-              }, 1000); // Small delay to ensure UI is ready
+              }, 1500); // Slightly longer delay to ensure context update completes
             } else {
               const errorMessage = `❌ I encountered an issue while generating your career cards: ${result.error}. Please try again or continue our conversation and I'll analyze your interests differently.`;
               setTimeout(() => {
