@@ -549,18 +549,29 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           // **CRITICAL FIX**: Actually call the MCP service instead of returning fake response
           console.log('🚀 EXECUTING ACTUAL MCP ANALYSIS (was previously just fake response)');
           
-          // Get conversation history for analysis
-          const conversationHistory = messages.map(msg => ({
-            role: msg.source === 'ai' ? 'assistant' : 'user',
-            content: msg.message
-          }));
-          
+          // Check if we have enough conversation history for analysis
           if (conversationHistory.length === 0) {
             return "I need a bit more conversation to analyze your interests. Could you tell me more about what you enjoy doing?";
           }
 
-          // **THIS IS THE ACTUAL FIX**: Call the MCP analysis service
-          await handleMCPAnalysis(effectiveTriggerReason, conversationHistory);
+          // **THIS IS THE ACTUAL FIX**: Call the MCP analysis service with correct parameters
+          const analysisResult = await progressAwareMCPService.analyzeConversationWithProgress(
+            conversationHistory,  // Use conversation history directly (already in correct format)
+            effectiveTriggerReason,
+            currentUser?.uid || 'guest', // userId
+            (update: MCPProgressUpdate) => {
+              console.log('📊 Career analysis progress from tool:', update);
+            }, // onProgress callback
+            false, // enablePerplexityEnhancement
+            (result: any) => {
+              // Inline completion handler to avoid scoping issues
+              console.log('🎉 Career analysis completed from generate_career_recommendations tool:', result);
+              if (onCareerCardsDiscovered && result.success) {
+                const careerCards = result.enhancedCareerCards || result.basicCareerCards || [];
+                onCareerCardsDiscovered(careerCards);
+              }
+            } // onCompletion callback
+          );
           
           // Return acknowledgment that analysis is starting (not fake completion)
           return "Perfect! I'm analyzing our conversation to create personalized career cards for you. This will take about 30-40 seconds...";
