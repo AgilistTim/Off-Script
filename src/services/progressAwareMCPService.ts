@@ -59,10 +59,16 @@ class ProgressAwareMCPService {
       // Stage 2: Analyze with OpenAI
       updateProgress('analyzing', 'Analyzing conversation for interests and skills...', 15);
       
+      // Start simulated progress during MCP processing
+      const progressSimulation = this.startProgressSimulation(updateProgress, 15, 40, 'analyzing');
+      
       const basicResult = await mcpQueueService.analyzeConversation(
         conversationHistory,
         triggerReason
       );
+      
+      // Stop progress simulation
+      clearInterval(progressSimulation);
 
       if (!basicResult.success) {
         updateProgress('error', `Analysis failed: ${basicResult.error}`, 0, { error: basicResult.error });
@@ -253,6 +259,40 @@ class ProgressAwareMCPService {
         ]
       };
     }
+  }
+
+  /**
+   * Start simulated progress updates during long-running MCP operations
+   */
+  private startProgressSimulation(
+    updateProgress: (stage: string, message: string, progress: number, details?: any) => void,
+    startProgress: number,
+    endProgress: number,
+    stage: string
+  ): NodeJS.Timeout {
+    let currentProgress = startProgress;
+    const increment = 1; // Increment by 1% every interval
+    const intervalMs = 2000; // Update every 2 seconds
+    
+    const messages = [
+      'Analyzing conversation patterns...',
+      'Identifying key interests and skills...',
+      'Processing career preferences...',
+      'Matching with career database...',
+      'Calculating compatibility scores...',
+      'Preparing personalized recommendations...'
+    ];
+    
+    let messageIndex = 0;
+    
+    return setInterval(() => {
+      if (currentProgress < endProgress) {
+        currentProgress = Math.min(currentProgress + increment, endProgress);
+        const message = messages[messageIndex % messages.length];
+        updateProgress(stage, message, currentProgress);
+        messageIndex++;
+      }
+    }, intervalMs);
   }
 }
 

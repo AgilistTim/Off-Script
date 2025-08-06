@@ -289,14 +289,6 @@ class MCPQueueService {
 
       const result = await response.json();
       
-      console.log('🔍 MCP Response received:', {
-        hasResult: !!result.result,
-        hasContent: !!result.result?.content,
-        contentLength: result.result?.content?.length,
-        resultKeys: Object.keys(result.result || {}),
-        fullResult: result
-      });
-      
       if (result.error) {
         throw new Error(`MCP error: ${result.error.message || 'Unknown error'}`);
       }
@@ -305,28 +297,20 @@ class MCPQueueService {
       
       // Handle JSON-RPC response format
       if (result.result && result.result.content && result.result.content.length > 0) {
-        console.log('🔍 Processing content-based response...');
         const content = result.result.content[0];
-        console.log('🔍 Content:', { type: content.type, textLength: content.text?.length });
-        
         if (content.type === 'text') {
           try {
             // Try to parse the text content as JSON
             const parsedContent = JSON.parse(content.text);
-            console.log('✅ Successfully parsed content as JSON:', { careerCardsCount: parsedContent.careerCards?.length });
             return parsedContent;
           } catch (e) {
-            console.log('⚠️ Content is not JSON, returning as plain text');
             // If not JSON, return as plain text
             return { message: content.text };
           }
         }
       }
       
-      console.log('🔍 Using direct result fallback...');
-      const finalResult = result.result || result || 'Analysis completed successfully';
-      console.log('🔍 Final result:', { hasCareerCards: !!finalResult.careerCards, resultKeys: Object.keys(finalResult) });
-      return finalResult;
+      return result.result || result || 'Analysis completed successfully';
 
     } catch (error) {
       console.error('❌ MCP conversation analysis failed:', error);
