@@ -345,7 +345,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                 // Update agent with new career card context
                 const currentAgentId = getAgentId();
                 if (currentAgentId && careerCards.length > 0) {
-                  const userName = currentUser?.displayName || currentUser?.careerProfile?.name;
+                  const userName = currentUser?.displayName || userData?.careerProfile?.name;
                   await service.updateAgentWithCareerCards(
                     currentAgentId, 
                     careerCards, 
