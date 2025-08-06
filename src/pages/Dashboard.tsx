@@ -415,6 +415,27 @@ const Dashboard: React.FC = () => {
               setSelectedCareerCard(enhancedCards[0]);
               // Update cache with enhanced data
               setCareerCardCache(prev => new Map(prev.set(threadId, enhancedCards[0])));
+              
+              // CRITICAL FIX: Update structuredGuidance state to reflect enhanced data
+              setStructuredGuidance(prev => ({
+                ...prev,
+                primaryPathway: {
+                  ...prev.primaryPathway,
+                  ...enhancedCards[0],
+                  isEnhanced: true,
+                  perplexityData: enhancedCards[0].perplexityData,
+                  enhancement: enhancedCards[0].enhancement
+                }
+              }));
+              
+              console.log('🔍 DASHBOARD DEBUG - Updated structuredGuidance with enhanced data:', {
+                hasPrimary: !!enhancedCards[0],
+                primaryTitle: enhancedCards[0].title,
+                primaryIsEnhanced: true,
+                primaryHasEnhancedSalary: !!enhancedCards[0].perplexityData?.verifiedSalaryRanges,
+                primaryHasPerplexityData: !!enhancedCards[0].perplexityData,
+                enhancementStatus: enhancedCards[0].enhancement?.status
+              });
             }
           })
           .catch(error => {
