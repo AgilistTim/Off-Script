@@ -370,6 +370,15 @@ You have detailed career card information above. Reference specific career cards
           return await this.scheduleContextForNextConversation(agentId, message);
         }
         
+        // Handle 401 authentication errors (CORS/production domain issue)
+        if (response.status === 401) {
+          console.log('🚫 ElevenLabs API authentication failed - this is a known production CORS/auth issue');
+          console.log('💡 Career cards are still generated and available in the UI sidebar');
+          console.log('⏳ Agent context will be updated via alternative method in future releases');
+          // Gracefully handle auth failure - use fallback approach
+          return await this.scheduleContextForNextConversation(agentId, message);
+        }
+        
         return false;
       }
       
