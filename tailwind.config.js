@@ -122,6 +122,8 @@ export default {
   			'neon-pink': '#ff006e',
   			'acid-green': '#8ac926',
   			'sunset-orange': '#ff7900',
+			'alert-orange': '#ff6b35',
+			'cyber-purple': '#9d4edd',
   			'deep-purple': '#7209b7',
   			'hot-magenta': '#f72585',
   			'cyber-yellow': '#ffbe0b',
