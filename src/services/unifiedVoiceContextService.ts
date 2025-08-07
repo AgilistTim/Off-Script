@@ -15,6 +15,7 @@ import { guestSessionService } from './guestSessionService';
 import { doc, getDoc, collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db } from './firebase';
 import { CareerCard } from '../types/careerCard';
+import { mcpBridgeService } from './mcpBridgeService';
 
 // Cache for career card data to avoid repeated Firebase queries
 interface CareerCardCache {
@@ -37,12 +38,8 @@ export class UnifiedVoiceContextService {
   private careerCardCache: Map<string, CareerCardCache> = new Map();
 
   constructor() {
-  
+    // Note: ElevenLabs API key no longer needed for frontend since we use MCP server for agent context updates
     this.elevenLabsApiKey = environmentConfig.elevenLabs?.apiKey || '';
-    
-    if (!this.elevenLabsApiKey) {
-      console.warn('⚠️ ElevenLabs API key not configured for UnifiedVoiceContextService');
-    }
   }
 
   /**
@@ -216,11 +213,16 @@ export class UnifiedVoiceContextService {
         return false;
       }
 
-      // Create contextual update message
-      const updateMessage = this.buildContextualUpdateMessage(formattedContext, contextType);
+      // Use MCP server for agent context update (eliminates CORS/401 issues)
+      console.log('🔄 Using MCP server for agent context update');
+      const result = await mcpBridgeService.updateAgentContext(
+        agentId,
+        careerCards,
+        userName,
+        contextType === 'new_cards' ? 'new_cards' : 'update'
+      );
       
-      // Send contextual update via ElevenLabs API
-      const success = await this.sendContextualUpdate(agentId, updateMessage);
+      const success = result.success;
       
       if (success) {
         // Update rate limiting timestamp
@@ -229,11 +231,14 @@ export class UnifiedVoiceContextService {
         // Clear cache to ensure fresh data on next retrieval
         this.clearCareerCardCache(userName || agentId);
         
-        console.log(`✅ Successfully updated agent ${agentId} with enhanced career context`);
+        console.log(`✅ Successfully updated agent ${agentId} via MCP server:`, result.message);
         return true;
       } else {
-        console.log(`❌ Failed to update agent ${agentId} with career context`);
-        return false;
+        console.log(`❌ Failed to update agent ${agentId} via MCP server:`, result.error);
+        // Fallback to session storage approach
+        const formattedContext = this.formatCareerCardsForElevenLabsContext(careerCards, userName);
+        const updateMessage = this.buildContextualUpdateMessage(formattedContext, contextType);
+        return await this.scheduleContextForNextConversation(agentId, updateMessage);
       }
 
     } catch (error) {
@@ -285,16 +290,11 @@ export class UnifiedVoiceContextService {
    */
   private async sendDynamicVariablesUpdate(agentId: string, message: string): Promise<boolean> {
     try {
-      console.log('🔄 Using agent prompt update fallback for context update');
+      console.log('🔄 Using MCP server for agent context update (eliminates CORS/401 issues)');
       
-      // Validate inputs before making API call
+      // Validate inputs
       if (!agentId || !agentId.trim()) {
         console.error('❌ Agent ID is missing or empty');
-        return false;
-      }
-      
-      if (!this.elevenLabsApiKey) {
-        console.error('❌ ElevenLabs API key is missing');
         return false;
       }
       
@@ -303,89 +303,57 @@ export class UnifiedVoiceContextService {
         return false;
       }
       
-      console.log('📝 Preparing agent context update:', {
+      console.log('📝 Preparing MCP agent context update:', {
         agentId,
-        messageLength: message.length,
-        apiKeyPresent: !!this.elevenLabsApiKey
+        messageLength: message.length
       });
       
-      // Use the proper ElevenLabs API with both Authorization headers as per Context7 docs
-      const response = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${this.elevenLabsApiKey}`,
-          'xi-api-key': this.elevenLabsApiKey
-        },
-        body: JSON.stringify({
-          conversation_config: {
-            agent: {
-              prompt: {
-                prompt: `You are an expert career counselor specializing in AI-powered career guidance.
-
-${message}
-
-RESPONSE STYLE:
-- Keep responses 30-60 words for voice conversations
-- Be conversational and natural (this is voice, not text)
-- Reference specific career cards by name when discussing them
-- Use salary ranges and training information from the career cards
-- Provide specific, actionable career insights
-
-You have detailed career card information above. Reference specific career cards by title and provide concrete details from them.`,
-                tool_ids: [
-                  'tool_1201k1nmz5tyeav9h3rejbs6xds1', // analyze_conversation_for_careers
-                  'tool_6401k1nmz60te5cbmnvytjtdqmgv', // generate_career_recommendations  
-                  'tool_5401k1nmz66eevwswve1q0rqxmwj', // trigger_instant_insights
-                  'tool_8501k1nmz6bves9syexedj36520r'  // update_person_profile
-                ]
-              }
-            }
-          }
-        })
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        console.log(`✅ Successfully updated agent ${agentId} prompt with career context via ElevenLabs API`, {
+      // This method is now primarily used as a fallback
+      // The main agent context updates should use updateAgentWithCareerCards with actual career card objects
+      console.log('⚠️ Using fallback agent context update - career data may be limited');
+      
+      // Extract basic info from formatted message for fallback
+      const userName = this.extractUserNameFromMessage(message);
+      
+      // Use MCP service with minimal data for fallback
+      const result = await mcpBridgeService.updateAgentContext(
+        agentId,
+        [], // Empty array as fallback - MCP server will use the formatted message if needed
+        userName,
+        'new_cards'
+      );
+      
+      if (result.success) {
+        console.log(`✅ Successfully updated agent ${agentId} context via MCP server`, {
           agentId,
-          responseStatus: response.status,
-          hasResult: !!result
+          message: result.message
         });
         return true;
       } else {
-        const errorText = await response.text();
-        console.error(`❌ Agent prompt update failed:`, {
+        console.error(`❌ MCP agent context update failed:`, {
           agentId,
-          status: response.status,
-          statusText: response.statusText,
-          error: errorText,
-          headers: Object.fromEntries(response.headers.entries()),
-          url: response.url
+          error: result.error
         });
         
-        // Try alternative approach for 404 errors 
-        if (response.status === 404) {
-          console.log('💡 Agent not found (404) - attempting conversation override approach...');
-          return await this.scheduleContextForNextConversation(agentId, message);
-        }
-        
-        // Handle 401 authentication errors (CORS/production domain issue)
-        if (response.status === 401) {
-          console.log('🚫 ElevenLabs API authentication failed - this is a known production CORS/auth issue');
-          console.log('💡 Career cards are still generated and available in the UI sidebar');
-          console.log('⏳ Agent context will be updated via alternative method in future releases');
-          // Gracefully handle auth failure - use fallback approach
-          return await this.scheduleContextForNextConversation(agentId, message);
-        }
-        
-        return false;
+        // Fallback to session storage approach
+        console.log('💡 Using fallback approach due to MCP error...');
+        return await this.scheduleContextForNextConversation(agentId, message);
       }
       
     } catch (error) {
-      console.error('❌ Error with agent prompt update fallback:', error);
-      return false;
+      console.error('❌ Error with MCP agent context update:', error);
+      // Fallback to session storage approach
+      return await this.scheduleContextForNextConversation(agentId, message);
     }
+  }
+
+  /**
+   * Extract user name from formatted message context
+   */
+  private extractUserNameFromMessage(message: string): string | undefined {
+    // Look for "CAREER DISCOVERIES for [UserName]" pattern
+    const match = message.match(/CAREER DISCOVERIES for ([^\n\*]+)/);
+    return match ? match[1].trim() : undefined;
   }
 
   /**

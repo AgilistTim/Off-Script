@@ -326,6 +326,12 @@ class CareerPathwayService {
     console.log(`🧹 Cleared structured guidance cache for user: ${userId}`);
   }
 
+  // Force clear all caches for debugging
+  clearAllCaches(): void {
+    this.structuredGuidanceCache.clear();
+    console.log('🧹 Cleared ALL structured guidance caches');
+  }
+
   /**
    * Force refresh of structured guidance data (bypass cache completely)
    */
@@ -1812,7 +1818,11 @@ class CareerPathwayService {
         hasCompensationRewards: !!primary.compensationRewards,
         hasLabourMarketDynamics: !!primary.labourMarketDynamics,
         enhancedSalaryType: typeof primary.enhancedSalary,
-        compensationRewardsType: typeof primary.compensationRewards
+        compensationRewardsType: typeof primary.compensationRewards,
+        hasPerplexityData: !!primary.perplexityData,
+        perplexityDataKeys: primary.perplexityData ? Object.keys(primary.perplexityData) : [],
+        compensationRewardsKeys: primary.compensationRewards ? Object.keys(primary.compensationRewards) : [],
+        allKeys: Object.keys(primary)
       });
       
       const primaryCardData = {
@@ -1870,7 +1880,9 @@ class CareerPathwayService {
         professionalAssociations: primary.professionalAssociations,
         enhancedSources: primary.enhancedSources,
         isEnhanced: primary.isEnhanced,
-        enhancementStatus: primary.enhancementStatus
+        enhancementStatus: primary.enhancementStatus,
+        // Perplexity enhanced data
+        perplexityData: primary.perplexityData
       };
 
       // Process alternative pathways
@@ -1933,7 +1945,9 @@ class CareerPathwayService {
             professionalAssociations: alt.professionalAssociations,
             enhancedSources: alt.enhancedSources,
             isEnhanced: alt.isEnhanced,
-            enhancementStatus: alt.enhancementStatus
+            enhancementStatus: alt.enhancementStatus,
+            // Perplexity enhanced data
+            perplexityData: alt.perplexityData
           };
           alternativePathways.push(altCardData);
         });
@@ -3271,5 +3285,6 @@ class CareerPathwayService {
   private getGeneralPathways(): CareerPathway[] { return []; }
 }
 
+export { CareerPathwayService };
 export const careerPathwayService = new CareerPathwayService();
 export default careerPathwayService; 

@@ -271,6 +271,24 @@ export interface CareerCard {
       outlook: 'Excellent' | 'Good' | 'Stable' | 'Declining';
       factors: string[]; // Key growth drivers
     };
+    competencyRequirements?: {
+      technicalSkills: string[];
+      softSkills: string[];
+      tools: string[];
+      certifications: string[];
+      qualificationPathway: {
+        degrees: string[];
+        licenses: string[];
+        alternativeRoutes: string[];
+        apprenticeships: string[];
+        bootcamps: string[];
+      };
+      learningCurve: {
+        timeToCompetent: string;
+        difficultyLevel: string;
+        prerequisites: string[];
+      };
+    };
   };
 }
 

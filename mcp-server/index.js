@@ -10,6 +10,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 import OpenAI from 'openai';
+import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
@@ -17,6 +18,7 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { zodResponseFormat } from 'openai/helpers/zod';
+import { AgentContextService } from './agentContextService.js';
 
 // Get __dirname equivalent for ES modules
 const __filename = fileURLToPath(import.meta.url);
@@ -335,6 +337,22 @@ try {
 } catch (error) {
   Logger.error('Failed to initialize OpenAI client', error);
   process.exit(1);
+}
+
+// Initialize ElevenLabs client with error handling
+let elevenLabsClient;
+try {
+  const apiKey = process.env.ELEVENLABS_API_KEY;
+  if (!apiKey) {
+    Logger.warn('ElevenLabs API key not found in environment variables - agent context updates will not work');
+    elevenLabsClient = null;
+  } else {
+    elevenLabsClient = new ElevenLabsClient({ apiKey });
+    Logger.info('ElevenLabs client initialized successfully');
+  }
+} catch (error) {
+  Logger.error('Failed to initialize ElevenLabs client', error);
+  elevenLabsClient = null;
 }
 
 // Enhanced conversation analysis service with OpenAI integration
@@ -1304,6 +1322,45 @@ class OffScriptMCPServer {
                       },
                       required: ['user_message']
                     }
+                  },
+                  {
+                    name: 'update_agent_context',
+                    description: 'Updates ElevenLabs agent context with career card information for personalized responses',
+                    inputSchema: {
+                      type: 'object',
+                      properties: {
+                        agent_id: {
+                          type: 'string',
+                          description: 'ElevenLabs agent ID to update'
+                        },
+                        career_cards: {
+                          type: 'array',
+                          items: {
+                            type: 'object',
+                            properties: {
+                              id: { type: 'string' },
+                              title: { type: 'string' },
+                              confidence: { type: 'number' },
+                              salaryRange: { type: 'string' },
+                              keySkills: { type: 'array', items: { type: 'string' } },
+                              nextSteps: { type: 'array', items: { type: 'string' } }
+                            },
+                            required: ['id', 'title']
+                          },
+                          description: 'Array of career card objects'
+                        },
+                        user_name: {
+                          type: 'string',
+                          description: 'User name for personalization (optional)'
+                        },
+                        context_type: {
+                          type: 'string',
+                          enum: ['new_cards', 'update', 'discussion'],
+                          description: 'Type of context update'
+                        }
+                      },
+                      required: ['agent_id', 'career_cards']
+                    }
                   }
                 ]
               }
@@ -1321,6 +1378,9 @@ class OffScriptMCPServer {
                 break;
               case 'trigger_instant_insights':
                 result = await this.handleMCPInstantInsights(args);
+                break;
+              case 'update_agent_context':
+                result = await this.handleUpdateAgentContext(args);
                 break;
               default:
                 throw new Error(`Unknown tool: ${name}`);
@@ -1754,6 +1814,108 @@ class OffScriptMCPServer {
     }
   }
 
+  /**
+   * Handle ElevenLabs agent context update
+   * Updates agent prompts with career card information for personalized responses
+   */
+  async handleUpdateAgentContext(args) {
+    Logger.info('MCP: Updating agent context:', {
+      agentId: args.agent_id,
+      careerCardsCount: args.career_cards?.length || 0,
+      contextType: args.context_type || 'new_cards',
+      hasUserName: !!args.user_name
+    });
+
+    try {
+      // Validate required parameters
+      if (!args.agent_id || typeof args.agent_id !== 'string') {
+        throw new Error('Missing or invalid agent_id parameter');
+      }
+
+      if (!args.career_cards || !Array.isArray(args.career_cards) || args.career_cards.length === 0) {
+        throw new Error('Missing or empty career_cards array');
+      }
+
+      // Check if ElevenLabs client is available
+      if (!elevenLabsClient) {
+        throw new Error('ElevenLabs client not initialized - check ELEVENLABS_API_KEY environment variable');
+      }
+
+      // Format career cards using AgentContextService
+      const formattedContext = AgentContextService.formatCareerCardsContext(
+        args.career_cards,
+        args.user_name || null,
+        args.context_type || 'new_cards'
+      );
+
+      Logger.info('Formatted context for agent update:', {
+        contextLength: formattedContext.length,
+        agentId: args.agent_id
+      });
+
+      // Update agent prompt using ElevenLabs SDK
+      const updateResult = await elevenLabsClient.conversationalAi.agents.update(args.agent_id, {
+        conversationConfig: {
+          agent: {
+            prompt: {
+              prompt: formattedContext
+            }
+          }
+        }
+      });
+
+      Logger.info('Agent context updated successfully:', {
+        agentId: args.agent_id,
+        contextLength: formattedContext.length,
+        careerCardsProcessed: args.career_cards.length
+      });
+
+      return {
+        success: true,
+        message: 'Agent context updated successfully',
+        agentId: args.agent_id,
+        contextLength: formattedContext.length,
+        careerCardsProcessed: args.career_cards.length,
+        updateTimestamp: new Date().toISOString()
+      };
+
+    } catch (error) {
+      Logger.error('Failed to update agent context:', {
+        agentId: args.agent_id,
+        error: error.message,
+        careerCardsCount: args.career_cards?.length || 0
+      });
+
+      // Return structured error response
+      return {
+        success: false,
+        error: error.message,
+        agentId: args.agent_id,
+        errorType: this.classifyElevenLabsError(error),
+        timestamp: new Date().toISOString()
+      };
+    }
+  }
+
+  /**
+   * Classify ElevenLabs API errors for better error handling
+   */
+  classifyElevenLabsError(error) {
+    const message = error.message?.toLowerCase() || '';
+    
+    if (message.includes('unauthorized') || message.includes('401')) {
+      return 'authentication_error';
+    } else if (message.includes('not found') || message.includes('404')) {
+      return 'agent_not_found';
+    } else if (message.includes('rate limit') || message.includes('429')) {
+      return 'rate_limit_exceeded';
+    } else if (message.includes('timeout') || message.includes('network')) {
+      return 'network_error';
+    } else {
+      return 'unknown_error';
+    }
+  }
+
   // Server startup
   async run() {
     try {
@@ -1764,7 +1926,7 @@ class OffScriptMCPServer {
       await this.server.connect(transport);
       Logger.info('OffScript MCP Server running on stdio', {
         capabilities: Object.keys(this.server.capabilities || {}),
-        tools: ['analyze_conversation', 'generate_career_insights', 'update_user_profile', 'get_user_preferences']
+        tools: ['analyze_conversation_for_careers', 'generate_career_recommendations', 'trigger_instant_insights', 'update_agent_context']
       });
     } catch (error) {
       Logger.error('Failed to start MCP Server', error);

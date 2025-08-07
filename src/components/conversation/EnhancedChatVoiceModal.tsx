@@ -62,6 +62,7 @@ import { mcpQueueService } from '../../services/mcpQueueService';
 import { progressAwareMCPService, MCPProgressUpdate } from '../../services/progressAwareMCPService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 import { guestSessionService } from '../../services/guestSessionService';
+import { lightweightCareerSuggestionService } from '../../services/lightweightCareerSuggestionService';
 import environmentConfig from '../../config/environment';
 
 
@@ -295,6 +296,85 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             return "I'm starting a deep analysis of our conversation to create personalized career cards. This comprehensive process takes 60-90 seconds to ensure accuracy - I'll share specific results as soon as they're ready.";
           }
 
+          // **NEW: Use lightweight service for guest users**
+          if (!currentUser) {
+            console.log('🚀 Using lightweight career suggestions for guest user');
+            
+            // Convert messages to format expected by lightweight service
+            const conversationMessages = validMessages.map(msg => ({
+              role: msg.role, // Already in correct format ('user' | 'assistant')
+              content: msg.content
+            }));
+
+            try {
+              const userName = currentUser?.displayName || userData?.careerProfile?.name;
+              const lightweightResult = await lightweightCareerSuggestionService.generateSuggestions(
+                conversationMessages,
+                userName
+              );
+
+              if (lightweightResult.success && lightweightResult.suggestions.length > 0) {
+                // Convert lightweight suggestions to career card format
+                const careerCards = lightweightResult.suggestions.map((suggestion, index) => ({
+                  id: suggestion.id,
+                  title: suggestion.title,
+                  description: suggestion.description,
+                  whyGoodFit: suggestion.whyGoodFit,
+                  registrationCTA: suggestion.registrationCTA,
+                  matchScore: 85 - (index * 5), // Decrease match score for subsequent cards
+                  salaryRange: 'Register for detailed salary data',
+                  educationLevel: 'Register for training pathway details',
+                  skills: ['Register', 'for', 'skill', 'analysis'],
+                  nextSteps: ['Register for personalized career roadmap'],
+                  keyResponsibilities: ['Register for detailed role information'],
+                  generatedAt: new Date().toISOString(),
+                  source: 'lightweight_openai',
+                  processingTimeMs: lightweightResult.processingTimeMs
+                }));
+
+                // Save career cards for guest migration
+                console.log('💾 Saving career cards to guest session:', careerCards.length);
+                guestSessionService.addCareerCards(careerCards);
+                
+                // **FIX: Update modal's career cards state so they appear in the UI**
+                setCareerCards(prev => {
+                  const combined = [...prev];
+                  careerCards.forEach((newCard: any) => {
+                    const existingIndex = combined.findIndex(card => card.title === newCard.title);
+                    if (existingIndex >= 0) {
+                      combined[existingIndex] = { ...combined[existingIndex], ...newCard };
+                    } else {
+                      combined.push(newCard);
+                    }
+                  });
+                  return combined;
+                });
+                
+                // Trigger career cards discovered callback
+                if (onCareerCardsDiscovered) {
+                  onCareerCardsDiscovered(careerCards);
+                }
+
+                const cardTitles = careerCards.map(card => card.title).join(', ');
+                const processingTime = (lightweightResult.processingTimeMs / 1000).toFixed(1);
+                
+                setTimeout(() => {
+                  const completionMessage = `✅ Quick analysis complete! I've identified ${careerCards.length} career paths that match your interests: ${cardTitles}. Each suggestion includes why it's a good fit for you. To get detailed salary ranges, training pathways, and market insights, register for your full career profile - it takes just 30 seconds and unlocks comprehensive analytics!`;
+                  injectCompletionMessage(completionMessage);
+                }, 500);
+
+                return `Perfect! I'm analyzing your interests using our quick career suggestion engine. This takes just 2-3 seconds and will give you immediate insights. Processing now... (${processingTime}s)`;
+              } else {
+                console.warn('⚠️ Lightweight career suggestions failed, falling back to simple response');
+                return "I'm analyzing your interests to suggest some career paths. Let me give you some quick insights based on what you've shared...";
+              }
+            } catch (error) {
+              console.error('❌ Error with lightweight career suggestions:', error);
+              return "I'm analyzing your interests to suggest some career paths. Let me give you some quick insights...";
+            }
+          }
+
+          // **EXISTING: Use full MCP analysis for authenticated users**
           // Show progress and start analysis
           setIsAnalyzing(true);
           setProgressUpdate(null);
@@ -337,33 +417,33 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               
               const completionMessage = `✅ Analysis complete! I've created ${cardCount} personalized career cards: ${cardTitles.join(', ')}${cardCount > 3 ? ' and more' : ''}. Each includes ${hasEnhancement ? 'verified salary data, training pathways, and market insights from my latest research' : 'detailed analysis of skills, progression paths, and market demand'}. Which career would you like to explore first?`;
               
-              // **NEW: Update agent context with fresh career cards BEFORE sending completion message**
-              try {
-                console.log('🔄 Updating agent context with new career cards before completion message...');
-                const service = new UnifiedVoiceContextService();
-                
-                // Update agent with new career card context
-                const currentAgentId = getAgentId();
-                if (currentAgentId && careerCards.length > 0) {
-                  const userName = currentUser?.displayName || userData?.careerProfile?.name;
-                  await service.updateAgentWithCareerCards(
-                    currentAgentId, 
-                    careerCards, 
-                    userName,
-                    'new_cards'
-                  );
-                  console.log('✅ Agent context updated with new career cards');
-                } else {
-                  console.log('⚠️ No agent ID or career cards available for context update');
-                }
-              } catch (error) {
-                console.error('❌ Failed to update agent context with new career cards:', error);
+              // **FIXED: Update agent context ASYNCHRONOUSLY (non-blocking) to avoid delays**
+              const currentAgentId = getAgentId();
+              if (currentAgentId && careerCards.length > 0) {
+                // Fire and forget - don't block the completion message
+                (async () => {
+                  try {
+                    console.log('🔄 Updating agent context with new career cards (non-blocking)...');
+                    const service = new UnifiedVoiceContextService();
+                    const userName = currentUser?.displayName || userData?.careerProfile?.name;
+                    await service.updateAgentWithCareerCards(
+                      currentAgentId, 
+                      careerCards, 
+                      userName,
+                      'new_cards'
+                    );
+                    console.log('✅ Agent context updated with new career cards');
+                  } catch (error) {
+                    console.error('❌ Failed to update agent context with new career cards:', error);
+                    // Don't affect user experience if this fails
+                  }
+                })();
               }
               
-              // Inject completion message into conversation (after context update)
+              // Inject completion message immediately (don't wait for context update)
               setTimeout(() => {
                 injectCompletionMessage(completionMessage);
-              }, 1500); // Slightly longer delay to ensure context update completes
+              }, 500); // Much shorter delay for immediate user feedback
             } else {
               const errorMessage = `❌ I encountered an issue while generating your career cards: ${result.error}. Please try again or continue our conversation and I'll analyze your interests differently.`;
               setTimeout(() => {
@@ -880,6 +960,9 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="w-[90vw] max-w-5xl h-[80vh] bg-gradient-to-br from-primary-black via-primary-gray to-primary-black p-6 border-electric-blue/30 shadow-[0_0_50px_rgba(0,255,255,0.3)]">
+          <DialogHeader>
+            <DialogTitle className="sr-only">Configuration Error</DialogTitle>
+          </DialogHeader>
           <div className="flex items-center justify-center h-full">
             <div className="flex flex-col items-center space-y-4 text-center">
               <AlertTriangle className="h-8 w-8 text-neon-pink" />

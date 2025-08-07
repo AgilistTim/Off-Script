@@ -40,12 +40,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Badge } from '../components/ui/badge';
 import { firestore } from '../services/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
-import careerPathwayService from '../services/careerPathwayService';
+import { CareerPathwayService } from '../services/careerPathwayService';
 import { DashboardCareerCard } from '../services/dashboardCareerEnhancementService';
 import { dashboardCareerEnhancer } from '../services/dashboardCareerEnhancer';
 import type { CareerCard } from '../types/careerCard';
-import PrimaryPathwayHero from '../components/career-guidance/PrimaryPathwayHero';
-import AlternativePathwaysAccordion from '../components/career-guidance/AlternativePathwaysAccordion';
+import UnifiedCareerCard from '../components/dashboard/UnifiedCareerCard';
 import { CareerVoiceDiscussionModal } from '../components/career-guidance/CareerVoiceDiscussionModal';
 
 // Notification component with street-art styling
@@ -263,6 +262,7 @@ const Dashboard: React.FC = () => {
     
     try {
       // Check if user has migration data that might not be immediately visible
+      const careerPathwayService = new CareerPathwayService();
       const explorations = await careerPathwayService.getUserCareerExplorations(currentUser.uid);
       
       // Get current career cards count directly to avoid dependency
@@ -282,61 +282,7 @@ const Dashboard: React.FC = () => {
     }
   }, [currentUser, loading]); // Removed state dependencies that cause infinite loops
 
-  // Add real-time listener for enhanced career data updates
-  useEffect(() => {
-    if (!currentUser) return;
-
-    // Set up a listener for enhanced career data updates
-    const enhancementCheckInterval = setInterval(async () => {
-      try {
-        // Check if we have career guidance
-        if (structuredGuidance.totalPathways > 0) {
-          console.log('🔍 Checking for enhanced data updates...');
-          
-          // Force refresh to bypass cache and get latest data
-          const freshData = await careerPathwayService.forceRefreshStructuredGuidance(currentUser.uid);
-          
-          // Check if primary pathway got enhanced
-          const primaryWasEnhanced = !structuredGuidance.primaryPathway?.isEnhanced && 
-                                    freshData.primaryPathway?.isEnhanced;
-          
-          // Check if any alternatives got enhanced
-          const alternativesWereEnhanced = structuredGuidance.alternativePathways.some((pathway, index) => 
-            !pathway.isEnhanced && freshData.alternativePathways[index]?.isEnhanced
-          );
-
-          // Check for new perplexityData
-          const hasNewPerplexityData = freshData.primaryPathway?.perplexityData && 
-                                      !structuredGuidance.primaryPathway?.perplexityData;
-
-          if (primaryWasEnhanced || alternativesWereEnhanced || hasNewPerplexityData) {
-            console.log('🔄 Enhancement detected, updating UI with fresh data...', {
-              primaryWasEnhanced,
-              alternativesWereEnhanced,
-              hasNewPerplexityData,
-              freshPrimaryEnhanced: freshData.primaryPathway?.isEnhanced,
-              freshPerplexityData: !!freshData.primaryPathway?.perplexityData
-            });
-            
-            // Update state immediately with fresh data
-            setStructuredGuidance(freshData);
-            setCareerCardCache(new Map()); // Clear cache
-            setDataRefreshKey(prev => prev + 1);
-            
-            setNotification({
-              message: '✨ Your career insights have been enhanced with real-time market data!',
-              type: 'success'
-            });
-          }
-        }
-      } catch (error) {
-        console.warn('Enhancement check failed:', error);
-      }
-    }, 15000); // Check every 15 seconds (reduced frequency)
-
-    // Cleanup interval on unmount
-    return () => clearInterval(enhancementCheckInterval);
-  }, [currentUser?.uid, structuredGuidance.totalPathways]); // Fixed dependencies
+  // ❌ REMOVED: Infinite loop enhancement checker - data is already enhanced
 
   // Enhanced career card fetching with caching and progressive enhancement
   const fetchCareerCardDetails = useCallback(async (threadId: string) => {
@@ -382,7 +328,8 @@ const Dashboard: React.FC = () => {
     try {
       // All career cards are now stored in threadCareerGuidance with full details
       // Try to get the career guidance data which contains the detailed information
-      const careerGuidance = await careerPathwayService.getThreadCareerGuidance(threadId, currentUser.uid);
+              const careerPathwayService = new CareerPathwayService();
+        const careerGuidance = await careerPathwayService.getThreadCareerGuidance(threadId, currentUser.uid);
       
       if (careerGuidance?.primaryPathway) {
         // Use the primary pathway as the career card data
@@ -683,7 +630,8 @@ const Dashboard: React.FC = () => {
             console.log('🔍 DASHBOARD DEBUG - Starting structured career guidance fetch for user:', currentUser.uid);
             
             // Force refresh to ensure we get the latest data including enhancements
-            const structuredData = await careerPathwayService.forceRefreshStructuredGuidance(currentUser.uid);
+            const careerPathwayService = new CareerPathwayService();
+        const structuredData = await careerPathwayService.forceRefreshStructuredGuidance(currentUser.uid);
             console.log('🔍 DASHBOARD DEBUG - Service returned structured data:', {
               hasPrimary: !!structuredData.primaryPathway,
               primaryTitle: structuredData.primaryPathway?.title,
@@ -709,7 +657,10 @@ const Dashboard: React.FC = () => {
                 hasDayInTheLife: !!structuredData.primaryPathway.dayInTheLife,
                 hasIndustryTrends: !!structuredData.primaryPathway.industryTrends,
                 enhancedSalaryType: typeof structuredData.primaryPathway.enhancedSalary,
-                compensationRewardsType: typeof structuredData.primaryPathway.compensationRewards
+                compensationRewardsType: typeof structuredData.primaryPathway.compensationRewards,
+                hasPerplexityData: !!structuredData.primaryPathway.perplexityData,
+                perplexityDataKeys: structuredData.primaryPathway.perplexityData ? Object.keys(structuredData.primaryPathway.perplexityData) : [],
+                compensationRewardsKeys: structuredData.primaryPathway.compensationRewards ? Object.keys(structuredData.primaryPathway.compensationRewards) : []
               });
               
               // Check if enhanced data is actually present
@@ -762,6 +713,12 @@ const Dashboard: React.FC = () => {
           const guidanceData = currentCardsResult.value;
           setStructuredGuidance(guidanceData);
           console.log('✅ Loaded structured career guidance:', guidanceData.totalPathways, 'pathways');
+          
+          // Force clear all caches to ensure fresh data
+          if (guidanceData.totalPathways > 0) {
+            const careerPathwayService = new CareerPathwayService();
+            careerPathwayService.clearAllCaches();
+          }
           
           // Show success notification if we have career paths
           if (guidanceData.totalPathways > 0) {
@@ -821,6 +778,10 @@ const Dashboard: React.FC = () => {
   };
 
   const refreshDashboard = () => {
+    // Clear all caches first
+    const careerPathwayService = new CareerPathwayService();
+    careerPathwayService.clearAllCaches();
+    
     setDataRefreshKey(prev => prev + 1);
   };
 
@@ -1454,7 +1415,8 @@ const Dashboard: React.FC = () => {
               onClick={async () => {
                 console.log('🔄 Manual refresh triggered');
                 if (currentUser) {
-                  const freshData = await careerPathwayService.forceRefreshStructuredGuidance(currentUser.uid);
+                  const careerPathwayService = new CareerPathwayService();
+        const freshData = await careerPathwayService.forceRefreshStructuredGuidance(currentUser.uid);
                   setStructuredGuidance(freshData);
                   setNotification({
                     message: '🔄 Career data refreshed!',
@@ -1471,25 +1433,65 @@ const Dashboard: React.FC = () => {
             </Button>
           </div>
           
-          {/* Primary Pathway Hero */}
-          <PrimaryPathwayHero 
-            pathway={structuredGuidance.primaryPathway}
-            onAskAI={handleAskAIAboutPrimary}
-            onExplorePath={handleExplorePrimary}
-          />
-          
-          {/* Alternative Pathways Accordion */}
-          {structuredGuidance.alternativePathways.length > 0 && (
-            <div className="mt-8">
-              <AlternativePathwaysAccordion 
-                alternatives={structuredGuidance.alternativePathways}
-                showAll={showAllAlternatives}
-                onToggleShowAll={() => setShowAllAlternatives(!showAllAlternatives)}
-                onAskAI={handleAskAIAboutAlternative}
-                onCompareToPrimary={handleCompareToPrimary}
-              />
-            </div>
-          )}
+          {/* 🎯 UNIFIED CAREER CARDS: All careers treated equally */}
+          {(() => {
+            // Create flattened array of all careers
+            const allCareers = [];
+            
+            // Add primary career first
+            if (structuredGuidance.primaryPathway) {
+              allCareers.push({
+                ...structuredGuidance.primaryPathway,
+                isPrimary: true
+              });
+            }
+            
+            // Add all alternative careers
+            structuredGuidance.alternativePathways.forEach(career => {
+              allCareers.push({
+                ...career,
+                isPrimary: false
+              });
+            });
+
+            if (allCareers.length === 0) {
+              return (
+                <div className="text-center py-12">
+                  <p className="text-primary-white/70">No career guidance available yet. Start a conversation to discover your career paths!</p>
+                </div>
+              );
+            }
+
+            return (
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <h2 className="text-2xl font-bold text-primary-white mb-2">
+                    Your Career Discoveries
+                  </h2>
+                  <p className="text-primary-white/70">
+                    {allCareers.length} pathway{allCareers.length !== 1 ? 's' : ''} discovered • Enhanced with real UK data
+                  </p>
+                </div>
+                
+                {/* Grid of Career Cards */}
+                <div className="grid grid-cols-1 gap-6">
+                  {allCareers.map((career, index) => (
+                    <UnifiedCareerCard
+                      key={career.title || index}
+                      career={career}
+                      onAskAI={() => {
+                        if (career.isPrimary) {
+                          handleAskAIAboutPrimary();
+                        } else {
+                          handleAskAIAboutAlternative(career);
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
         </div>
       </motion.div>
 

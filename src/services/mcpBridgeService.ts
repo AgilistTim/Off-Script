@@ -485,6 +485,97 @@ class MCPBridgeService {
   }
 
   /**
+   * Update ElevenLabs agent context with career card information
+   */
+  async updateAgentContext(
+    agentId: string, 
+    careerCards: any[], 
+    userName?: string, 
+    contextType: string = 'new_cards'
+  ): Promise<{ success: boolean; error?: string; message?: string }> {
+    if (!this.isConnected) {
+      const connected = await this.connect();
+      if (!connected) {
+        return {
+          success: false,
+          error: 'Unable to connect to MCP server'
+        };
+      }
+    }
+
+    try {
+      console.log('🔄 Updating agent context via MCP server:', {
+        agentId,
+        careerCardsCount: careerCards.length,
+        contextType,
+        hasUserName: !!userName
+      });
+
+      // Use proper MCP JSON-RPC protocol to call update_agent_context tool
+      const response = await fetch(this.mcpServerUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: Date.now(),
+          method: 'tools/call',
+          params: {
+            name: 'update_agent_context',
+            arguments: {
+              agent_id: agentId,
+              career_cards: careerCards,
+              user_name: userName,
+              context_type: contextType
+            }
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      // Handle MCP JSON-RPC response format
+      if (result.error) {
+        console.error('❌ MCP server returned error:', result.error);
+        return {
+          success: false,
+          error: result.error.message || 'Unknown MCP error'
+        };
+      }
+
+      // Parse the result content (MCP returns text content with JSON)
+      let toolResult;
+      if (result.result?.content?.[0]?.text) {
+        try {
+          toolResult = JSON.parse(result.result.content[0].text);
+        } catch (e) {
+          toolResult = { success: false, error: 'Failed to parse MCP response' };
+        }
+      } else {
+        toolResult = result.result || { success: false, error: 'No result from MCP server' };
+      }
+
+      console.log('✅ Agent context update result:', toolResult);
+      
+      return {
+        success: toolResult.success,
+        error: toolResult.error,
+        message: toolResult.message || 'Agent context updated successfully'
+      };
+
+    } catch (error) {
+      console.error('❌ Failed to update agent context via MCP:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  /**
    * Search using Perplexity API for real-time career data
    */
   async searchWithPerplexity(params: PerplexitySearchParams): Promise<PerplexitySearchResult> {

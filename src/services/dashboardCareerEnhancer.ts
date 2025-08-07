@@ -475,13 +475,16 @@ export class DashboardCareerEnhancer {
       return null;
     }
 
+    // Return only the Perplexity-specific enhanced data
+    // The comprehensive career data will be handled separately in the career card structure
     return {
       verifiedSalaryRanges: salaryData,
       realTimeMarketDemand: this.convertStructuredMarketData(data),
       currentEducationPathways: this.convertStructuredEducationData(data),
       workEnvironmentDetails: this.convertStructuredWorkEnvironmentData(data),
       automationRiskAssessment: this.convertStructuredAutomationData(data),
-      industryGrowthProjection: this.convertStructuredGrowthData(data)
+      industryGrowthProjection: this.convertStructuredGrowthData(data),
+      competencyRequirements: this.convertStructuredCompetencyData(data)
     };
   }
 
@@ -668,6 +671,32 @@ export class DashboardCareerEnhancer {
   }
 
   /**
+   * Convert structured competency requirements data to our format
+   */
+  private convertStructuredCompetencyData(data: PerplexityStructuredCareerData): EnhancedCareerData['competencyRequirements'] {
+    const competencyData = data.competencyRequirements;
+
+    return {
+      technicalSkills: competencyData?.technicalSkills || [],
+      softSkills: competencyData?.softSkills || [],
+      tools: [], // Not available in Perplexity structured data
+      certifications: [], // Not available in Perplexity structured data
+      qualificationPathway: {
+        degrees: competencyData?.qualificationPathway?.degrees || [],
+        licenses: [], // Not available in Perplexity structured data
+        alternativeRoutes: competencyData?.qualificationPathway?.alternativeRoutes || [],
+        apprenticeships: competencyData?.qualificationPathway?.apprenticeships || [],
+        bootcamps: competencyData?.qualificationPathway?.bootcamps || []
+      },
+      learningCurve: {
+        timeToCompetent: competencyData?.learningCurve?.timeToCompetent || 'N/A',
+        difficultyLevel: competencyData?.learningCurve?.difficultyLevel || 'N/A',
+        prerequisites: competencyData?.learningCurve?.prerequisites || []
+      }
+    };
+  }
+
+  /**
    * Calculate confidence for structured data
    */
   private calculateStructuredConfidence(data: PerplexityStructuredCareerData): number {
@@ -679,6 +708,8 @@ export class DashboardCareerEnhancer {
     if (data.enhancedData?.currentEducationPathways?.length > 0) confidence += 0.05;
     if (data.enhancedData?.automationRiskAssessment) confidence += 0.05;
     if (data.enhancedData?.industryGrowthProjection) confidence += 0.05;
+    if (data.competencyRequirements?.technicalSkills?.length > 0) confidence += 0.05;
+    if (data.competencyRequirements?.softSkills?.length > 0) confidence += 0.05;
 
     // Boost confidence based on sources
     const sourceCount = data.sources?.length || 0;
@@ -716,6 +747,9 @@ export class DashboardCareerEnhancer {
                            await this.getCachedEnhancement(card.title);
 
         if (enhancement) {
+          // Transform the enhanced data to include the perplexityData field that Dashboard modal expects
+          const transformedPerplexityData = this.transformToPerplexityDataFormat(enhancement.data);
+          
           const enhancedCard: EnhancedCareerCard = {
             ...card,
             enhancement: {
@@ -725,7 +759,7 @@ export class DashboardCareerEnhancer {
               confidence: enhancement.confidence,
               staleAt: new Date(Date.now() + this.CACHE_TTL).toISOString()
             },
-            perplexityData: enhancement.data
+            perplexityData: transformedPerplexityData
           };
 
           return enhancedCard;
@@ -747,6 +781,9 @@ export class DashboardCareerEnhancer {
         const cached = await this.getCachedEnhancement(card.title);
         
         if (cached && Date.now() < cached.staleAt) {
+          // Transform the enhanced data to include the perplexityData field that Dashboard modal expects
+          const transformedPerplexityData = this.transformToPerplexityDataFormat(cached.data);
+          
           return {
             ...card,
             enhancement: {
@@ -756,7 +793,7 @@ export class DashboardCareerEnhancer {
               confidence: cached.confidence,
               staleAt: new Date(cached.staleAt).toISOString()
             },
-            perplexityData: cached.data
+            perplexityData: transformedPerplexityData
           } as EnhancedCareerCard;
         }
 
@@ -765,6 +802,111 @@ export class DashboardCareerEnhancer {
     );
 
     return results;
+  }
+
+  /**
+   * Transform enhanced data to the perplexityData format expected by Dashboard modal
+   */
+  private transformToPerplexityDataFormat(data: EnhancedCareerData): any {
+    if (!data) return undefined;
+
+    return {
+      // Transform verified salary ranges to the expected format
+      verifiedSalaryRanges: data.verifiedSalaryRanges ? {
+        entry: {
+          min: data.verifiedSalaryRanges.entry.min,
+          max: data.verifiedSalaryRanges.entry.max,
+          currency: data.verifiedSalaryRanges.entry.currency,
+          sources: data.verifiedSalaryRanges.entry.sources || []
+        },
+        mid: {
+          min: data.verifiedSalaryRanges.mid.min,
+          max: data.verifiedSalaryRanges.mid.max,
+          currency: data.verifiedSalaryRanges.mid.currency,
+          sources: data.verifiedSalaryRanges.mid.sources || []
+        },
+        senior: {
+          min: data.verifiedSalaryRanges.senior.min,
+          max: data.verifiedSalaryRanges.senior.max,
+          currency: data.verifiedSalaryRanges.senior.currency,
+          sources: data.verifiedSalaryRanges.senior.sources || []
+        },
+        byRegion: data.verifiedSalaryRanges.byRegion
+      } : undefined,
+
+      // Transform real-time market demand
+      realTimeMarketDemand: data.realTimeMarketDemand ? {
+        jobPostingVolume: data.realTimeMarketDemand.jobPostingVolume,
+        growthRate: data.realTimeMarketDemand.growthRate / 100, // Convert to decimal for Dashboard display
+        competitionLevel: data.realTimeMarketDemand.competitionLevel
+      } : undefined,
+
+      // Transform work environment details
+      workEnvironmentDetails: data.workEnvironmentDetails ? {
+        remoteOptions: data.workEnvironmentDetails.remoteOptions || false,
+        flexibilityLevel: data.workEnvironmentDetails.flexibilityLevel || 'Medium',
+        typicalHours: data.workEnvironmentDetails.typicalHours || '37-42 hours/week',
+        workLifeBalance: data.workEnvironmentDetails.workLifeBalance || 'Good',
+        stressLevel: data.workEnvironmentDetails.stressLevel || 'Medium'
+      } : {
+        remoteOptions: true,
+        flexibilityLevel: 'High',
+        typicalHours: '37-42 hours/week',
+        workLifeBalance: 'Good',
+        stressLevel: 'Medium'
+      },
+
+      // Transform current education pathways
+      currentEducationPathways: data.currentEducationPathways ? 
+        data.currentEducationPathways.map(pathway => ({
+          type: pathway.type,
+          title: pathway.title,
+          provider: pathway.provider,
+          duration: pathway.duration,
+          cost: {
+            min: pathway.cost.min,
+            max: pathway.cost.max
+          },
+          entryRequirements: pathway.entryRequirements || [],
+          verified: pathway.verified
+        })) : [],
+
+      // Transform automation risk assessment
+      automationRiskAssessment: data.automationRiskAssessment ? {
+        level: data.automationRiskAssessment.level,
+        timeline: data.automationRiskAssessment.timeline,
+        mitigationStrategies: data.automationRiskAssessment.mitigationStrategies || [],
+        futureSkillsNeeded: data.automationRiskAssessment.futureSkillsNeeded || []
+      } : undefined,
+
+      // Transform industry growth projection
+      industryGrowthProjection: data.industryGrowthProjection ? {
+        nextYear: data.industryGrowthProjection.nextYear,
+        fiveYear: data.industryGrowthProjection.fiveYear,
+        outlook: data.industryGrowthProjection.outlook,
+        factors: data.industryGrowthProjection.factors || []
+      } : undefined,
+
+      // Transform competency requirements (for the Required section)
+      competencyRequirements: data.competencyRequirements ? {
+        technicalSkills: data.competencyRequirements.technicalSkills || [],
+        softSkills: data.competencyRequirements.softSkills || [],
+        tools: data.competencyRequirements.tools || [],
+        certifications: data.competencyRequirements.certifications || [],
+        qualificationPathway: data.competencyRequirements.qualificationPathway || {
+          degrees: [],
+          licenses: [],
+          alternativeRoutes: [],
+          apprenticeships: [],
+          bootcamps: []
+        },
+        learningCurve: data.competencyRequirements.learningCurve || {
+          timeToCompetent: 'N/A',
+          difficultyLevel: 'N/A',
+          prerequisites: []
+        }
+      } : undefined
+    };
   }
 
   /**

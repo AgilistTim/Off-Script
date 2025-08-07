@@ -75,7 +75,61 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
     return 'Good Match';
   };
 
-  const salaryDisplay = formatSalaryDisplay(pathway.averageSalary);
+  // 🎯 ENHANCED DATA PRIORITY: Use Perplexity data when available, fallback to legacy fields
+  const getEnhancedSalaryDisplay = (): string => {
+    // 1. Try enhanced Perplexity salary data (most accurate)
+    if (pathway.perplexityData?.verifiedSalaryRanges) {
+      const salary = pathway.perplexityData.verifiedSalaryRanges;
+      return `£${salary.entry.min.toLocaleString()} - £${salary.senior.max.toLocaleString()}`;
+    }
+    
+    // 2. Try compensation rewards (comprehensive schema)
+    if (pathway.compensationRewards?.salaryRange) {
+      const salary = pathway.compensationRewards.salaryRange;
+      return `£${salary.entry.toLocaleString()} - £${salary.senior.toLocaleString()}`;
+    }
+    
+    // 3. Fallback to legacy averageSalary
+    return formatSalaryDisplay(pathway.averageSalary);
+  };
+
+  const getEnhancedGrowthOutlook = (): string => {
+    // 1. Try enhanced Perplexity market data
+    if (pathway.perplexityData?.realTimeMarketDemand) {
+      const growth = pathway.perplexityData.realTimeMarketDemand.growthRate;
+      const competition = pathway.perplexityData.realTimeMarketDemand.competitionLevel;
+      return `${(growth * 100).toFixed(1)}% growth • ${competition} competition`;
+    }
+    
+    // 2. Try Perplexity industry projection
+    if (pathway.perplexityData?.industryGrowthProjection) {
+      const outlook = pathway.perplexityData.industryGrowthProjection.outlook;
+      const nextYear = pathway.perplexityData.industryGrowthProjection.nextYear;
+      return `${outlook} • ${nextYear}% next year`;
+    }
+    
+    // 3. Try labour market dynamics
+    if (pathway.labourMarketDynamics?.demandOutlook?.growthForecast) {
+      return pathway.labourMarketDynamics.demandOutlook.growthForecast;
+    }
+    
+    // 4. Fallback to legacy growthOutlook
+    return pathway.growthOutlook || 'Growing demand';
+  };
+
+  const getEnhancedIndustry = (): string => {
+    // 1. Try work environment culture data
+    if (pathway.workEnvironmentCulture?.typicalEmployers?.length > 0) {
+      return pathway.workEnvironmentCulture.typicalEmployers[0];
+    }
+    
+    // 2. Fallback to legacy industry
+    return pathway.industry || 'Technology';
+  };
+
+  const salaryDisplay = getEnhancedSalaryDisplay();
+  const growthDisplay = getEnhancedGrowthOutlook();
+  const industryDisplay = getEnhancedIndustry();
 
   return (
     <motion.div
@@ -102,6 +156,12 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
                       ENHANCED DATA
                     </Badge>
                   )}
+                  {pathway.perplexityData && (
+                    <Badge className="bg-gradient-to-r from-cyber-yellow to-acid-green text-primary-black font-bold px-3 py-1">
+                      <Star className="w-3 h-3 mr-1" />
+                      REAL-TIME UK DATA
+                    </Badge>
+                  )}
                   <Badge 
                     className={`bg-gradient-to-r ${getConfidenceColor(pathway.confidence || 95)} text-primary-black font-bold px-3 py-1`}
                   >
@@ -126,33 +186,39 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
                   <div className="w-8 h-8 bg-gradient-to-br from-acid-green to-cyber-yellow rounded-lg flex items-center justify-center">
                     <PoundSterling className="w-5 h-5 text-primary-black" />
                   </div>
-                  <h3 className="text-lg font-bold text-acid-green">Salary Range</h3>
+                  <h3 className="text-lg font-bold text-acid-green">
+                    {pathway.perplexityData?.verifiedSalaryRanges ? 'Verified Salary Range' : 'Salary Range'}
+                  </h3>
                 </div>
                 <p className="text-2xl font-black text-primary-white">{salaryDisplay}</p>
               </div>
             )}
 
-            {pathway.growthOutlook && (
+            {growthDisplay && (
               <div className="bg-gradient-to-r from-electric-blue/20 to-neon-pink/20 border border-electric-blue/30 rounded-xl p-4">
                 <div className="flex items-center space-x-3 mb-2">
                   <div className="w-8 h-8 bg-gradient-to-br from-electric-blue to-neon-pink rounded-lg flex items-center justify-center">
                     <TrendingUp className="w-5 h-5 text-primary-white" />
                   </div>
-                  <h3 className="text-lg font-bold text-electric-blue">Growth Outlook</h3>
+                  <h3 className="text-lg font-bold text-electric-blue">
+                    {pathway.perplexityData?.realTimeMarketDemand ? 'Market Demand' : 'Growth Outlook'}
+                  </h3>
                 </div>
-                <p className="text-xl font-bold text-primary-white">{pathway.growthOutlook}</p>
+                <p className="text-xl font-bold text-primary-white">{growthDisplay}</p>
               </div>
             )}
 
-            {pathway.industry && (
+            {industryDisplay && (
               <div className="bg-gradient-to-r from-cyber-purple/20 to-neon-pink/20 border border-cyber-purple/30 rounded-xl p-4">
                 <div className="flex items-center space-x-3 mb-2">
                   <div className="w-8 h-8 bg-gradient-to-br from-cyber-purple to-neon-pink rounded-lg flex items-center justify-center">
                     <Briefcase className="w-5 h-5 text-primary-white" />
                   </div>
-                  <h3 className="text-lg font-bold text-cyber-purple">Industry</h3>
+                  <h3 className="text-lg font-bold text-cyber-purple">
+                    {pathway.workEnvironmentCulture?.typicalEmployers ? 'Top Employer' : 'Industry'}
+                  </h3>
                 </div>
-                <p className="text-xl font-bold text-primary-white">{pathway.industry}</p>
+                <p className="text-xl font-bold text-primary-white">{industryDisplay}</p>
               </div>
             )}
           </div>
