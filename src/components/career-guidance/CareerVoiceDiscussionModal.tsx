@@ -75,10 +75,14 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
     skills: string[];
   }>({ interests: [], goals: [], skills: [] });
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [ctaBottomOffsetPx, setCtaBottomOffsetPx] = useState<number>(0);
 
   // Get ElevenLabs configuration
   const careerAwareAgentId = environmentConfig.elevenLabs.agentId;
   const apiKey = environmentConfig.elevenLabs.apiKey;
+
+  // Track whether we seeded a local greeting to avoid double greetings
+  const seededGreetingRef = useRef(false);
 
   // Initialize conversation with career-aware agent (only when environment config is ready)
   const conversation = useConversation({
@@ -88,13 +92,16 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
       setIsConnected(true);
       setConnectionStatus('connected');
       
-      // Add initial agent message to history
-      const initialMessage: ConversationMessage = {
-        role: 'assistant',
-        content: `Hi! I'm ready to discuss your ${isPrimary ? 'top career match' : 'alternative career option'}: ${careerData?.title}. I have all your profile details and career intelligence loaded. What would you like to explore?`,
-        timestamp: new Date()
-      };
-      setConversationHistory([initialMessage]);
+      // Only seed a local greeting if the agent did not send its own first message
+      if (!seededGreetingRef.current) {
+        const initialMessage: ConversationMessage = {
+          role: 'assistant',
+          content: `Hi! I'm ready to discuss your match: ${careerData?.title}. I have your profile and market intelligence loaded. What would you like to explore?`,
+          timestamp: new Date()
+        };
+        setConversationHistory([initialMessage]);
+        seededGreetingRef.current = true;
+      }
     },
     onDisconnect: () => {
       console.log('📞 Disconnected from career-aware voice assistant');
@@ -104,12 +111,15 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
     },
     onMessage: async (message) => {
       console.log('🤖 Agent message:', message);
-      const newMessage: ConversationMessage = {
-        role: 'assistant',
-        content: message.message,
-        timestamp: new Date()
-      };
-      setConversationHistory(prev => [...prev, newMessage]);
+      // If this is the first agent message and we seeded a greeting, replace the seeded one for accuracy
+      setConversationHistory(prev => {
+        const newMsg: ConversationMessage = { role: 'assistant', content: message.message, timestamp: new Date() };
+        if (prev.length === 1 && prev[0].role === 'assistant' && seededGreetingRef.current) {
+          seededGreetingRef.current = false;
+          return [newMsg];
+        }
+        return [...prev, newMsg];
+      });
       
       // Track message with careerAwareVoiceService
       if (sessionId) {
@@ -136,6 +146,38 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
       }
     }
   }, [conversationHistory]);
+
+  // Keyboard/visualViewport awareness for CTA on mobile
+  useEffect(() => {
+    const vv: any = (window as any).visualViewport;
+    const handleViewportResize = () => {
+      try {
+        if (vv) {
+          const keyboardInset = Math.max(0, (window.innerHeight - (vv.height + vv.offsetTop)));
+          setCtaBottomOffsetPx(keyboardInset);
+        } else {
+          setCtaBottomOffsetPx(0);
+        }
+      } catch {
+        setCtaBottomOffsetPx(0);
+      }
+    };
+    if (vv && vv.addEventListener) {
+      vv.addEventListener('resize', handleViewportResize);
+      vv.addEventListener('scroll', handleViewportResize);
+      handleViewportResize();
+    } else {
+      window.addEventListener('resize', handleViewportResize);
+    }
+    return () => {
+      if (vv && vv.removeEventListener) {
+        vv.removeEventListener('resize', handleViewportResize);
+        vv.removeEventListener('scroll', handleViewportResize);
+      } else {
+        window.removeEventListener('resize', handleViewportResize);
+      }
+    };
+  }, []);
 
   // Handle conversation start
   const handleStartConversation = async () => {
@@ -314,7 +356,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
           </div>
         </DialogHeader>
 
-        <div className="flex-1 flex space-x-6 overflow-hidden min-h-0">
+        <div className="grid grid-cols-[auto_1fr] gap-6 overflow-hidden min-h-0 h-full">
           {/* Career Quick Reference Panel */}
           <div className="w-80 flex-shrink-0">
             <Card className="bg-gradient-to-br from-primary-gray/50 to-electric-blue/10 border border-electric-blue/20 h-full">
@@ -425,7 +467,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
             {/* Conversation History */}
             <div className="flex-1 mb-4 min-h-0">
               <ScrollArea ref={scrollAreaRef} className="h-full pr-2">
-                <div className="space-y-4 pb-4">
+                <div className="space-y-4 pb-[112px] md:pb-4">
                   {conversationHistory.map((message, index) => (
                     <motion.div
                       key={index}
@@ -474,9 +516,14 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
               </ScrollArea>
             </div>
 
-            {/* Voice Controls */}
-            <div className="bg-gradient-to-r from-primary-gray/50 to-electric-blue/10 rounded-xl p-4 border border-electric-blue/20 flex-shrink-0">
-              <div className="flex items-center justify-between">
+            {/* Voice Controls - fixed bottom on mobile, static on desktop */}
+            <div className="md:static">
+              <div
+                className="fixed left-0 right-0 bottom-0 z-[130] px-4 md:static md:z-auto md:px-0"
+                style={{ bottom: `calc(${ctaBottomOffsetPx}px + env(safe-area-inset-bottom, 0px))` }}
+              >
+                <div className="bg-gradient-to-r from-primary-gray/50 to-electric-blue/10 rounded-t-xl md:rounded-xl p-4 border border-electric-blue/20 backdrop-blur">
+                  <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   {!isConnected ? (
                     <Button
@@ -553,10 +600,12 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                       Configure ElevenLabs API key to enable voice discussions
                     </div>
                   )}
+                  </div>
                 </div>
               </div>
             </div>
           </div>
+        </div>
         </div>
       </DialogContent>
     </Dialog>
