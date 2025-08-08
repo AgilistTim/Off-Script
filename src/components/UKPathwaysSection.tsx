@@ -87,31 +87,31 @@ const UKPathwaysSection: React.FC = () => {
   const getColorClasses = (color: string) => {
     const colors = {
       blue: {
-        bg: "bg-blue-50",
-        border: "border-blue-200",
-        text: "text-blue-600",
-        icon: "text-blue-500",
-        hover: "hover:bg-blue-100",
-        gradient: "from-blue-500 to-blue-600",
-        tagline: "bg-blue-100 text-blue-700"
+        bg: "bg-blue-100",
+        border: "border-blue-300",
+        text: "text-blue-800",
+        icon: "text-blue-700",
+        hover: "hover:bg-blue-200",
+        gradient: "from-blue-600 to-blue-700",
+        tagline: "bg-blue-200 text-blue-800"
       },
       purple: {
-        bg: "bg-purple-50",
-        border: "border-purple-200",
-        text: "text-purple-600",
-        icon: "text-purple-500",
-        hover: "hover:bg-purple-100",
-        gradient: "from-purple-500 to-purple-600",
-        tagline: "bg-purple-100 text-purple-700"
+        bg: "bg-purple-100",
+        border: "border-purple-300",
+        text: "text-purple-800",
+        icon: "text-purple-700",
+        hover: "hover:bg-purple-200",
+        gradient: "from-purple-600 to-purple-700",
+        tagline: "bg-purple-200 text-purple-800"
       },
       indigo: {
-        bg: "bg-indigo-50",
-        border: "border-indigo-200",
-        text: "text-indigo-600",
-        icon: "text-indigo-500",
-        hover: "hover:bg-indigo-100",
-        gradient: "from-indigo-500 to-indigo-600",
-        tagline: "bg-indigo-100 text-indigo-700"
+        bg: "bg-indigo-100",
+        border: "border-indigo-300",
+        text: "text-indigo-800",
+        icon: "text-indigo-700",
+        hover: "hover:bg-indigo-200",
+        gradient: "from-indigo-600 to-indigo-700",
+        tagline: "bg-indigo-200 text-indigo-800"
       }
     };
     return colors[color as keyof typeof colors] || colors.blue;

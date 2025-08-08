@@ -807,11 +807,28 @@ export class UnifiedVoiceContextService {
       // Fetch user profile data
       const userData = await getUserById(userId);
       const contextPrompt = await this.buildCareerContext(userData, careerCard);
-      return this.sendContextToAgent(agentId, contextPrompt, 'career_deep_dive');
+      const firstMessage = `Let's focus on ${careerCard.title}. I can tailor guidance to this topic—what interests you most about it?`;
+      return this.sendPersonalizedContextToAgent(agentId, contextPrompt, firstMessage, 'career_deep_dive');
     } catch (error) {
       console.error('❌ Failed to fetch user data for career context injection:', error);
       // Fallback to authenticated context without career details
       return this.injectAuthenticatedContext(agentId, userId);
+    }
+  }
+
+  /**
+   * Inject guest context but personalize the first message with a specific topic title
+   */
+  public async injectGuestContextWithTopic(agentId: string, topicTitle: string): Promise<ContextInjectionResult> {
+    try {
+      // Ensure clean state then send personalized first message with topic
+      await this.resetAgentToCleanState(agentId);
+      const contextPrompt = await this.buildGuestContext();
+      const firstMessage = `Let's talk about ${topicTitle}. I can personalize suggestions around this—what would you like to explore first?`;
+      return this.sendPersonalizedContextToAgent(agentId, contextPrompt, firstMessage, 'guest');
+    } catch (error) {
+      console.error('❌ Failed to inject guest context with topic:', error);
+      return this.injectGuestContext(agentId);
     }
   }
 
@@ -1182,7 +1199,7 @@ PERSONA: Expert career counselor with deep knowledge of this specific field`;
     agentId: string, 
     contextPrompt: string, 
     firstMessage: string,
-    contextType: 'authenticated' | 'career_deep_dive'
+    contextType: 'authenticated' | 'career_deep_dive' | 'guest'
   ): Promise<ContextInjectionResult> {
     if (!this.elevenLabsApiKey) {
       console.error('❌ ElevenLabs API key not available for context injection');

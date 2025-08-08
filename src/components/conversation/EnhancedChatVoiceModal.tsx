@@ -852,9 +852,13 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       let contextResult;
       
       if (!currentUser) {
-        // Guest user - inject discovery context
+        // Guest user - inject discovery context with optional topic
         console.log('👤 Guest user detected - injecting discovery context');
-        contextResult = await contextService.injectGuestContext(agentId);
+        if (careerContext && careerContext.title) {
+          contextResult = await contextService.injectGuestContextWithTopic(agentId, careerContext.title);
+        } else {
+          contextResult = await contextService.injectGuestContext(agentId);
+        }
       } else if (careerContext && careerContext.title) {
         // Authenticated user with career context - inject career-specific context
         console.log('🎯 Authenticated user with career context - injecting career-specific context');
