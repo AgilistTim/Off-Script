@@ -79,29 +79,29 @@ const Hero: React.FC = () => {
 
   return (
     <>
-      <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100" id="hero">
+      <section className="relative min-h-screen overflow-hidden bg-gradient-to-br from-primary-black via-primary-gray to-primary-black" id="hero">
         {/* Minimal animated background elements */}
         <div className="absolute inset-0">
           <motion.div
-            className="absolute top-20 left-10 w-24 h-24 bg-blue-200/30 rounded-full blur-xl"
+            className="absolute top-20 left-10 w-24 h-24 bg-electric-blue/20 rounded-full blur-xl"
             variants={floatingVariants}
             animate="animate"
           />
           <motion.div
-            className="absolute bottom-20 right-10 w-32 h-32 bg-indigo-200/20 rounded-full blur-lg"
+            className="absolute bottom-20 right-10 w-32 h-32 bg-neon-pink/20 rounded-full blur-lg"
             variants={floatingVariants}
             animate="animate"
             transition={{ delay: 1 }}
           />
           <motion.div
-            className="absolute top-1/2 left-1/4 w-16 h-16 bg-purple-200/25 rounded-full blur-md"
+            className="absolute top-1/2 left-1/4 w-16 h-16 bg-acid-green/20 rounded-full blur-md"
             variants={pulseVariants}
             animate="animate"
           />
         </div>
 
         {/* Main content */}
-        <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 text-primary-white">
           <div className="flex flex-col items-center justify-center min-h-screen py-20 text-center">
             
             {/* Main content container */}
@@ -150,14 +150,14 @@ const Hero: React.FC = () => {
                 </motion.div>
 
                 <motion.div variants={itemVariants}>
-                  <h2 className="font-semibold text-xl sm:text-2xl lg:text-3xl text-gray-700 leading-relaxed max-w-3xl mx-auto">
+                  <h2 className="font-semibold text-xl sm:text-2xl lg:text-3xl text-primary-white/80 leading-relaxed max-w-3xl mx-auto">
                     Powerful AI that learns your goals and supports your journey with smart, UK‑specific next steps.
                   </h2>
                 </motion.div>
 
                 <motion.p
                   variants={itemVariants}
-                  className="text-lg sm:text-xl text-gray-600 leading-relaxed max-w-2xl mx-auto font-medium"
+                  className="text-lg sm:text-xl text-primary-white/70 leading-relaxed max-w-2xl mx-auto font-medium"
                 >
                   Flip the Script. Not your usual career advice.
                 </motion.p>
@@ -206,7 +206,7 @@ const Hero: React.FC = () => {
               className="relative mt-12 lg:mt-20"
             >
               <motion.div
-                className="relative w-64 h-64 sm:w-80 sm:h-80 bg-gradient-to-br from-blue-100 via-purple-100 to-indigo-100 rounded-3xl p-8 shadow-2xl border border-white/50 backdrop-blur-sm"
+                   className="relative w-64 h-64 sm:w-80 sm:h-80 bg-gradient-to-br from-electric-blue/10 via-neon-pink/10 to-acid-green/10 rounded-3xl p-8 shadow-2xl border border-electric-blue/30 backdrop-blur-sm"
                 animate={{ 
                   rotate: [0, 2, -2, 0],
                   scale: [1, 1.02, 1]
@@ -219,7 +219,7 @@ const Hero: React.FC = () => {
                     <motion.h3
                       animate={{ x: [-1, 1, -1] }}
                       transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 3 }}
-                      className="font-bold text-2xl sm:text-3xl leading-tight"
+                       className="font-bold text-2xl sm:text-3xl leading-tight text-primary-white"
                     >
                       Your Goals
                       <span className="block text-blue-600">Your Path</span>
@@ -228,8 +228,8 @@ const Hero: React.FC = () => {
                   </div>
                   
                   <div className="text-right">
-                    <div className="font-bold text-sm text-gray-700">OFF SCRIPT</div>
-                    <div className="text-xs text-gray-500">SUMMIT26</div>
+                     <div className="font-bold text-sm text-primary-white/90">OFF SCRIPT</div>
+                     <div className="text-xs text-primary-white/60">SUMMIT26</div>
                   </div>
                 </div>
 

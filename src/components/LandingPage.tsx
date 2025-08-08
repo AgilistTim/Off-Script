@@ -7,7 +7,7 @@ import Footer from './Footer';
 
 const LandingPage: React.FC = () => {
   return (
-    <div className="min-h-screen bg-primary-white">
+    <div className="min-h-screen bg-gradient-to-br from-primary-black via-primary-gray to-primary-black text-primary-white">
       {/* Header with transparent overlay on hero */}
       <Header />
       

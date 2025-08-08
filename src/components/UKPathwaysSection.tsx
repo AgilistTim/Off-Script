@@ -131,7 +131,7 @@ const UKPathwaysSection: React.FC = () => {
 
   return (
     <>
-      <section className="py-20 bg-white relative overflow-hidden" id="career-journey">
+      <section className="py-20 bg-gradient-to-br from-primary-black via-primary-gray to-primary-black text-primary-white relative overflow-hidden" id="career-journey">
         {/* Background Effects */}
         <div className="absolute inset-0">
           <motion.div
@@ -140,7 +140,7 @@ const UKPathwaysSection: React.FC = () => {
               rotate: [0, 90, 180, 270, 360]
             }}
             transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-            className="absolute top-20 left-20 w-96 h-96 bg-blue-200/20 rounded-full blur-3xl"
+           className="absolute top-20 left-20 w-96 h-96 bg-electric-blue/20 rounded-full blur-3xl"
           />
           <motion.div
             animate={{
@@ -148,7 +148,7 @@ const UKPathwaysSection: React.FC = () => {
               rotate: [360, 270, 180, 90, 0]
             }}
             transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-            className="absolute bottom-20 right-20 w-80 h-80 bg-purple-200/20 rounded-full blur-3xl"
+           className="absolute bottom-20 right-20 w-80 h-80 bg-neon-pink/20 rounded-full blur-3xl"
           />
         </div>
 
@@ -159,17 +159,17 @@ const UKPathwaysSection: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-20"
+           className="text-center mb-20"
           >
             <motion.div
               initial={{ scale: 0.8, opacity: 0 }}
               whileInView={{ scale: 1, opacity: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="inline-flex items-center space-x-3 bg-blue-50 backdrop-blur-sm px-6 py-3 rounded-full border border-blue-200 mb-8"
+               className="inline-flex items-center space-x-3 bg-primary-white/10 backdrop-blur-sm px-6 py-3 rounded-full border border-electric-blue/30 mb-8"
             >
               <Crown className="h-5 w-5 text-blue-500" />
-              <span className="text-gray-700 font-semibold text-sm">
+               <span className="text-primary-white font-semibold text-sm">
                 Why Choose Off Script?
               </span>
             </motion.div>
@@ -183,7 +183,7 @@ const UKPathwaysSection: React.FC = () => {
               whileInView="visible"
               viewport={{ once: true }}
               transition={{ duration: 0.8, delay: 0.3 }}
-              className="font-bold text-4xl sm:text-5xl lg:text-6xl text-gray-900 mb-6 leading-tight"
+               className="font-bold text-4xl sm:text-5xl lg:text-6xl text-primary-white mb-6 leading-tight"
             >
               Self-Made
               <span className="block text-transparent bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text">
@@ -196,7 +196,7 @@ const UKPathwaysSection: React.FC = () => {
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.5 }}
-              className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed"
+               className="text-xl text-primary-white/80 max-w-3xl mx-auto leading-relaxed"
             >
               Explore proven UK pathways that help you land meaningful careers without university debt. 
               <strong className="text-blue-600"> Let AI understand your goals and guide you to the right path.</strong>
@@ -238,7 +238,7 @@ const UKPathwaysSection: React.FC = () => {
                   }
                 >
                   {/* Content */}
-                  <div className="relative z-10 p-8 lg:p-10 h-full flex flex-col justify-between min-h-[350px]">
+                   <div className="relative z-10 p-8 lg:p-10 h-full flex flex-col justify-between min-h-[350px] text-primary-white">
                     {/* Header */}
                     <div className="space-y-6">
                       <div className="flex items-start justify-between">
@@ -248,7 +248,7 @@ const UKPathwaysSection: React.FC = () => {
                             scale: [1, 1.05, 1]
                           }}
                           transition={{ duration: 0.5 }}
-                          className="w-16 h-16 bg-white/80 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-sm"
+                           className="w-16 h-16 bg-primary-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-sm"
                         >
                           <IconComponent className={`h-8 w-8 ${colors.icon}`} />
                         </motion.div>
@@ -270,7 +270,7 @@ const UKPathwaysSection: React.FC = () => {
                             x: [0, -1, 1, 0],
                           }}
                           transition={{ duration: 0.3 }}
-                          className="font-bold text-2xl lg:text-3xl text-gray-900 leading-tight mb-2"
+                           className="font-bold text-2xl lg:text-3xl text-primary-white leading-tight mb-2"
                         >
                           {card.title}
                         </motion.h3>
@@ -282,7 +282,7 @@ const UKPathwaysSection: React.FC = () => {
 
                     {/* Message */}
                     <div className="space-y-6">
-                      <p className="text-gray-700 text-lg font-medium leading-relaxed">
+                       <p className="text-primary-white/80 text-lg font-medium leading-relaxed">
                         {card.message}
                       </p>
                       

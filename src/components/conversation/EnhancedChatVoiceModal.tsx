@@ -109,6 +109,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     personalQualities: string[];
   }>({ interests: [], goals: [], skills: [], personalQualities: [] });
   const [careerCards, setCareerCards] = useState<any[]>([]);
+  const [ctaBottomOffsetPx, setCtaBottomOffsetPx] = useState<number>(0);
   
   // Progress tracking for career analysis
   const [progressUpdate, setProgressUpdate] = useState<MCPProgressUpdate | null>(null);
@@ -126,8 +127,35 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   // Debug: Log component mount/unmount
   useEffect(() => {
     console.log('🎭 EnhancedChatVoiceModal: Component mounted');
+    // Keyboard/visual viewport awareness for CTA positioning on mobile
+    const vv: any = (window as any).visualViewport;
+    const handleViewportResize = () => {
+      try {
+        if (vv) {
+          const keyboardInset = Math.max(0, (window.innerHeight - (vv.height + vv.offsetTop)));
+          setCtaBottomOffsetPx(keyboardInset);
+        } else {
+          setCtaBottomOffsetPx(0);
+        }
+      } catch {
+        setCtaBottomOffsetPx(0);
+      }
+    };
+    if (vv && vv.addEventListener) {
+      vv.addEventListener('resize', handleViewportResize);
+      vv.addEventListener('scroll', handleViewportResize);
+      handleViewportResize();
+    } else {
+      window.addEventListener('resize', handleViewportResize);
+    }
     return () => {
       console.log('🎭 EnhancedChatVoiceModal: Component unmounting');
+      if (vv && vv.removeEventListener) {
+        vv.removeEventListener('resize', handleViewportResize);
+        vv.removeEventListener('scroll', handleViewportResize);
+      } else {
+        window.removeEventListener('resize', handleViewportResize);
+      }
     };
   }, []);
 
@@ -959,7 +987,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       if (!apiKey || !agentId) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-[90vw] max-w-5xl h-[80vh] bg-gradient-to-br from-primary-black via-primary-gray to-primary-black p-6 border-electric-blue/30 shadow-[0_0_50px_rgba(0,255,255,0.3)]">
+        <DialogContent className="w-[95vw] max-w-5xl h-[80dvh] bg-gradient-to-br from-primary-black via-primary-gray to-primary-black p-6 border-electric-blue/30 shadow-[0_0_50px_rgba(0,255,255,0.3)]">
           <DialogHeader>
             <DialogTitle className="sr-only">Configuration Error</DialogTitle>
           </DialogHeader>
@@ -968,7 +996,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               <AlertTriangle className="h-8 w-8 text-neon-pink" />
               <h3 className="text-lg font-bold text-neon-pink">Configuration Missing</h3>
               <p className="text-primary-white">ElevenLabs configuration is not available. Please check your environment setup.</p>
-              <Button onClick={onClose} variant="outline" className="border-electric-blue text-electric-blue hover:bg-electric-blue/10">
+              <Button onClick={onClose} variant="outline" className="border-electric-blue text-electric-blue hover:bg-electric-blue/10 min-h-[44px]">
                 Close
               </Button>
             </div>
@@ -982,52 +1010,30 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-              <DialogContent 
-          className="max-w-7xl w-[95vw] h-[85vh] bg-gradient-to-br from-primary-dark via-secondary-dark to-primary-dark border border-electric-blue/30 [&>button]:hidden flex flex-col"
-          aria-describedby="enhanced-chat-description"
-        >
-        <DialogHeader className="border-b border-electric-blue/20 pb-4 flex-shrink-0">
-          <div id="enhanced-chat-description" className="sr-only">
-            Enhanced voice chat interface for career guidance and conversation analysis
-          </div>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-electric-blue to-neon-pink rounded-xl flex items-center justify-center">
-                <MessageSquare className="w-6 h-6 text-primary-white" />
-              </div>
-              <div>
-                <DialogTitle className="text-xl font-black text-primary-white">
-                  {agentInfo.name}
-                </DialogTitle>
-                <p className="text-primary-white/70 text-sm">
-                  {agentInfo.description}
-                </p>
-              </div>
+      <DialogContent 
+        className="md:max-w-7xl md:w-[95vw] md:h-[85vh] w-screen max-w-none h-[100dvh] p-0 bg-gradient-to-br from-primary-dark via-secondary-dark to-primary-dark border border-electric-blue/30 [&>button]:hidden z-[120]"
+        aria-describedby="enhanced-chat-description"
+      >
+        {/* Mobile-first: full-height grid with bottom action bar space */}
+        <div className="grid grid-rows-[auto_1fr] min-h-[100dvh] md:min-h-0">
+          <DialogHeader className="border-b border-electric-blue/20 pb-4 px-4 pt-4 md:px-6 flex-shrink-0">
+            <div id="enhanced-chat-description" className="sr-only">
+              Enhanced voice chat interface for career guidance and conversation analysis
             </div>
-            
-            <div className="flex items-center space-x-3">
-              {/* Connection Status */}
-              <div className="flex items-center space-x-2">
-                {connectionStatus === 'connected' && (
-                  <div className="flex items-center space-x-2 text-acid-green">
-                    <div className="w-2 h-2 bg-acid-green rounded-full animate-pulse" />
-                    <span className="text-xs font-medium">Connected</span>
-                  </div>
-                )}
-                {connectionStatus === 'connecting' && (
-                  <div className="flex items-center space-x-2 text-electric-blue">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-xs font-medium">Connecting...</span>
-                  </div>
-                )}
-                {connectionStatus === 'disconnected' && (
-                  <div className="flex items-center space-x-2 text-primary-white/50">
-                    <div className="w-2 h-2 bg-primary-white/50 rounded-full" />
-                    <span className="text-xs font-medium">Ready</span>
-                  </div>
-                )}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-electric-blue to-neon-pink rounded-xl flex items-center justify-center">
+                  <MessageSquare className="w-6 h-6 text-primary-white" />
+                </div>
+                <div>
+                  <DialogTitle className="text-xl font-black text-primary-white">
+                    {agentInfo.name}
+                  </DialogTitle>
+                  <p className="text-primary-white/70 text-sm">
+                    {agentInfo.description}
+                  </p>
+                </div>
               </div>
-              
               <Button
                 onClick={onClose}
                 variant="ghost"
@@ -1037,430 +1043,439 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                 <X className="w-5 h-5" />
               </Button>
             </div>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
 
-        <div className="flex-1 flex space-x-4 overflow-hidden min-h-0 p-2">
-          {/* Career Insights Panel */}
-          <div className="w-72 xl:w-80 flex-shrink-0">
-            <Card className="bg-gradient-to-br from-primary-gray/50 to-electric-blue/10 border border-electric-blue/20 h-full flex flex-col">
-              <CardHeader className="pb-3 flex-shrink-0">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-black text-primary-white">
-                    CAREER INSIGHTS
-                  </CardTitle>
-                  {careerCards.length > 0 && (
-                    <Badge className="bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white font-bold">
-                      <Sparkles className="w-3 h-3 mr-1" />
-                      {careerCards.length} FOUND
-                    </Badge>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4 overflow-y-auto flex-1 min-h-0">
-                {/* Progress Indicator */}
-                {isAnalyzing && progressUpdate && (
-                  <div className="bg-electric-blue/10 rounded-lg p-3 mb-4 border border-electric-blue/20">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <Loader2 className="w-4 h-4 animate-spin text-electric-blue" />
-                      <span className="text-sm font-medium text-electric-blue">Analyzing Career Path</span>
+          {/* Main content area: scrollable */}
+          <div className="overflow-y-auto overscroll-contain min-h-0 px-2 md:px-4 pt-2 pb-[112px] md:pb-4">
+            <div className="flex space-x-4 min-h-0">
+              {/* Career Insights Panel */}
+              <div className="hidden sm:block w-72 xl:w-80 flex-shrink-0">
+                <Card className="bg-gradient-to-br from-primary-gray/50 to-electric-blue/10 border border-electric-blue/20 h-full flex flex-col">
+                  <CardHeader className="pb-3 flex-shrink-0">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-lg font-black text-primary-white">
+                        CAREER INSIGHTS
+                      </CardTitle>
+                      {careerCards.length > 0 && (
+                        <Badge className="bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white font-bold">
+                          <Sparkles className="w-3 h-3 mr-1" />
+                          {careerCards.length} FOUND
+                        </Badge>
+                      )}
                     </div>
-                    <div className="text-xs text-primary-white/80 mb-2">
-                      {progressUpdate.message || 'Processing your conversation...'}
-                    </div>
-                    <div className="w-full bg-primary-white/20 rounded-full h-2">
-                      <div 
-                        className="bg-gradient-to-r from-electric-blue to-neon-pink h-2 rounded-full transition-all duration-500 ease-out"
-                        style={{ width: `${progressUpdate.progress || 0}%` }}
-                      />
-                    </div>
-                    <div className="text-xs text-primary-white/60 mt-1 text-center">
-                      {progressUpdate.progress || 0}% complete
-                    </div>
-                  </div>
-                )}
-                
-                {/* Discovered Career Cards */}
-                {careerCards.length > 0 && (
-                  <Accordion type="single" collapsible className="space-y-2">
-                    {careerCards.map((card, index) => {
-                      const matchBadge = getMatchBadge(card.matchScore || 85);
-                      const MatchIcon = matchBadge.icon;
-                      
-                      return (
-                        <AccordionItem 
-                          key={index} 
-                          value={`career-${index}`}
-                          className="border border-electric-blue/20 rounded-lg bg-primary-white/5 px-3"
-                        >
-                          <AccordionTrigger className="hover:no-underline py-3">
-                            <div className="flex items-center justify-between w-full mr-3">
-                              <div className="flex items-center space-x-3">
-                                <Briefcase className="w-4 h-4 text-electric-blue" />
-                                <div className="text-left">
-                                  <h4 className="text-sm font-bold text-electric-blue">{card.title}</h4>
-                                  <p className="text-xs text-primary-white/70 line-clamp-1">
-                                    {card.description || 'Career pathway discovered from our conversation'}
-                                  </p>
-                                </div>
-                              </div>
-                              <Badge className={`text-xs ${matchBadge.color} ml-2`}>
-                                <MatchIcon className="w-3 h-3 mr-1" />
-                                {card.matchScore || 85}%
-                              </Badge>
-                            </div>
-                          </AccordionTrigger>
+                  </CardHeader>
+                  <CardContent className="space-y-4 overflow-y-auto flex-1 min-h-0">
+                    {/* Progress Indicator */}
+                    {isAnalyzing && progressUpdate && (
+                      <div className="bg-electric-blue/10 rounded-lg p-3 mb-4 border border-electric-blue/20">
+                        <div className="flex items-center space-x-2 mb-2">
+                          <Loader2 className="w-4 h-4 animate-spin text-electric-blue" />
+                          <span className="text-sm font-medium text-electric-blue">Analyzing Career Path</span>
+                        </div>
+                        <div className="text-xs text-primary-white/80 mb-2">
+                          {progressUpdate.message || 'Processing your conversation...'}
+                        </div>
+                        <div className="w-full bg-primary-white/20 rounded-full h-2">
+                          <div 
+                            className="bg-gradient-to-r from-electric-blue to-neon-pink h-2 rounded-full transition-all duration-500 ease-out"
+                            style={{ width: `${progressUpdate.progress || 0}%` }}
+                          />
+                        </div>
+                        <div className="text-xs text-primary-white/60 mt-1 text-center">
+                          {progressUpdate.progress || 0}% complete
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Discovered Career Cards */}
+                    {careerCards.length > 0 && (
+                      <Accordion type="single" collapsible className="space-y-2">
+                        {careerCards.map((card, index) => {
+                          const matchBadge = getMatchBadge(card.matchScore || 85);
+                          const MatchIcon = matchBadge.icon;
                           
-                          <AccordionContent className="pb-3">
-                            <div className="space-y-4 mt-2">
-                              {/* Basic Info Section */}
-                              <div className="grid grid-cols-2 gap-3 text-xs">
-                                {(card.salaryRange || card.averageSalary) && (
-                                  <div className="flex items-center space-x-1">
-                                    <PoundSterling className="w-3 h-3 text-acid-green" />
-                                    <span className="text-primary-white">
-                                      {card.salaryRange || formatSalary(card.averageSalary)}
-                                    </span>
-                                  </div>
-                                )}
-                                {card.growthOutlook && (
-                                  <div className="flex items-center space-x-1">
-                                    <TrendingUp className="w-3 h-3 text-electric-blue" />
-                                    <span className="text-primary-white">{card.growthOutlook}</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Comprehensive Career Data Sections */}
-                              {card.roleFundamentals && (
-                                <div className="border-t border-electric-blue/20 pt-3">
-                                  <div className="flex items-center space-x-2 mb-2">
-                                    <Target className="w-3 h-3 text-neon-pink" />
-                                    <h5 className="text-xs font-bold text-neon-pink">Role Fundamentals</h5>
-                                  </div>
-                                  <p className="text-xs text-primary-white/80 mb-2">{card.roleFundamentals.corePurpose}</p>
-                                  {card.roleFundamentals.typicalResponsibilities && (
-                                    <div>
-                                      <p className="text-xs font-semibold text-primary-white mb-1">Key Responsibilities:</p>
-                                      <ul className="text-xs text-primary-white/70 space-y-1">
-                                        {card.roleFundamentals.typicalResponsibilities.slice(0, 3).map((resp, i) => (
-                                          <li key={i} className="flex items-start space-x-1">
-                                            <span className="text-acid-green mt-0.5">•</span>
-                                            <span>{resp}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {card.competencyRequirements && (
-                                <div className="border-t border-electric-blue/20 pt-3">
-                                  <div className="flex items-center space-x-2 mb-2">
-                                    <Wrench className="w-3 h-3 text-acid-green" />
-                                    <h5 className="text-xs font-bold text-acid-green">Skills & Requirements</h5>
-                                  </div>
-                                  {card.competencyRequirements.technicalSkills && (
-                                    <div className="mb-2">
-                                      <p className="text-xs font-semibold text-primary-white mb-1">Technical Skills:</p>
-                                      <div className="flex flex-wrap gap-1">
-                                        {card.competencyRequirements.technicalSkills.slice(0, 4).map((skill, i) => (
-                                          <Badge key={i} variant="outline" className="text-xs border-acid-green/30 text-acid-green">
-                                            {skill}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                  {card.competencyRequirements.qualificationPathway && (
-                                    <div>
-                                      <p className="text-xs font-semibold text-primary-white mb-1">Education:</p>
-                                      <p className="text-xs text-primary-white/70">
-                                        {card.competencyRequirements.qualificationPathway.degrees?.[0] || 
-                                         card.competencyRequirements.qualificationPathway.alternativeRoutes?.[0] ||
-                                         'Various pathways available'}
+                          return (
+                            <AccordionItem 
+                              key={index} 
+                              value={`career-${index}`}
+                              className="border border-electric-blue/20 rounded-lg bg-primary-white/5 px-3"
+                            >
+                              <AccordionTrigger className="hover:no-underline py-3">
+                                <div className="flex items-center justify-between w-full mr-3">
+                                  <div className="flex items-center space-x-3">
+                                    <Briefcase className="w-4 h-4 text-electric-blue" />
+                                    <div className="text-left">
+                                      <h4 className="text-sm font-bold text-electric-blue">{card.title}</h4>
+                                      <p className="text-xs text-primary-white/70 line-clamp-1">
+                                        {card.description || 'Career pathway discovered from our conversation'}
                                       </p>
                                     </div>
-                                  )}
-                                </div>
-                              )}
-
-                              {card.compensationRewards && (
-                                <div className="border-t border-electric-blue/20 pt-3">
-                                  <div className="flex items-center space-x-2 mb-2">
-                                    <DollarSign className="w-3 h-3 text-acid-green" />
-                                    <h5 className="text-xs font-bold text-acid-green">Compensation</h5>
                                   </div>
-                                  {card.compensationRewards.salaryRange && (
-                                    <div className="grid grid-cols-2 gap-2 text-xs">
-                                      <div>
-                                        <p className="font-semibold text-primary-white">Entry Level:</p>
-                                        <p className="text-primary-white/70">£{card.compensationRewards.salaryRange.entry?.toLocaleString()}</p>
-                                      </div>
-                                      <div>
-                                        <p className="font-semibold text-primary-white">Senior Level:</p>
-                                        <p className="text-primary-white/70">£{card.compensationRewards.salaryRange.senior?.toLocaleString()}</p>
-                                      </div>
-                                    </div>
-                                  )}
+                                  <Badge className={`text-xs ${matchBadge.color} ml-2`}>
+                                    <MatchIcon className="w-3 h-3 mr-1" />
+                                    {card.matchScore || 85}%
+                                  </Badge>
                                 </div>
-                              )}
-
-                              {card.careerTrajectory && (
-                                <div className="border-t border-electric-blue/20 pt-3">
-                                  <div className="flex items-center space-x-2 mb-2">
-                                    <TrendingUpIcon className="w-3 h-3 text-electric-blue" />
-                                    <h5 className="text-xs font-bold text-electric-blue">Career Path</h5>
+                              </AccordionTrigger>
+                              
+                              <AccordionContent className="pb-3">
+                                <div className="space-y-4 mt-2">
+                                  {/* Basic Info Section */}
+                                  <div className="grid grid-cols-2 gap-3 text-xs">
+                                    {(card.salaryRange || card.averageSalary) && (
+                                      <div className="flex items-center space-x-1">
+                                        <PoundSterling className="w-3 h-3 text-acid-green" />
+                                        <span className="text-primary-white">
+                                          {card.salaryRange || formatSalary(card.averageSalary)}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {card.growthOutlook && (
+                                      <div className="flex items-center space-x-1">
+                                        <TrendingUp className="w-3 h-3 text-electric-blue" />
+                                        <span className="text-primary-white">{card.growthOutlook}</span>
+                                      </div>
+                                    )}
                                   </div>
-                                  {card.careerTrajectory.progressionSteps && (
-                                    <div className="space-y-1">
-                                      {card.careerTrajectory.progressionSteps.slice(0, 3).map((step, i) => (
-                                        <div key={i} className="flex justify-between text-xs">
-                                          <span className="text-primary-white font-medium">{step.title}</span>
-                                          <span className="text-primary-white/70">{step.timeFrame}</span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              )}
 
-                              {/* Fallback sections for basic cards */}
-                              {(card.skills || card.nextSteps || card.keyResponsibilities) && !card.roleFundamentals && (
-                                <>
-                                  {card.skills && (
-                                    <div className="border-t border-electric-blue/20 pt-3">
-                                      <div className="flex items-center space-x-2 mb-2">
-                                        <Wrench className="w-3 h-3 text-acid-green" />
-                                        <h5 className="text-xs font-bold text-acid-green">Key Skills</h5>
-                                      </div>
-                                      <div className="flex flex-wrap gap-1">
-                                        {card.skills.map((skill, i) => (
-                                          <Badge key={i} variant="outline" className="text-xs border-acid-green/30 text-acid-green">
-                                            {skill}
-                                          </Badge>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                  
-                                  {card.nextSteps && (
+                                  {/* Comprehensive Career Data Sections */}
+                                  {card.roleFundamentals && (
                                     <div className="border-t border-electric-blue/20 pt-3">
                                       <div className="flex items-center space-x-2 mb-2">
                                         <Target className="w-3 h-3 text-neon-pink" />
-                                        <h5 className="text-xs font-bold text-neon-pink">Next Steps</h5>
+                                        <h5 className="text-xs font-bold text-neon-pink">Role Fundamentals</h5>
                                       </div>
-                                      <ul className="text-xs text-primary-white/70 space-y-1">
-                                        {card.nextSteps.slice(0, 3).map((step, i) => (
-                                          <li key={i} className="flex items-start space-x-1">
-                                            <span className="text-acid-green mt-0.5">•</span>
-                                            <span>{step}</span>
-                                          </li>
-                                        ))}
-                                      </ul>
+                                      <p className="text-xs text-primary-white/80 mb-2">{card.roleFundamentals.corePurpose}</p>
+                                      {card.roleFundamentals.typicalResponsibilities && (
+                                        <div>
+                                          <p className="text-xs font-semibold text-primary-white mb-1">Key Responsibilities:</p>
+                                          <ul className="text-xs text-primary-white/70 space-y-1">
+                                            {card.roleFundamentals.typicalResponsibilities.slice(0, 3).map((resp, i) => (
+                                              <li key={i} className="flex items-start space-x-1">
+                                                <span className="text-acid-green mt-0.5">•</span>
+                                                <span>{resp}</span>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
                                     </div>
                                   )}
-                                </>
-                              )}
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      );
-                    })}
-                  </Accordion>
-                )}
 
-                {/* Original Career Context */}
-                {careerContext && (
-                  <div className="border-t border-electric-blue/20 pt-4">
-                    <h4 className="text-sm font-bold text-neon-pink mb-2">Discussion Focus:</h4>
-                    <div className="space-y-2">
-                      <h5 className="font-bold text-electric-blue">{careerContext.title}</h5>
-                      {careerContext.averageSalary && (
-                        <p className="text-xs text-primary-white/70">
-                          Salary: {formatSalary(careerContext.averageSalary)}
-                        </p>
-                      )}
-                      {careerContext.growthOutlook && (
-                        <p className="text-xs text-primary-white/70">
-                          Growth: {careerContext.growthOutlook}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                )}
+                                  {card.competencyRequirements && (
+                                    <div className="border-t border-electric-blue/20 pt-3">
+                                      <div className="flex items-center space-x-2 mb-2">
+                                        <Wrench className="w-3 h-3 text-acid-green" />
+                                        <h5 className="text-xs font-bold text-acid-green">Skills & Requirements</h5>
+                                      </div>
+                                      {card.competencyRequirements.technicalSkills && (
+                                        <div className="mb-2">
+                                          <p className="text-xs font-semibold text-primary-white mb-1">Technical Skills:</p>
+                                          <div className="flex flex-wrap gap-1">
+                                            {card.competencyRequirements.technicalSkills.slice(0, 4).map((skill, i) => (
+                                              <Badge key={i} variant="outline" className="text-xs border-acid-green/30 text-acid-green">
+                                                {skill}
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      {card.competencyRequirements.qualificationPathway && (
+                                        <div>
+                                          <p className="text-xs font-semibold text-primary-white mb-1">Education:</p>
+                                          <p className="text-xs text-primary-white/70">
+                                            {card.competencyRequirements.qualificationPathway.degrees?.[0] || 
+                                             card.competencyRequirements.qualificationPathway.alternativeRoutes?.[0] ||
+                                             'Various pathways available'}
+                                          </p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
 
-                {/* Discovered Insights Panel */}
-                {(discoveredInsights.interests.length > 0 || 
-                  discoveredInsights.goals.length > 0 || 
-                  discoveredInsights.skills.length > 0 ||
-                  discoveredInsights.personalQualities.length > 0) && (
-                  <div className="border-t border-electric-blue/20 pt-4">
-                    <h4 className="text-sm font-bold text-acid-green mb-2">Insights from Discussion:</h4>
-                    <div className="space-y-3 text-xs">
-                      {/* Personal Qualities - Confidence Building Section */}
-                      {discoveredInsights.personalQualities.length > 0 && (
-                        <div className="bg-gradient-to-r from-acid-green/10 to-neon-pink/10 border border-acid-green/30 rounded-lg p-3">
-                          <div className="flex items-center space-x-2 mb-2">
-                            <Star className="w-4 h-4 text-cyber-yellow" />
-                            <span className="font-bold text-cyber-yellow">Your Strengths:</span>
-                          </div>
-                          <div className="grid grid-cols-1 gap-2">
-                            {discoveredInsights.personalQualities.map((quality, idx) => {
-                              // Map qualities to appropriate icons and colors
-                              const getQualityIcon = (quality: string) => {
-                                const lowerQuality = quality.toLowerCase();
-                                if (lowerQuality.includes('innovative') || lowerQuality.includes('creative')) {
-                                  return { Icon: Lightbulb, color: 'text-cyber-yellow' };
-                                } else if (lowerQuality.includes('organised') || lowerQuality.includes('organized')) {
-                                  return { Icon: CheckCircle2, color: 'text-acid-green' };
-                                } else if (lowerQuality.includes('leader') || lowerQuality.includes('confident')) {
-                                  return { Icon: Crown, color: 'text-neon-pink' };
-                                } else if (lowerQuality.includes('analytical') || lowerQuality.includes('thoughtful')) {
-                                  return { Icon: Target, color: 'text-electric-blue' };
-                                } else if (lowerQuality.includes('passionate') || lowerQuality.includes('enthusiastic')) {
-                                  return { Icon: Heart, color: 'text-neon-pink' };
-                                } else if (lowerQuality.includes('adaptable') || lowerQuality.includes('flexible')) {
-                                  return { Icon: Zap, color: 'text-cyber-yellow' };
-                                } else {
-                                  return { Icon: Award, color: 'text-acid-green' };
-                                }
-                              };
-                              
-                              const { Icon, color } = getQualityIcon(quality);
-                              
-                              return (
-                                <div key={idx} className="flex items-center space-x-2 bg-primary-white/5 rounded px-2 py-1">
-                                  <Icon className={`w-3 h-3 ${color}`} />
-                                  <span className="text-primary-white font-medium">{quality}</span>
+                                  {card.compensationRewards && (
+                                    <div className="border-t border-electric-blue/20 pt-3">
+                                      <div className="flex items-center space-x-2 mb-2">
+                                        <DollarSign className="w-3 h-3 text-acid-green" />
+                                        <h5 className="text-xs font-bold text-acid-green">Compensation</h5>
+                                      </div>
+                                      {card.compensationRewards.salaryRange && (
+                                        <div className="grid grid-cols-2 gap-2 text-xs">
+                                          <div>
+                                            <p className="font-semibold text-primary-white">Entry Level:</p>
+                                            <p className="text-primary-white/70">£{card.compensationRewards.salaryRange.entry?.toLocaleString()}</p>
+                                          </div>
+                                          <div>
+                                            <p className="font-semibold text-primary-white">Senior Level:</p>
+                                            <p className="text-primary-white/70">£{card.compensationRewards.salaryRange.senior?.toLocaleString()}</p>
+                                          </div>
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {card.careerTrajectory && (
+                                    <div className="border-t border-electric-blue/20 pt-3">
+                                      <div className="flex items-center space-x-2 mb-2">
+                                        <TrendingUpIcon className="w-3 h-3 text-electric-blue" />
+                                        <h5 className="text-xs font-bold text-electric-blue">Career Path</h5>
+                                      </div>
+                                      {card.careerTrajectory.progressionSteps && (
+                                        <div className="space-y-1">
+                                          {card.careerTrajectory.progressionSteps.slice(0, 3).map((step, i) => (
+                                            <div key={i} className="flex justify-between text-xs">
+                                              <span className="text-primary-white font-medium">{step.title}</span>
+                                              <span className="text-primary-white/70">{step.timeFrame}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* Fallback sections for basic cards */}
+                                  {(card.skills || card.nextSteps || card.keyResponsibilities) && !card.roleFundamentals && (
+                                    <>
+                                      {card.skills && (
+                                        <div className="border-t border-electric-blue/20 pt-3">
+                                          <div className="flex items-center space-x-2 mb-2">
+                                            <Wrench className="w-3 h-3 text-acid-green" />
+                                            <h5 className="text-xs font-bold text-acid-green">Key Skills</h5>
+                                          </div>
+                                          <div className="flex flex-wrap gap-1">
+                                            {card.skills.map((skill, i) => (
+                                              <Badge key={i} variant="outline" className="text-xs border-acid-green/30 text-acid-green">
+                                                {skill}
+                                              </Badge>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )}
+                                      
+                                      {card.nextSteps && (
+                                        <div className="border-t border-electric-blue/20 pt-3">
+                                          <div className="flex items-center space-x-2 mb-2">
+                                            <Target className="w-3 h-3 text-neon-pink" />
+                                            <h5 className="text-xs font-bold text-neon-pink">Next Steps</h5>
+                                          </div>
+                                          <ul className="text-xs text-primary-white/70 space-y-1">
+                                            {card.nextSteps.slice(0, 3).map((step, i) => (
+                                              <li key={i} className="flex items-start space-x-1">
+                                                <span className="text-acid-green mt-0.5">•</span>
+                                                <span>{step}</span>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </div>
+                                      )}
+                                    </>
+                                  )}
                                 </div>
-                              );
-                            })}
-                          </div>
-                          <div className="mt-2 text-center">
-                            <p className="text-xs text-primary-white/80 italic">
-                              ✨ These qualities make you unique and valuable in any career path
+                              </AccordionContent>
+                            </AccordionItem>
+                          );
+                        })}
+                      </Accordion>
+                    )}
+
+                    {/* Original Career Context */}
+                    {careerContext && (
+                      <div className="border-t border-electric-blue/20 pt-4">
+                        <h4 className="text-sm font-bold text-neon-pink mb-2">Discussion Focus:</h4>
+                        <div className="space-y-2">
+                          <h5 className="font-bold text-electric-blue">{careerContext.title}</h5>
+                          {careerContext.averageSalary && (
+                            <p className="text-xs text-primary-white/70">
+                              Salary: {formatSalary(careerContext.averageSalary)}
+                            </p>
+                          )}
+                          {careerContext.growthOutlook && (
+                            <p className="text-xs text-primary-white/70">
+                              Growth: {careerContext.growthOutlook}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Discovered Insights Panel */}
+                    {(discoveredInsights.interests.length > 0 || 
+                      discoveredInsights.goals.length > 0 || 
+                      discoveredInsights.skills.length > 0 ||
+                      discoveredInsights.personalQualities.length > 0) && (
+                      <div className="border-t border-electric-blue/20 pt-4">
+                        <h4 className="text-sm font-bold text-acid-green mb-2">Insights from Discussion:</h4>
+                        <div className="space-y-3 text-xs">
+                          {/* Personal Qualities - Confidence Building Section */}
+                          {discoveredInsights.personalQualities.length > 0 && (
+                            <div className="bg-gradient-to-r from-acid-green/10 to-neon-pink/10 border border-acid-green/30 rounded-lg p-3">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <Star className="w-4 h-4 text-cyber-yellow" />
+                                <span className="font-bold text-cyber-yellow">Your Strengths:</span>
+                              </div>
+                              <div className="grid grid-cols-1 gap-2">
+                                {discoveredInsights.personalQualities.map((quality, idx) => {
+                                  // Map qualities to appropriate icons and colors
+                                  const getQualityIcon = (quality: string) => {
+                                    const lowerQuality = quality.toLowerCase();
+                                    if (lowerQuality.includes('innovative') || lowerQuality.includes('creative')) {
+                                      return { Icon: Lightbulb, color: 'text-cyber-yellow' };
+                                    } else if (lowerQuality.includes('organised') || lowerQuality.includes('organized')) {
+                                      return { Icon: CheckCircle2, color: 'text-acid-green' };
+                                    } else if (lowerQuality.includes('leader') || lowerQuality.includes('confident')) {
+                                      return { Icon: Crown, color: 'text-neon-pink' };
+                                    } else if (lowerQuality.includes('analytical') || lowerQuality.includes('thoughtful')) {
+                                      return { Icon: Target, color: 'text-electric-blue' };
+                                    } else if (lowerQuality.includes('passionate') || lowerQuality.includes('enthusiastic')) {
+                                      return { Icon: Heart, color: 'text-neon-pink' };
+                                    } else if (lowerQuality.includes('adaptable') || lowerQuality.includes('flexible')) {
+                                      return { Icon: Zap, color: 'text-cyber-yellow' };
+                                    } else {
+                                      return { Icon: Award, color: 'text-acid-green' };
+                                    }
+                                  };
+                                  
+                                  const { Icon, color } = getQualityIcon(quality);
+                                  
+                                  return (
+                                    <div key={idx} className="flex items-center space-x-2 bg-primary-white/5 rounded px-2 py-1">
+                                      <Icon className={`w-3 h-3 ${color}`} />
+                                      <span className="text-primary-white font-medium">{quality}</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                              <div className="mt-2 text-center">
+                                <p className="text-xs text-primary-white/80 italic">
+                                  ✨ These qualities make you unique and valuable in any career path
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                          
+                          {discoveredInsights.interests.length > 0 && (
+                            <div>
+                              <span className="font-medium text-electric-blue">New Interests:</span>
+                              <div className="ml-2 text-primary-white/80">
+                                {discoveredInsights.interests.map((interest, idx) => (
+                                  <p key={idx}>• {interest}</p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {discoveredInsights.goals.length > 0 && (
+                            <div>
+                              <span className="font-medium text-neon-pink">Career Goals:</span>
+                              <div className="ml-2 text-primary-white/80">
+                                {discoveredInsights.goals.map((goal, idx) => (
+                                  <p key={idx}>• {goal}</p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {discoveredInsights.skills.length > 0 && (
+                            <div>
+                              <span className="font-medium text-cyber-yellow">Skills Mentioned:</span>
+                              <div className="ml-2 text-primary-white/80">
+                                {discoveredInsights.skills.map((skill, idx) => (
+                                  <p key={idx}>• {skill}</p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Discussion Topics */}
+                    {!careerContext && careerCards.length === 0 && (
+                      <div>
+                        <h4 className="text-sm font-bold text-neon-pink mb-2">What you can explore:</h4>
+                        <div className="space-y-1 text-xs text-primary-white/70">
+                          <p>• Career interests and goals</p>
+                          <p>• Skills and training paths</p>
+                          <p>• Industry trends and outlook</p>
+                          <p>• Work-life balance expectations</p>
+                          <p>• Educational requirements</p>
+                          <p>• Career progression paths</p>
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Voice Conversation Panel */}
+              <div className="flex-1 flex flex-col min-h-0">
+                <div className="flex-1 mb-4 min-h-0">
+                  <ScrollArea ref={scrollAreaRef} className="h-full pr-2">
+                    <div className="space-y-4 pb-4">
+                      {conversationHistory.map((message, index) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div className={`max-w-[80%] px-4 py-3 rounded-xl break-words ${
+                            message.role === 'user' 
+                              ? 'bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white' 
+                              : 'bg-gradient-to-r from-primary-gray to-primary-white/10 text-primary-white border border-electric-blue/20'
+                          }`}>
+                            <div className="flex items-start space-x-2 mb-2">
+                              {message.role === 'user' ? (
+                                <User className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                              ) : (
+                                <Bot className="w-4 h-4 mt-0.5 text-electric-blue flex-shrink-0" />
+                              )}
+                              <span className="text-xs font-medium opacity-70">
+                                {message.role === 'user' ? (currentUser ? (userData?.profile?.displayName || 'You') : 'You') : agentInfo.name}
+                              </span>
+                            </div>
+                            <p className="text-sm leading-relaxed break-words overflow-wrap-anywhere">{message.content}</p>
+                            <p className="text-xs opacity-50 mt-2">
+                              {formatTime(message.timestamp)}
                             </p>
                           </div>
-                        </div>
-                      )}
+                        </motion.div>
+                      ))}
                       
-                      {discoveredInsights.interests.length > 0 && (
-                        <div>
-                          <span className="font-medium text-electric-blue">New Interests:</span>
-                          <div className="ml-2 text-primary-white/80">
-                            {discoveredInsights.interests.map((interest, idx) => (
-                              <p key={idx}>• {interest}</p>
-                            ))}
+                      {isSpeaking && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="flex justify-start"
+                        >
+                          <div className="bg-gradient-to-r from-primary-gray to-primary-white/10 text-primary-white border border-electric-blue/20 px-4 py-3 rounded-xl max-w-xs">
+                            <div className="flex items-center space-x-2">
+                              <Volume2 className="w-4 h-4 text-electric-blue animate-pulse" />
+                              <span className="text-sm">AI is speaking...</span>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                      {discoveredInsights.goals.length > 0 && (
-                        <div>
-                          <span className="font-medium text-neon-pink">Career Goals:</span>
-                          <div className="ml-2 text-primary-white/80">
-                            {discoveredInsights.goals.map((goal, idx) => (
-                              <p key={idx}>• {goal}</p>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {discoveredInsights.skills.length > 0 && (
-                        <div>
-                          <span className="font-medium text-cyber-yellow">Skills Mentioned:</span>
-                          <div className="ml-2 text-primary-white/80">
-                            {discoveredInsights.skills.map((skill, idx) => (
-                              <p key={idx}>• {skill}</p>
-                            ))}
-                          </div>
-                        </div>
+                        </motion.div>
                       )}
                     </div>
-                  </div>
-                )}
-
-                {/* Discussion Topics */}
-                {!careerContext && careerCards.length === 0 && (
-                  <div>
-                    <h4 className="text-sm font-bold text-neon-pink mb-2">What you can explore:</h4>
-                    <div className="space-y-1 text-xs text-primary-white/70">
-                      <p>• Career interests and goals</p>
-                      <p>• Skills and training paths</p>
-                      <p>• Industry trends and outlook</p>
-                      <p>• Work-life balance expectations</p>
-                      <p>• Educational requirements</p>
-                      <p>• Career progression paths</p>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  </ScrollArea>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Voice Conversation Panel */}
-          <div className="flex-1 flex flex-col min-h-0">
-            {/* Conversation History */}
-            <div className="flex-1 mb-4 min-h-0">
-              <ScrollArea ref={scrollAreaRef} className="h-full pr-2">
-                <div className="space-y-4 pb-4">
-                  {conversationHistory.map((message, index) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-                    >
-                      <div className={`max-w-[80%] px-4 py-3 rounded-xl break-words ${
-                        message.role === 'user' 
-                          ? 'bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white' 
-                          : 'bg-gradient-to-r from-primary-gray to-primary-white/10 text-primary-white border border-electric-blue/20'
-                      }`}>
-                        <div className="flex items-start space-x-2 mb-2">
-                          {message.role === 'user' ? (
-                            <User className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                          ) : (
-                            <Bot className="w-4 h-4 mt-0.5 text-electric-blue flex-shrink-0" />
-                          )}
-                          <span className="text-xs font-medium opacity-70">
-                            {message.role === 'user' ? (currentUser ? (userData?.profile?.displayName || 'You') : 'You') : agentInfo.name}
-                          </span>
-                        </div>
-                        <p className="text-sm leading-relaxed break-words overflow-wrap-anywhere">{message.content}</p>
-                        <p className="text-xs opacity-50 mt-2">
-                          {formatTime(message.timestamp)}
-                        </p>
-                      </div>
-                    </motion.div>
-                  ))}
-                  
-                  {isSpeaking && (
-                    <motion.div
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="flex justify-start"
-                    >
-                      <div className="bg-gradient-to-r from-primary-gray to-primary-white/10 text-primary-white border border-electric-blue/20 px-4 py-3 rounded-xl max-w-xs">
-                        <div className="flex items-center space-x-2">
-                          <Volume2 className="w-4 h-4 text-electric-blue animate-pulse" />
-                          <span className="text-sm">AI is speaking...</span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-              </ScrollArea>
-            </div>
-
-            {/* Voice Controls */}
-            <div className="bg-gradient-to-r from-primary-gray/50 to-electric-blue/10 rounded-xl p-4 border border-electric-blue/20 flex-shrink-0">
+          {/* Fixed bottom action bar (mobile-first), keyboard-aware */}
+          <div className="md:static md:px-6 md:pt-3 md:pb-4">
+            <div
+              className="fixed left-0 right-0 bottom-0 z-[130] px-4 md:static md:z-auto md:px-0"
+              style={{ bottom: `calc(${ctaBottomOffsetPx}px + env(safe-area-inset-bottom, 0px))` }}
+            >
+              <div className="bg-gradient-to-r from-primary-gray/50 to-electric-blue/10 rounded-t-xl md:rounded-xl p-4 border border-electric-blue/20 backdrop-blur">
               <div className="flex flex-col space-y-3 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
                 <div className="flex items-center justify-center lg:justify-start">
                   {!isConnected ? (
                     <Button
                       onClick={handleStartConversation}
                       disabled={connectionStatus === 'connecting' || !apiKey}
-                      className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base"
+                      aria-label="Start voice chat"
+                      className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-cyber-yellow/70"
                     >
                       {connectionStatus === 'connecting' ? (
                         <>
@@ -1478,7 +1493,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     <Button
                       onClick={handleEndConversation}
                       disabled={isLoading}
-                      className="bg-gradient-to-r from-neon-pink to-sunset-orange text-primary-white font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base"
+                      aria-label="End voice call"
+                      className="bg-gradient-to-r from-neon-pink to-sunset-orange text-primary-white font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-neon-pink/70"
                     >
                       {isLoading ? (
                         <>
@@ -1494,7 +1510,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     </Button>
                   )}
                 </div>
-                
+
                 <div className="flex items-center space-x-2">
                   {isConnected && (
                     <div className="flex items-center space-x-2 text-sm text-primary-white/70">
@@ -1502,12 +1518,11 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                       <span>Voice conversation active</span>
                     </div>
                   )}
-                  
-                  {/* Discovered Insights */}
-                                  {(discoveredInsights.interests.length > 0 ||
-                  discoveredInsights.goals.length > 0 ||
-                  discoveredInsights.skills.length > 0 ||
-                  discoveredInsights.personalQualities.length > 0) && (
+
+                  {(discoveredInsights.interests.length > 0 ||
+                    discoveredInsights.goals.length > 0 ||
+                    discoveredInsights.skills.length > 0 ||
+                    discoveredInsights.personalQualities.length > 0) && (
                     <div className="flex items-center space-x-3">
                       <div className="text-xs text-electric-blue">
                         <span className="font-medium">Insights discovered:</span>
@@ -1519,7 +1534,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                         onClick={handleSaveInsights}
                         disabled={savingInsights || insightsSaved}
                         size="sm"
-                        className={`text-xs px-3 py-1 ${
+                        className={`text-xs px-3 py-1 min-h-[36px] ${
                           insightsSaved 
                             ? 'bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black' 
                             : 'bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white'
@@ -1536,7 +1551,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                       </Button>
                     </div>
                   )}
-                  
+
                   {!apiKey && (
                     <div className="text-xs text-sunset-orange">
                       Configure ElevenLabs API key to enable voice discussions
@@ -1544,12 +1559,11 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   )}
                 </div>
               </div>
+              </div>
             </div>
           </div>
         </div>
       </DialogContent>
-      
-
     </Dialog>
   );
 };

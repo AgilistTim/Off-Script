@@ -128,7 +128,7 @@ const SpeechBubbleTiles: React.FC = () => {
 
   return (
     <>
-      <section className="py-20 bg-gradient-to-br from-slate-50 to-blue-50 relative overflow-hidden">
+      <section className="py-20 bg-gradient-to-br from-primary-black via-primary-gray to-primary-black relative overflow-hidden text-primary-white">
         {/* Background Elements */}
         <div className="absolute inset-0">
           <motion.div
@@ -156,14 +156,14 @@ const SpeechBubbleTiles: React.FC = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
-            className="text-center mb-16"
+           className="text-center mb-16"
           >
             <motion.h2
               initial={{ opacity: 0, scale: 0.9 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.2 }}
-              className="font-bold text-4xl sm:text-5xl lg:text-6xl text-gray-900 mb-6"
+               className="font-bold text-4xl sm:text-5xl lg:text-6xl text-primary-white mb-6"
             >
               Flip the
               <span className="block text-transparent bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text">
@@ -175,7 +175,7 @@ const SpeechBubbleTiles: React.FC = () => {
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.4 }}
-              className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed"
+               className="text-xl text-primary-white/80 max-w-3xl mx-auto leading-relaxed"
             >
               Let AI get to know your goals and guide you to the right path. 
               <strong className="text-blue-600"> No judgment. Just smart alternatives.</strong>
@@ -217,7 +217,7 @@ const SpeechBubbleTiles: React.FC = () => {
                   }
                 >
                   {/* Content */}
-                  <div className="relative z-10 p-8 lg:p-10 h-full flex flex-col justify-between min-h-[320px]">
+                   <div className="relative z-10 p-8 lg:p-10 h-full flex flex-col justify-between min-h-[320px] text-primary-white">
                     {/* Header */}
                     <div className="space-y-6">
                       <div className="flex items-start justify-between">
@@ -242,7 +242,7 @@ const SpeechBubbleTiles: React.FC = () => {
                         <motion.h3
                           whileHover={{ x: [0, -1, 1, 0] }}
                           transition={{ duration: 0.3 }}
-                          className="font-bold text-2xl lg:text-3xl text-gray-900 leading-tight mb-2"
+                           className="font-bold text-2xl lg:text-3xl text-primary-white leading-tight mb-2"
                         >
                           {story.title}
                         </motion.h3>
@@ -254,7 +254,7 @@ const SpeechBubbleTiles: React.FC = () => {
 
                     {/* Message */}
                     <div className="space-y-4">
-                      <p className="text-gray-700 text-lg font-medium leading-relaxed">
+                       <p className="text-primary-white/80 text-lg font-medium leading-relaxed">
                         {story.message}
                       </p>
                       
