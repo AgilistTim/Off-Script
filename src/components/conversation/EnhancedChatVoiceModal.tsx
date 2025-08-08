@@ -62,6 +62,7 @@ import { mcpQueueService } from '../../services/mcpQueueService';
 import { progressAwareMCPService, MCPProgressUpdate } from '../../services/progressAwareMCPService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 import { guestSessionService } from '../../services/guestSessionService';
+import { careerPathwayService } from '../../services/careerPathwayService';
 import { lightweightCareerSuggestionService } from '../../services/lightweightCareerSuggestionService';
 import environmentConfig from '../../config/environment';
 
@@ -445,6 +446,23 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               
               const completionMessage = `✅ Analysis complete! I've created ${cardCount} personalized career cards: ${cardTitles.join(', ')}${cardCount > 3 ? ' and more' : ''}. Each includes ${hasEnhancement ? 'verified salary data, training pathways, and market insights from my latest research' : 'detailed analysis of skills, progression paths, and market demand'}. Which career would you like to explore first?`;
               
+              // Persist cards for authenticated users so they appear on the dashboard
+              if (currentUser && careerCards.length > 0) {
+                (async () => {
+                  try {
+                    // Ensure each card has an id for downstream mapping
+                    const cardsWithIds = careerCards.map((card: any, index: number) => ({
+                      ...card,
+                      id: card.id || `career-${Date.now()}-${index}`
+                    }));
+                    await careerPathwayService.saveCareerCardsFromConversation(currentUser.uid, cardsWithIds);
+                    console.log('💾 Saved conversation career cards for authenticated user:', { count: cardsWithIds.length });
+                  } catch (err) {
+                    console.error('❌ Failed to save conversation career cards for user:', err);
+                  }
+                })();
+              }
+
               // **FIXED: Update agent context ASYNCHRONOUSLY (non-blocking) to avoid delays**
               const currentAgentId = getAgentId();
               if (currentAgentId && careerCards.length > 0) {
