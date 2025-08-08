@@ -1393,7 +1393,7 @@ const Dashboard: React.FC = () => {
       >
         <div className="absolute inset-0 bg-gradient-to-br from-primary-black/90 to-primary-black/70 backdrop-blur-sm" />
         <div className="relative">
-          <div className="flex items-center space-x-4 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <div className="w-12 h-12 bg-gradient-to-br from-electric-blue to-neon-pink rounded-xl flex items-center justify-center shadow-lg">
               <GraduationCap className="h-6 w-6 text-primary-white" />
             </div>
@@ -1426,7 +1426,7 @@ const Dashboard: React.FC = () => {
               }}
               variant="outline"
               size="sm"
-              className="bg-primary-black/60 border-electric-blue/50 text-electric-blue hover:bg-electric-blue/20"
+              className="w-full sm:w-auto bg-primary-black/60 border-electric-blue/50 text-electric-blue hover:bg-electric-blue/20 whitespace-nowrap"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh Data

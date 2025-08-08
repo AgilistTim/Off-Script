@@ -19,8 +19,7 @@ const Header: React.FC = () => {
 
   // Determine logo color based on page and device
   const getLogoColor = () => {
-    // White on mobile home page, black elsewhere (as per design guide)
-    return isHomePage ? 'text-primary-white lg:text-primary-black' : 'text-primary-black';
+    return isHomePage ? 'text-primary-white' : 'text-primary-white';
   };
 
   const handleLogout = async () => {
@@ -63,7 +62,7 @@ const Header: React.FC = () => {
   }, []);
 
   return (
-    <header className="masthead fixed top-0 left-0 right-0 bg-primary-black/90 backdrop-blur-sm border-b border-electric-blue/20 z-50" id="masthead">
+    <header className="masthead fixed top-0 left-0 right-0 bg-primary-black/90 backdrop-blur-sm border-b border-electric-blue/20 z-40" id="masthead">
       <div className="container">
         <div className="flex justify-between items-center py-4 lg:py-6">
           
@@ -90,14 +89,13 @@ const Header: React.FC = () => {
                   OFF
                 </text>
                 <text 
-                  x="0" 
+                  x="44" 
                   y="28" 
                   fontFamily="Barlow Semi Condensed, sans-serif" 
                   fontSize="24" 
                   fontWeight="700" 
                   fontStyle="italic"
                   className="transition-all duration-brand"
-                  dx="42"
                 >
                   SCRIPT
                 </text>

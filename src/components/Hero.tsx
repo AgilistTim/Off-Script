@@ -137,7 +137,7 @@ const Hero: React.FC = () => {
               <div className="space-y-6">
                 <motion.div variants={itemVariants} className="space-y-4">
                   <motion.h1
-                    className="font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-gray-900 leading-tight"
+                    className="font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-primary-white leading-tight"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.2 }}
