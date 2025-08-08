@@ -217,7 +217,7 @@ const SpeechBubbleTiles: React.FC = () => {
                   }
                 >
                   {/* Content */}
-                   <div className="relative z-10 p-8 lg:p-10 h-full flex flex-col justify-between min-h-[320px] text-primary-white">
+                   <div className="relative z-10 p-8 lg:p-10 h-full flex flex-col justify-between min-h-[320px] text-slate-900">
                     {/* Header */}
                     <div className="space-y-6">
                       <div className="flex items-start justify-between">
@@ -239,10 +239,10 @@ const SpeechBubbleTiles: React.FC = () => {
                       </div>
 
                       <div>
-                        <motion.h3
+                         <motion.h3
                           whileHover={{ x: [0, -1, 1, 0] }}
                           transition={{ duration: 0.3 }}
-                           className="font-bold text-2xl lg:text-3xl text-primary-white leading-tight mb-2"
+                           className="font-bold text-2xl lg:text-3xl text-slate-900 leading-tight mb-2"
                         >
                           {story.title}
                         </motion.h3>
@@ -254,7 +254,7 @@ const SpeechBubbleTiles: React.FC = () => {
 
                     {/* Message */}
                     <div className="space-y-4">
-                       <p className="text-primary-white/80 text-lg font-medium leading-relaxed">
+                       <p className="text-slate-700 text-lg font-medium leading-relaxed">
                         {story.message}
                       </p>
                       
@@ -282,10 +282,10 @@ const SpeechBubbleTiles: React.FC = () => {
                             contextId: story.context,
                           });
                         }}
-                        className="flex items-center space-x-2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                        className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 focus:outline-none"
                       >
-                        <Users className="h-4 w-4 text-gray-400" />
-                        <span className="text-sm text-gray-500">Ask AI about this</span>
+                        <Users className="h-4 w-4 text-gray-600" />
+                        <span className="text-sm text-gray-700">Ask AI about this</span>
                       </button>
                       
                       <motion.div

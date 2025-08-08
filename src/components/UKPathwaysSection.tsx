@@ -238,7 +238,7 @@ const UKPathwaysSection: React.FC = () => {
                   }
                 >
                   {/* Content */}
-                   <div className="relative z-10 p-8 lg:p-10 h-full flex flex-col justify-between min-h-[350px] text-primary-white">
+                   <div className="relative z-10 p-8 lg:p-10 h-full flex flex-col justify-between min-h-[350px] text-slate-900">
                     {/* Header */}
                     <div className="space-y-6">
                       <div className="flex items-start justify-between">
@@ -265,12 +265,12 @@ const UKPathwaysSection: React.FC = () => {
                       </div>
 
                       <div>
-                        <motion.h3
+                         <motion.h3
                           whileHover={{ 
                             x: [0, -1, 1, 0],
                           }}
                           transition={{ duration: 0.3 }}
-                           className="font-bold text-2xl lg:text-3xl text-primary-white leading-tight mb-2"
+                           className="font-bold text-2xl lg:text-3xl text-slate-900 leading-tight mb-2"
                         >
                           {card.title}
                         </motion.h3>
@@ -282,7 +282,7 @@ const UKPathwaysSection: React.FC = () => {
 
                     {/* Message */}
                     <div className="space-y-6">
-                       <p className="text-primary-white/80 text-lg font-medium leading-relaxed">
+                       <p className="text-slate-700 text-lg font-medium leading-relaxed">
                         {card.message}
                       </p>
                       
