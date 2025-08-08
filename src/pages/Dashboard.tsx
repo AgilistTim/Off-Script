@@ -83,7 +83,7 @@ const Notification: React.FC<NotificationProps> = ({ message, type, onDismiss })
       exit={{ opacity: 0, y: -20, scale: 0.9 }}
       className={`fixed top-4 right-4 z-50 p-6 rounded-2xl shadow-2xl border-2 ${bgGradient} max-w-md backdrop-blur-lg`}
     >
-      <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center">
           <div className="w-8 h-8 bg-gradient-to-br from-electric-blue to-neon-pink rounded-full flex items-center justify-center mr-3">
             <Bell size={16} className="text-primary-white" />
@@ -1350,11 +1350,11 @@ const Dashboard: React.FC = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.6 }}
-        className="relative overflow-hidden rounded-2xl p-8 shadow-2xl border border-electric-blue/20 bg-gradient-to-br from-electric-blue/20 to-neon-pink/20 mb-8"
+        className="relative overflow-visible rounded-2xl p-6 sm:p-8 shadow-2xl border border-electric-blue/20 bg-gradient-to-br from-electric-blue/20 to-neon-pink/20 mb-8"
       >
         <div className="absolute inset-0 bg-gradient-to-br from-primary-black/90 to-primary-black/70 backdrop-blur-sm" />
         <div className="relative">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-1">
             <div>
               <h2 className="text-3xl font-street font-black text-primary-white mb-3">
                 CAREER COMMAND CENTER
@@ -1363,10 +1363,10 @@ const Dashboard: React.FC = () => {
                 Continue your career exploration and discover new opportunities
               </p>
             </div>
-            <div className="flex space-x-4">
+            <div className="flex flex-col xs:flex-row gap-3 sm:flex-row sm:space-x-4 w-full sm:w-auto">
               <button 
                 onClick={refreshDashboard}
-                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-cyber-yellow to-acid-green rounded-xl text-primary-black font-bold hover:scale-105 transition-transform duration-200"
+                className="w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-cyber-yellow to-acid-green rounded-xl text-primary-black font-bold hover:scale-105 transition-transform duration-200"
                 disabled={loading}
               >
                 <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
@@ -1374,7 +1374,7 @@ const Dashboard: React.FC = () => {
               </button>
               <Link 
                 to="/profile"
-                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-electric-blue to-neon-pink rounded-xl text-primary-white font-bold hover:scale-105 transition-transform duration-200"
+                className="w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-electric-blue to-neon-pink rounded-xl text-primary-white font-bold hover:scale-105 transition-transform duration-200"
               >
                 <Crown className="h-5 w-5" />
                 <span>VIEW PROFILE</span>

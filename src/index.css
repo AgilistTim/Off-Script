@@ -28,7 +28,7 @@
 
   /* Typography scale matching design system */
   h1 {
-    font-size: 3.8rem;
+    font-size: clamp(1.75rem, 7vw, 3.8rem);
     line-height: 1.3;
     font-weight: 700;
   }
@@ -122,21 +122,21 @@
   /* No-container system with responsive padding */
   .no-container {
     width: 100%;
-    padding-left: 25px;
-    padding-right: 25px;
+    padding-left: 16px;
+    padding-right: 16px;
   }
   
   @screen xs {
     .no-container {
-      padding-left: 75px;
-      padding-right: 75px;
+      padding-left: 20px;
+      padding-right: 20px;
     }
   }
   
   @screen md {
     .no-container {
-      padding-left: 100px;
-      padding-right: 100px;
+      padding-left: 24px;
+      padding-right: 24px;
     }
   }
 
@@ -234,12 +234,8 @@
 
   /* Header System */
   .masthead {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
+    /* Let component classes control positioning/background (fixed, colors) */
     z-index: 99;
-    background: transparent;
     transition: all 300ms ease;
   }
 
