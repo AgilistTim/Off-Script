@@ -809,7 +809,8 @@ export class UnifiedVoiceContextService {
       // Fetch user profile data
       const userData = await getUserById(userId);
       const contextPrompt = await this.buildCareerContext(userData, careerCard);
-      const firstMessage = `Let's focus on ${careerCard.title}. I can tailor guidance to this topic—what interests you most about it?`;
+      const name = (userData?.careerProfile?.name || userData?.displayName || 'there').trim();
+      const firstMessage = `Welcome back ${name}! Let's dive deeper into ${careerCard.title}. What would you like to explore together first?`;
       return this.sendPersonalizedContextToAgent(agentId, contextPrompt, firstMessage, 'career_deep_dive');
     } catch (error) {
       console.error('❌ Failed to fetch user data for career context injection:', error);

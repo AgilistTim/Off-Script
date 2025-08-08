@@ -75,7 +75,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
     skills: string[];
   }>({ interests: [], goals: [], skills: [] });
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [ctaBottomOffsetPx, setCtaBottomOffsetPx] = useState<number>(0);
+  const [ctaBottomOffsetPx, setCtaBottomOffsetPx] = useState<number>(12);
 
   // Get ElevenLabs configuration
   const careerAwareAgentId = environmentConfig.elevenLabs.agentId;
@@ -257,9 +257,26 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
   };
 
   // Format career data for display
-  const formatSalary = (salary: number | undefined): string => {
+  const formatSalary = (salary: any): string => {
     if (!salary) return 'Salary data available';
-    return `£${salary.toLocaleString()}/year`;
+    // Handle { entry, senior } objects
+    if (typeof salary === 'object') {
+      const entry = salary.entry ?? salary.min ?? salary.low;
+      const senior = salary.senior ?? salary.max ?? salary.high;
+      if (typeof entry === 'number' && typeof senior === 'number') {
+        return `£${entry.toLocaleString()} - £${senior.toLocaleString()}`;
+      }
+      // Handle perplexity verified ranges
+      if (salary?.verifiedSalaryRanges) {
+        const v = salary.verifiedSalaryRanges;
+        if (v.entry && v.senior) {
+          return `£${v.entry.min.toLocaleString()} - £${v.senior.max.toLocaleString()}`;
+        }
+      }
+    }
+    if (typeof salary === 'number') return `£${salary.toLocaleString()}/year`;
+    if (typeof salary === 'string') return salary;
+    return 'Salary data available';
   };
 
   const getMatchScoreBadge = () => {
@@ -467,7 +484,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
             {/* Conversation History */}
             <div className="flex-1 mb-4 min-h-0">
               <ScrollArea ref={scrollAreaRef} className="h-full pr-2">
-                <div className="space-y-4 pb-[112px] md:pb-4">
+                <div className="space-y-4 pb-[136px] md:pb-4">
                   {conversationHistory.map((message, index) => (
                     <motion.div
                       key={index}

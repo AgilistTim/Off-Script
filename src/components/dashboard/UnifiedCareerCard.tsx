@@ -226,11 +226,11 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
         </div>
 
         {/* Action Buttons */}
-        <div className="flex space-x-4 mb-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4">
           {onAskAI && (
             <Button
               onClick={onAskAI}
-              className="flex-1 bg-gradient-to-r from-cyber-yellow to-acid-green text-primary-black font-bold hover:scale-105 transition-transform"
+              className="w-full sm:flex-1 bg-gradient-to-r from-cyber-yellow to-acid-green text-primary-black font-bold hover:scale-105 transition-transform"
             >
               Ask AI About This Career
             </Button>
@@ -238,7 +238,7 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
           <Button
             onClick={() => setIsExpanded(!isExpanded)}
             variant="outline"
-            className="flex-1 border-electric-blue/50 text-electric-blue hover:bg-electric-blue/20"
+            className="w-full sm:flex-1 border-electric-blue/50 text-electric-blue hover:bg-electric-blue/20"
           >
             {isExpanded ? (
               <>
