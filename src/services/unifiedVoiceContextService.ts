@@ -804,6 +804,8 @@ export class UnifiedVoiceContextService {
     careerCard: CareerCard
   ): Promise<ContextInjectionResult> {
     try {
+      // Reset to ensure no stale first_message remains, then fetch user profile data
+      await this.resetAgentToCleanState(agentId);
       // Fetch user profile data
       const userData = await getUserById(userId);
       const contextPrompt = await this.buildCareerContext(userData, careerCard);

@@ -883,6 +883,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         console.warn('⚠️ Conversation will proceed with default agent configuration - this may result in poor user experience');
       }
       
+      // Start session WITHOUT letting the agent auto-inject its default greeting twice
       await conversation.startSession({ agentId });
       console.log('✅ Enhanced chat conversation started successfully');
     } catch (error) {
