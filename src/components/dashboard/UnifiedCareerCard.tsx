@@ -104,7 +104,8 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
     if (career.perplexityData?.realTimeMarketDemand) {
       const growth = career.perplexityData.realTimeMarketDemand.growthRate;
       const competition = career.perplexityData.realTimeMarketDemand.competitionLevel;
-      return `${growth}% growth • ${competition} competition`;
+      const safeGrowth = Number.isFinite(growth) ? growth : parseFloat(String(growth).replace(/[^0-9.-]/g, '')) || 0;
+      return `${safeGrowth}% growth • ${competition} competition`;
     }
     
     // 2. Try industry growth projection (from enhanced data)
@@ -197,6 +198,15 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
               </h3>
             </div>
             <p className="text-xl font-bold text-primary-white">{growthDisplay}</p>
+            {career.perplexityData?.realTimeMarketDemand?.sources?.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                {career.perplexityData.realTimeMarketDemand.sources.slice(0, 3).map((url: string, i: number) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="underline text-electric-blue hover:text-electric-blue/80">
+                    Source {i + 1}
+                  </a>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Industry/Employers */}
@@ -280,6 +290,20 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                             </li>
                           ))}
                         </ul>
+                      </div>
+                    )}
+
+                    {/* Optional: Perplexity Source Links */}
+                    {career.perplexityData?.sources?.length > 0 && (
+                      <div className="text-xs text-gray-400">
+                        <div className="mt-3">Further reading:</div>
+                        <div className="flex flex-wrap gap-2 mt-1">
+                          {career.perplexityData.sources.slice(0, 5).map((src: any, i: number) => (
+                            <a key={i} href={src.url || src} target="_blank" rel="noopener noreferrer" className="underline text-electric-blue hover:text-electric-blue/80">
+                              {src.title ? src.title : `Link ${i + 1}`}
+                            </a>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

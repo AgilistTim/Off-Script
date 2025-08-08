@@ -573,9 +573,35 @@ export class DashboardCareerEnhancer {
     const marketData = data.enhancedData?.realTimeMarketDemand;
     const sources = data.sources?.map(s => s.url) || [];
 
+    // Robust growth rate parsing that avoids concatenating year values (e.g. "30% (2024)")
+    const parseGrowthRate = (input?: string | number): number => {
+      if (typeof input === 'number' && !isNaN(input)) return input;
+      if (typeof input !== 'string' || input.trim().length === 0) return 5.0;
+
+      const str = input.trim();
+      // Prefer a number explicitly marked with a % sign
+      const percentMatch = str.match(/-?\d+(?:\.\d+)?(?=\s*%)/);
+      if (percentMatch) {
+        const val = parseFloat(percentMatch[0]);
+        if (!isNaN(val)) return Math.max(-100, Math.min(200, val));
+      }
+      // Otherwise pick the first reasonable number token (skip likely years like 2024)
+      const numberMatches = str.match(/-?\d+(?:\.\d+)?/g) || [];
+      for (const token of numberMatches) {
+        const val = parseFloat(token);
+        if (!isNaN(val) && Math.abs(val) <= 200) {
+          return val;
+        }
+      }
+      // Last resort: strip non-numerics and clamp
+      const fallback = parseFloat(str.replace(/[^0-9.-]/g, ''));
+      if (!isNaN(fallback)) return Math.max(-100, Math.min(200, fallback));
+      return 5.0;
+    };
+
     return {
       jobPostingVolume: marketData?.jobPostingVolume || 1500,
-      growthRate: parseFloat(marketData?.growthRate?.replace(/[^0-9.-]/g, '') || '5.0'),
+      growthRate: parseGrowthRate(marketData?.growthRate),
       competitionLevel: (marketData?.competitionLevel as 'Low' | 'Medium' | 'High') || 'Medium',
       sources
     };
