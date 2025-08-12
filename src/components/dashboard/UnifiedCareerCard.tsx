@@ -259,14 +259,31 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
 
         {/* Expandable Detailed Sections */}
         <AnimatePresence>
-          {isExpanded && hasEnhancedData && (
+          {isExpanded && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
               className="space-y-3 border-t border-primary-green/30 pt-6"
             >
-              {/* Role Overview Section */}
+              {!hasEnhancedData ? (
+                <div className="bg-gradient-to-r from-primary-yellow/20 to-primary-peach/20 border border-primary-yellow/30 rounded-xl p-6 text-center">
+                  <div className="flex items-center justify-center space-x-3 mb-3">
+                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-black"></div>
+                    <span className="text-lg font-semibold text-primary-black">Enhancing Career Data...</span>
+                  </div>
+                  <p className="text-primary-black/70 mb-4">
+                    We're gathering the latest UK market data, salary ranges, and training pathways for this career.
+                  </p>
+                  <div className="bg-primary-mint/30 rounded-lg p-3">
+                    <p className="text-sm text-primary-black/80">
+                      💡 <strong>Enhanced data includes:</strong> Real-time salary data, education pathways, market demand, top employers, and career progression details.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Role Overview Section */}
               {career.roleFundamentals && (
                 <AccordionSection
                   id="overview"
@@ -1023,6 +1040,8 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                     )}
                   </div>
                 </AccordionSection>
+              )}
+                </>
               )}
             </motion.div>
           )}
