@@ -3711,7 +3711,7 @@ async function performCareerDataSearch(searchTerm: string, searchType?: string):
     searchTerm,
     searchType,
     guidance: `For current information about "${searchTerm}", please verify with official sources:`,
-    verificationSources: []
+    verificationSources: [] as string[]
   };
 
   if (searchType === 'training' || !searchType) {

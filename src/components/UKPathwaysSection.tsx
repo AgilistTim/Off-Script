@@ -3,6 +3,8 @@ import { motion } from 'framer-motion';
 import { Brain, Target, PoundSterling, Users, ArrowRight, Zap, Crown, Rocket, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EnhancedChatVoiceModal } from './conversation/EnhancedChatVoiceModal';
+import { ContextualCard, CardHeader, CardTitle, CardContent, CardFooter } from './ui/card';
+import { ContextualButton } from './ui/button';
 
 const UKPathwaysSection: React.FC = () => {
   const navigate = useNavigate();
@@ -87,31 +89,31 @@ const UKPathwaysSection: React.FC = () => {
   const getColorClasses = (color: string) => {
     const colors = {
       blue: {
-        bg: "bg-blue-100",
-        border: "border-blue-300",
-        text: "text-blue-800",
-        icon: "text-blue-700",
-        hover: "hover:bg-blue-200",
-        gradient: "from-blue-600 to-blue-700",
-        tagline: "bg-blue-200 text-blue-800"
+        bg: "bg-gradient-to-br from-primary-mint/30 to-primary-lavender/20",
+        border: "border-primary-green/30",
+        text: "text-primary-black",
+        icon: "text-primary-green",
+        hover: "hover:bg-gradient-to-br hover:from-primary-mint/40 hover:to-primary-lavender/30",
+        gradient: "from-primary-green to-primary-yellow",
+        tagline: "bg-primary-green/20 text-primary-black"
       },
       purple: {
-        bg: "bg-purple-100",
-        border: "border-purple-300",
-        text: "text-purple-800",
-        icon: "text-purple-700",
-        hover: "hover:bg-purple-200",
-        gradient: "from-purple-600 to-purple-700",
-        tagline: "bg-purple-200 text-purple-800"
+        bg: "bg-gradient-to-br from-primary-peach/30 to-primary-lavender/20",
+        border: "border-primary-peach/30",
+        text: "text-primary-black",
+        icon: "text-primary-peach",
+        hover: "hover:bg-gradient-to-br hover:from-primary-peach/40 hover:to-primary-lavender/30",
+        gradient: "from-primary-peach to-primary-yellow",
+        tagline: "bg-primary-peach/20 text-primary-black"
       },
       indigo: {
-        bg: "bg-indigo-100",
-        border: "border-indigo-300",
-        text: "text-indigo-800",
-        icon: "text-indigo-700",
-        hover: "hover:bg-indigo-200",
-        gradient: "from-indigo-600 to-indigo-700",
-        tagline: "bg-indigo-200 text-indigo-800"
+        bg: "bg-gradient-to-br from-primary-lavender/30 to-primary-mint/20",
+        border: "border-primary-lavender/30",
+        text: "text-primary-black",
+        icon: "text-primary-lavender",
+        hover: "hover:bg-gradient-to-br hover:from-primary-lavender/40 hover:to-primary-mint/30",
+        gradient: "from-primary-lavender to-primary-mint",
+        tagline: "bg-primary-lavender/20 text-primary-black"
       }
     };
     return colors[color as keyof typeof colors] || colors.blue;
@@ -131,7 +133,7 @@ const UKPathwaysSection: React.FC = () => {
 
   return (
     <>
-      <section className="py-20 bg-gradient-to-br from-primary-black via-primary-gray to-primary-black text-primary-white relative overflow-hidden" id="career-journey">
+      <section className="py-20 bg-gradient-to-br from-primary-white via-primary-mint/40 to-primary-lavender/40 text-primary-black relative overflow-hidden" id="career-journey">
         {/* Background Effects */}
         <div className="absolute inset-0">
           <motion.div
@@ -140,7 +142,7 @@ const UKPathwaysSection: React.FC = () => {
               rotate: [0, 90, 180, 270, 360]
             }}
             transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-           className="absolute top-20 left-20 w-96 h-96 bg-electric-blue/20 rounded-full blur-3xl"
+           className="absolute top-20 left-20 w-96 h-96 bg-primary-mint/20 rounded-full blur-3xl"
           />
           <motion.div
             animate={{
@@ -148,7 +150,7 @@ const UKPathwaysSection: React.FC = () => {
               rotate: [360, 270, 180, 90, 0]
             }}
             transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-           className="absolute bottom-20 right-20 w-80 h-80 bg-neon-pink/20 rounded-full blur-3xl"
+           className="absolute bottom-20 right-20 w-80 h-80 bg-primary-peach/20 rounded-full blur-3xl"
           />
         </div>
 
@@ -166,11 +168,11 @@ const UKPathwaysSection: React.FC = () => {
               whileInView={{ scale: 1, opacity: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.2 }}
-               className="inline-flex items-center space-x-3 bg-primary-white/10 backdrop-blur-sm px-6 py-3 rounded-full border border-electric-blue/30 mb-8"
+               className="inline-flex items-center space-x-3 bg-primary-green/20 backdrop-blur-sm px-6 py-3 rounded-full border border-primary-green/30 mb-8"
             >
-              <Crown className="h-5 w-5 text-blue-500" />
-               <span className="text-primary-white font-semibold text-sm">
-                Why Choose Off Script?
+              <Crown className="h-5 w-5 text-primary-green" />
+               <span className="text-primary-black font-semibold text-sm">
+                Why Choose OffScript?
               </span>
             </motion.div>
 
@@ -183,10 +185,10 @@ const UKPathwaysSection: React.FC = () => {
               whileInView="visible"
               viewport={{ once: true }}
               transition={{ duration: 0.8, delay: 0.3 }}
-               className="font-bold text-4xl sm:text-5xl lg:text-6xl text-primary-white mb-6 leading-tight"
+               className="font-bold text-4xl sm:text-5xl lg:text-6xl text-primary-black mb-6 leading-tight"
             >
               Self-Made
-              <span className="block text-transparent bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text">
+              <span className="block text-transparent bg-gradient-to-r from-primary-green via-primary-yellow to-primary-peach bg-clip-text">
                 Futures
               </span>
             </motion.h2>
@@ -196,10 +198,10 @@ const UKPathwaysSection: React.FC = () => {
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.5 }}
-               className="text-xl text-primary-white/80 max-w-3xl mx-auto leading-relaxed"
+               className="text-xl text-primary-black/80 max-w-3xl mx-auto leading-relaxed"
             >
               Explore proven UK pathways that help you land meaningful careers without university debt. 
-              <strong className="text-blue-600"> Let AI understand your goals and guide you to the right path.</strong>
+              <strong className="text-primary-green"> Let AI understand your goals and guide you to the right path.</strong>
             </motion.p>
           </motion.div>
 
@@ -211,7 +213,7 @@ const UKPathwaysSection: React.FC = () => {
             viewport={{ once: true, margin: "-100px" }}
             className="grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 mb-20"
           >
-            {offScriptCards.map((card, index) => {
+            {offScriptCards.map((card) => {
               const IconComponent = card.icon;
               const colors = getColorClasses(card.color);
               
@@ -224,11 +226,6 @@ const UKPathwaysSection: React.FC = () => {
                     y: -5
                   }}
                   whileTap={{ scale: 0.98 }}
-                  className={`
-                    relative cursor-pointer group overflow-hidden rounded-2xl 
-                    ${colors.bg} ${colors.border} border transition-all duration-500
-                    shadow-lg hover:shadow-xl ${colors.hover}
-                  `}
                   onClick={() =>
                     handleCardClick({
                       title: `${card.title} ${card.subtitle}`.trim(),
@@ -236,64 +233,56 @@ const UKPathwaysSection: React.FC = () => {
                       contextId: card.context,
                     })
                   }
+                  className="cursor-pointer"
                 >
-                  {/* Content */}
-                   <div className="relative z-10 p-8 lg:p-10 h-full flex flex-col justify-between min-h-[350px] text-slate-900">
-                    {/* Header */}
-                    <div className="space-y-6">
+                  <ContextualCard 
+                    purpose="interactive" 
+                    mood="neutral" 
+                    className="h-full min-h-[320px] transition-all duration-500 hover:shadow-xl flex flex-col"
+                  >
+                    <CardHeader>
                       <div className="flex items-start justify-between">
                         <motion.div
-                          whileHover={{ 
-                            rotate: [0, -5, 5, -2, 0],
-                            scale: [1, 1.05, 1]
-                          }}
-                          transition={{ duration: 0.5 }}
-                           className="w-16 h-16 bg-primary-white/20 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-sm"
+                          whileHover={{ rotate: 12, scale: 1.1 }}
+                          transition={{ duration: 0.3 }}
+                          className="w-16 h-16 bg-primary-white/80 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-sm"
                         >
                           <IconComponent className={`h-8 w-8 ${colors.icon}`} />
                         </motion.div>
                         
-                        {/* Tagline */}
                         <motion.div
-                          whileHover={{ x: 2, y: -1 }}
-                          className={`${colors.tagline} backdrop-blur-sm px-3 py-1 rounded-lg font-medium text-xs`}
+                          whileHover={{ x: 4 }}
+                          transition={{ duration: 0.3 }}
+                          className="opacity-60 group-hover:opacity-100 transition-opacity duration-300"
                         >
-                          <span className="font-semibold uppercase tracking-wide">
-                            {card.tagline}
-                          </span>
+                          <ArrowRight className="h-6 w-6 text-primary-black/40" />
                         </motion.div>
                       </div>
 
-                      <div>
-                         <motion.h3
-                          whileHover={{ 
-                            x: [0, -1, 1, 0],
-                          }}
-                          transition={{ duration: 0.3 }}
-                           className="font-bold text-2xl lg:text-3xl text-slate-900 leading-tight mb-2"
-                        >
-                          {card.title}
-                        </motion.h3>
-                        <h4 className={`font-semibold text-lg ${colors.text} uppercase tracking-wide`}>
-                          {card.subtitle}
-                        </h4>
+                      <CardTitle className="text-2xl lg:text-3xl text-primary-black leading-tight mb-2">
+                        {card.title}
+                      </CardTitle>
+                      <div className="font-semibold text-lg text-primary-green uppercase tracking-wide">
+                        {card.subtitle}
                       </div>
-                    </div>
+                    </CardHeader>
 
-                    {/* Message */}
-                    <div className="space-y-6">
-                       <p className="text-slate-700 text-lg font-medium leading-relaxed">
+                    <CardContent className="flex-1">
+                      <p className="text-primary-black/80 text-lg font-medium leading-relaxed mb-4">
                         {card.message}
                       </p>
                       
-                      {/* Action Area */}
-                      <motion.div
-                        whileHover={{ y: -2 }}
-                        className="flex items-center justify-between pt-6 border-t border-gray-200"
-                      >
-                        <button
-                          type="button"
-                          aria-label={`Ask AI about ${card.title}`}
+                      <div className="flex items-center space-x-2 text-primary-black/60">
+                        <Star className="h-4 w-4" />
+                        <span className="text-sm font-medium">{card.tagline}</span>
+                      </div>
+                    </CardContent>
+
+                    <CardFooter className="pt-4 border-t border-primary-black/10">
+                      <div className="flex items-center justify-center w-full">
+                        <ContextualButton
+                          intent="chat-cta"
+                          size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleCardClick({
@@ -302,41 +291,14 @@ const UKPathwaysSection: React.FC = () => {
                               contextId: card.context,
                             });
                           }}
-                          className="flex items-center space-x-2 text-gray-500 hover:text-gray-700 focus:outline-none"
+                          className="text-sm w-full"
                         >
-                          <Star className="h-4 w-4" />
-                          <span className="text-sm font-medium">Ask AI about this</span>
-                        </button>
-                        
-                        <motion.div
-                          whileHover={{ 
-                            scale: 1.1,
-                            rotate: 5
-                          }}
-                          className={`w-10 h-10 bg-gradient-to-r ${colors.gradient} rounded-full flex items-center justify-center group-hover:shadow-lg transition-all duration-300`}
-                        >
-                          <ArrowRight className="h-5 w-5 text-white" />
-                        </motion.div>
-                      </motion.div>
-                    </div>
-                  </div>
-
-                  {/* Subtle hover effect */}
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    whileHover={{ 
-                      opacity: [0, 0.05, 0],
-                    }}
-                    transition={{ duration: 0.3 }}
-                    className={`absolute inset-0 bg-gradient-to-r ${colors.gradient} mix-blend-multiply rounded-2xl`}
-                  />
-
-                  {/* Corner Accent */}
-                  <motion.div
-                    animate={{ rotate: [0, 360] }}
-                    transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                    className="absolute top-4 right-4 w-3 h-3 bg-blue-400 rounded-full opacity-60"
-                  />
+                          <Users className="h-4 w-4 mr-2" />
+                          Ask AI about this
+                        </ContextualButton>
+                      </div>
+                    </CardFooter>
+                  </ContextualCard>
                 </motion.div>
               );
             })}
@@ -363,7 +325,7 @@ const UKPathwaysSection: React.FC = () => {
                   contextId: 'general',
                 })
               }
-              className="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold text-xl px-16 py-6 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl group border-0"
+              className="bg-gradient-to-r from-primary-green to-primary-yellow hover:from-primary-yellow hover:to-primary-green text-primary-black font-semibold text-xl px-16 py-6 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl group border-0"
             >
               <span className="flex items-center space-x-4">
                 <Rocket className="h-6 w-6 group-hover:animate-pulse" />

@@ -19,8 +19,8 @@
   body {
     font-family: 'Barlow Semi Condensed', 'Inter', system-ui, sans-serif;
     /* Remove conflicting bg-background and text-foreground */
-    background-color: #000000; /* Force dark background */
-    color: #ffffff; /* Force light text */
+    background: linear-gradient(135deg, #f8fafc 0%, #eef2ff 100%);
+    color: #000000;
     margin: 0;
     padding: 0;
     overflow-x: hidden;

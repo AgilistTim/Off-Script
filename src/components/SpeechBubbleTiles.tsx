@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { ArrowRight, Zap, Target, Users, Crown, Rocket, Brain, Star } from 'lucide-react';
 import { EnhancedChatVoiceModal } from './conversation/EnhancedChatVoiceModal';
+import { ContextualCard, CardHeader, CardTitle, CardContent, CardFooter } from './ui/card';
+import { ContextualButton } from './ui/button';
 
 const SpeechBubbleTiles: React.FC = () => {
   const navigate = useNavigate();
@@ -84,35 +86,7 @@ const SpeechBubbleTiles: React.FC = () => {
     }
   };
 
-  const getColorClasses = (color: string) => {
-    const colors = {
-      blue: {
-        bg: "bg-blue-100",
-        border: "border-blue-300",
-        text: "text-blue-700",
-        icon: "text-blue-600",
-        hover: "hover:bg-blue-200",
-        gradient: "from-blue-600 to-blue-700"
-      },
-      purple: {
-        bg: "bg-purple-100",
-        border: "border-purple-300",
-        text: "text-purple-700",
-        icon: "text-purple-600",
-        hover: "hover:bg-purple-200",
-        gradient: "from-purple-600 to-purple-700"
-      },
-      indigo: {
-        bg: "bg-indigo-100",
-        border: "border-indigo-300",
-        text: "text-indigo-700",
-        icon: "text-indigo-600",
-        hover: "hover:bg-indigo-200",
-        gradient: "from-indigo-600 to-indigo-700"
-      }
-    };
-    return colors[color as keyof typeof colors] || colors.blue;
-  };
+
 
   const handleCardClick = (
     context: { title: string; description?: string; contextId?: string }
@@ -128,7 +102,7 @@ const SpeechBubbleTiles: React.FC = () => {
 
   return (
     <>
-      <section className="py-20 bg-gradient-to-br from-primary-black via-primary-gray to-primary-black relative overflow-hidden text-primary-white">
+      <section className="py-20 bg-gradient-to-br from-primary-peach/30 via-primary-mint/30 to-primary-lavender/30 relative overflow-hidden text-primary-black">
         {/* Background Elements */}
         <div className="absolute inset-0">
           <motion.div
@@ -137,7 +111,7 @@ const SpeechBubbleTiles: React.FC = () => {
               rotate: [0, 180, 360]
             }}
             transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-            className="absolute top-10 right-10 w-64 h-64 bg-blue-200/20 rounded-full blur-3xl"
+            className="absolute top-10 right-10 w-64 h-64 bg-blue-200/30 rounded-full blur-3xl"
           />
           <motion.div
             animate={{
@@ -145,7 +119,7 @@ const SpeechBubbleTiles: React.FC = () => {
               rotate: [360, 180, 0]
             }}
             transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-            className="absolute bottom-10 left-10 w-96 h-96 bg-purple-200/20 rounded-full blur-3xl"
+            className="absolute bottom-10 left-10 w-96 h-96 bg-purple-200/30 rounded-full blur-3xl"
           />
         </div>
 
@@ -163,7 +137,7 @@ const SpeechBubbleTiles: React.FC = () => {
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.2 }}
-               className="font-bold text-4xl sm:text-5xl lg:text-6xl text-primary-white mb-6"
+               className="font-bold text-4xl sm:text-5xl lg:text-6xl text-primary-black mb-6"
             >
               Flip the
               <span className="block text-transparent bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text">
@@ -175,7 +149,7 @@ const SpeechBubbleTiles: React.FC = () => {
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.4 }}
-               className="text-xl text-primary-white/80 max-w-3xl mx-auto leading-relaxed"
+               className="text-xl text-primary-black/80 max-w-3xl mx-auto leading-relaxed"
             >
               Let AI get to know your goals and guide you to the right path. 
               <strong className="text-blue-600"> No judgment. Just smart alternatives.</strong>
@@ -192,7 +166,6 @@ const SpeechBubbleTiles: React.FC = () => {
           >
             {stories.map((story, index) => {
               const IconComponent = story.icon;
-              const colors = getColorClasses(story.color);
               
               return (
                 <motion.div
@@ -203,11 +176,6 @@ const SpeechBubbleTiles: React.FC = () => {
                     y: -5
                   }}
                   whileTap={{ scale: 0.98 }}
-                  className={`
-                    relative cursor-pointer group overflow-hidden rounded-2xl 
-                    ${colors.bg} ${colors.border} border transition-all duration-500
-                    shadow-lg hover:shadow-xl ${colors.hover}
-                  `}
                   onClick={() =>
                     handleCardClick({
                       title: `${story.title} ${story.subtitle}`.trim(),
@@ -215,18 +183,21 @@ const SpeechBubbleTiles: React.FC = () => {
                       contextId: story.context,
                     })
                   }
+                  className="cursor-pointer"
                 >
-                  {/* Content */}
-                   <div className="relative z-10 p-8 lg:p-10 h-full flex flex-col justify-between min-h-[320px] text-slate-900">
-                    {/* Header */}
-                    <div className="space-y-6">
+                  <ContextualCard 
+                    purpose="interactive" 
+                    mood="neutral" 
+                    className="h-full min-h-[320px] transition-all duration-500 hover:shadow-xl flex flex-col"
+                  >
+                    <CardHeader>
                       <div className="flex items-start justify-between">
                         <motion.div
                           whileHover={{ rotate: 12, scale: 1.1 }}
                           transition={{ duration: 0.3 }}
-                          className="w-16 h-16 bg-white/80 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-sm"
+                          className="w-16 h-16 bg-primary-white/80 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-sm"
                         >
-                          <IconComponent className={`h-8 w-8 ${colors.icon}`} />
+                          <IconComponent className="h-8 w-8 text-primary-green" />
                         </motion.div>
                         
                         <motion.div
@@ -234,78 +205,51 @@ const SpeechBubbleTiles: React.FC = () => {
                           transition={{ duration: 0.3 }}
                           className="opacity-60 group-hover:opacity-100 transition-opacity duration-300"
                         >
-                          <ArrowRight className="h-6 w-6 text-gray-400" />
+                          <ArrowRight className="h-6 w-6 text-primary-black/40" />
                         </motion.div>
                       </div>
 
-                      <div>
-                         <motion.h3
-                          whileHover={{ x: [0, -1, 1, 0] }}
-                          transition={{ duration: 0.3 }}
-                           className="font-bold text-2xl lg:text-3xl text-slate-900 leading-tight mb-2"
-                        >
-                          {story.title}
-                        </motion.h3>
-                        <h4 className={`font-semibold text-lg ${colors.text} uppercase tracking-wide`}>
-                          {story.subtitle}
-                        </h4>
+                      
+                      <CardTitle className="text-2xl lg:text-3xl text-primary-black leading-tight mb-2">
+                        {story.title}
+                      </CardTitle>
+                      <div className="font-semibold text-lg text-primary-green uppercase tracking-wide">
+                        {story.subtitle}
                       </div>
-                    </div>
+                    </CardHeader>
 
-                    {/* Message */}
-                    <div className="space-y-4">
-                       <p className="text-slate-700 text-lg font-medium leading-relaxed">
+                    <CardContent className="flex-1">
+                      <p className="text-primary-black/80 text-lg font-medium leading-relaxed mb-4">
                         {story.message}
                       </p>
                       
-                      <div className="flex items-center space-x-2 text-gray-500">
+                      <div className="flex items-center space-x-2 text-primary-black/60">
                         <Star className="h-4 w-4" />
                         <span className="text-sm font-medium">{story.description}</span>
                       </div>
-                    </div>
+                    </CardContent>
 
-                    {/* Interactive Elements */}
-                    <motion.div
-                      initial={{ opacity: 0, y: 20 }}
-                      whileInView={{ opacity: 1, y: 0 }}
-                      transition={{ delay: 0.3 }}
-                      className="flex items-center justify-between pt-4 border-t border-gray-200"
-                    >
-                      <button
-                        type="button"
-                        aria-label={`Ask AI about ${story.title}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleCardClick({
-                            title: `${story.title} ${story.subtitle}`.trim(),
-                            description: story.message,
-                            contextId: story.context,
-                          });
-                        }}
-                        className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 focus:outline-none"
-                      >
-                        <Users className="h-4 w-4 text-gray-600" />
-                        <span className="text-sm text-gray-700">Ask AI about this</span>
-                      </button>
-                      
-                      <motion.div
-                        whileHover={{ scale: 1.1 }}
-                        className={`w-8 h-8 bg-gradient-to-r ${colors.gradient} rounded-full flex items-center justify-center group-hover:shadow-lg transition-all duration-300`}
-                      >
-                        <ArrowRight className="h-4 w-4 text-white" />
-                      </motion.div>
-                    </motion.div>
-                  </div>
-
-                  {/* Subtle hover effect */}
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    whileHover={{ 
-                      opacity: [0, 0.05, 0],
-                    }}
-                    transition={{ duration: 0.3 }}
-                    className={`absolute inset-0 bg-gradient-to-r ${colors.gradient} mix-blend-multiply rounded-2xl`}
-                  />
+                    <CardFooter className="pt-4 border-t border-primary-black/10">
+                      <div className="flex items-center justify-center w-full">
+                        <ContextualButton
+                          intent="chat-cta"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCardClick({
+                              title: `${story.title} ${story.subtitle}`.trim(),
+                              description: story.message,
+                              contextId: story.context,
+                            });
+                          }}
+                          className="text-sm w-full"
+                        >
+                          <Users className="h-4 w-4 mr-2" />
+                          Ask AI about this
+                        </ContextualButton>
+                      </div>
+                    </CardFooter>
+                  </ContextualCard>
                 </motion.div>
               );
             })}
@@ -345,7 +289,7 @@ const SpeechBubbleTiles: React.FC = () => {
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
               transition={{ delay: 0.5 }}
-              className="text-gray-500 text-sm mt-6 font-medium"
+              className="text-primary-black/60 text-sm mt-6 font-medium"
             >
               Let AI understand your goals and guide you to the right path
             </motion.p>

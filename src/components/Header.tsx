@@ -3,6 +3,8 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, MessageCircle, User, Shield, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { User as UserType } from '../models/User';
+import { ContextualButton } from './ui/button';
+import { DesignProvider } from '../context/DesignContext';
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -19,7 +21,7 @@ const Header: React.FC = () => {
 
   // Determine logo color based on page and device
   const getLogoColor = () => {
-    return isHomePage ? 'text-primary-white' : 'text-primary-white';
+    return 'text-primary-black';
   };
 
   const handleLogout = async () => {
@@ -62,9 +64,10 @@ const Header: React.FC = () => {
   }, []);
 
   return (
-    <header className="masthead fixed top-0 left-0 right-0 bg-primary-black/90 backdrop-blur-sm border-b border-electric-blue/20 z-40" id="masthead">
-      <div className="container">
-        <div className="flex justify-between items-center py-4 lg:py-6">
+    <DesignProvider mode={{ aesthetic: 'hybrid', energy: 'medium', interaction: 'energetic' }}>
+      <header className="masthead fixed top-0 left-0 right-0 bg-gradient-to-r from-primary-white/95 to-primary-mint/30 backdrop-blur-sm border-b border-primary-green/30 z-40" id="masthead">
+        <div className="container">
+          <div className="flex justify-between items-center py-4 lg:py-6">
           
           {/* Off Script Logo */}
           <Link to="/" className="flex items-center group">
@@ -90,7 +93,7 @@ const Header: React.FC = () => {
                     OFF
                   </text>
                   <text 
-                    x="52" 
+                    x="37" 
                     y="28" 
                     fontFamily="Barlow Semi Condensed, sans-serif" 
                     fontSize="24" 
@@ -119,18 +122,14 @@ const Header: React.FC = () => {
           <nav className="hidden lg:flex space-x-8">
             <Link 
               to="/chat"
-              className={`transition-colors duration-brand font-medium hover:text-electric-blue ${
-                isHomePage ? 'text-primary-white' : 'text-primary-white hover:text-electric-blue'
-              }`}
+              className="transition-colors duration-brand font-medium text-primary-black hover:text-primary-green"
             >
               Chat
             </Link>
             {currentUser && (
               <Link 
                 to="/dashboard"
-                className={`transition-colors duration-brand font-medium hover:text-electric-blue ${
-                  isHomePage ? 'text-primary-white' : 'text-primary-white hover:text-electric-blue'
-                }`}
+                className="transition-colors duration-brand font-medium text-primary-black hover:text-primary-green"
               >
                 Dashboard
               </Link>
@@ -138,7 +137,7 @@ const Header: React.FC = () => {
             {isAdmin && (
               <Link 
                 to="/admin"
-                className="text-neon-pink hover:text-cyber-yellow transition-colors duration-brand flex items-center font-medium"
+                className="text-primary-peach hover:text-primary-yellow transition-colors duration-brand flex items-center font-medium"
               >
                 <Shield className="h-4 w-4 mr-1" />
                 Admin
@@ -153,9 +152,7 @@ const Header: React.FC = () => {
                 <button 
                   ref={profileButtonRef}
                   onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                  className={`p-2 transition-colors duration-brand flex items-center rounded-full hover:bg-primary-white/10 ${
-                    isHomePage ? 'text-primary-white hover:text-electric-blue' : 'text-primary-white hover:text-electric-blue'
-                  }`}
+                  className="p-2 transition-colors duration-brand flex items-center rounded-full hover:bg-primary-green/10 text-primary-black hover:text-primary-green"
                 >
                   {currentUser.photoURL ? (
                     <img 
@@ -174,14 +171,14 @@ const Header: React.FC = () => {
                   >
                     <Link 
                       to="/profile" 
-                      className="block px-4 py-3 text-sm text-primary-black hover:bg-primary-blue/10 hover:text-primary-blue transition-colors duration-brand"
+                      className="block px-4 py-3 text-sm text-primary-black hover:bg-primary-green/10 hover:text-primary-green transition-colors duration-brand"
                       onClick={() => setIsProfileMenuOpen(false)}
                     >
                       Profile
                     </Link>
                     <button 
                       onClick={handleLogout}
-                      className="block w-full text-left px-4 py-3 text-sm text-red-600 hover:bg-red-50 transition-colors duration-brand"
+                      className="block w-full text-left px-4 py-3 text-sm text-primary-peach hover:bg-primary-peach/10 transition-colors duration-brand"
                     >
                       Logout
                     </button>
@@ -189,24 +186,19 @@ const Header: React.FC = () => {
                 )}
               </div>
             ) : (
-              <Link 
-                to="/login" 
-                className={`flex items-center px-6 py-2 rounded-button transition-all duration-brand font-medium ${
-                  isHomePage 
-                    ? 'bg-primary-white text-primary-black hover:bg-primary-peach' 
-                    : 'bg-primary-black text-primary-white hover:bg-primary-peach hover:text-primary-black'
-                }`}
+              <ContextualButton
+                intent="secondary"
+                onClick={() => navigate('/login')}
+                className="flex items-center px-6 py-2"
               >
                 <User className="h-4 w-4 mr-2" />
                 <span>Login</span>
-              </Link>
+              </ContextualButton>
             )}
             
             {/* Mobile Menu Toggle - visible until lg */}
             <button
-              className={`lg:hidden p-2 transition-colors duration-brand rounded-md ${
-                isHomePage ? 'text-primary-white hover:text-primary-peach' : 'text-primary-black hover:text-primary-blue'
-              }`}
+              className="lg:hidden p-2 transition-colors duration-brand rounded-md text-primary-black hover:text-primary-green"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
               {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -217,12 +209,12 @@ const Header: React.FC = () => {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="lg:hidden bg-primary-black/95 backdrop-blur-sm border-t border-electric-blue/30">
+        <div className="lg:hidden bg-primary-black/95 backdrop-blur-sm border-t border-primary-green/30">
           <div className="container">
             <div className="py-4 space-y-2">
               <Link 
                 to="/chat"
-                className="block w-full text-left px-4 py-3 text-primary-white hover:bg-electric-blue/10 hover:text-electric-blue rounded-xl transition-all duration-brand font-medium"
+                className="block w-full text-left px-4 py-3 text-primary-black hover:bg-primary-green/10 hover:text-primary-green rounded-xl transition-all duration-brand font-medium"
                 onClick={() => setIsMenuOpen(false)}
               >
                 Chat
@@ -230,7 +222,7 @@ const Header: React.FC = () => {
               {currentUser && (
                 <Link 
                   to="/dashboard"
-                  className="block w-full text-left px-4 py-3 text-primary-white hover:bg-electric-blue/10 hover:text-electric-blue rounded-xl transition-all duration-brand font-medium"
+                  className="block w-full text-left px-4 py-3 text-primary-black hover:bg-primary-green/10 hover:text-primary-green rounded-xl transition-all duration-brand font-medium"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   Dashboard
@@ -239,7 +231,7 @@ const Header: React.FC = () => {
               {isAdmin && (
                 <Link 
                   to="/admin"
-                  className="block w-full text-left px-4 py-3 text-neon-pink hover:bg-neon-pink/10 hover:text-cyber-yellow rounded-xl flex items-center transition-all duration-brand font-medium"
+                  className="block w-full text-left px-4 py-3 text-primary-peach hover:bg-primary-peach/10 hover:text-primary-yellow rounded-xl flex items-center transition-all duration-brand font-medium"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   <Shield className="h-4 w-4 mr-2" />
@@ -250,7 +242,7 @@ const Header: React.FC = () => {
                 <>
                   <Link 
                     to="/profile"
-                    className="block w-full text-left px-4 py-3 text-primary-black hover:bg-primary-blue/10 hover:text-primary-blue rounded-xl transition-all duration-brand font-medium"
+                    className="block w-full text-left px-4 py-3 text-primary-black hover:bg-primary-green/10 hover:text-primary-green rounded-xl transition-all duration-brand font-medium"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Profile
@@ -260,7 +252,7 @@ const Header: React.FC = () => {
                       handleLogout();
                       setIsMenuOpen(false);
                     }}
-                    className="block w-full text-left px-4 py-3 bg-red-500 text-primary-white hover:bg-red-600 rounded-xl flex items-center transition-all duration-brand font-medium"
+                    className="block w-full text-left px-4 py-3 bg-primary-peach text-primary-black hover:bg-primary-peach/80 rounded-xl flex items-center transition-all duration-brand font-medium"
                   >
                     <LogOut className="h-4 w-4 mr-2" />
                     Logout
@@ -270,7 +262,7 @@ const Header: React.FC = () => {
               {!currentUser && (
                 <Link 
                   to="/login"
-                  className="block w-full text-left px-4 py-3 bg-primary-black text-primary-white hover:bg-primary-peach hover:text-primary-black rounded-xl flex items-center transition-all duration-brand font-medium"
+                  className="block w-full text-left px-4 py-3 bg-primary-green text-primary-black hover:bg-primary-yellow hover:text-primary-black rounded-xl flex items-center transition-all duration-brand font-medium"
                   onClick={() => setIsMenuOpen(false)}
                 >
                   <User className="h-4 w-4 mr-2" />
@@ -282,6 +274,7 @@ const Header: React.FC = () => {
         </div>
       )}
     </header>
+    </DesignProvider>
   );
 };
 
