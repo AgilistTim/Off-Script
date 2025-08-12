@@ -104,6 +104,15 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     }
   }, [currentUser]);
 
+  // Debug logging for CTA state
+  React.useEffect(() => {
+    console.log('🔍 CTA Render Check:', { 
+      showPostConversationCTA, 
+      currentUser: currentUser ? 'logged in' : 'guest', 
+      shouldShow: showPostConversationCTA && !currentUser 
+    });
+  }, [showPostConversationCTA, currentUser]);
+
   // Animation variants
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -314,7 +323,6 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
       </div>
 
       {/* Post-Conversation CTA */}
-      {console.log('🔍 CTA Render Check:', { showPostConversationCTA, currentUser: currentUser ? 'logged in' : 'guest', shouldShow: showPostConversationCTA && !currentUser })}
       <AnimatePresence>
         {showPostConversationCTA && !currentUser && (
           <motion.div
