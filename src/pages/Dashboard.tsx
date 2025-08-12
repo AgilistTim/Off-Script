@@ -35,8 +35,8 @@ import VideoCard from '../components/video/VideoCard';
 import CareerGuidancePanel from '../components/career-guidance/CareerGuidancePanel';
 import CareerExplorationOverview from '../components/career-guidance/CareerExplorationOverview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Button } from '../components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { ContextualButton } from '../components/ui/button';
+import { ContextualCard, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { firestore } from '../services/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
@@ -812,7 +812,7 @@ const Dashboard: React.FC = () => {
 
   return (
     <>
-    <div className="min-h-screen bg-gradient-to-br from-primary-black via-primary-black to-electric-blue/10 pt-24 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-calm pt-24 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <AnimatePresence>
         {notification && (
@@ -1337,10 +1337,10 @@ const Dashboard: React.FC = () => {
         transition={{ duration: 0.6 }}
         className="text-center mb-12"
       >
-        <h1 className="text-6xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow mb-4 animate-glow-pulse">
+        <h1 className="text-6xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-primary-green via-primary-peach to-primary-yellow mb-4 animate-glow-pulse">
           DASHBOARD
         </h1>
-        <p className="text-xl text-primary-white/80 font-medium">
+        <p className="text-xl text-primary-black/80 font-medium">
           Welcome back, {currentUser.displayName || currentUser.email?.split('@')[0] || 'User'}!
         </p>
       </motion.div>
@@ -1364,21 +1364,23 @@ const Dashboard: React.FC = () => {
               </p>
             </div>
             <div className="flex flex-col xs:flex-row gap-3 sm:flex-row sm:space-x-4 w-full sm:w-auto">
-              <button 
+              <ContextualButton 
                 onClick={refreshDashboard}
-                className="w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-cyber-yellow to-acid-green rounded-xl text-primary-black font-bold hover:scale-105 transition-transform duration-200"
+                intent="secondary"
+                className="w-full sm:w-auto whitespace-nowrap"
                 disabled={loading}
               >
-                <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
-                <span>REFRESH</span>
-              </button>
-              <Link 
-                to="/profile"
-                className="w-full sm:w-auto flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-electric-blue to-neon-pink rounded-xl text-primary-white font-bold hover:scale-105 transition-transform duration-200"
+                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
+                REFRESH
+              </ContextualButton>
+              <ContextualButton 
+                onClick={() => window.location.href = '/profile'}
+                intent="cta"
+                className="w-full sm:w-auto whitespace-nowrap"
               >
-                <Crown className="h-5 w-5" />
-                <span>VIEW PROFILE</span>
-              </Link>
+                <Crown className="h-5 w-5 mr-2" />
+                VIEW PROFILE
+              </ContextualButton>
             </div>
           </div>
         </div>
@@ -1411,7 +1413,7 @@ const Dashboard: React.FC = () => {
                 )}
               </p>
             </div>
-            <Button
+            <ContextualButton
               onClick={async () => {
                 console.log('🔄 Manual refresh triggered');
                 if (currentUser) {
@@ -1424,13 +1426,12 @@ const Dashboard: React.FC = () => {
                   });
                 }
               }}
-              variant="outline"
-              size="sm"
-              className="w-full sm:w-auto bg-primary-black/60 border-electric-blue/50 text-electric-blue hover:bg-electric-blue/20 whitespace-nowrap"
+              intent="secondary"
+              className="w-full sm:w-auto whitespace-nowrap"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh Data
-            </Button>
+            </ContextualButton>
           </div>
           
           {/* 🎯 UNIFIED CAREER CARDS: All careers treated equally */}
@@ -1502,25 +1503,26 @@ const Dashboard: React.FC = () => {
         transition={{ delay: 0.5, duration: 0.6 }}
         className="text-center"
       >
-        <div className="relative overflow-hidden rounded-2xl p-12 shadow-2xl border border-electric-blue/20 bg-gradient-to-br from-cyber-yellow/20 to-acid-green/20">
-          <div className="absolute inset-0 bg-gradient-to-br from-primary-black/90 to-primary-black/70 backdrop-blur-sm" />
+        <div className="relative overflow-hidden rounded-2xl p-12 shadow-2xl border border-primary-green/20 bg-gradient-to-br from-primary-yellow/60 to-primary-green/60">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary-white/60 to-primary-white/50 backdrop-blur-sm" />
           <div className="relative space-y-6">
-            <div className="w-16 h-16 bg-gradient-to-br from-electric-blue to-neon-pink rounded-full flex items-center justify-center mx-auto shadow-glow-blue">
-              <Sparkles className="h-8 w-8 text-primary-white" />
+            <div className="w-16 h-16 bg-gradient-to-br from-primary-green to-primary-peach rounded-full flex items-center justify-center mx-auto shadow-glow-fresh">
+              <Sparkles className="h-8 w-8 text-primary-black" />
             </div>
-            <h3 className="text-3xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-electric-blue to-neon-pink">
+            <h3 className="text-3xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-primary-green to-primary-peach">
               READY TO EXPLORE MORE?
             </h3>
-            <p className="text-xl text-primary-white/80 max-w-2xl mx-auto">
+            <p className="text-xl text-primary-black/80 max-w-2xl mx-auto">
               Continue your career conversation to discover more opportunities and get personalized guidance
             </p>
-            <Link 
-              to="/chat"
-              className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow rounded-xl text-primary-black font-black text-lg hover:scale-105 transition-transform duration-200 shadow-glow-blue"
+            <ContextualButton 
+              onClick={() => window.location.href = '/chat'}
+              intent="chat-cta"
+              className="inline-flex items-center space-x-3 px-8 py-4 text-lg"
             >
               <MessageSquare className="w-6 h-6" />
               <span>CONTINUE CONVERSATION</span>
-            </Link>
+            </ContextualButton>
           </div>
         </div>
       </motion.div>

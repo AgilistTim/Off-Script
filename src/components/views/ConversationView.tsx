@@ -5,8 +5,9 @@ import { EnhancedChatVoiceModal } from '../conversation/EnhancedChatVoiceModal';
 import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
 import { Mic, Sparkles, Target, Users, UserPlus, LogIn, Crown, Zap, Brain, CheckCircle } from 'lucide-react';
-import { Button } from '../ui/button';
-import { Card } from '../ui/card';
+import { ContextualButton } from '../ui/button';
+import { ContextualCard } from '../ui/card';
+import { DesignProvider } from '../../context/DesignContext';
 import { CareerCard } from '../../types/careerCard';
 
 interface ConversationViewProps {
@@ -138,42 +139,43 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   };
 
   return (
-    <motion.div 
-      className={cn("min-h-screen bg-gradient-to-br from-primary-black via-deep-purple to-primary-black relative overflow-hidden", className)}
-      variants={containerVariants}
-      initial="hidden"
-      animate="visible"
-    >
-      {/* Animated Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-electric-blue/20 to-neon-pink/20 rounded-full blur-3xl"
-          animate={{
-            x: [0, 100, 0],
-            y: [0, -50, 0],
-            scale: [1, 1.2, 1]
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "easeInOut"
-          }}
-        />
-        <motion.div
-          className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-r from-cyber-yellow/20 to-acid-green/20 rounded-full blur-3xl"
-          animate={{
-            x: [0, -80, 0],
-            y: [0, 60, 0],
-            scale: [1.2, 1, 1.2]
-          }}
-          transition={{
-            duration: 15,
-            repeat: Infinity,
-            ease: "easeInOut",
-            delay: 2
-          }}
-        />
-      </div>
+    <DesignProvider mode={{ aesthetic: 'hybrid', energy: 'medium', interaction: 'energetic' }}>
+      <motion.div 
+        className={cn("min-h-screen bg-gradient-organic relative overflow-hidden", className)}
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        {/* Animated Background Elements */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <motion.div
+            className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-primary-mint/20 to-primary-lavender/20 rounded-full blur-3xl"
+            animate={{
+              x: [0, 100, 0],
+              y: [0, -50, 0],
+              scale: [1, 1.2, 1]
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "easeInOut"
+            }}
+          />
+          <motion.div
+            className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-r from-primary-yellow/20 to-primary-green/20 rounded-full blur-3xl"
+            animate={{
+              x: [0, -80, 0],
+              y: [0, 60, 0],
+              scale: [1.2, 1, 1.2]
+            }}
+            transition={{
+              duration: 15,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 2
+            }}
+          />
+        </div>
 
       {/* Main Content */}
       <div className="relative z-10 min-h-screen flex flex-col">
@@ -185,7 +187,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
           <div className="max-w-4xl mx-auto text-center">
             {/* Main Title */}
             <motion.h1 
-              className="text-6xl lg:text-8xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow mb-6"
+              className="text-6xl lg:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary-green via-primary-yellow to-primary-peach mb-6"
               animate={{
                 backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"]
               }}
@@ -199,12 +201,12 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
               VOICE CAREER
             </motion.h1>
             <motion.div
-              className="text-4xl lg:text-6xl font-street font-black text-primary-white mb-8"
+              className="text-4xl lg:text-6xl font-black text-primary-black mb-8"
               animate={{
                 textShadow: [
-                  "0 0 10px rgba(0, 255, 255, 0.5)",
-                  "0 0 20px rgba(255, 0, 110, 0.5)", 
-                  "0 0 10px rgba(0, 255, 255, 0.5)"
+                  "0 0 10px rgba(129, 240, 140, 0.5)",
+                  "0 0 20px rgba(207, 206, 255, 0.5)", 
+                  "0 0 10px rgba(129, 240, 140, 0.5)"
                 ]
               }}
               transition={{
@@ -218,7 +220,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
             
             {/* Subtitle */}
             <motion.p 
-              className="text-xl lg:text-2xl text-electric-blue font-semibold tracking-wide mb-12"
+              className="text-xl lg:text-2xl text-primary-green font-semibold tracking-wide mb-12"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.5 }}
@@ -233,31 +235,20 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.7 }}
             >
-              <motion.button
+              <ContextualButton
+                intent="cta"
                 onClick={() => {
                   console.log('🚀 ConversationView: Opening enhanced modal');
                   setShowEnhancedModal(true);
                 }}
-                className="px-12 py-6 bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white font-bold text-xl rounded-2xl hover:scale-105 transition-transform duration-200 shadow-2xl"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                animate={{
-                  boxShadow: [
-                    "0 0 30px rgba(0, 255, 255, 0.3)",
-                    "0 0 50px rgba(255, 0, 110, 0.3)",
-                    "0 0 30px rgba(0, 255, 255, 0.3)"
-                  ]
-                }}
-                transition={{
-                  boxShadow: { duration: 3, repeat: Infinity, ease: "easeInOut" }
-                }}
+                className="px-12 py-6 text-xl"
               >
                 <div className="flex items-center justify-center space-x-4">
                   <Mic className="w-8 h-8" />
                   <span>START CONVERSATION</span>
                 </div>
                 <p className="text-sm mt-2 opacity-90">Voice-first career guidance with AI insights</p>
-              </motion.button>
+              </ContextualButton>
             </motion.div>
 
             {/* Feature Highlights */}
@@ -265,35 +256,23 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
               className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto"
               variants={containerVariants}
             >
-              <motion.div
-                className="bg-gradient-to-br from-primary-white/10 to-primary-white/5 backdrop-blur-xl border border-electric-blue/30 rounded-2xl p-6 text-center"
-                variants={itemVariants}
-                whileHover={{ scale: 1.05, y: -5 }}
-              >
-                <Brain className="w-12 h-12 text-electric-blue mx-auto mb-4" />
-                <h3 className="text-lg font-bold text-primary-white mb-2">AI-Powered Analysis</h3>
-                <p className="text-sm text-primary-white/70">Real-time career insights as you speak</p>
-              </motion.div>
+              <ContextualCard purpose="highlight" mood="neutral" className="text-center">
+                <Brain className="w-12 h-12 text-primary-green mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-primary-black mb-2">AI-Powered Analysis</h3>
+                <p className="text-sm text-primary-black/70">Real-time career insights as you speak</p>
+              </ContextualCard>
 
-              <motion.div
-                className="bg-gradient-to-br from-primary-white/10 to-primary-white/5 backdrop-blur-xl border border-neon-pink/30 rounded-2xl p-6 text-center"
-                variants={itemVariants}
-                whileHover={{ scale: 1.05, y: -5 }}
-              >
-                <Target className="w-12 h-12 text-neon-pink mx-auto mb-4" />
-                <h3 className="text-lg font-bold text-primary-white mb-2">Personalized Matching</h3>
-                <p className="text-sm text-primary-white/70">Career cards tailored to your interests</p>
-              </motion.div>
+              <ContextualCard purpose="highlight" mood="neutral" className="text-center">
+                <Target className="w-12 h-12 text-primary-peach mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-primary-black mb-2">Personalized Matching</h3>
+                <p className="text-sm text-primary-black/70">Career cards tailored to your interests</p>
+              </ContextualCard>
 
-              <motion.div
-                className="bg-gradient-to-br from-primary-white/10 to-primary-white/5 backdrop-blur-xl border border-cyber-yellow/30 rounded-2xl p-6 text-center"
-                variants={itemVariants}
-                whileHover={{ scale: 1.05, y: -5 }}
-              >
-                <Sparkles className="w-12 h-12 text-cyber-yellow mx-auto mb-4" />
-                <h3 className="text-lg font-bold text-primary-white mb-2">Instant Discovery</h3>
-                <p className="text-sm text-primary-white/70">Find hidden career opportunities</p>
-              </motion.div>
+              <ContextualCard purpose="highlight" mood="neutral" className="text-center">
+                <Sparkles className="w-12 h-12 text-primary-yellow mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-primary-black mb-2">Instant Discovery</h3>
+                <p className="text-sm text-primary-black/70">Find hidden career opportunities</p>
+              </ContextualCard>
             </motion.div>
           </div>
         </motion.div>
@@ -305,18 +284,18 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         >
           <div className="flex items-center space-x-2">
             <motion.div
-              className="w-3 h-3 bg-acid-green rounded-full"
+              className="w-3 h-3 bg-primary-green rounded-full"
               animate={{ scale: [1, 1.3, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
             />
-            <span className="text-acid-green font-semibold">AI READY</span>
+            <span className="text-primary-green font-semibold">AI READY</span>
           </div>
-          <div className="text-primary-white/50">•</div>
-          <div className="text-electric-blue font-semibold">
+          <div className="text-primary-black/50">•</div>
+          <div className="text-primary-lavender font-semibold">
             {discoveredCareerCards.length} INSIGHTS GENERATED
           </div>
-          <div className="text-primary-white/50">•</div>
-          <div className="text-cyber-yellow font-semibold">
+          <div className="text-primary-black/50">•</div>
+          <div className="text-primary-yellow font-semibold">
             {currentUser ? 'AUTHENTICATED' : 'GUEST MODE'}
           </div>
         </motion.div>
@@ -332,54 +311,55 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
             exit={{ opacity: 0 }}
           >
             <motion.div
-              className="bg-gradient-to-br from-primary-white/10 to-primary-white/5 backdrop-blur-xl border border-electric-blue/30 rounded-3xl p-8 max-w-md w-full text-center"
+              className="bg-gradient-to-br from-primary-white/10 to-primary-white/5 backdrop-blur-xl border border-primary-green/30 rounded-3xl p-8 max-w-md w-full text-center"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
             >
               <motion.div
-                className="w-16 h-16 bg-gradient-to-r from-acid-green to-cyber-yellow rounded-2xl flex items-center justify-center mx-auto mb-6"
+                className="w-16 h-16 bg-gradient-to-r from-primary-green to-primary-yellow rounded-2xl flex items-center justify-center mx-auto mb-6"
                 animate={{ rotate: [0, 360] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
               >
                 <CheckCircle className="w-8 h-8 text-primary-black" />
               </motion.div>
               
-              <h3 className="text-2xl font-bold text-primary-white mb-4">
+              <h3 className="text-2xl font-bold text-primary-black mb-4">
                 Great Conversation!
               </h3>
-              <p className="text-primary-white/70 mb-2">
-                You discovered <span className="text-electric-blue font-bold">{discoveredCareerCards.length} career insights</span>
+              <p className="text-primary-black/70 mb-2">
+                You discovered <span className="text-primary-green font-bold">{discoveredCareerCards.length} career insights</span>
               </p>
-              <p className="text-primary-white/70 mb-8">
+              <p className="text-primary-black/70 mb-8">
                 Sign up to save your progress and continue exploring
               </p>
               
               <div className="space-y-3">
-                <Button
+                <ContextualButton
+                  intent="cta"
                   onClick={handleSignUp}
-                  className="w-full bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white font-bold py-3 rounded-xl hover:scale-105 transition-transform duration-200"
+                  className="w-full py-3"
                 >
                   <UserPlus className="w-5 h-5 mr-2" />
                   Sign Up Free
-                </Button>
+                </ContextualButton>
                 
-                <Button
+                <ContextualButton
+                  intent="secondary"
                   onClick={handleLogin}
-                  variant="outline"
-                  className="w-full border-electric-blue/30 text-electric-blue hover:bg-electric-blue/10 py-3 rounded-xl"
+                  className="w-full py-3"
                 >
                   <LogIn className="w-5 h-5 mr-2" />
                   Login
-                </Button>
+                </ContextualButton>
                 
-                <Button
+                <ContextualButton
+                  intent="secondary"
                   onClick={handleDismissPostCTA}
-                  variant="ghost"
-                  className="w-full text-primary-white/50 hover:text-primary-white py-2"
+                  className="w-full py-2 opacity-50"
                 >
                   Maybe Later
-                </Button>
+                </ContextualButton>
               </div>
             </motion.div>
           </motion.div>
@@ -400,5 +380,6 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         }}
       />
     </motion.div>
+    </DesignProvider>
   );
 }; 

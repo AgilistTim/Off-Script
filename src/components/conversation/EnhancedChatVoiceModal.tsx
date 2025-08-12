@@ -1006,8 +1006,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   // Get match badge styling
   const getMatchBadge = (score: number) => {
     if (score >= 90) return { color: 'bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black', icon: Crown };
-    if (score >= 75) return { color: 'bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white', icon: Sparkles };
-    return { color: 'bg-gradient-to-r from-primary-gray to-electric-blue/50 text-primary-white', icon: Briefcase };
+    if (score >= 75) return { color: 'bg-gradient-to-r from-primary-lavender to-primary-peach text-primary-black', icon: Sparkles };
+    return { color: 'bg-gradient-to-r from-primary-white to-primary-mint/50 text-primary-black', icon: Briefcase };
   };
 
   if (!isOpen) return null;
@@ -1018,13 +1018,13 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       if (!apiKey || !agentId) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-[95vw] max-w-5xl h-[80dvh] bg-gradient-to-br from-primary-black via-primary-gray to-primary-black p-6 border-electric-blue/30 shadow-[0_0_50px_rgba(0,255,255,0.3)]">
+        <DialogContent className="w-[95vw] max-w-5xl h-[80dvh] bg-gradient-to-br from-primary-white via-primary-mint/10 to-primary-white p-6 border-primary-green/30 shadow-[0_0_50px_rgba(129,240,140,0.3)]">
           <DialogHeader>
             <DialogTitle className="sr-only">Configuration Error</DialogTitle>
           </DialogHeader>
           <div className="flex items-center justify-center h-full">
             <div className="flex flex-col items-center space-y-4 text-center">
-              <AlertTriangle className="h-8 w-8 text-neon-pink" />
+              <AlertTriangle className="h-8 w-8 text-primary-peach" />
               <h3 className="text-lg font-bold text-neon-pink">Configuration Missing</h3>
               <p className="text-primary-white">ElevenLabs configuration is not available. Please check your environment setup.</p>
               <Button onClick={onClose} variant="outline" className="border-electric-blue text-electric-blue hover:bg-electric-blue/10 min-h-[44px]">
@@ -1042,7 +1042,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
-        className="md:max-w-7xl md:w-[95vw] md:h-[85vh] w-screen max-w-none h-[100dvh] p-0 bg-gradient-to-br from-primary-dark via-secondary-dark to-primary-dark border border-electric-blue/30 [&>button]:hidden z-[120] grid grid-rows-[auto_1fr_auto]"
+        className="md:max-w-7xl md:w-[95vw] md:h-[85vh] w-screen max-w-none h-[100dvh] p-0 bg-gradient-to-br from-primary-white to-primary-mint/20 border border-primary-green/30 [&>button]:hidden z-[120] grid grid-rows-[auto_1fr_auto]"
         aria-describedby="enhanced-chat-description"
       >
           {/* Fixed Header */}
@@ -1056,7 +1056,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   <MessageSquare className="w-6 h-6 text-primary-white" />
                 </div>
                 <div>
-                  <DialogTitle className="text-xl font-black text-primary-white">
+                  <DialogTitle className="text-xl font-black text-primary-black">
                     {agentInfo.name}
                   </DialogTitle>
                   <p className="text-primary-white/70 text-sm">
@@ -1082,44 +1082,47 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               <div className="block w-full md:w-64 lg:w-72 xl:w-80 flex-shrink-0 md:h-full">
                 {/* Mobile: Fixed height container with scroll */}
                 <div className="h-48 md:h-full overflow-hidden">
-                <Card className="bg-gradient-to-br from-primary-gray/50 to-electric-blue/10 border border-electric-blue/20 h-full flex flex-col">
+                <Card className="bg-gradient-to-br from-primary-mint/20 to-primary-lavender/10 border border-primary-green/30 h-full flex flex-col overflow-hidden min-h-[300px]">
                   <CardHeader className="pb-3 flex-shrink-0">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg font-black text-primary-white">
+                      <CardTitle className="text-lg font-black text-primary-black">
                         CAREER INSIGHTS
                       </CardTitle>
                       {careerCards.length > 0 && (
-                        <Badge className="bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white font-bold">
+                        <Badge className="bg-gradient-to-r from-primary-green to-primary-yellow text-primary-black font-bold">
                           <Sparkles className="w-3 h-3 mr-1" />
                           {careerCards.length} FOUND
                         </Badge>
                       )}
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-4 overflow-y-auto flex-1 min-h-0">
-                    {/* Progress Indicator */}
-                    {isAnalyzing && progressUpdate && (
-                      <div className="bg-electric-blue/10 rounded-lg p-3 mb-4 border border-electric-blue/20">
+                  <CardContent className="space-y-4 overflow-y-auto flex-1 min-h-0 relative h-full">
+                    {/* Progress Indicator - Fixed container to prevent jiggling */}
+                    <div className="min-h-[120px] mb-4 flex flex-col justify-start">
+                      {isAnalyzing && progressUpdate && (
+                        <div className="bg-primary-mint/20 rounded-lg p-3 border border-primary-green/30">
                         <div className="flex items-center space-x-2 mb-2">
-                          <Loader2 className="w-4 h-4 animate-spin text-electric-blue" />
-                          <span className="text-sm font-medium text-electric-blue">Analyzing Career Path</span>
+                          <Loader2 className="w-4 h-4 animate-spin text-primary-green" />
+                          <span className="text-sm font-medium text-primary-green">Analyzing Career Path</span>
                         </div>
-                        <div className="text-xs text-primary-white/80 mb-2">
+                        <div className="text-xs text-primary-black/80 mb-2">
                           {progressUpdate.message || 'Processing your conversation...'}
                         </div>
                         <div className="w-full bg-primary-white/20 rounded-full h-2">
                           <div 
-                            className="bg-gradient-to-r from-electric-blue to-neon-pink h-2 rounded-full transition-all duration-500 ease-out"
+                            className="bg-gradient-to-r from-primary-green to-primary-yellow h-2 rounded-full transition-all duration-500 ease-out"
                             style={{ width: `${progressUpdate.progress || 0}%` }}
                           />
                         </div>
-                        <div className="text-xs text-primary-white/60 mt-1 text-center">
+                        <div className="text-xs text-primary-black/60 mt-1 text-center">
                           {progressUpdate.progress || 0}% complete
                         </div>
-                      </div>
-                    )}
+                        </div>
+                      )}
+                    </div>
                     
-                    {/* Discovered Career Cards */}
+                    {/* Discovered Career Cards - Fixed container to prevent layout shift */}
+                    <div className="min-h-[200px]">
                     {careerCards.length > 0 && (
                       <Accordion type="single" collapsible className="space-y-2">
                         {careerCards.map((card, index) => {
@@ -1130,15 +1133,15 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                             <AccordionItem 
                               key={index} 
                               value={`career-${index}`}
-                              className="border border-electric-blue/20 rounded-lg bg-primary-white/5 px-3"
+                              className="border border-primary-green/30 rounded-lg bg-primary-white/95 px-3"
                             >
                               <AccordionTrigger className="hover:no-underline py-3">
                                 <div className="flex items-center justify-between w-full mr-3">
                                   <div className="flex items-center space-x-3">
-                                    <Briefcase className="w-4 h-4 text-electric-blue" />
+                                    <Briefcase className="w-4 h-4 text-primary-green" />
                                     <div className="text-left">
-                                      <h4 className="text-sm font-bold text-electric-blue">{card.title}</h4>
-                                      <p className="text-xs text-primary-white/70 line-clamp-1">
+                                      <h4 className="text-sm font-bold text-primary-black">{card.title}</h4>
+                                      <p className="text-xs text-primary-black/70 line-clamp-1">
                                         {card.description || 'Career pathway discovered from our conversation'}
                                       </p>
                                     </div>
@@ -1156,16 +1159,16 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                   <div className="grid grid-cols-2 gap-3 text-xs">
                                     {(card.salaryRange || card.averageSalary) && (
                                       <div className="flex items-center space-x-1">
-                                        <PoundSterling className="w-3 h-3 text-acid-green" />
-                                        <span className="text-primary-white">
+                                        <PoundSterling className="w-3 h-3 text-primary-green" />
+                                        <span className="text-primary-black">
                                           {card.salaryRange || formatSalary(card.averageSalary)}
                                         </span>
                                       </div>
                                     )}
                                     {card.growthOutlook && (
                                       <div className="flex items-center space-x-1">
-                                        <TrendingUp className="w-3 h-3 text-electric-blue" />
-                                        <span className="text-primary-white">{card.growthOutlook}</span>
+                                        <TrendingUp className="w-3 h-3 text-primary-peach" />
+                                        <span className="text-primary-black">{card.growthOutlook}</span>
                                       </div>
                                     )}
                                   </div>
@@ -1418,21 +1421,24 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                         </div>
                       </div>
                     )}
+                    </div>
 
-                    {/* Discussion Topics */}
-                    {!careerContext && careerCards.length === 0 && (
-                      <div>
-                        <h4 className="text-sm font-bold text-neon-pink mb-2">What you can explore:</h4>
-                        <div className="space-y-1 text-xs text-primary-white/70">
-                          <p>• Career interests and goals</p>
-                          <p>• Skills and training paths</p>
-                          <p>• Industry trends and outlook</p>
-                          <p>• Work-life balance expectations</p>
-                          <p>• Educational requirements</p>
-                          <p>• Career progression paths</p>
+                    {/* Discussion Topics - Fixed height container to prevent wiggling */}
+                    <div className="min-h-[140px]">
+                      {!careerContext && careerCards.length === 0 && (
+                        <div>
+                          <h4 className="text-sm font-bold text-primary-peach mb-2">What you can explore:</h4>
+                          <div className="space-y-1 text-xs text-primary-black/70">
+                            <p>• Career interests and goals</p>
+                            <p>• Skills and training paths</p>
+                            <p>• Industry trends and outlook</p>
+                            <p>• Work-life balance expectations</p>
+                            <p>• Educational requirements</p>
+                            <p>• Career progression paths</p>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
                 </div>
@@ -1452,14 +1458,14 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                         >
                           <div className={`max-w-[80%] px-4 py-3 rounded-xl break-words ${
                             message.role === 'user' 
-                              ? 'bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white' 
-                              : 'bg-gradient-to-r from-primary-gray to-primary-white/10 text-primary-white border border-electric-blue/20'
+                              ? 'bg-gradient-to-r from-primary-green to-primary-mint text-primary-black' 
+                              : 'bg-gradient-to-r from-primary-lavender/80 to-primary-peach/80 text-primary-black border border-primary-green/20'
                           }`}>
                             <div className="flex items-start space-x-2 mb-2">
                               {message.role === 'user' ? (
                                 <User className="w-4 h-4 mt-0.5 flex-shrink-0" />
                               ) : (
-                                <Bot className="w-4 h-4 mt-0.5 text-electric-blue flex-shrink-0" />
+                                <Bot className="w-4 h-4 mt-0.5 text-primary-green flex-shrink-0" />
                               )}
                               <span className="text-xs font-medium opacity-70">
                                 {message.role === 'user' ? (currentUser ? (userData?.profile?.displayName || 'You') : 'You') : agentInfo.name}
@@ -1495,8 +1501,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           </div>
 
           {/* Fixed Footer */}
-          <div className="flex-shrink-0 border-t border-electric-blue/20 p-4">
-            <div className="bg-gradient-to-r from-primary-gray/50 to-electric-blue/10 rounded-xl p-4 border border-electric-blue/20 backdrop-blur">
+          <div className="flex-shrink-0 border-t border-primary-green/20 p-4">
+            <div className="bg-gradient-to-r from-primary-white/90 to-primary-mint/30 rounded-xl p-4 border border-primary-green/20 backdrop-blur">
               <div className="flex flex-col space-y-3 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
                 <div className="flex items-center justify-center lg:justify-start">
                   {!isConnected ? (
@@ -1504,7 +1510,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                       onClick={handleStartConversation}
                       disabled={connectionStatus === 'connecting' || !apiKey}
                       aria-label="Start voice chat"
-                      className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-cyber-yellow/70"
+                      className="bg-gradient-to-r from-primary-green to-primary-yellow text-primary-black font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-primary-yellow/70 shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-primary-black"
                     >
                       {connectionStatus === 'connecting' ? (
                         <>

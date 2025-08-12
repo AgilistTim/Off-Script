@@ -30,9 +30,10 @@ import {
   Lightbulb,
   Rocket
 } from 'lucide-react';
-import { Card, CardContent } from '../ui/card';
+import { ContextualCard, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { Button } from '../ui/button';
+import { ContextualButton } from '../ui/button';
+import { DesignProvider } from '../../context/DesignContext';
 
 interface UnifiedCareerCardProps {
   career: any;
@@ -143,30 +144,31 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
   const growthDisplay = getEnhancedGrowthDisplay();
 
   return (
-    <Card className="border-electric-blue/30 bg-gradient-to-br from-primary-black/90 to-electric-blue/10 shadow-glow-blue">
-      <CardContent className="p-6">
+    <DesignProvider mode={{ aesthetic: 'calm', energy: 'low', interaction: 'gentle' }}>
+      <ContextualCard purpose="content" mood="neutral" className="shadow-glow-calm">
+        <CardContent className="p-6">
         {/* Header Section */}
         <div className="flex items-start justify-between mb-4">
           <div className="flex-1">
             <div className="flex items-center space-x-2 mb-2">
-              <Badge className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black font-bold px-3 py-1">
+              <Badge className="bg-gradient-to-r from-primary-green to-primary-yellow text-primary-black font-bold px-3 py-1">
                 {career.confidence || 95}% MATCH
               </Badge>
               {hasEnhancedData && (
-                <Badge className="bg-gradient-to-r from-cyber-yellow to-acid-green text-primary-black font-bold px-3 py-1">
+                <Badge className="bg-gradient-to-r from-primary-yellow to-primary-green text-primary-black font-bold px-3 py-1">
                   ENHANCED DATA
                 </Badge>
               )}
               {career.perplexityData && (
-                <Badge className="bg-gradient-to-r from-neon-pink to-electric-blue text-primary-white font-bold px-3 py-1">
+                <Badge className="bg-gradient-to-r from-primary-peach to-primary-lavender text-primary-black font-bold px-3 py-1">
                   REAL-TIME UK DATA
                 </Badge>
               )}
             </div>
-            <h2 className="text-3xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow mb-2">
+            <h2 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary-green via-primary-yellow to-primary-peach mb-2">
               {career.title}
             </h2>
-            <p className="text-primary-white/80 mb-4">
+            <p className="text-primary-black/80 mb-4">
               {career.description || 'Comprehensive career analysis available'}
             </p>
           </div>
@@ -175,33 +177,33 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
         {/* Summary Information Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           {/* Salary Range */}
-          <div className="bg-gradient-to-r from-acid-green/20 to-cyber-yellow/20 border border-acid-green/30 rounded-xl p-4">
+          <div className="bg-gradient-to-r from-primary-green/20 to-primary-yellow/20 border border-primary-green/30 rounded-xl p-4">
             <div className="flex items-center space-x-3 mb-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-acid-green to-cyber-yellow rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-primary-green to-primary-yellow rounded-lg flex items-center justify-center">
                 <PoundSterling className="w-5 h-5 text-primary-black" />
               </div>
-              <h3 className="text-lg font-bold text-acid-green">
+              <h3 className="text-lg font-bold text-primary-green">
                 {career.perplexityData?.verifiedSalaryRanges ? 'Verified Salary' : 'Salary Range'}
               </h3>
             </div>
-            <p className="text-xl font-black text-primary-white">{salaryDisplay}</p>
+            <p className="text-xl font-black text-primary-black">{salaryDisplay}</p>
           </div>
 
           {/* Growth Outlook */}
-          <div className="bg-gradient-to-r from-electric-blue/20 to-neon-pink/20 border border-electric-blue/30 rounded-xl p-4">
+          <div className="bg-gradient-to-r from-primary-lavender/20 to-primary-peach/20 border border-primary-lavender/30 rounded-xl p-4">
             <div className="flex items-center space-x-3 mb-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-electric-blue to-neon-pink rounded-lg flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-primary-white" />
+              <div className="w-8 h-8 bg-gradient-to-br from-primary-lavender to-primary-peach rounded-lg flex items-center justify-center">
+                <TrendingUp className="w-5 h-5 text-primary-black" />
               </div>
-              <h3 className="text-lg font-bold text-electric-blue">
+              <h3 className="text-lg font-bold text-primary-black">
                 {career.perplexityData?.realTimeMarketDemand ? 'Market Demand' : 'Growth Outlook'}
               </h3>
             </div>
-            <p className="text-xl font-bold text-primary-white">{growthDisplay}</p>
+            <p className="text-xl font-bold text-primary-black">{growthDisplay}</p>
             {career.perplexityData?.realTimeMarketDemand?.sources?.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-2 text-xs">
                 {career.perplexityData.realTimeMarketDemand.sources.slice(0, 3).map((url: string, i: number) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="underline text-electric-blue hover:text-electric-blue/80">
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="underline text-primary-black hover:text-primary-black/80">
                     Source {i + 1}
                   </a>
                 ))}
@@ -210,16 +212,16 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
           </div>
 
           {/* Industry/Employers */}
-          <div className="bg-gradient-to-r from-cyber-purple/20 to-neon-pink/20 border border-cyber-purple/30 rounded-xl p-4">
+          <div className="bg-gradient-to-r from-primary-mint/20 to-primary-peach/20 border border-primary-mint/30 rounded-xl p-4">
             <div className="flex items-center space-x-3 mb-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-cyber-purple to-neon-pink rounded-lg flex items-center justify-center">
-                <Briefcase className="w-5 h-5 text-primary-white" />
+              <div className="w-8 h-8 bg-gradient-to-br from-primary-mint to-primary-peach rounded-lg flex items-center justify-center">
+                <Briefcase className="w-5 h-5 text-primary-black" />
               </div>
-              <h3 className="text-lg font-bold text-cyber-purple">
+              <h3 className="text-lg font-bold text-primary-black">
                 {career.workEnvironmentCulture?.typicalEmployers ? 'Top Employer' : 'Industry'}
               </h3>
             </div>
-            <p className="text-xl font-bold text-primary-white">
+            <p className="text-xl font-bold text-primary-black">
               {career.workEnvironmentCulture?.typicalEmployers?.[0] || career.industry || 'Technology'}
             </p>
           </div>
@@ -228,17 +230,18 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4 items-stretch sm:items-center">
           {onAskAI && (
-            <Button
+            <ContextualButton
+              intent="cta"
               onClick={onAskAI}
-              className="w-[92%] self-center sm:w-auto sm:flex-1 bg-gradient-to-r from-cyber-yellow to-acid-green text-primary-black font-bold hover:scale-105 transition-transform justify-center"
+              className="w-[92%] self-center sm:w-auto sm:flex-1 justify-center"
             >
               Ask AI About This Career
-            </Button>
+            </ContextualButton>
           )}
-          <Button
+          <ContextualButton
+            intent="secondary"
             onClick={() => setIsExpanded(!isExpanded)}
-            variant="outline"
-            className="w-[92%] self-center sm:w-auto sm:flex-1 border-electric-blue/50 text-electric-blue hover:bg-electric-blue/20 justify-center"
+            className="w-[92%] self-center sm:w-auto sm:flex-1 justify-center"
           >
             {isExpanded ? (
               <>
@@ -251,7 +254,7 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                 View Full Details
               </>
             )}
-          </Button>
+          </ContextualButton>
         </div>
 
         {/* Expandable Detailed Sections */}
@@ -261,7 +264,7 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
-              className="space-y-3 border-t border-electric-blue/30 pt-6"
+              className="space-y-3 border-t border-primary-green/30 pt-6"
             >
               {/* Role Overview Section */}
               {career.roleFundamentals && (
@@ -275,17 +278,17 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                   <div className="space-y-3">
                     {career.roleFundamentals.corePurpose && (
                       <div>
-                        <h4 className="font-semibold text-gray-100 mb-2">Core Purpose</h4>
-                        <p className="text-gray-300 text-sm">{career.roleFundamentals.corePurpose}</p>
+                        <h4 className="font-semibold text-primary-black mb-2">Core Purpose</h4>
+                        <p className="text-primary-black/70 text-sm">{career.roleFundamentals.corePurpose}</p>
                       </div>
                     )}
                     {career.roleFundamentals.problemsSolved?.length > 0 && (
                       <div>
-                        <h4 className="font-semibold text-gray-100 mb-2">Key Problems You'll Solve</h4>
-                        <ul className="text-sm text-gray-300 space-y-1">
+                        <h4 className="font-semibold text-primary-black mb-2">Key Problems You'll Solve</h4>
+                        <ul className="text-sm text-primary-black/70 space-y-1">
                           {career.roleFundamentals.problemsSolved.map((problem: string, i: number) => (
                             <li key={i} className="flex items-start gap-2">
-                              <span className="text-electric-blue mt-1">•</span>
+                              <span className="text-primary-black mt-1">•</span>
                               <span>{problem}</span>
                             </li>
                           ))}
@@ -295,11 +298,11 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
 
                     {/* Optional: Perplexity Source Links */}
                     {career.perplexityData?.sources?.length > 0 && (
-                      <div className="text-xs text-gray-400">
+                      <div className="text-xs text-primary-black/60">
                         <div className="mt-3">Further reading:</div>
                         <div className="flex flex-wrap gap-2 mt-1">
                           {career.perplexityData.sources.slice(0, 5).map((src: any, i: number) => (
-                            <a key={i} href={src.url || src} target="_blank" rel="noopener noreferrer" className="underline text-electric-blue hover:text-electric-blue/80">
+                            <a key={i} href={src.url || src} target="_blank" rel="noopener noreferrer" className="underline text-primary-black hover:text-primary-black/80">
                               {src.title ? src.title : `Link ${i + 1}`}
                             </a>
                           ))}
@@ -322,23 +325,23 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                   <div className="space-y-4">
                     {career.perplexityData?.verifiedSalaryRanges && (
                       <div>
-                        <h4 className="font-semibold text-gray-100 mb-3">UK Salary Breakdown</h4>
+                        <h4 className="font-semibold text-primary-black mb-3">UK Salary Breakdown</h4>
                         <div className="grid grid-cols-3 gap-3">
-                          <div className="text-center p-3 bg-acid-green/20 rounded-lg border border-acid-green/30">
-                            <div className="text-xs text-gray-400 mb-1">Entry Level</div>
-                            <div className="font-bold text-acid-green">
+                          <div className="text-center p-3 bg-primary-green/20 rounded-lg border border-primary-green/30">
+                            <div className="text-xs text-primary-black/60 mb-1">Entry Level</div>
+                            <div className="font-bold text-primary-green">
                               £{career.perplexityData.verifiedSalaryRanges.entry.min.toLocaleString()} - £{career.perplexityData.verifiedSalaryRanges.entry.max.toLocaleString()}
                             </div>
                           </div>
-                          <div className="text-center p-3 bg-electric-blue/20 rounded-lg border border-electric-blue/30">
-                            <div className="text-xs text-gray-400 mb-1">Mid Level</div>
-                            <div className="font-bold text-electric-blue">
+                          <div className="text-center p-3 bg-primary-lavender/20 rounded-lg border border-primary-lavender/30">
+                            <div className="text-xs text-primary-black/60 mb-1">Mid Level</div>
+                            <div className="font-bold text-primary-black">
                               £{career.perplexityData.verifiedSalaryRanges.mid.min.toLocaleString()} - £{career.perplexityData.verifiedSalaryRanges.mid.max.toLocaleString()}
                             </div>
                           </div>
-                          <div className="text-center p-3 bg-neon-pink/20 rounded-lg border border-neon-pink/30">
-                            <div className="text-xs text-gray-400 mb-1">Senior Level</div>
-                            <div className="font-bold text-neon-pink">
+                          <div className="text-center p-3 bg-primary-peach/20 rounded-lg border border-primary-peach/30">
+                            <div className="text-xs text-primary-black/60 mb-1">Senior Level</div>
+                            <div className="font-bold text-primary-black">
                               £{career.perplexityData.verifiedSalaryRanges.senior.min.toLocaleString()} - £{career.perplexityData.verifiedSalaryRanges.senior.max.toLocaleString()}
                             </div>
                           </div>
@@ -362,10 +365,10 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                     {/* Technical Skills */}
                     {(career.competencyRequirements?.technicalSkills?.length > 0 || career.perplexityData?.competencyRequirements?.technicalSkills?.length > 0) && (
                       <div>
-                        <h4 className="font-semibold text-gray-100 mb-2">Technical Skills</h4>
+                        <h4 className="font-semibold text-primary-black mb-2">Technical Skills</h4>
                         <div className="flex flex-wrap gap-2">
                           {(career.perplexityData?.competencyRequirements?.technicalSkills || career.competencyRequirements?.technicalSkills || []).map((skill: string, i: number) => (
-                            <span key={i} className="px-3 py-1 bg-cyber-purple/20 text-cyber-purple border border-cyber-purple/30 rounded-full text-sm">
+                            <span key={i} className="px-3 py-1 bg-primary-mint/20 text-primary-black border border-primary-mint/30 rounded-full text-sm">
                               {skill}
                             </span>
                           ))}
@@ -376,10 +379,10 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                     {/* Soft Skills */}
                     {(career.competencyRequirements?.softSkills?.length > 0 || career.perplexityData?.competencyRequirements?.softSkills?.length > 0) && (
                       <div>
-                        <h4 className="font-semibold text-gray-100 mb-2">Soft Skills</h4>
+                        <h4 className="font-semibold text-primary-black mb-2">Soft Skills</h4>
                         <div className="flex flex-wrap gap-2">
                           {(career.perplexityData?.competencyRequirements?.softSkills || career.competencyRequirements?.softSkills || []).map((skill: string, i: number) => (
-                            <span key={i} className="px-3 py-1 bg-acid-green/20 text-acid-green border border-acid-green/30 rounded-full text-sm">
+                            <span key={i} className="px-3 py-1 bg-primary-green/20 text-primary-black border border-primary-green/30 rounded-full text-sm">
                               {skill}
                             </span>
                           ))}
@@ -390,10 +393,10 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                     {/* Tools */}
                     {(career.competencyRequirements?.tools?.length > 0 || career.perplexityData?.competencyRequirements?.tools?.length > 0) && (
                       <div>
-                        <h4 className="font-semibold text-gray-100 mb-2">Tools & Technologies</h4>
+                        <h4 className="font-semibold text-primary-black mb-2">Tools & Technologies</h4>
                         <div className="flex flex-wrap gap-2">
                           {(career.perplexityData?.competencyRequirements?.tools || career.competencyRequirements?.tools || []).map((tool: string, i: number) => (
-                            <span key={i} className="px-3 py-1 bg-neon-pink/20 text-neon-pink border border-neon-pink/30 rounded-full text-sm">
+                            <span key={i} className="px-3 py-1 bg-primary-peach/20 text-primary-black border border-primary-peach/30 rounded-full text-sm">
                               {tool}
                             </span>
                           ))}
@@ -404,20 +407,20 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                     {/* Learning Curve */}
                     {(career.competencyRequirements?.learningCurve || career.perplexityData?.competencyRequirements?.learningCurve) && (
                       <div>
-                        <h4 className="font-semibold text-gray-100 mb-2">Learning Requirements</h4>
-                        <div className="bg-electric-blue/10 p-3 rounded-lg border border-electric-blue/20">
+                        <h4 className="font-semibold text-primary-black mb-2">Learning Requirements</h4>
+                        <div className="bg-primary-lavender/10 p-3 rounded-lg border border-primary-lavender/20">
                           <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-sm">
                             <div>
-                              <span className="font-medium text-gray-100">Time to Competent:</span>
-                              <div className="text-electric-blue">{(career.perplexityData?.competencyRequirements?.learningCurve?.timeToCompetent || career.competencyRequirements?.learningCurve?.timeToCompetent || 'N/A')}</div>
+                              <span className="font-medium text-primary-black">Time to Competent:</span>
+                              <div className="text-primary-black">{(career.perplexityData?.competencyRequirements?.learningCurve?.timeToCompetent || career.competencyRequirements?.learningCurve?.timeToCompetent || 'N/A')}</div>
                             </div>
                             <div>
-                              <span className="font-medium text-gray-100">Difficulty Level:</span>
-                              <div className="text-electric-blue">{(career.perplexityData?.competencyRequirements?.learningCurve?.difficultyLevel || career.competencyRequirements?.learningCurve?.difficultyLevel || 'N/A')}</div>
+                              <span className="font-medium text-primary-black">Difficulty Level:</span>
+                              <div className="text-primary-black">{(career.perplexityData?.competencyRequirements?.learningCurve?.difficultyLevel || career.competencyRequirements?.learningCurve?.difficultyLevel || 'N/A')}</div>
                             </div>
                             <div>
-                              <span className="font-medium text-gray-100">Prerequisites:</span>
-                              <div className="text-electric-blue">
+                              <span className="font-medium text-primary-black">Prerequisites:</span>
+                              <div className="text-primary-black">
                                 {(career.perplexityData?.competencyRequirements?.learningCurve?.prerequisites || career.competencyRequirements?.learningCurve?.prerequisites || []).length > 0 
                                   ? (career.perplexityData?.competencyRequirements?.learningCurve?.prerequisites || career.competencyRequirements?.learningCurve?.prerequisites || []).join(', ')
                                   : 'None specified'
@@ -432,19 +435,19 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                     {/* Current Education Programs */}
                     {career.perplexityData?.currentEducationPathways?.length > 0 && (
                       <div>
-                        <h4 className="font-semibold text-gray-100 mb-3">Current Education Programs</h4>
+                        <h4 className="font-semibold text-primary-black mb-3">Current Education Programs</h4>
                         <div className="space-y-2">
                           {career.perplexityData.currentEducationPathways.slice(0, 3).map((pathway: any, i: number) => (
-                            <div key={i} className="bg-cyber-yellow/10 p-3 rounded-lg border border-cyber-yellow/20">
-                              <div className="font-medium text-cyber-yellow">{pathway.title}</div>
-                              <div className="text-sm text-gray-300 mt-1">{pathway.type} • {pathway.provider} • {pathway.duration}</div>
+                            <div key={i} className="bg-primary-yellow/10 p-3 rounded-lg border border-primary-yellow/20">
+                              <div className="font-medium text-primary-black">{pathway.title}</div>
+                              <div className="text-sm text-primary-black/70 mt-1">{pathway.type} • {pathway.provider} • {pathway.duration}</div>
                               {pathway.cost && (
-                                <div className="text-sm text-gray-300 mt-1">
+                                <div className="text-sm text-primary-black/70 mt-1">
                                   Cost: {pathway.cost.min === 0 && pathway.cost.max === 0 ? 'Free' : `£${pathway.cost.min?.toLocaleString()} - £${pathway.cost.max?.toLocaleString()}`}
                                 </div>
                               )}
                               {pathway.entryRequirements && pathway.entryRequirements.length > 0 && (
-                                <div className="text-sm text-gray-300 mt-1">
+                                <div className="text-sm text-primary-black/70 mt-1">
                                   Requirements: {pathway.entryRequirements.join(', ')}
                                 </div>
                               )}
@@ -468,16 +471,16 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                 >
                   <div className="space-y-4">
                     {career.perplexityData?.realTimeMarketDemand && (
-                      <div className="bg-neon-pink/10 p-4 rounded-lg border border-neon-pink/20">
-                        <h4 className="font-semibold text-neon-pink mb-3">Real-Time UK Market Data</h4>
+                      <div className="bg-primary-peach/10 p-4 rounded-lg border border-primary-peach/20">
+                        <h4 className="font-semibold text-primary-black mb-3">Real-Time UK Market Data</h4>
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div>
-                            <span className="font-medium text-gray-100">Job Postings (30 days):</span>
-                            <div className="text-neon-pink">{career.perplexityData.realTimeMarketDemand.jobPostingVolume?.toLocaleString() || 'N/A'}</div>
+                            <span className="font-medium text-primary-black">Job Postings (30 days):</span>
+                            <div className="text-primary-black">{career.perplexityData.realTimeMarketDemand.jobPostingVolume?.toLocaleString() || 'N/A'}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Growth Rate:</span>
-                            <div className="text-neon-pink">{career.perplexityData.realTimeMarketDemand.growthRate || 'N/A'}%</div>
+                            <span className="font-medium text-primary-black">Growth Rate:</span>
+                            <div className="text-primary-black">{career.perplexityData.realTimeMarketDemand.growthRate || 'N/A'}%</div>
                           </div>
                         </div>
                       </div>
@@ -498,10 +501,10 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                   <div className="space-y-4">
                     {career.workEnvironmentCulture?.typicalEmployers?.length > 0 && (
                       <div>
-                        <h4 className="font-semibold text-gray-100 mb-2">Typical Employers</h4>
+                        <h4 className="font-semibold text-primary-black mb-2">Typical Employers</h4>
                         <div className="flex flex-wrap gap-2">
                           {career.workEnvironmentCulture.typicalEmployers.map((employer: string, i: number) => (
-                            <span key={i} className="px-3 py-1 bg-cyber-yellow/20 text-cyber-yellow border border-cyber-yellow/30 rounded-full text-sm">
+                            <span key={i} className="px-3 py-1 bg-primary-yellow/20 text-primary-black border border-primary-yellow/30 rounded-full text-sm">
                               {employer}
                             </span>
                           ))}
@@ -509,15 +512,15 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                       </div>
                     )}
                     {career.perplexityData?.workEnvironmentDetails && (
-                      <div className="bg-cyber-yellow/10 p-3 rounded-lg border border-cyber-yellow/20">
+                      <div className="bg-primary-yellow/10 p-3 rounded-lg border border-primary-yellow/20">
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div>
-                            <span className="font-medium text-gray-100">Remote Options:</span>
-                            <div className="text-cyber-yellow">{career.perplexityData.workEnvironmentDetails.remoteOptions ? 'Yes' : 'No'}</div>
+                            <span className="font-medium text-primary-black">Remote Options:</span>
+                            <div className="text-primary-black">{career.perplexityData.workEnvironmentDetails.remoteOptions ? 'Yes' : 'No'}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Work-Life Balance:</span>
-                            <div className="text-cyber-yellow">{career.perplexityData.workEnvironmentDetails.workLifeBalance || 'Good'}</div>
+                            <span className="font-medium text-primary-black">Work-Life Balance:</span>
+                            <div className="text-primary-black">{career.perplexityData.workEnvironmentDetails.workLifeBalance || 'Good'}</div>
                           </div>
                         </div>
                       </div>
@@ -536,28 +539,28 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                   onToggle={() => toggleSection('growth')}
                 >
                   <div className="space-y-4">
-                    <div className="bg-electric-blue/10 p-4 rounded-lg border border-electric-blue/20">
-                      <h4 className="font-semibold text-electric-blue mb-3">Growth Forecast</h4>
+                    <div className="bg-primary-lavender/10 p-4 rounded-lg border border-primary-lavender/20">
+                      <h4 className="font-semibold text-primary-black mb-3">Growth Forecast</h4>
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
-                          <span className="font-medium text-gray-100">Next Year:</span>
-                          <div className="text-electric-blue">{career.perplexityData.industryGrowthProjection.nextYear}%</div>
+                          <span className="font-medium text-primary-black">Next Year:</span>
+                          <div className="text-primary-black">{career.perplexityData.industryGrowthProjection.nextYear}%</div>
                         </div>
                         <div>
-                          <span className="font-medium text-gray-100">Five Year:</span>
-                          <div className="text-electric-blue">{career.perplexityData.industryGrowthProjection.fiveYear}%</div>
+                          <span className="font-medium text-primary-black">Five Year:</span>
+                          <div className="text-primary-black">{career.perplexityData.industryGrowthProjection.fiveYear}%</div>
                         </div>
                         <div>
-                          <span className="font-medium text-gray-100">Outlook:</span>
-                          <div className="text-electric-blue">{career.perplexityData.industryGrowthProjection.outlook}</div>
+                          <span className="font-medium text-primary-black">Outlook:</span>
+                          <div className="text-primary-black">{career.perplexityData.industryGrowthProjection.outlook}</div>
                         </div>
                       </div>
                       {career.perplexityData.industryGrowthProjection.factors?.length > 0 && (
                         <div className="mt-3">
-                          <span className="font-medium text-gray-100">Growth Factors:</span>
+                          <span className="font-medium text-primary-black">Growth Factors:</span>
                           <div className="flex flex-wrap gap-2 mt-1">
                             {career.perplexityData.industryGrowthProjection.factors.map((factor: string, i: number) => (
-                              <span key={i} className="px-3 py-1 bg-electric-blue/20 text-electric-blue border border-electric-blue/30 rounded-full text-sm">
+                              <span key={i} className="px-3 py-1 bg-primary-lavender/20 text-primary-black border border-primary-lavender/30 rounded-full text-sm">
                                 {factor}
                               </span>
                             ))}
@@ -579,24 +582,24 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                   onToggle={() => toggleSection('automation')}
                 >
                   <div className="space-y-4">
-                    <div className="bg-neon-pink/10 p-4 rounded-lg border border-neon-pink/20">
-                      <h4 className="font-semibold text-neon-pink mb-3">Risk Analysis</h4>
+                    <div className="bg-primary-peach/10 p-4 rounded-lg border border-primary-peach/20">
+                      <h4 className="font-semibold text-primary-black mb-3">Risk Analysis</h4>
                       <div className="grid grid-cols-1 gap-3 text-sm">
                         <div>
-                          <span className="font-medium text-gray-100">Risk Level:</span>
-                          <div className="text-neon-pink">{career.perplexityData.automationRiskAssessment.level}</div>
+                          <span className="font-medium text-primary-black">Risk Level:</span>
+                          <div className="text-primary-black">{career.perplexityData.automationRiskAssessment.level}</div>
                         </div>
                         <div>
-                          <span className="font-medium text-gray-100">Timeline:</span>
-                          <div className="text-neon-pink">{career.perplexityData.automationRiskAssessment.timeline}</div>
+                          <span className="font-medium text-primary-black">Timeline:</span>
+                          <div className="text-primary-black">{career.perplexityData.automationRiskAssessment.timeline}</div>
                         </div>
                       </div>
                       {career.perplexityData.automationRiskAssessment.mitigationStrategies?.length > 0 && (
                         <div className="mt-3">
-                          <span className="font-medium text-gray-100">Mitigation Strategies:</span>
+                          <span className="font-medium text-primary-black">Mitigation Strategies:</span>
                           <div className="flex flex-wrap gap-2 mt-1">
                             {career.perplexityData.automationRiskAssessment.mitigationStrategies.map((strategy: string, i: number) => (
-                              <span key={i} className="px-3 py-1 bg-neon-pink/20 text-neon-pink border border-neon-pink/30 rounded-full text-sm">
+                              <span key={i} className="px-3 py-1 bg-primary-peach/20 text-primary-black border border-primary-peach/30 rounded-full text-sm">
                                 {strategy}
                               </span>
                             ))}
@@ -605,10 +608,10 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                       )}
                       {career.perplexityData.automationRiskAssessment.futureSkillsNeeded?.length > 0 && (
                         <div className="mt-3">
-                          <span className="font-medium text-gray-100">Future Skills Needed:</span>
+                          <span className="font-medium text-primary-black">Future Skills Needed:</span>
                           <div className="flex flex-wrap gap-2 mt-1">
                             {career.perplexityData.automationRiskAssessment.futureSkillsNeeded.map((skill: string, i: number) => (
-                              <span key={i} className="px-3 py-1 bg-acid-green/20 text-acid-green border border-acid-green/30 rounded-full text-sm">
+                              <span key={i} className="px-3 py-1 bg-primary-green/20 text-primary-black border border-primary-green/30 rounded-full text-sm">
                                 {skill}
                               </span>
                             ))}
@@ -630,20 +633,20 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                   onToggle={() => toggleSection('education')}
                 >
                   <div className="space-y-4">
-                    <div className="bg-cyber-yellow/10 p-4 rounded-lg border border-cyber-yellow/20">
-                      <h4 className="font-semibold text-cyber-yellow mb-3">Available Programs</h4>
+                    <div className="bg-primary-yellow/10 p-4 rounded-lg border border-primary-yellow/20">
+                      <h4 className="font-semibold text-primary-black mb-3">Available Programs</h4>
                       <div className="space-y-3">
                         {career.perplexityData.currentEducationPathways.map((pathway: any, i: number) => (
-                          <div key={i} className="bg-primary-black/40 p-3 rounded-lg border border-cyber-yellow/20">
-                            <div className="font-medium text-cyber-yellow">{pathway.title}</div>
-                            <div className="text-sm text-gray-300 mt-1">{pathway.type} • {pathway.provider} • {pathway.duration}</div>
+                          <div key={i} className="bg-primary-black/40 p-3 rounded-lg border border-primary-yellow/20">
+                            <div className="font-medium text-primary-black">{pathway.title}</div>
+                            <div className="text-sm text-primary-black/70 mt-1">{pathway.type} • {pathway.provider} • {pathway.duration}</div>
                             {pathway.cost && (
-                              <div className="text-sm text-gray-300 mt-1">
+                              <div className="text-sm text-primary-black/70 mt-1">
                                 Cost: {pathway.cost.min === 0 && pathway.cost.max === 0 ? 'Free' : `£${pathway.cost.min?.toLocaleString()} - £${pathway.cost.max?.toLocaleString()}`}
                               </div>
                             )}
                             {pathway.entryRequirements?.length > 0 && (
-                              <div className="text-sm text-gray-300 mt-1">
+                              <div className="text-sm text-primary-black/70 mt-1">
                                 Requirements: {pathway.entryRequirements.join(', ')}
                               </div>
                             )}
@@ -666,32 +669,32 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                 >
                   <div className="space-y-4">
                     {career.roleFundamentals.corePurpose && (
-                      <div className="bg-cyber-purple/10 p-4 rounded-lg border border-cyber-purple/20">
-                        <h4 className="font-semibold text-cyber-purple mb-3">Core Purpose</h4>
-                        <p className="text-gray-300 text-sm">{career.roleFundamentals.corePurpose}</p>
+                      <div className="bg-primary-mint/10 p-4 rounded-lg border border-primary-mint/20">
+                        <h4 className="font-semibold text-primary-black mb-3">Core Purpose</h4>
+                        <p className="text-primary-black/70 text-sm">{career.roleFundamentals.corePurpose}</p>
                       </div>
                     )}
                     {career.roleFundamentals.problemsSolved?.length > 0 && (
-                      <div className="bg-acid-green/10 p-4 rounded-lg border border-acid-green/20">
-                        <h4 className="font-semibold text-acid-green mb-3">Key Problems You'll Solve</h4>
+                      <div className="bg-primary-green/10 p-4 rounded-lg border border-primary-green/20">
+                        <h4 className="font-semibold text-primary-green mb-3">Key Problems You'll Solve</h4>
                         <div className="space-y-2">
                           {career.roleFundamentals.problemsSolved.map((problem: string, i: number) => (
                             <div key={i} className="flex items-start gap-2">
-                              <span className="text-acid-green mt-1">•</span>
-                              <span className="text-gray-300 text-sm">{problem}</span>
+                              <span className="text-primary-green mt-1">•</span>
+                              <span className="text-primary-black/70 text-sm">{problem}</span>
                             </div>
                           ))}
                         </div>
                       </div>
                     )}
                     {career.roleFundamentals.typicalResponsibilities?.length > 0 && (
-                      <div className="bg-electric-blue/10 p-4 rounded-lg border border-electric-blue/20">
-                        <h4 className="font-semibold text-electric-blue mb-3">Typical Responsibilities</h4>
+                      <div className="bg-primary-lavender/10 p-4 rounded-lg border border-primary-lavender/20">
+                        <h4 className="font-semibold text-primary-black mb-3">Typical Responsibilities</h4>
                         <div className="space-y-2">
                           {career.roleFundamentals.typicalResponsibilities.map((responsibility: string, i: number) => (
                             <div key={i} className="flex items-start gap-2">
-                              <span className="text-electric-blue mt-1">•</span>
-                              <span className="text-gray-300 text-sm">{responsibility}</span>
+                              <span className="text-primary-black mt-1">•</span>
+                              <span className="text-primary-black/70 text-sm">{responsibility}</span>
                             </div>
                           ))}
                         </div>
@@ -713,14 +716,14 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                   <div className="space-y-4">
                     {career.careerTrajectory.progressionSteps?.length > 0 && (
                       <div>
-                        <h4 className="font-semibold text-gray-100 mb-3">Progression Steps</h4>
+                        <h4 className="font-semibold text-primary-black mb-3">Progression Steps</h4>
                         <div className="space-y-2">
                           {career.careerTrajectory.progressionSteps.map((step: any, i: number) => (
-                            <div key={i} className="bg-electric-blue/10 p-3 rounded-lg border border-electric-blue/20">
-                              <div className="font-medium text-electric-blue">{step.title}</div>
-                              <div className="text-sm text-gray-300 mt-1">Timeframe: {step.timeFrame}</div>
+                            <div key={i} className="bg-primary-lavender/10 p-3 rounded-lg border border-primary-lavender/20">
+                              <div className="font-medium text-primary-black">{step.title}</div>
+                              <div className="text-sm text-primary-black/70 mt-1">Timeframe: {step.timeFrame}</div>
                               {step.requirements?.length > 0 && (
-                                <div className="text-sm text-gray-300 mt-1">
+                                <div className="text-sm text-primary-black/70 mt-1">
                                   Requirements: {step.requirements.join(', ')}
                                 </div>
                               )}
@@ -731,10 +734,10 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                     )}
                     {career.careerTrajectory.horizontalMoves?.length > 0 && (
                       <div>
-                        <h4 className="font-semibold text-gray-100 mb-2">Horizontal Moves</h4>
+                        <h4 className="font-semibold text-primary-black mb-2">Horizontal Moves</h4>
                         <div className="flex flex-wrap gap-2">
                           {career.careerTrajectory.horizontalMoves.map((move: string, i: number) => (
-                            <span key={i} className="px-3 py-1 bg-cyber-purple/20 text-cyber-purple border border-cyber-purple/30 rounded-full text-sm">
+                            <span key={i} className="px-3 py-1 bg-primary-mint/20 text-primary-black border border-primary-mint/30 rounded-full text-sm">
                               {move}
                             </span>
                           ))}
@@ -743,10 +746,10 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                     )}
                     {career.careerTrajectory.leadershipTrack?.length > 0 && (
                       <div>
-                        <h4 className="font-semibold text-gray-100 mb-2">Leadership Track</h4>
+                        <h4 className="font-semibold text-primary-black mb-2">Leadership Track</h4>
                         <div className="flex flex-wrap gap-2">
                           {career.careerTrajectory.leadershipTrack.map((track: string, i: number) => (
-                            <span key={i} className="px-3 py-1 bg-acid-green/20 text-acid-green border border-acid-green/30 rounded-full text-sm">
+                            <span key={i} className="px-3 py-1 bg-primary-green/20 text-primary-black border border-primary-green/30 rounded-full text-sm">
                               {track}
                             </span>
                           ))}
@@ -768,58 +771,58 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                 >
                   <div className="space-y-4">
                     {career.lifestyleFit.workingHours && (
-                      <div className="bg-neon-pink/10 p-4 rounded-lg border border-neon-pink/20">
-                        <h4 className="font-semibold text-neon-pink mb-3">Working Hours</h4>
+                      <div className="bg-primary-peach/10 p-4 rounded-lg border border-primary-peach/20">
+                        <h4 className="font-semibold text-primary-black mb-3">Working Hours</h4>
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div>
-                            <span className="font-medium text-gray-100">Typical:</span>
-                            <div className="text-neon-pink">{career.lifestyleFit.workingHours.typical}</div>
+                            <span className="font-medium text-primary-black">Typical:</span>
+                            <div className="text-primary-black">{career.lifestyleFit.workingHours.typical}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Flexibility:</span>
-                            <div className="text-neon-pink">{career.lifestyleFit.workingHours.flexibility}</div>
+                            <span className="font-medium text-primary-black">Flexibility:</span>
+                            <div className="text-primary-black">{career.lifestyleFit.workingHours.flexibility}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Shift Work:</span>
-                            <div className="text-neon-pink">{career.lifestyleFit.workingHours.shiftWork ? 'Yes' : 'No'}</div>
+                            <span className="font-medium text-primary-black">Shift Work:</span>
+                            <div className="text-primary-black">{career.lifestyleFit.workingHours.shiftWork ? 'Yes' : 'No'}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">On-Call:</span>
-                            <div className="text-neon-pink">{career.lifestyleFit.workingHours.onCall ? 'Yes' : 'No'}</div>
+                            <span className="font-medium text-primary-black">On-Call:</span>
+                            <div className="text-primary-black">{career.lifestyleFit.workingHours.onCall ? 'Yes' : 'No'}</div>
                           </div>
                         </div>
                       </div>
                     )}
                     {career.lifestyleFit.remoteOptions && (
-                      <div className="bg-cyber-yellow/10 p-4 rounded-lg border border-cyber-yellow/20">
-                        <h4 className="font-semibold text-cyber-yellow mb-3">Remote Options</h4>
+                      <div className="bg-primary-yellow/10 p-4 rounded-lg border border-primary-yellow/20">
+                        <h4 className="font-semibold text-primary-black mb-3">Remote Options</h4>
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div>
-                            <span className="font-medium text-gray-100">Remote Work:</span>
-                            <div className="text-cyber-yellow">{career.lifestyleFit.remoteOptions.remoteWork ? 'Available' : 'Not Available'}</div>
+                            <span className="font-medium text-primary-black">Remote Work:</span>
+                            <div className="text-primary-black">{career.lifestyleFit.remoteOptions.remoteWork ? 'Available' : 'Not Available'}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Hybrid Options:</span>
-                            <div className="text-cyber-yellow">{career.lifestyleFit.remoteOptions.hybridOptions ? 'Available' : 'Not Available'}</div>
+                            <span className="font-medium text-primary-black">Hybrid Options:</span>
+                            <div className="text-primary-black">{career.lifestyleFit.remoteOptions.hybridOptions ? 'Available' : 'Not Available'}</div>
                           </div>
                         </div>
                       </div>
                     )}
                     {career.lifestyleFit.stressProfile && (
-                      <div className="bg-electric-blue/10 p-4 rounded-lg border border-electric-blue/20">
-                        <h4 className="font-semibold text-electric-blue mb-3">Stress Profile</h4>
+                      <div className="bg-primary-lavender/10 p-4 rounded-lg border border-primary-lavender/20">
+                        <h4 className="font-semibold text-primary-black mb-3">Stress Profile</h4>
                         <div className="grid grid-cols-1 gap-3 text-sm">
                           <div>
-                            <span className="font-medium text-gray-100">Intensity:</span>
-                            <div className="text-electric-blue">{career.lifestyleFit.stressProfile.intensity}</div>
+                            <span className="font-medium text-primary-black">Intensity:</span>
+                            <div className="text-primary-black">{career.lifestyleFit.stressProfile.intensity}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Volatility:</span>
-                            <div className="text-electric-blue">{career.lifestyleFit.stressProfile.volatility}</div>
+                            <span className="font-medium text-primary-black">Volatility:</span>
+                            <div className="text-primary-black">{career.lifestyleFit.stressProfile.volatility}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Emotional Labour:</span>
-                            <div className="text-electric-blue">{career.lifestyleFit.stressProfile.emotionalLabour}</div>
+                            <span className="font-medium text-primary-black">Emotional Labour:</span>
+                            <div className="text-primary-black">{career.lifestyleFit.stressProfile.emotionalLabour}</div>
                           </div>
                         </div>
                       </div>
@@ -839,49 +842,49 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                 >
                   <div className="space-y-4">
                     {career.costRiskEntry.upfrontInvestment && (
-                      <div className="bg-sunset-orange/10 p-4 rounded-lg border border-sunset-orange/20">
-                        <h4 className="font-semibold text-sunset-orange mb-3">Upfront Investment</h4>
+                      <div className="bg-primary-peach/10 p-4 rounded-lg border border-primary-peach/20">
+                        <h4 className="font-semibold text-primary-black mb-3">Upfront Investment</h4>
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div>
-                            <span className="font-medium text-gray-100">Tuition Costs:</span>
-                            <div className="text-sunset-orange">{career.costRiskEntry.upfrontInvestment.tuitionCosts}</div>
+                            <span className="font-medium text-primary-black">Tuition Costs:</span>
+                            <div className="text-primary-black">{career.costRiskEntry.upfrontInvestment.tuitionCosts}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Training Costs:</span>
-                            <div className="text-sunset-orange">{career.costRiskEntry.upfrontInvestment.trainingCosts}</div>
+                            <span className="font-medium text-primary-black">Training Costs:</span>
+                            <div className="text-primary-black">{career.costRiskEntry.upfrontInvestment.trainingCosts}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Exam Fees:</span>
-                            <div className="text-sunset-orange">{career.costRiskEntry.upfrontInvestment.examFees}</div>
+                            <span className="font-medium text-primary-black">Exam Fees:</span>
+                            <div className="text-primary-black">{career.costRiskEntry.upfrontInvestment.examFees}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Total Estimate:</span>
-                            <div className="text-sunset-orange">{career.costRiskEntry.upfrontInvestment.totalEstimate}</div>
+                            <span className="font-medium text-primary-black">Total Estimate:</span>
+                            <div className="text-primary-black">{career.costRiskEntry.upfrontInvestment.totalEstimate}</div>
                           </div>
                         </div>
                       </div>
                     )}
                     {career.costRiskEntry.employmentCertainty && (
-                      <div className="bg-acid-green/10 p-4 rounded-lg border border-acid-green/20">
-                        <h4 className="font-semibold text-acid-green mb-3">Employment Certainty</h4>
+                      <div className="bg-primary-green/10 p-4 rounded-lg border border-primary-green/20">
+                        <h4 className="font-semibold text-primary-green mb-3">Employment Certainty</h4>
                         <div className="grid grid-cols-1 gap-3 text-sm">
                           <div>
-                            <span className="font-medium text-gray-100">Placement Rates:</span>
-                            <div className="text-acid-green">{career.costRiskEntry.employmentCertainty.placementRates}</div>
+                            <span className="font-medium text-primary-black">Placement Rates:</span>
+                            <div className="text-primary-green">{career.costRiskEntry.employmentCertainty.placementRates}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Time to First Role:</span>
-                            <div className="text-acid-green">{career.costRiskEntry.employmentCertainty.timeToFirstRole}</div>
+                            <span className="font-medium text-primary-black">Time to First Role:</span>
+                            <div className="text-primary-green">{career.costRiskEntry.employmentCertainty.timeToFirstRole}</div>
                           </div>
                         </div>
                       </div>
                     )}
                     {career.costRiskEntry.regulatoryRisk?.licenseRequirements?.length > 0 && (
-                      <div className="bg-alert-orange/10 p-4 rounded-lg border border-alert-orange/20">
-                        <h4 className="font-semibold text-alert-orange mb-3">Regulatory Requirements</h4>
+                      <div className="bg-primary-yellow/10 p-4 rounded-lg border border-primary-yellow/20">
+                        <h4 className="font-semibold text-primary-black mb-3">Regulatory Requirements</h4>
                         <div className="flex flex-wrap gap-2">
                           {career.costRiskEntry.regulatoryRisk.licenseRequirements.map((requirement: string, i: number) => (
-                            <span key={i} className="px-3 py-1 bg-alert-orange/20 text-alert-orange border border-alert-orange/30 rounded-full text-sm">
+                            <span key={i} className="px-3 py-1 bg-primary-yellow/20 text-primary-black border border-primary-yellow/30 rounded-full text-sm">
                               {requirement}
                             </span>
                           ))}
@@ -903,41 +906,41 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                 >
                   <div className="space-y-4">
                     {career.valuesImpact.societalContribution && (
-                      <div className="bg-cyber-purple/10 p-4 rounded-lg border border-cyber-purple/20">
-                        <h4 className="font-semibold text-cyber-purple mb-3">Societal Contribution</h4>
+                      <div className="bg-primary-mint/10 p-4 rounded-lg border border-primary-mint/20">
+                        <h4 className="font-semibold text-primary-black mb-3">Societal Contribution</h4>
                         <div className="space-y-2 text-sm">
                           <div>
-                            <span className="font-medium text-gray-100">Public Good:</span>
-                            <div className="text-cyber-purple">{career.valuesImpact.societalContribution.publicGood}</div>
+                            <span className="font-medium text-primary-black">Public Good:</span>
+                            <div className="text-primary-black">{career.valuesImpact.societalContribution.publicGood}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Sustainability:</span>
-                            <div className="text-cyber-purple">{career.valuesImpact.societalContribution.sustainability}</div>
+                            <span className="font-medium text-primary-black">Sustainability:</span>
+                            <div className="text-primary-black">{career.valuesImpact.societalContribution.sustainability}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Ethical Footprint:</span>
-                            <div className="text-cyber-purple">{career.valuesImpact.societalContribution.ethicalFootprint}</div>
+                            <span className="font-medium text-primary-black">Ethical Footprint:</span>
+                            <div className="text-primary-black">{career.valuesImpact.societalContribution.ethicalFootprint}</div>
                           </div>
                         </div>
                       </div>
                     )}
                     {career.valuesImpact.personalAlignment?.intrinsicMotivation?.length > 0 && (
-                      <div className="bg-acid-green/10 p-4 rounded-lg border border-acid-green/20">
-                        <h4 className="font-semibold text-acid-green mb-3">Personal Alignment</h4>
+                      <div className="bg-primary-green/10 p-4 rounded-lg border border-primary-green/20">
+                        <h4 className="font-semibold text-primary-green mb-3">Personal Alignment</h4>
                         <div className="space-y-2">
                           <div>
-                            <span className="font-medium text-gray-100">Intrinsic Motivation:</span>
+                            <span className="font-medium text-primary-black">Intrinsic Motivation:</span>
                             <div className="flex flex-wrap gap-2 mt-1">
                               {career.valuesImpact.personalAlignment.intrinsicMotivation.map((motivation: string, i: number) => (
-                                <span key={i} className="px-3 py-1 bg-acid-green/20 text-acid-green border border-acid-green/30 rounded-full text-sm">
+                                <span key={i} className="px-3 py-1 bg-primary-green/20 text-primary-black border border-primary-green/30 rounded-full text-sm">
                                   {motivation}
                                 </span>
                               ))}
                             </div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Meaningfulness:</span>
-                            <div className="text-acid-green">{career.valuesImpact.personalAlignment.meaningfulness}</div>
+                            <span className="font-medium text-primary-black">Meaningfulness:</span>
+                            <div className="text-primary-green">{career.valuesImpact.personalAlignment.meaningfulness}</div>
                           </div>
                         </div>
                       </div>
@@ -957,11 +960,11 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                 >
                   <div className="space-y-4">
                     {career.transferabilityFutureProofing.portableSkills?.length > 0 && (
-                      <div className="bg-electric-blue/10 p-4 rounded-lg border border-electric-blue/20">
-                        <h4 className="font-semibold text-electric-blue mb-3">Portable Skills</h4>
+                      <div className="bg-primary-lavender/10 p-4 rounded-lg border border-primary-lavender/20">
+                        <h4 className="font-semibold text-primary-black mb-3">Portable Skills</h4>
                         <div className="flex flex-wrap gap-2">
                           {career.transferabilityFutureProofing.portableSkills.map((skill: string, i: number) => (
-                            <span key={i} className="px-3 py-1 bg-electric-blue/20 text-electric-blue border border-electric-blue/30 rounded-full text-sm">
+                            <span key={i} className="px-3 py-1 bg-primary-lavender/20 text-primary-black border border-primary-lavender/30 rounded-full text-sm">
                               {skill}
                             </span>
                           ))}
@@ -969,23 +972,23 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                       </div>
                     )}
                     {career.transferabilityFutureProofing.automationExposure && (
-                      <div className="bg-neon-pink/10 p-4 rounded-lg border border-neon-pink/20">
-                        <h4 className="font-semibold text-neon-pink mb-3">Automation Exposure</h4>
+                      <div className="bg-primary-peach/10 p-4 rounded-lg border border-primary-peach/20">
+                        <h4 className="font-semibold text-primary-black mb-3">Automation Exposure</h4>
                         <div className="grid grid-cols-1 gap-3 text-sm">
                           <div>
-                            <span className="font-medium text-gray-100">Vulnerability Level:</span>
-                            <div className="text-neon-pink">{career.transferabilityFutureProofing.automationExposure.vulnerabilityLevel}</div>
+                            <span className="font-medium text-primary-black">Vulnerability Level:</span>
+                            <div className="text-primary-black">{career.transferabilityFutureProofing.automationExposure.vulnerabilityLevel}</div>
                           </div>
                           <div>
-                            <span className="font-medium text-gray-100">Time Horizon:</span>
-                            <div className="text-neon-pink">{career.transferabilityFutureProofing.automationExposure.timeHorizon}</div>
+                            <span className="font-medium text-primary-black">Time Horizon:</span>
+                            <div className="text-primary-black">{career.transferabilityFutureProofing.automationExposure.timeHorizon}</div>
                           </div>
                           {career.transferabilityFutureProofing.automationExposure.protectiveFactors?.length > 0 && (
                             <div>
-                              <span className="font-medium text-gray-100">Protective Factors:</span>
+                              <span className="font-medium text-primary-black">Protective Factors:</span>
                               <div className="flex flex-wrap gap-2 mt-1">
                                 {career.transferabilityFutureProofing.automationExposure.protectiveFactors.map((factor: string, i: number) => (
-                                  <span key={i} className="px-3 py-1 bg-neon-pink/20 text-neon-pink border border-neon-pink/30 rounded-full text-sm">
+                                  <span key={i} className="px-3 py-1 bg-primary-peach/20 text-primary-black border border-primary-peach/30 rounded-full text-sm">
                                     {factor}
                                   </span>
                                 ))}
@@ -996,19 +999,19 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
                       </div>
                     )}
                     {career.transferabilityFutureProofing.globalRelevance && (
-                      <div className="bg-cyber-yellow/10 p-4 rounded-lg border border-cyber-yellow/20">
-                        <h4 className="font-semibold text-cyber-yellow mb-3">Global Relevance</h4>
+                      <div className="bg-primary-yellow/10 p-4 rounded-lg border border-primary-yellow/20">
+                        <h4 className="font-semibold text-primary-black mb-3">Global Relevance</h4>
                         <div className="space-y-2 text-sm">
                           <div>
-                            <span className="font-medium text-gray-100">Cultural Adaptability:</span>
-                            <div className="text-cyber-yellow">{career.transferabilityFutureProofing.globalRelevance.culturalAdaptability}</div>
+                            <span className="font-medium text-primary-black">Cultural Adaptability:</span>
+                            <div className="text-primary-black">{career.transferabilityFutureProofing.globalRelevance.culturalAdaptability}</div>
                           </div>
                           {career.transferabilityFutureProofing.globalRelevance.marketDemand?.length > 0 && (
                             <div>
-                              <span className="font-medium text-gray-100">Market Demand:</span>
+                              <span className="font-medium text-primary-black">Market Demand:</span>
                               <div className="flex flex-wrap gap-2 mt-1">
                                 {career.transferabilityFutureProofing.globalRelevance.marketDemand.map((market: string, i: number) => (
-                                  <span key={i} className="px-3 py-1 bg-cyber-yellow/20 text-cyber-yellow border border-cyber-yellow/30 rounded-full text-sm">
+                                  <span key={i} className="px-3 py-1 bg-primary-yellow/20 text-primary-black border border-primary-yellow/30 rounded-full text-sm">
                                     {market}
                                   </span>
                                 ))}
@@ -1024,8 +1027,9 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
             </motion.div>
           )}
         </AnimatePresence>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </ContextualCard>
+    </DesignProvider>
   );
 };
 
@@ -1047,19 +1051,19 @@ const AccordionSection: React.FC<AccordionSectionProps> = ({
   children
 }) => {
   return (
-    <div className="border border-electric-blue/20 rounded-lg bg-primary-black/50">
+    <div className="border border-primary-green/20 rounded-lg bg-primary-white/95">
       <button
         onClick={onToggle}
-        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-electric-blue/10 transition-colors"
+        className="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-primary-green/10 transition-colors"
       >
         <div className="flex items-center space-x-3">
-          <Icon className="w-5 h-5 text-electric-blue" />
-          <span className="font-semibold text-primary-white">{title}</span>
+          <Icon className="w-5 h-5 text-primary-green" />
+          <span className="font-semibold text-primary-black">{title}</span>
         </div>
         {isExpanded ? (
-          <ChevronUp className="w-4 h-4 text-electric-blue" />
+          <ChevronUp className="w-4 h-4 text-primary-green" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-electric-blue" />
+          <ChevronDown className="w-4 h-4 text-primary-green" />
         )}
       </button>
       <AnimatePresence>

@@ -64,12 +64,12 @@ const SectorDetailModal: React.FC<SectorDetailModalProps> = ({ sector, isOpen, o
               <h3 className="font-semibold text-gray-900">UK Growth Rate</h3>
               <p className="text-2xl font-bold text-green-600">{sector.ukGrowthRate}</p>
             </div>
-            <div className="bg-blue-50 p-4 rounded-lg">
-              <DollarSign className="h-8 w-8 text-blue-600 mb-2" />
+            <div className="bg-primary-lavender/10 p-4 rounded-lg">
+              <DollarSign className="h-8 w-8 text-primary-green mb-2" />
               <h3 className="font-semibold text-gray-900">Average Salary</h3>
-              <p className="text-2xl font-bold text-blue-600">{sector.averageSalary}</p>
+              <p className="text-2xl font-bold text-primary-green">{sector.averageSalary}</p>
             </div>
-            <div className="bg-purple-50 p-4 rounded-lg">
+            <div className="bg-primary-peach/10 p-4 rounded-lg">
               <Clock className="h-8 w-8 text-purple-600 mb-2" />
               <h3 className="font-semibold text-gray-900">Time to Entry</h3>
               <p className="text-2xl font-bold text-purple-600">{sector.timeToEntry}</p>
@@ -94,7 +94,7 @@ const SectorDetailModal: React.FC<SectorDetailModalProps> = ({ sector, isOpen, o
               <div className="space-y-3">
                 {sector.keyRoles.map((role, index) => (
                   <div key={index} className="flex items-center space-x-3 p-3 bg-gray-50 rounded-lg">
-                    <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                    <div className="w-2 h-2 bg-primary-green rounded-full"></div>
                     <span className="font-medium">{role}</span>
                   </div>
                 ))}
@@ -108,7 +108,7 @@ const SectorDetailModal: React.FC<SectorDetailModalProps> = ({ sector, isOpen, o
                 {sector.skillsRequired.map((skill, index) => (
                   <span
                     key={index}
-                    className="px-3 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
+                    className="px-3 py-2 bg-primary-lavender/20 text-primary-black rounded-full text-sm font-medium"
                   >
                     {skill}
                   </span>
@@ -153,7 +153,7 @@ const SectorDetailModal: React.FC<SectorDetailModalProps> = ({ sector, isOpen, o
               {sector.educationPaths.map((path, index) => (
                 <div key={index} className="border border-gray-200 p-4 rounded-lg">
                   <div className="flex items-center space-x-2 mb-2">
-                    <Award className="h-4 w-4 text-blue-600" />
+                    <Award className="h-4 w-4 text-primary-green" />
                     <span className="font-medium">{path}</span>
                   </div>
                 </div>
@@ -162,20 +162,20 @@ const SectorDetailModal: React.FC<SectorDetailModalProps> = ({ sector, isOpen, o
           </div>
 
           {/* Apprenticeship Details */}
-          <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-            <h3 className="text-xl font-bold text-blue-900 mb-4">UK Government Apprenticeships</h3>
+          <div className="mt-8 bg-primary-lavender/10 border border-primary-lavender/30 rounded-lg p-6">
+            <h3 className="text-xl font-bold text-primary-black mb-4">UK Government Apprenticeships</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <h4 className="font-semibold text-blue-800">Available Positions</h4>
-                <p className="text-2xl font-bold text-blue-600">{sector.apprenticeshipData.available}</p>
+                <h4 className="font-semibold text-primary-black">Available Positions</h4>
+                <p className="text-2xl font-bold text-primary-green">{sector.apprenticeshipData.available}</p>
               </div>
               <div>
-                <h4 className="font-semibold text-blue-800">Starting Wage</h4>
-                <p className="text-2xl font-bold text-blue-600">{sector.apprenticeshipData.averageWage}</p>
+                <h4 className="font-semibold text-primary-black">Starting Wage</h4>
+                <p className="text-2xl font-bold text-primary-green">{sector.apprenticeshipData.averageWage}</p>
               </div>
               <div>
-                <h4 className="font-semibold text-blue-800">Duration</h4>
-                <p className="text-2xl font-bold text-blue-600">{sector.apprenticeshipData.duration}</p>
+                <h4 className="font-semibold text-primary-black">Duration</h4>
+                <p className="text-2xl font-bold text-primary-green">{sector.apprenticeshipData.duration}</p>
               </div>
             </div>
           </div>
@@ -206,7 +206,7 @@ const SectorDetailModal: React.FC<SectorDetailModalProps> = ({ sector, isOpen, o
                     <p><strong>Salary:</strong> {video.salary}</p>
                     <p><strong>Location:</strong> {video.location}</p>
                   </div>
-                  <button className="mt-3 w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                  <button className="mt-3 w-full bg-primary-green text-primary-black py-2 rounded-lg hover:bg-primary-yellow transition-colors">
                     Watch Career Story
                   </button>
                 </div>
@@ -220,7 +220,7 @@ const SectorDetailModal: React.FC<SectorDetailModalProps> = ({ sector, isOpen, o
             <div className="space-y-4">
               {sector.careerProgression.map((stage, index) => (
                 <div key={index} className="flex items-center space-x-4">
-                  <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold">
+                  <div className="bg-primary-green text-primary-black rounded-full w-8 h-8 flex items-center justify-center font-bold">
                     {index + 1}
                   </div>
                   <div className="flex-1 p-3 bg-gray-50 rounded-lg">

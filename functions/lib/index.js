@@ -26,7 +26,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.generateCareerPathways = exports.debugVideoDatabase = exports.getEnhancedCareerRecommendations = exports.generateTranscriptSummary = exports.processVideoWithTranscript = exports.extractTranscript = exports.getPersonalizedVideoRecommendations = exports.searchVideos = exports.generateEmbedding = exports.getVideoRecommendations = exports.generateDetailedChatSummary = exports.generateChatSummary = exports.sendChatMessage = exports.createChatThread = exports.healthCheck = exports.bumpupsProxy = exports.enrichVideoMetadata = void 0;
+exports.searchCareerData = exports.generateCareerPathways = exports.debugVideoDatabase = exports.getEnhancedCareerRecommendations = exports.generateTranscriptSummary = exports.processVideoWithTranscript = exports.extractTranscript = exports.getPersonalizedVideoRecommendations = exports.searchVideos = exports.generateEmbedding = exports.getVideoRecommendations = exports.generateDetailedChatSummary = exports.generateChatSummary = exports.sendChatMessage = exports.createChatThread = exports.healthCheck = exports.bumpupsProxy = exports.enrichVideoMetadata = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https = __importStar(require("https"));
 const https_1 = require("firebase-functions/v2/https");
@@ -3030,54 +3030,14 @@ Focus on real UK opportunities with actionable next steps.`;
         });
         let careerGuidance;
         try {
-            // Clean the response text to handle markdown-wrapped JSON
-            let cleanResponseText = responseText.trim();
-            // Remove markdown code block formatting if present
-            if (cleanResponseText.startsWith('```json')) {
-                cleanResponseText = cleanResponseText.replace(/^```json\s*/, '').replace(/\s*```$/, '');
-            }
-            else if (cleanResponseText.startsWith('```')) {
-                cleanResponseText = cleanResponseText.replace(/^```\s*/, '').replace(/\s*```$/, '');
-            }
-            careerGuidance = JSON.parse(cleanResponseText);
-            // Gambling and inappropriate domain blacklist
-            const BLACKLISTED_DOMAINS = [
-                'do-it.org',
-                'mega888',
-                '918kiss',
-                'pussy888',
-                'xe88',
-                'evo888',
-                'live22',
-                'joker123',
-                'play8oy2',
-                'rollex11',
-                'lpe88',
-                'ntc33',
-                'bitcoin888'
-            ];
-            // Enhanced URL validation function
+            careerGuidance = JSON.parse(responseText);
+            // URL validation function
             const isValidUrl = (url) => {
                 if (!url || typeof url !== 'string')
                     return false;
                 try {
                     const urlObj = new URL(url);
-                    // Check protocol
-                    if (urlObj.protocol !== 'http:' && urlObj.protocol !== 'https:') {
-                        return false;
-                    }
-                    // Check for blacklisted domains
-                    const hostname = urlObj.hostname.toLowerCase();
-                    const isBlacklisted = BLACKLISTED_DOMAINS.some(domain => hostname === domain || hostname.endsWith('.' + domain));
-                    if (isBlacklisted) {
-                        firebase_functions_1.logger.error('BLOCKED: Gambling/inappropriate domain detected', {
-                            url,
-                            hostname,
-                            blockedDomain: BLACKLISTED_DOMAINS.find(domain => hostname === domain || hostname.endsWith('.' + domain))
-                        });
-                        return false;
-                    }
-                    return true;
+                    return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
                 }
                 catch {
                     return false;
@@ -3122,7 +3082,7 @@ Focus on real UK opportunities with actionable next steps.`;
                 responseText: responseText.substring(0, 500) + '...',
                 parseError: parseError instanceof Error ? parseError.message : String(parseError)
             });
-            // Provide SAFE fallback structure without any gambling links
+            // Provide fallback structure
             careerGuidance = {
                 primaryPathway: {
                     title: "Career Exploration",
@@ -3142,12 +3102,12 @@ Focus on real UK opportunities with actionable next steps.`;
                     }],
                 volunteering: [{
                         title: "Community Volunteer",
-                        organization: "Local Community Centre",
+                        organization: "Local charity",
                         timeCommitment: "2-4 hours per week",
                         location: "Various locations",
                         description: "Gain valuable experience while helping the community",
-                        benefits: "Communication, teamwork, leadership skills"
-                        // REMOVED MALICIOUS do-it.org LINK - NO LINK PROVIDED IF UNSAFE
+                        benefits: "Communication, teamwork, leadership skills",
+                        link: "https://do-it.org"
                     }],
                 funding: [{
                         title: "Career Development Loan",
@@ -3195,4 +3155,94 @@ Focus on real UK opportunities with actionable next steps.`;
         });
     }
 });
+/**
+ * Web search function for career research
+ * Returns real UK training and salary data for career card generation
+ */
+exports.searchCareerData = (0, https_1.onRequest)({
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret]
+}, async (request, response) => {
+    try {
+        // Validate request method
+        if (request.method !== 'POST') {
+            response.status(405).json({
+                success: false,
+                error: 'Method not allowed. Use POST.'
+            });
+            return;
+        }
+        // Extract parameters
+        const { searchTerm, searchType } = request.body;
+        if (!searchTerm || typeof searchTerm !== 'string') {
+            response.status(400).json({
+                success: false,
+                error: 'searchTerm is required and must be a string'
+            });
+            return;
+        }
+        const validSearchTypes = ['training', 'salary', 'general'];
+        if (searchType && !validSearchTypes.includes(searchType)) {
+            response.status(400).json({
+                success: false,
+                error: `searchType must be one of: ${validSearchTypes.join(', ')}`
+            });
+            return;
+        }
+        firebase_functions_1.logger.info('Career data search request', {
+            searchTerm,
+            searchType: searchType || 'general'
+        });
+        // TODO: Implement actual web search
+        // This could use services like:
+        // - SerpAPI for Google search results
+        // - ScaleSerp for search API
+        // - Custom web scraping for specific UK education sites
+        // For now, return a structured response indicating research is needed
+        const searchResults = await performCareerDataSearch(searchTerm, searchType);
+        response.status(200).json({
+            success: true,
+            searchTerm,
+            searchType: searchType || 'general',
+            results: searchResults,
+            timestamp: new Date().toISOString(),
+            note: 'This is a placeholder implementation. Real web search should be integrated.'
+        });
+    }
+    catch (error) {
+        firebase_functions_1.logger.error('Error in searchCareerData function', {
+            error: error.message,
+            stack: error.stack
+        });
+        response.status(500).json({
+            success: false,
+            error: 'Failed to search career data',
+            message: error.message
+        });
+    }
+});
+/**
+ * Perform career data search (placeholder implementation)
+ */
+async function performCareerDataSearch(searchTerm, searchType) {
+    // This is where actual web search would be implemented
+    // For now, return guidance on where to find real information
+    const baseGuidance = {
+        searchTerm,
+        searchType,
+        guidance: `For current information about "${searchTerm}", please verify with official sources:`,
+        verificationSources: []
+    };
+    if (searchType === 'training' || !searchType) {
+        baseGuidance.verificationSources.push('Find an Apprenticeship - gov.uk/apply-apprenticeship', 'UCAS for university courses - ucas.com', 'Further Education courses - gov.uk/further-education-courses', 'Professional bodies and trade associations', 'Major training providers (City & Guilds, Pearson)', 'Local colleges and universities');
+    }
+    if (searchType === 'salary' || !searchType) {
+        baseGuidance.verificationSources.push('National Careers Service - nationalcareersservice.direct.gov.uk', 'ONS Average Weekly Earnings - ons.gov.uk', 'PayScale UK salary data - payscale.com/research/UK', 'Indeed UK salary insights - indeed.co.uk/salaries', 'Glassdoor UK salaries - glassdoor.co.uk/Salaries', 'Professional association salary surveys');
+    }
+    return {
+        ...baseGuidance,
+        implementationNote: 'To enable real-time search, integrate with search APIs like SerpAPI or implement web scraping for specific UK education and career sites.',
+        dataFreshness: 'Information should be verified as of ' + new Date().toLocaleDateString()
+    };
+}
 //# sourceMappingURL=index.js.map
