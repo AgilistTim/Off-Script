@@ -886,9 +886,9 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           contextResult = await contextService.injectGuestContext(agentId);
         }
       } else if (careerContext && careerContext.title) {
-        // Authenticated user with career context - inject career-specific context
-        console.log('🎯 Authenticated user with career context - injecting career-specific context');
-        contextResult = await contextService.injectCareerContext(agentId, currentUser.uid, careerContext);
+        // Authenticated user with career context - preserve existing career context instead of resetting
+        console.log('🎯 Authenticated user with career context - preserving existing career context');
+        contextResult = await contextService.preserveCareerContext(agentId, currentUser.uid, careerContext);
       } else {
         // Authenticated user without specific career context - inject personalized context
         console.log('🔐 Authenticated user without career context - injecting personalized context');

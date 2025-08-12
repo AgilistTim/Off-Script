@@ -649,6 +649,36 @@ You already have all the context about this user and career path. Start the conv
       sessionDuration
     };
   }
+
+  /**
+   * Get active career discussion sessions for a user
+   */
+  getActiveSessions(userId: string): Array<{
+    sessionId: string;
+    career: string;
+    startTime: Date;
+    userEngagement: number;
+  }> {
+    const activeSessions: Array<{
+      sessionId: string;
+      career: string;
+      startTime: Date;
+      userEngagement: number;
+    }> = [];
+
+    for (const [sessionId, session] of this.activeSessions) {
+      if (session.context.userId === userId) {
+        activeSessions.push({
+          sessionId,
+          career: session.context.careerData?.title || 'Unknown Career',
+          startTime: session.startTime,
+          userEngagement: session.insights.userEngagement
+        });
+      }
+    }
+
+    return activeSessions.sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
+  }
 }
 
 // Export singleton instance

@@ -20,6 +20,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   // Enhanced chat modal state
   const [showEnhancedModal, setShowEnhancedModal] = useState(false);
   const [conversationHistory, setConversationHistory] = useState<any[]>([]);
+  const [activeCareerContext, setActiveCareerContext] = useState<any>(null);
   
   // Post-conversation state
   const [showPostConversationCTA, setShowPostConversationCTA] = useState(false);
@@ -35,6 +36,33 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     console.log('🎯 ConversationView: Career cards discovered:', cards.length);
     setDiscoveredCareerCards(cards);
   }, []);
+
+  // Check for active career context when modal opens
+  const checkActiveCareerContext = useCallback(async () => {
+    if (!currentUser) return;
+    
+    try {
+      console.log('🔍 ConversationView: Checking for active career context');
+      // Import careerAwareVoiceService to check for active sessions
+      const { careerAwareVoiceService } = await import('../../services/careerAwareVoiceService');
+      const activeSessions = await careerAwareVoiceService.getActiveSessions(currentUser.uid);
+      
+      if (activeSessions.length > 0) {
+        const activeSession = activeSessions[0];
+        console.log('🎯 ConversationView: Found active career session:', activeSession.career);
+        setActiveCareerContext({
+          title: activeSession.career,
+          sessionId: activeSession.sessionId
+        });
+      } else {
+        console.log('ℹ️ ConversationView: No active career sessions found');
+        setActiveCareerContext(null);
+      }
+    } catch (error) {
+      console.log('⚠️ ConversationView: Could not check career context:', error);
+      setActiveCareerContext(null);
+    }
+  }, [currentUser]);
 
   // Handle modal close - check if we should show post-conversation CTA
   const handleModalClose = useCallback(() => {
@@ -237,8 +265,9 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
             >
               <ContextualButton
                 intent="cta"
-                onClick={() => {
+                onClick={async () => {
                   console.log('🚀 ConversationView: Opening enhanced modal');
+                  await checkActiveCareerContext();
                   setShowEnhancedModal(true);
                 }}
                 className="px-12 py-6 text-xl"
@@ -370,7 +399,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
       <EnhancedChatVoiceModal
         isOpen={showEnhancedModal}
         onClose={handleModalClose}
-        careerContext={undefined}
+        careerContext={activeCareerContext}
         currentConversationHistory={conversationHistory}
         onConversationUpdate={handleConversationUpdate}
         onCareerCardsDiscovered={handleCareerCardsDiscovered}

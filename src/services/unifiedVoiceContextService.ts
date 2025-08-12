@@ -859,6 +859,33 @@ ${contextPrompt}
   }
 
   /**
+   * Preserve existing career context while switching modals
+   * SECURITY: Only use when continuing an active career discussion - does NOT reset agent
+   */
+  public async preserveCareerContext(
+    agentId: string, 
+    userId: string, 
+    careerContext: any
+  ): Promise<ContextInjectionResult> {
+    try {
+      console.log('🎯 Preserving career context for ongoing discussion:', careerContext.title);
+      
+      // Don't reset agent - preserve the existing career context
+      // Just ensure the conversation continues smoothly with the modal switch
+      return {
+        success: true,
+        message: 'Career context preserved successfully',
+        fallbackUsed: false
+      };
+    } catch (error) {
+      console.error('❌ Failed to preserve career context:', error);
+      // Fallback to regular authenticated context injection
+      console.log('🔄 Falling back to regular authenticated context injection');
+      return this.injectAuthenticatedContext(agentId, userId);
+    }
+  }
+
+  /**
    * Inject context for career deep-dive with user profile + career details
    */
   public async injectCareerContext(
