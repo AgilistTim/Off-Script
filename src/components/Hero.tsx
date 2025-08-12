@@ -1,9 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
-import { Sparkles, ArrowRight, Volume2, Users, Zap, Play, Pause } from 'lucide-react';
+import { Sparkles, ArrowRight, Volume2, Users, Zap, Play, Pause, CheckCircle, UserPlus } from 'lucide-react';
 import { Button } from './ui/button';
 import { EnhancedChatVoiceModal } from './conversation/EnhancedChatVoiceModal';
+import { useAuth } from '../context/AuthContext';
 
 const Hero: React.FC = () => {
   const navigate = useNavigate();
@@ -11,6 +12,10 @@ const Hero: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [showPostConversationCTA, setShowPostConversationCTA] = useState(false);
+  const [discoveredCareerCards, setDiscoveredCareerCards] = useState<any[]>([]);
+  
+  const { currentUser } = useAuth();
 
   useEffect(() => {
     setIsVisible(true);
@@ -28,9 +33,51 @@ const Hero: React.FC = () => {
     setShowVoiceModal(true);
   };
 
-  const handleVoiceModalClose = () => {
+  const handleVoiceModalClose = useCallback(() => {
+    console.log('🚪 Hero: handleVoiceModalClose called');
     setShowVoiceModal(false);
-  };
+    
+    // Show post-conversation CTA if guest user discovered career cards
+    if (!currentUser && discoveredCareerCards.length > 0) {
+      console.log('🎯 Hero: Showing post-conversation CTA for guest with career insights');
+      setShowPostConversationCTA(true);
+    }
+  }, [currentUser, discoveredCareerCards.length]);
+
+  // Handle career cards discovered
+  const handleCareerCardsDiscovered = useCallback((cards: any[]) => {
+    console.log('🎯 Hero: Career cards discovered:', cards.length);
+    setDiscoveredCareerCards(cards);
+  }, []);
+
+  // Handle conversation end
+  const handleConversationEnd = useCallback((hasGeneratedData: boolean, careerCardCount: number) => {
+    console.log('🎯 Hero: handleConversationEnd called', { hasGeneratedData, careerCardCount });
+    
+    // Show post-conversation CTA if guest user generated career insights
+    if (!currentUser && hasGeneratedData && careerCardCount > 0) {
+      console.log('🎯 Hero: Triggering post-conversation CTA for guest with career insights');
+      setShowPostConversationCTA(true);
+    }
+  }, [currentUser]);
+
+  // Handle signup CTA
+  const handleSignUp = useCallback(() => {
+    console.log('🎯 Hero: Sign up button clicked');
+    window.location.href = '/register';
+  }, []);
+
+  // Handle login CTA  
+  const handleLogin = useCallback(() => {
+    console.log('🎯 Hero: Login button clicked');
+    window.location.href = '/login';
+  }, []);
+
+  // Handle dismiss post-conversation CTA
+  const handleDismissPostCTA = useCallback(() => {
+    console.log('🎯 Hero: Dismiss CTA button clicked');
+    setShowPostConversationCTA(false);
+  }, []);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -295,9 +342,74 @@ const Hero: React.FC = () => {
         careerContext={undefined}
         currentConversationHistory={[]}
         onConversationUpdate={() => {}}
-        onCareerCardsDiscovered={() => {}}
-        onConversationEnd={() => {}}
+        onCareerCardsDiscovered={handleCareerCardsDiscovered}
+        onConversationEnd={handleConversationEnd}
       />
+
+      {/* Post-Conversation CTA */}
+      <AnimatePresence>
+        {showPostConversationCTA && !currentUser && !showVoiceModal && (
+          <motion.div
+            className="fixed inset-0 bg-primary-black/80 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ pointerEvents: 'auto' }}
+          >
+            <motion.div
+              className="bg-gradient-to-br from-primary-white/10 to-primary-white/5 backdrop-blur-xl border border-electric-blue/30 rounded-3xl p-8 max-w-md w-full text-center"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              style={{ pointerEvents: 'auto' }}
+            >
+              <motion.div
+                className="w-16 h-16 bg-gradient-to-r from-acid-green to-cyber-yellow rounded-2xl flex items-center justify-center mx-auto mb-6"
+                animate={{ rotate: [0, 360] }}
+                transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+              >
+                <CheckCircle className="w-8 h-8 text-primary-black" />
+              </motion.div>
+              
+              <h3 className="text-2xl font-bold text-primary-white mb-4">
+                Great Conversation!
+              </h3>
+              <p className="text-primary-white/70 mb-2">
+                You discovered <span className="text-electric-blue font-bold">{discoveredCareerCards.length} career insights</span>
+              </p>
+              <p className="text-primary-white/70 mb-8">
+                Sign up to save your progress and continue exploring
+              </p>
+              
+              <div className="space-y-3">
+                <Button
+                  onClick={handleSignUp}
+                  className="w-full bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white font-bold py-3 rounded-xl hover:scale-105 transition-transform duration-200"
+                >
+                  <UserPlus className="w-5 h-5 mr-2" />
+                  Sign Up Free
+                </Button>
+                
+                <Button
+                  onClick={handleLogin}
+                  variant="outline"
+                  className="w-full border-electric-blue/30 text-electric-blue hover:bg-electric-blue/10 py-3 rounded-xl"
+                >
+                  Already have an account? Log in
+                </Button>
+                
+                <Button
+                  onClick={handleDismissPostCTA}
+                  variant="ghost"
+                  className="w-full text-primary-white/50 hover:text-primary-white/70 py-2"
+                >
+                  Maybe later
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 };

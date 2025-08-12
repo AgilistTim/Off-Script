@@ -153,7 +153,8 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
     const handleViewportResize = () => {
       try {
         if (vv) {
-          const keyboardInset = Math.max(0, (window.innerHeight - (vv.height + vv.offsetTop)));
+          const delta = window.innerHeight - (vv.height + vv.offsetTop);
+          const keyboardInset = delta > 120 ? delta : 0;
           setCtaBottomOffsetPx(keyboardInset);
         } else {
           setCtaBottomOffsetPx(0);
@@ -482,7 +483,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
           {/* Voice Conversation Panel */}
           <div className="flex-1 flex flex-col min-h-0">
             {/* Conversation History */}
-            <div className="flex-1 mb-4 min-h-0">
+            <div className="flex-1 min-h-0">
               <ScrollArea ref={scrollAreaRef} className="h-full pr-2">
                 <div className="space-y-4 pb-[136px] md:pb-4">
                   {conversationHistory.map((message, index) => (
@@ -533,8 +534,8 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
               </ScrollArea>
             </div>
 
-            {/* Voice Controls - fixed bottom on mobile, static on desktop */}
-            <div className="md:static">
+            {/* Voice Controls - fixed on mobile, sticky on desktop */}
+            <div className="md:sticky md:bottom-0">
               <div
                 className="fixed left-0 right-0 bottom-0 z-[130] px-4 md:static md:z-auto md:px-0"
                 style={{ bottom: `calc(${ctaBottomOffsetPx}px + env(safe-area-inset-bottom, 0px))` }}
@@ -590,25 +591,6 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                           {discoveredInsights.interests.length + discoveredInsights.goals.length + discoveredInsights.skills.length} items
                         </span>
                       </div>
-                      <Button
-                        onClick={handleSaveInsights}
-                        disabled={savingInsights || insightsSaved}
-                        size="sm"
-                        className={`text-xs px-3 py-1 ${
-                          insightsSaved 
-                            ? 'bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black' 
-                            : 'bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white'
-                        }`}
-                      >
-                        {savingInsights ? (
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        ) : insightsSaved ? (
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                        ) : (
-                          <Save className="w-3 h-3 mr-1" />
-                        )}
-                        {insightsSaved ? 'Saved!' : 'Save to Profile'}
-                      </Button>
                     </div>
                   )}
                   

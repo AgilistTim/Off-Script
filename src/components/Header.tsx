@@ -72,33 +72,35 @@ const Header: React.FC = () => {
               {/* Off Script SVG Logo - simplified version */}
               <svg 
                 className="logo" 
-                width="120" 
+                width="140" 
                 height="40" 
                 viewBox="0 0 120 40" 
                 fill="currentColor" 
                 xmlns="http://www.w3.org/2000/svg"
               >
-                <text 
-                  x="0" 
-                  y="28" 
-                  fontFamily="Barlow Semi Condensed, sans-serif" 
-                  fontSize="24" 
-                  fontWeight="700"
-                  className="transition-all duration-brand"
-                >
-                  OFF
-                </text>
-                <text 
-                  x="44" 
-                  y="28" 
-                  fontFamily="Barlow Semi Condensed, sans-serif" 
-                  fontSize="24" 
-                  fontWeight="700" 
-                  fontStyle="italic"
-                  className="transition-all duration-brand"
-                >
-                  SCRIPT
-                </text>
+                <g>
+                  <text 
+                    x="0" 
+                    y="28" 
+                    fontFamily="Barlow Semi Condensed, sans-serif" 
+                    fontSize="24" 
+                    fontWeight="700"
+                    className="transition-all duration-brand"
+                  >
+                    OFF
+                  </text>
+                  <text 
+                    x="52" 
+                    y="28" 
+                    fontFamily="Barlow Semi Condensed, sans-serif" 
+                    fontSize="24" 
+                    fontWeight="700" 
+                    fontStyle="italic"
+                    className="transition-all duration-brand"
+                  >
+                    SCRIPT
+                  </text>
+                </g>
                 {/* Underline accent */}
                 <line 
                   x1="0" 

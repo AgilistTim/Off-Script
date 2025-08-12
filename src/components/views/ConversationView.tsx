@@ -38,6 +38,10 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   // Handle modal close - check if we should show post-conversation CTA
   const handleModalClose = useCallback(() => {
     console.log('🚪 ConversationView: handleModalClose called');
+    console.log('🔍 Modal close state check:', { 
+      currentUser: currentUser ? 'logged in' : 'guest',
+      showPostConversationCTA: showPostConversationCTA
+    });
     setShowEnhancedModal(false);
     
     // Use current state value to avoid dependency issues
@@ -46,6 +50,20 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
       if (!currentUser && currentCards.length > 0) {
         console.log('🎯 Showing post-conversation CTA for guest with career insights');
         setShowPostConversationCTA(true);
+      } else if (!currentUser && currentCards.length === 0) {
+        // Fallback: query guest session directly in case of race condition
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-var-requires
+          const { guestSessionService } = require('../../services/guestSessionService');
+          const session = guestSessionService.getGuestSession();
+          const hasCards = (session?.careerCards?.length || 0) > 0;
+          if (hasCards) {
+            console.log('🎯 Fallback CTA trigger: guest session has career cards');
+            setShowPostConversationCTA(true);
+          }
+        } catch (e) {
+          console.warn('Guest session lookup failed when closing modal:', e);
+        }
       }
       return currentCards; // Return unchanged
     });
@@ -69,11 +87,20 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   // Handle conversation end from modal
   const handleConversationEnd = useCallback((hasGeneratedData: boolean, careerCardCount: number) => {
     console.log('🎯 ConversationView: handleConversationEnd called', { hasGeneratedData, careerCardCount });
+    console.log('🔍 Current user state:', { currentUser: currentUser ? 'logged in' : 'guest' });
+    console.log('🔍 CTA trigger conditions:', { 
+      isGuest: !currentUser, 
+      hasData: hasGeneratedData, 
+      cardCount: careerCardCount,
+      shouldTrigger: !currentUser && hasGeneratedData && careerCardCount > 0 
+    });
     
     // Show post-conversation CTA if guest user generated career insights
     if (!currentUser && hasGeneratedData && careerCardCount > 0) {
       console.log('🎯 Triggering post-conversation CTA for guest with career insights');
       setShowPostConversationCTA(true);
+    } else {
+      console.log('❌ CTA not triggered - conditions not met');
     }
   }, [currentUser]);
 
@@ -287,10 +314,11 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
       </div>
 
       {/* Post-Conversation CTA */}
+      {console.log('🔍 CTA Render Check:', { showPostConversationCTA, currentUser: currentUser ? 'logged in' : 'guest', shouldShow: showPostConversationCTA && !currentUser })}
       <AnimatePresence>
         {showPostConversationCTA && !currentUser && (
           <motion.div
-            className="fixed inset-0 bg-primary-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 bg-primary-black/80 backdrop-blur-sm z-[200] flex items-center justify-center p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -358,7 +386,10 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         currentConversationHistory={conversationHistory}
         onConversationUpdate={handleConversationUpdate}
         onCareerCardsDiscovered={handleCareerCardsDiscovered}
-        onConversationEnd={handleConversationEnd}
+        onConversationEnd={(hasGeneratedData: boolean, careerCardCount: number) => {
+          console.log('🔥 WRAPPER: onConversationEnd called in ConversationView');
+          handleConversationEnd(hasGeneratedData, careerCardCount);
+        }}
       />
     </motion.div>
   );

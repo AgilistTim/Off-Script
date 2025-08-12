@@ -133,7 +133,9 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     const handleViewportResize = () => {
       try {
         if (vv) {
-          const keyboardInset = Math.max(0, (window.innerHeight - (vv.height + vv.offsetTop)));
+          const delta = window.innerHeight - (vv.height + vv.offsetTop);
+          // Only treat as keyboard when the delta is significant (prevents mid-screen CTA on desktop)
+          const keyboardInset = delta > 120 ? delta : 0;
           setCtaBottomOffsetPx(keyboardInset);
         } else {
           setCtaBottomOffsetPx(0);
@@ -736,7 +738,13 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         const currentCards = careerCardsRef.current;
         const hasGeneratedData = currentCards.length > 0;
         console.log('🎯 Calling onConversationEnd:', { hasGeneratedData, careerCardCount: currentCards.length });
+        console.log('🔍 onConversationEnd callback type:', typeof onConversationEnd);
+        console.log('🔍 About to call onConversationEnd with args:', hasGeneratedData, currentCards.length);
+        console.log('🔍 onConversationEnd function name:', onConversationEnd.name);
         onConversationEnd(hasGeneratedData, currentCards.length);
+        console.log('✅ onConversationEnd called successfully');
+      } else {
+        console.warn('⚠️ onConversationEnd callback not provided to EnhancedChatVoiceModal');
       }
     },
     onMessage: async (message) => {
@@ -1034,11 +1042,10 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
-        className="md:max-w-7xl md:w-[95vw] md:h-[85vh] w-screen max-w-none h-[100dvh] p-0 bg-gradient-to-br from-primary-dark via-secondary-dark to-primary-dark border border-electric-blue/30 [&>button]:hidden z-[120]"
+        className="md:max-w-7xl md:w-[95vw] md:h-[85vh] w-screen max-w-none h-[100dvh] p-0 bg-gradient-to-br from-primary-dark via-secondary-dark to-primary-dark border border-electric-blue/30 [&>button]:hidden z-[120] grid grid-rows-[auto_1fr_auto]"
         aria-describedby="enhanced-chat-description"
       >
-        {/* Mobile-first: full-height grid with bottom action bar space */}
-        <div className="grid grid-rows-[auto_1fr] min-h-[100dvh] md:min-h-0">
+          {/* Fixed Header */}
           <DialogHeader className="border-b border-electric-blue/20 pb-4 px-4 pt-4 md:px-6 flex-shrink-0">
             <div id="enhanced-chat-description" className="sr-only">
               Enhanced voice chat interface for career guidance and conversation analysis
@@ -1068,11 +1075,13 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             </div>
           </DialogHeader>
 
-          {/* Main content area: scrollable */}
-          <div className="overflow-y-auto overscroll-contain min-h-0 px-2 md:px-4 pt-2 pb-[112px] md:pb-4">
-            <div className="flex space-x-4 min-h-0">
-              {/* Career Insights Panel */}
-              <div className="hidden sm:block w-72 xl:w-80 flex-shrink-0">
+          {/* Flexible Content Area */}
+          <div className="min-h-0 h-full overflow-hidden px-2 md:px-4 pt-2">
+            <div className="flex flex-col md:flex-row md:space-x-4 h-full">
+              {/* Career Insights Panel - Top on mobile, Left on desktop */}
+              <div className="block w-full md:w-64 lg:w-72 xl:w-80 flex-shrink-0 md:h-full">
+                {/* Mobile: Fixed height container with scroll */}
+                <div className="h-48 md:h-full overflow-hidden">
                 <Card className="bg-gradient-to-br from-primary-gray/50 to-electric-blue/10 border border-electric-blue/20 h-full flex flex-col">
                   <CardHeader className="pb-3 flex-shrink-0">
                     <div className="flex items-center justify-between">
@@ -1426,11 +1435,12 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     )}
                   </CardContent>
                 </Card>
+                </div>
               </div>
 
-              {/* Voice Conversation Panel */}
-              <div className="flex-1 flex flex-col min-h-0">
-                <div className="flex-1 mb-4 min-h-0">
+              {/* Voice Conversation Panel - Bottom on mobile, Right on desktop */}
+              <div className="flex-1 flex flex-col min-h-0 mt-4 md:mt-0">
+                <div className="flex-1 h-full">
                   <ScrollArea ref={scrollAreaRef} className="h-full pr-2">
                     <div className="space-y-4 pb-4">
                       {conversationHistory.map((message, index) => (
@@ -1484,13 +1494,9 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             </div>
           </div>
 
-          {/* Fixed bottom action bar (mobile-first), keyboard-aware */}
-          <div className="md:static md:px-6 md:pt-3 md:pb-4">
-            <div
-              className="fixed left-0 right-0 bottom-0 z-[130] px-4 md:static md:z-auto md:px-0"
-              style={{ bottom: `calc(${ctaBottomOffsetPx}px + env(safe-area-inset-bottom, 0px))` }}
-            >
-              <div className="bg-gradient-to-r from-primary-gray/50 to-electric-blue/10 rounded-t-xl md:rounded-xl p-4 border border-electric-blue/20 backdrop-blur">
+          {/* Fixed Footer */}
+          <div className="flex-shrink-0 border-t border-electric-blue/20 p-4">
+            <div className="bg-gradient-to-r from-primary-gray/50 to-electric-blue/10 rounded-xl p-4 border border-electric-blue/20 backdrop-blur">
               <div className="flex flex-col space-y-3 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
                 <div className="flex items-center justify-center lg:justify-start">
                   {!isConnected ? (
@@ -1553,25 +1559,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                           {discoveredInsights.interests.length + discoveredInsights.goals.length + discoveredInsights.skills.length + discoveredInsights.personalQualities.length} items
                         </span>
                       </div>
-                      <Button
-                        onClick={handleSaveInsights}
-                        disabled={savingInsights || insightsSaved}
-                        size="sm"
-                        className={`text-xs px-3 py-1 min-h-[36px] ${
-                          insightsSaved 
-                            ? 'bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black' 
-                            : 'bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white'
-                        }`}
-                      >
-                        {savingInsights ? (
-                          <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                        ) : insightsSaved ? (
-                          <CheckCircle className="w-3 h-3 mr-1" />
-                        ) : (
-                          <Save className="w-3 h-3 mr-1" />
-                        )}
-                        {insightsSaved ? 'Saved!' : 'Save to Profile'}
-                      </Button>
                     </div>
                   )}
 
@@ -1582,10 +1569,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   )}
                 </div>
               </div>
-              </div>
             </div>
           </div>
-        </div>
       </DialogContent>
     </Dialog>
   );

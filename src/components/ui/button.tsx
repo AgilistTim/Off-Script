@@ -25,9 +25,9 @@ const buttonVariants = cva(
       },
       size: {
         // Off Script sizing - large horizontal padding
-        default: "px-40 py-4", // 10rem = 160px, using px-40 as close equivalent
-        sm: "px-20 py-2 text-sm",
-        lg: "px-48 py-6 text-lg",
+        default: "px-6 sm:px-8 lg:px-40 py-3 sm:py-4 min-h-[44px]", // Mobile-first responsive sizing
+        sm: "px-4 sm:px-6 lg:px-20 py-2 text-sm min-h-[44px]",
+        lg: "px-6 sm:px-8 lg:px-48 py-4 sm:py-5 lg:py-6 text-lg min-h-[44px]",
         icon: "h-10 w-10",
         // Compact versions for UI elements
         compact: "px-6 py-2",
