@@ -772,7 +772,7 @@ export class GuestMigrationService {
       // Update primary pathway if enhanced
       if (enhancedCards.length > 0 && updatedGuidance.primaryPathway) {
         const primaryCard = enhancedCards[0]; // First card is typically the primary
-        if (primaryCard.enhancement.status === 'completed' && primaryCard.perplexityData) {
+        if (primaryCard.enhancement?.status === 'completed' && primaryCard.perplexityData) {
           updatedGuidance.primaryPathway = {
             ...updatedGuidance.primaryPathway,
             ...this.transformPerplexityDataToUIFormat(primaryCard),
@@ -789,7 +789,7 @@ export class GuestMigrationService {
       // Update alternative pathways if enhanced
       if (enhancedCards.length > 1 && updatedGuidance.alternativePathways) {
         enhancedCards.slice(1).forEach((card, index) => {
-          if (card.enhancement.status === 'completed' && card.perplexityData && 
+          if (card.enhancement?.status === 'completed' && card.perplexityData && 
               updatedGuidance.alternativePathways[index]) {
             updatedGuidance.alternativePathways[index] = {
               ...updatedGuidance.alternativePathways[index],

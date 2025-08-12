@@ -640,14 +640,35 @@ export class DashboardCareerEnhancer {
    * Parse education cost string to our cost format
    */
   private parseEducationCost(costStr: string): { min: number; max: number; currency: 'GBP' } | null {
-    const matches = costStr.match(/£([0-9,]+)(?:\s*-\s*£?([0-9,]+))?/);
-    if (matches) {
-      const min = parseInt(matches[1].replace(/,/g, ''), 10);
-      const max = matches[2] ? parseInt(matches[2].replace(/,/g, ''), 10) : min;
-      return { min, max, currency: 'GBP' };
+    // Handle common cost patterns
+    const patterns = [
+      // Standard £X-£Y format
+      /£([0-9,]+)(?:\s*-\s*£?([0-9,]+))?/,
+      // "Free" or similar
+      /(free|no cost|£0)/i,
+      // Employer funded patterns
+      /(employer.{0,20}fund|apprentice.{0,20}levy|no tuition)/i
+    ];
+    
+    for (const pattern of patterns) {
+      const matches = costStr.match(pattern);
+      if (matches) {
+        // Handle free/employer funded courses
+        if (pattern === patterns[1] || pattern === patterns[2]) {
+          return { min: 0, max: 0, currency: 'GBP' };
+        }
+        
+        // Handle numeric patterns
+        if (matches[1] && /^\d/.test(matches[1])) {
+          const min = parseInt(matches[1].replace(/,/g, ''), 10);
+          const max = matches[2] ? parseInt(matches[2].replace(/,/g, ''), 10) : min;
+          return { min, max, currency: 'GBP' };
+        }
+      }
     }
-    console.error('❌ Could not parse education cost from:', costStr, '- refusing to provide fake cost data');
-    return null; // Don't provide fake cost data
+    
+    console.warn('⚠️ Could not parse education cost from:', costStr.substring(0, 100), '- skipping this pathway but continuing with others');
+    return null; // Return null to skip this pathway but don't fail the entire process
   }
 
   /**

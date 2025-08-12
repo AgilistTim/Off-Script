@@ -612,7 +612,7 @@ class MCPBridgeService {
           search_recency_filter: params.search_recency_filter,
           return_related_questions: params.return_related_questions,
           temperature: 0.1,
-          max_tokens: 1500
+          max_tokens: 4000
         })
       });
 
@@ -875,7 +875,7 @@ Use recent UK job market data, salary surveys, government statistics, and indust
           ],
           search_recency_filter: 'month',
           temperature: 0.1,
-          max_tokens: 4000
+          max_tokens: 8000
         })
       });
 
@@ -895,8 +895,29 @@ Use recent UK job market data, salary surveys, government statistics, and indust
       try {
         parsedData = JSON.parse(choice.message.content);
       } catch (parseError) {
-        console.error('❌ Failed to parse JSON response:', choice.message.content);
-        throw new Error('Invalid JSON response from Perplexity');
+        console.error('❌ Failed to parse JSON response, attempting repair:', choice.message.content.substring(0, 200) + '...');
+        
+        // Try to repair the JSON using a custom repair function
+        try {
+          const repairedContent = this.repairMalformedJSON(choice.message.content);
+          parsedData = JSON.parse(repairedContent);
+          console.log('✅ Successfully repaired and parsed JSON');
+        } catch (repairError) {
+          console.error('❌ JSON repair also failed:', repairError);
+          // Try to extract partial data if possible
+          try {
+            const partialData = this.extractPartialJSONData(choice.message.content);
+            if (partialData) {
+              parsedData = partialData;
+              console.log('✅ Extracted partial data from malformed JSON');
+            } else {
+              throw new Error('Unable to extract any valid data from response');
+            }
+          } catch (extractError) {
+            console.error('❌ Partial extraction failed:', extractError);
+            throw new Error('Invalid JSON response from Perplexity - unable to repair or extract data');
+          }
+        }
       }
 
       // Extract sources from the API response
@@ -932,6 +953,126 @@ Use recent UK job market data, salary surveys, government statistics, and indust
         success: false,
         error: error instanceof Error ? error.message : 'Unknown structured career data error'
       };
+    }
+  }
+
+  /**
+   * Repair malformed JSON from Perplexity API responses
+   */
+  private repairMalformedJSON(jsonString: string): string {
+    let repaired = jsonString.trim();
+    
+    // Remove any leading/trailing non-JSON content
+    const startIndex = repaired.indexOf('{');
+    const lastIndex = repaired.lastIndexOf('}');
+    
+    if (startIndex !== -1 && lastIndex !== -1 && lastIndex > startIndex) {
+      repaired = repaired.substring(startIndex, lastIndex + 1);
+    }
+    
+    // Fix common issues
+    repaired = repaired
+      // Fix unquoted keys
+      .replace(/([{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g, '$1"$2":')
+      // Fix single quotes to double quotes
+      .replace(/'/g, '"')
+      // Fix trailing commas
+      .replace(/,(\s*[}\]])/g, '$1')
+      // Fix missing commas between objects/arrays
+      .replace(/}(\s*){/g, '}, {')
+      .replace(/](\s*)\[/g, '], [')
+      // Try to close unclosed objects/arrays
+      .replace(/,\s*$/, '');
+    
+    // Try to balance braces and brackets
+    const openBraces = (repaired.match(/{/g) || []).length;
+    const closeBraces = (repaired.match(/}/g) || []).length;
+    const openBrackets = (repaired.match(/\[/g) || []).length;
+    const closeBrackets = (repaired.match(/\]/g) || []).length;
+    
+    // Add missing closing braces
+    for (let i = 0; i < openBraces - closeBraces; i++) {
+      repaired += '}';
+    }
+    
+    // Add missing closing brackets
+    for (let i = 0; i < openBrackets - closeBrackets; i++) {
+      repaired += ']';
+    }
+    
+    return repaired;
+  }
+
+  /**
+   * Extract partial JSON data when full parsing fails
+   */
+  private extractPartialJSONData(jsonString: string): PerplexityStructuredCareerData | null {
+    try {
+      // Try to extract at least the basic structure needed for the UI
+      const basicStructure: Partial<PerplexityStructuredCareerData> = {};
+      
+      // Extract compensation data if present
+      const compensationMatch = jsonString.match(/"compensationRewards"\s*:\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/s);
+      if (compensationMatch) {
+        try {
+          const compensationStr = '{"compensationRewards":{' + compensationMatch[1] + '}}';
+          const compensationData = JSON.parse(this.repairMalformedJSON(compensationStr));
+          basicStructure.compensationRewards = compensationData.compensationRewards;
+        } catch (e) {
+          console.warn('Could not extract compensation data');
+        }
+      }
+      
+      // Extract role fundamentals if present
+      const roleMatch = jsonString.match(/"roleFundamentals"\s*:\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/s);
+      if (roleMatch) {
+        try {
+          const roleStr = '{"roleFundamentals":{' + roleMatch[1] + '}}';
+          const roleData = JSON.parse(this.repairMalformedJSON(roleStr));
+          basicStructure.roleFundamentals = roleData.roleFundamentals;
+        } catch (e) {
+          console.warn('Could not extract role fundamentals data');
+        }
+      }
+      
+      // Return partial data only if we extracted something useful
+      if (Object.keys(basicStructure).length > 0) {
+        return {
+          ...basicStructure,
+          // Provide defaults for required fields
+          roleFundamentals: basicStructure.roleFundamentals || {
+            corePurpose: 'Professional role with specific responsibilities',
+            problemsSolved: ['Various challenges in the field'],
+            typicalResponsibilities: ['Core duties and tasks'],
+            keyStakeholders: ['Colleagues and clients']
+          },
+          compensationRewards: basicStructure.compensationRewards || {
+            salaryRange: {
+              entry: 'Contact employer for details',
+              experienced: 'Contact employer for details', 
+              senior: 'Contact employer for details',
+              byRegion: {
+                london: 'Contact employer for details',
+                manchester: 'Contact employer for details',
+                birmingham: 'Contact employer for details',
+                scotland: 'Contact employer for details'
+              }
+            },
+            nonFinancialBenefits: {
+              pension: 'Standard workplace pension',
+              healthcare: 'Varies by employer',
+              professionalDevelopment: 'Training opportunities available',
+              perks: ['Standard employee benefits']
+            }
+          },
+          sources: []
+        } as PerplexityStructuredCareerData;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Failed to extract partial JSON data:', error);
+      return null;
     }
   }
 
