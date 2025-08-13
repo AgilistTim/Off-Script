@@ -37,9 +37,9 @@ const Hero: React.FC = () => {
     console.log('🚪 Hero: handleVoiceModalClose called');
     setShowVoiceModal(false);
     
-    // Show post-conversation CTA if guest user discovered career cards
-    if (!currentUser && discoveredCareerCards.length > 0) {
-      console.log('🎯 Hero: Showing post-conversation CTA for guest with career insights');
+    // Show post-conversation CTA for ALL guest users (Option 1: Always show CTA)
+    if (!currentUser) {
+      console.log('🎯 Hero: Showing post-conversation CTA for guest user (always show strategy)');
       setShowPostConversationCTA(true);
     }
   }, [currentUser, discoveredCareerCards.length]);
@@ -54,9 +54,9 @@ const Hero: React.FC = () => {
   const handleConversationEnd = useCallback((hasGeneratedData: boolean, careerCardCount: number) => {
     console.log('🎯 Hero: handleConversationEnd called', { hasGeneratedData, careerCardCount });
     
-    // Show post-conversation CTA if guest user generated career insights
-    if (!currentUser && hasGeneratedData && careerCardCount > 0) {
-      console.log('🎯 Hero: Triggering post-conversation CTA for guest with career insights');
+    // Show post-conversation CTA for ALL guest users (Option 1: Always show CTA)
+    if (!currentUser) {
+      console.log('🎯 Hero: Triggering post-conversation CTA for guest user (always show strategy)');
       setShowPostConversationCTA(true);
     }
   }, [currentUser]);

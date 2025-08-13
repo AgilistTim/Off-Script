@@ -75,24 +75,10 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
     
     // Use current state value to avoid dependency issues
     setDiscoveredCareerCards(currentCards => {
-      // Show post-conversation CTA if guest user discovered career cards
-      if (!currentUser && currentCards.length > 0) {
-        console.log('🎯 Showing post-conversation CTA for guest with career insights');
+      // Show post-conversation CTA for ALL guest users (Option 1: Always show CTA)
+      if (!currentUser) {
+        console.log('🎯 Showing post-conversation CTA for guest user (always show strategy)');
         setShowPostConversationCTA(true);
-      } else if (!currentUser && currentCards.length === 0) {
-        // Fallback: query guest session directly in case of race condition
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-var-requires
-          const { guestSessionService } = require('../../services/guestSessionService');
-          const session = guestSessionService.getGuestSession();
-          const hasCards = (session?.careerCards?.length || 0) > 0;
-          if (hasCards) {
-            console.log('🎯 Fallback CTA trigger: guest session has career cards');
-            setShowPostConversationCTA(true);
-          }
-        } catch (e) {
-          console.warn('Guest session lookup failed when closing modal:', e);
-        }
       }
       return currentCards; // Return unchanged
     });
