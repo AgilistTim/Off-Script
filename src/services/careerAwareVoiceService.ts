@@ -667,10 +667,10 @@ You already have all the context about this user and career path. Start the conv
     }> = [];
 
     for (const [sessionId, session] of this.activeSessions) {
-      if (session.context.userId === userId) {
+      if (session.context.technical?.sessionId === userId) {
         activeSessions.push({
           sessionId,
-          career: session.context.careerData?.title || 'Unknown Career',
+          career: session.context.careerFocus?.careerCard?.title || 'Unknown Career',
           startTime: session.startTime,
           userEngagement: session.insights.userEngagement
         });

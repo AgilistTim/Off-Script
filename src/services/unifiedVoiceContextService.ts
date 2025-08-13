@@ -958,7 +958,7 @@ ${contextPrompt}
    */
   public async createAuthenticatedOverrides(
     userId: string,
-    careerContext?: { title?: string }
+    careerContext?: { title?: string; id?: string }
   ): Promise<any> {
     const userData = await getUserById(userId);
     if (!userData) {
@@ -969,7 +969,15 @@ ${contextPrompt}
     }
 
     if (careerContext?.title) {
-      const prompt = await this.buildCareerContext(userData, careerContext);
+      // Create a mock CareerCard object with required fields
+      const mockCareerCard = {
+        id: careerContext.id || `career_${Date.now()}`,
+        title: careerContext.title,
+        confidence: 0.8,
+        location: 'Various',
+        sourceData: 'Career context from user session'
+      };
+      const prompt = await this.buildCareerContext(userData, mockCareerCard);
       const name = (userData.careerProfile?.name || userData.displayName || 'there').trim();
       const firstMessage = `Welcome back ${name}! Let's dive deeper into ${careerContext.title}. What would you like to explore together first?`;
       return this.buildConversationOverrides(prompt, firstMessage, 'career-deep-dive');

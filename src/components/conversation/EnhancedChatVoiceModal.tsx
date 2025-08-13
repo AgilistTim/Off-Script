@@ -884,13 +884,13 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       }
 
       // Start session with overrides and userId for isolation
-      const startOptions: any = {
+      // Using the official @elevenlabs/react API format
+      await conversation.startSession({
         agentId,
-        ...(currentUser ? { userId: currentUser.uid } : {}),
+        userId: currentUser?.uid,
+        connectionType: 'webrtc', // Explicit connection type
         overrides
-      };
-
-      await conversation.startSession(startOptions);
+      });
       console.log('✅ Enhanced chat conversation started successfully');
     } catch (error) {
       console.error('❌ Failed to start enhanced chat conversation:', error);
@@ -899,7 +899,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       if (error instanceof Error && error.message.includes('context')) {
         console.warn('⚠️ Enhanced context injection failed, starting conversation without enhanced context');
         try {
-          await conversation.startSession({ agentId });
+          await conversation.startSession({ agentId, connectionType: 'webrtc' });
           console.log('✅ Enhanced chat conversation started without context injection');
         } catch (fallbackError) {
           console.error('❌ Fallback conversation start also failed:', fallbackError);
