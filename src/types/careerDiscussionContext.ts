@@ -34,6 +34,13 @@ export interface CareerDiscussionContext {
         workStyle?: string[];
         values?: string[];
       };
+      // User identity fields for personalized interactions
+      displayName?: string;
+      careerProfile?: {
+        name?: string;
+        [key: string]: any;
+      };
+      name?: string;
     };
     
     // Career Exploration Journey
