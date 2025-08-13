@@ -870,35 +870,52 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     setConnectionStatus('connecting');
 
     try {
-      // 🎯 PHASE 3: Build per-session overrides (privacy-safe)
-      console.log('🔧 Building conversation overrides before start...');
-      const contextService = new UnifiedVoiceContextService();
-      let overrides: any | undefined;
-
-      if (!currentUser) {
-        console.log('👤 Guest user - building guest overrides');
-        overrides = await contextService.createGuestOverrides(careerContext?.title);
+      // 🎯 PHASE 3: Check for existing career context vs new overrides
+      console.log('🔧 Checking for existing career context vs building new overrides...', {
+        hasCareerContext: !!careerContext,
+        careerTitle: careerContext?.title
+      });
+      
+      // If we have a careerContext, careerAwareVoiceService should have already loaded context
+      // Follow the same pattern as CareerVoiceDiscussionModal - don't use overrides
+      if (careerContext && careerContext.title) {
+        console.log('✅ Career context provided - careerAwareVoiceService should have loaded context');
+        console.log('🎙️ Starting voice conversation - context already loaded by careerAwareVoiceService');
+        
+        // Don't use overrides - let the existing career context work (same as CareerVoiceDiscussionModal)
+        await conversation.startSession({
+          agentId,
+          userId: currentUser?.uid,
+          connectionType: 'webrtc'
+        });
       } else {
-        console.log('👤 Authenticated user - building authenticated overrides');
-        overrides = await contextService.createAuthenticatedOverrides(currentUser.uid, careerContext);
+        console.log('🔧 No career context - building conversation overrides for general chat...');
+        const contextService = new UnifiedVoiceContextService();
+        let overrides: any | undefined;
+
+        if (!currentUser) {
+          console.log('👤 Guest user - building guest overrides');
+          overrides = await contextService.createGuestOverrides();
+        } else {
+          console.log('👤 Authenticated user - building authenticated overrides');
+          overrides = await contextService.createAuthenticatedOverrides(currentUser.uid);
+        }
+
+        console.log('🔍 DEBUG: Conversation overrides structure:', {
+          overrides,
+          agentId,
+          userId: currentUser?.uid,
+          firstMessage: overrides?.agent?.firstMessage
+        });
+
+        // Start session with overrides for general chat
+        await conversation.startSession({
+          agentId,
+          userId: currentUser?.uid,
+          connectionType: 'webrtc',
+          overrides
+        });
       }
-
-      console.log('🔍 DEBUG: Conversation overrides structure:', {
-        overrides,
-        agentId,
-        userId: currentUser?.uid,
-        careerContext,
-        firstMessage: overrides?.agent?.firstMessage
-      });
-
-      // Start session with overrides and userId for isolation
-      // Using the official @elevenlabs/react API format
-      await conversation.startSession({
-        agentId,
-        userId: currentUser?.uid,
-        connectionType: 'webrtc', // Explicit connection type
-        overrides
-      });
       console.log('✅ Enhanced chat conversation started successfully');
     } catch (error) {
       console.error('❌ Failed to start enhanced chat conversation:', error);
