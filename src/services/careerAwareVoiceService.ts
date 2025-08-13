@@ -85,8 +85,8 @@ class CareerAwareVoiceService implements CareerDiscussionService {
       // Use technical.sessionId as userId (it contains the actual user ID)
       const userId = context.technical.sessionId;
       
-      // Get user data from context to avoid Firebase permission issues
-      const userData = context.userContext?.profile || null;
+      // Use the user data from context (which now includes name data)
+      const userData = context.userContext?.profile;
       
       const { overrides, agentResponse } = await this.buildConversationOverrides(
         userId, 
@@ -204,18 +204,13 @@ Ready to have an informed career discussion!
       hasUserData: !!userData
     });
 
-    // Use passed user data to avoid Firebase permission issues
-    // Note: userData from context.userContext.profile doesn't include displayName
-    // So we'll use a safe fallback for now
-    let userName = 'there';
-    if (userData?.name) {
-      userName = userData.name;
-    } else if (userData?.careerProfile?.name) {
-      userName = userData.careerProfile.name;
-    } else if (userData?.displayName) {
-      userName = userData.displayName;
-    }
-    userName = userName.trim();
+    // Extract user name from the properly preserved user data
+    const userName = (
+      userData?.name || 
+      userData?.careerProfile?.name || 
+      userData?.displayName || 
+      'there'
+    ).trim();
     
     const fullPrompt = `You are an expert career counselor specializing in AI-powered career guidance.
 
@@ -370,7 +365,11 @@ You already have all the context about this user and career path. Start the conv
       const profileData = {
         interests: Array.isArray(rawProfile.interests) ? rawProfile.interests : [],
         careerGoals: Array.isArray(rawProfile.careerGoals) ? rawProfile.careerGoals : [],
-        skills: Array.isArray(rawProfile.skills) ? rawProfile.skills : []
+        skills: Array.isArray(rawProfile.skills) ? rawProfile.skills : [],
+        // PRESERVE USER NAME DATA - This was the missing piece!
+        displayName: userProfile.displayName,
+        careerProfile: userProfile.careerProfile,
+        name: userProfile.careerProfile?.name || userProfile.displayName
       };
       
       console.log('🔍 Profile data processed:', {
@@ -378,7 +377,11 @@ You already have all the context about this user and career path. Start the conv
         interestsCount: profileData.interests.length,
         firstFewInterests: profileData.interests.slice(0, 3),
         hasGoals: profileData.careerGoals.length > 0,
-        hasSkills: profileData.skills.length > 0
+        hasSkills: profileData.skills.length > 0,
+        // DEBUG: Check if user name data is preserved
+        userName: profileData.name,
+        displayName: profileData.displayName,
+        hasCareerProfile: !!profileData.careerProfile
       });
       
       const context = CareerDiscussionContextBuilder.create()
