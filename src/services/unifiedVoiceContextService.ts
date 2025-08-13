@@ -926,6 +926,33 @@ ${contextPrompt}
   }
 
   /**
+   * Build conversation overrides for isolated user contexts (RECOMMENDED APPROACH)
+   * This approach uses ElevenLabs conversation-level overrides for proper user isolation
+   * instead of modifying the agent globally, preventing cross-user data leakage
+   */
+  public buildConversationOverrides(
+    contextPrompt: string,
+    firstMessage: string,
+    contextType: 'guest' | 'authenticated' | 'career-deep-dive'
+  ): any {
+    console.log('🔒 Building isolated conversation overrides:', {
+      contextType,
+      contextLength: contextPrompt.length,
+      firstMessage: firstMessage.substring(0, 100) + '...',
+      privacy: 'ISOLATED - no cross-user contamination'
+    });
+
+    return {
+      agent: {
+        prompt: {
+          prompt: contextPrompt
+        },
+        firstMessage: firstMessage
+      }
+    };
+  }
+
+  /**
    * Build basic discovery context for guest users
    */
   private async buildGuestContext(): Promise<string> {
@@ -1645,7 +1672,12 @@ TIMING:
 
 Remember: The tools generate visual career cards that appear automatically in the UI. Reference these when they're created!
 
-IMPORTANT: Do not reference any specific user names, personal goals, or previous conversation history. This is a fresh session.`;
+🚨 CRITICAL PRIVACY PROTECTION:
+- NEVER use names from previous conversations (like "Rick Kristalijn" or any other name)
+- NEVER reference previous user details, interests, or conversations
+- ALWAYS treat this as a completely fresh session with a new user
+- If you remember ANY previous user information, IGNORE it completely
+- Only use information provided in the current session context`;
 
       const response = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
         method: 'PATCH',
@@ -1678,6 +1710,12 @@ IMPORTANT: Do not reference any specific user names, personal goals, or previous
       }
 
       console.log('✅ Agent reset to clean state successfully');
+      
+      // CRITICAL: Add delay to ensure reset takes effect before context injection
+      console.log('⏳ Waiting for agent reset to fully propagate...');
+      await new Promise(resolve => setTimeout(resolve, 2000)); // 2 second delay
+      console.log('✅ Agent reset propagation complete');
+      
     } catch (error) {
       console.error('❌ CRITICAL: Failed to reset agent to clean state:', error);
       // Don't throw - let the calling method handle the failure

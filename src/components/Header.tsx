@@ -209,7 +209,7 @@ const Header: React.FC = () => {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="lg:hidden bg-primary-black/95 backdrop-blur-sm border-t border-primary-green/30">
+        <div className="lg:hidden bg-primary-white/95 backdrop-blur-sm border-t border-primary-green/30">
           <div className="container">
             <div className="py-4 space-y-2">
               <Link 
