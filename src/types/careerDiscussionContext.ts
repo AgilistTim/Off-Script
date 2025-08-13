@@ -152,7 +152,11 @@ export class CareerDiscussionContextBuilder {
         interests: profile.interests || [],
         careerGoals: profile.careerGoals || [],
         skills: profile.skills || [],
-        preferences: profile.preferences
+        preferences: profile.preferences,
+        // PRESERVE USER NAME DATA - This was the missing piece!
+        displayName: profile.displayName,
+        careerProfile: profile.careerProfile,
+        name: profile.name
       },
       explorationHistory: explorationHistory || {
         conversationCount: 1,
