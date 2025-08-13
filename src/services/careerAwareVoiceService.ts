@@ -48,6 +48,7 @@ class CareerAwareVoiceService implements CareerDiscussionService {
     sessionId: string;
     agentResponse: string;
     contextLoaded: boolean;
+    conversationOverrides?: any;
   }> {
     try {
       console.log('🎯 Starting career-aware voice discussion...', {
@@ -81,8 +82,10 @@ class CareerAwareVoiceService implements CareerDiscussionService {
       const contextPrompt = this.buildContextPrompt(context);
 
       // Build conversation overrides instead of global agent PATCH
+      // Use technical.sessionId as userId (it contains the actual user ID)
+      const userId = context.technical.sessionId;
       const { overrides, agentResponse } = await this.buildConversationOverrides(
-        context.userContext.profile.userId || context.technical.sessionId, 
+        userId, 
         contextPrompt,
         context.careerFocus.careerCard.title
       );
