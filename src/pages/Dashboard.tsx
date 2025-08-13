@@ -228,30 +228,50 @@ const Dashboard: React.FC = () => {
       const title = career.title.toLowerCase();
       const description = (career.description || '').toLowerCase();
       
-      // Theme classification logic
-      if (title.includes('tech') || title.includes('software') || title.includes('data') || 
-          title.includes('ai') || title.includes('cyber') || title.includes('cloud') ||
-          title.includes('developer') || title.includes('programmer') || title.includes('digital')) {
+      // Get industry from multiple sources (new comprehensive data preferred)
+      const industry = career.workEnvironmentCulture?.typicalEmployers?.[0] || 
+                       career.industry || 
+                       '';
+      const industryLower = industry.toLowerCase();
+      
+      // Enhanced theme classification using title, description, AND industry
+      const allText = `${title} ${description} ${industryLower}`;
+      
+      if (allText.includes('tech') || allText.includes('software') || allText.includes('data') || 
+          allText.includes('ai') || allText.includes('cyber') || allText.includes('cloud') ||
+          allText.includes('developer') || allText.includes('programmer') || allText.includes('digital') ||
+          allText.includes('it ') || allText.includes('information technology')) {
         grouped.technology.push(career);
-      } else if (title.includes('design') || title.includes('creative') || title.includes('art') ||
-                 title.includes('media') || title.includes('content') || title.includes('marketing')) {
+      } else if (allText.includes('design') || allText.includes('creative') || allText.includes('art') ||
+                 allText.includes('media') || allText.includes('content') || allText.includes('marketing') ||
+                 allText.includes('advertising') || allText.includes('brand') || allText.includes('graphic')) {
         grouped.creative.push(career);
-      } else if (title.includes('business') || title.includes('management') || title.includes('finance') ||
-                 title.includes('sales') || title.includes('strategy') || title.includes('analyst') ||
-                 title.includes('consultant') || title.includes('product')) {
+      } else if (allText.includes('business') || allText.includes('management') || allText.includes('finance') ||
+                 allText.includes('sales') || allText.includes('strategy') || allText.includes('analyst') ||
+                 allText.includes('consultant') || allText.includes('product') || allText.includes('ceo') ||
+                 allText.includes('director') || allText.includes('manager') || allText.includes('executive')) {
         grouped.business.push(career);
-      } else if (title.includes('health') || title.includes('medical') || title.includes('nurse') ||
-                 title.includes('therapy') || title.includes('care') || title.includes('wellness')) {
+      } else if (allText.includes('health') || allText.includes('medical') || allText.includes('nurse') ||
+                 allText.includes('therapy') || allText.includes('care') || allText.includes('wellness') ||
+                 allText.includes('hospital') || allText.includes('clinic') || allText.includes('doctor')) {
         grouped.healthcare.push(career);
-      } else if (title.includes('teacher') || title.includes('education') || title.includes('training') ||
-                 title.includes('academic') || title.includes('instructor') || title.includes('tutor')) {
+      } else if (allText.includes('teacher') || allText.includes('education') || allText.includes('training') ||
+                 allText.includes('academic') || allText.includes('instructor') || allText.includes('tutor') ||
+                 allText.includes('school') || allText.includes('university') || allText.includes('learning')) {
         grouped.education.push(career);
-      } else if (title.includes('engineer') || title.includes('construction') || title.includes('architect') ||
-                 title.includes('mechanical') || title.includes('civil') || title.includes('electrical')) {
+      } else if (allText.includes('engineer') || allText.includes('construction') || allText.includes('architect') ||
+                 allText.includes('mechanical') || allText.includes('civil') || allText.includes('electrical') ||
+                 allText.includes('building') || allText.includes('infrastructure')) {
         grouped.engineering.push(career);
-      } else if (title.includes('social') || title.includes('community') || title.includes('charity') ||
-                 title.includes('non-profit') || title.includes('public') || title.includes('government')) {
+      } else if (allText.includes('social') || allText.includes('community') || allText.includes('charity') ||
+                 allText.includes('non-profit') || allText.includes('public') || allText.includes('government') ||
+                 allText.includes('ngo') || allText.includes('volunteer') || allText.includes('service')) {
         grouped.social.push(career);
+      } else if (allText.includes('coffee') || allText.includes('barista') || allText.includes('roast') ||
+                 allText.includes('hospitality') || allText.includes('restaurant') || allText.includes('food') ||
+                 allText.includes('service') || allText.includes('retail')) {
+        // Create a new "hospitality" group or put in business
+        grouped.business.push(career);
       } else {
         grouped.other.push(career);
       }
@@ -863,15 +883,26 @@ const Dashboard: React.FC = () => {
           setStructuredGuidance(guidanceData);
           console.log('✅ Loaded structured career guidance:', guidanceData.totalPathways, 'pathways');
           
-          // Group careers for accordion display
+          // Group careers for accordion display and apply enhancements
           const allCareers = [];
           if (guidanceData.primaryPathway) {
             allCareers.push({ ...guidanceData.primaryPathway, isPrimary: true });
           }
           allCareers.push(...guidanceData.alternativePathways);
           
-          const grouped = groupCareersByTheme(allCareers);
-          setGroupedCareers(grouped);
+          // CRITICAL FIX: Apply Perplexity enhancements to all career cards
+          try {
+            console.log('🔍 Applying Perplexity enhancements to', allCareers.length, 'career cards');
+            const enhancedCareers = await dashboardCareerEnhancer.enhanceDashboardCards(allCareers);
+            console.log('✅ Enhanced career cards:', enhancedCareers.length);
+            
+            const grouped = groupCareersByTheme(enhancedCareers);
+            setGroupedCareers(grouped);
+          } catch (error) {
+            console.warn('⚠️ Enhancement failed, using basic cards:', error);
+            const grouped = groupCareersByTheme(allCareers);
+            setGroupedCareers(grouped);
+          }
           
           // Force clear all caches to ensure fresh data
           if (guidanceData.totalPathways > 0) {
