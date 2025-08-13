@@ -57,7 +57,7 @@ import {
   AccordionTrigger,
 } from '../ui/accordion';
 import { useAuth } from '../../context/AuthContext';
-import { agentContextService } from '../../services/agentContextService';
+
 import { mcpQueueService } from '../../services/mcpQueueService';
 import { progressAwareMCPService, MCPProgressUpdate } from '../../services/progressAwareMCPService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
@@ -283,16 +283,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     };
   };
 
-  // Build personalized greeting using agent context service
-  const buildGreeting = (): string => {
-    // Use userData which has our User interface with profile
-    const context = agentContextService.buildAgentContext(
-      userData, // Use full userData from auth context
-      userData?.profile, // Pass the user's profile
-      careerContext
-    );
-    return context.greeting;
-  };
+
 
   // Initialize conversation (only when environment config is ready)
   const conversation = useConversation({
@@ -876,18 +867,51 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         careerTitle: careerContext?.title
       });
       
-      // If we have a careerContext, careerAwareVoiceService should have already loaded context
-      // Follow the same pattern as CareerVoiceDiscussionModal - don't use overrides
+      // If we have a careerContext, try to get conversation overrides from careerAwareVoiceService
       if (careerContext && careerContext.title) {
-        console.log('✅ Career context provided - careerAwareVoiceService should have loaded context');
-        console.log('🎙️ Starting voice conversation - context already loaded by careerAwareVoiceService');
+        console.log('✅ Career context provided - checking for conversation overrides');
         
-        // Don't use overrides - let the existing career context work (same as CareerVoiceDiscussionModal)
-        await conversation.startSession({
-          agentId,
-          userId: currentUser?.uid,
-          connectionType: 'webrtc'
-        });
+        try {
+          // Import and check for active career session overrides
+          const { careerAwareVoiceService } = await import('../../services/careerAwareVoiceService');
+          const activeSessions = careerAwareVoiceService.getActiveSessions(currentUser?.uid || '');
+          
+          if (activeSessions.length > 0) {
+            const activeSessionId = activeSessions[0].sessionId;
+            const overrides = careerAwareVoiceService.getConversationOverrides(activeSessionId);
+            
+            if (overrides) {
+              console.log('🎙️ Using career conversation overrides for privacy-safe session');
+              await conversation.startSession({
+                agentId,
+                userId: currentUser?.uid,
+                connectionType: 'webrtc',
+                overrides
+              });
+            } else {
+              console.log('🎙️ No overrides found, starting basic career session');
+              await conversation.startSession({
+                agentId,
+                userId: currentUser?.uid,
+                connectionType: 'webrtc'
+              });
+            }
+          } else {
+            console.log('🎙️ No active career sessions, starting basic session');
+            await conversation.startSession({
+              agentId,
+              userId: currentUser?.uid,
+              connectionType: 'webrtc'
+            });
+          }
+        } catch (error) {
+          console.warn('⚠️ Error getting career overrides, falling back to basic session:', error);
+          await conversation.startSession({
+            agentId,
+            userId: currentUser?.uid,
+            connectionType: 'webrtc'
+          });
+        }
       } else {
         console.log('🔧 No career context - building conversation overrides for general chat...');
         const contextService = new UnifiedVoiceContextService();

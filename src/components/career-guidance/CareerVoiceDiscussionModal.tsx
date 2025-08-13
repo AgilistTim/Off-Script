@@ -190,12 +190,36 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
     try {
       setConnectionStatus('connecting');
       
-      console.log('🎙️ Starting voice conversation - context already loaded by careerAwareVoiceService');
+      console.log('🎙️ Starting voice conversation with modern conversation overrides');
       
-      // Start conversation - the agent should already have the context from our service call
-      await conversation.startSession({
-        agentId: careerAwareAgentId,
-      });
+      // Get conversation overrides from careerAwareVoiceService (NEW APPROACH)
+      const { careerAwareVoiceService } = await import('../../services/careerAwareVoiceService');
+      const overrides = careerAwareVoiceService.getConversationOverrides(sessionId);
+      
+      if (overrides) {
+        console.log('✅ Using conversation overrides for privacy-safe session:', {
+          sessionId: sessionId.substring(0, 12) + '...',
+          hasOverrides: true,
+          approach: 'PER_SESSION_ISOLATION'
+        });
+        
+        // Start session with conversation overrides (privacy-safe)
+        await conversation.startSession({
+          agentId: careerAwareAgentId,
+          userId: currentUser?.uid,
+          connectionType: 'webrtc',
+          overrides
+        });
+      } else {
+        console.warn('⚠️ No conversation overrides found, falling back to basic session');
+        
+        // Fallback to basic session (shouldn't happen in normal flow)
+        await conversation.startSession({
+          agentId: careerAwareAgentId,
+          userId: currentUser?.uid,
+          connectionType: 'webrtc'
+        });
+      }
       
     } catch (error) {
       console.error('❌ Failed to start voice conversation:', error);
