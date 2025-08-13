@@ -240,7 +240,30 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI, 
               </h3>
             </div>
             <p className="text-xl font-bold text-primary-black">
-              {career.workEnvironmentCulture?.typicalEmployers?.[0] || career.industry || 'Technology'}
+              {(() => {
+                // Priority order: Comprehensive data -> Legacy (if not default) -> Intelligent inference
+                const industry = 
+                  career.workEnvironmentCulture?.typicalEmployers?.[0] || 
+                  (career.industry && career.industry !== 'Technology' ? career.industry : null);
+                
+                if (industry) return industry;
+                
+                // Intelligent industry inference based on career title
+                const title = career.title.toLowerCase();
+                if (title.includes('coffee') || title.includes('barista') || title.includes('roaster')) {
+                  return 'Hospitality & Food Service';
+                } else if (title.includes('ai') || title.includes('software') || title.includes('developer') || title.includes('tech')) {
+                  return 'Technology';
+                } else if (title.includes('consultant') && !title.includes('ai')) {
+                  return 'Business & Consulting';
+                } else if (title.includes('manager') || title.includes('founder') || title.includes('startup')) {
+                  return 'Business & Management';
+                } else if (title.includes('freelance')) {
+                  return 'Freelance & Contracting';
+                } else {
+                  return 'Technology'; // Final fallback
+                }
+              })()}
             </p>
           </div>
         </div>
