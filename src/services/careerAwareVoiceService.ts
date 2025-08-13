@@ -30,6 +30,7 @@ interface CareerDiscussionSession {
     refinedGoals?: string[];
     identifiedSkills?: string[];
   };
+  conversationOverrides?: any; // NEW: Store overrides for UI components
 }
 
 class CareerAwareVoiceService implements CareerDiscussionService {
@@ -79,8 +80,15 @@ class CareerAwareVoiceService implements CareerDiscussionService {
       // Prepare rich context prompt for the agent
       const contextPrompt = this.buildContextPrompt(context);
 
-      // Initialize conversation with context
-      const response = await this.sendContextToAgent(context.agentConfig.agentId, contextPrompt);
+      // Build conversation overrides instead of global agent PATCH
+      const { overrides, agentResponse } = await this.buildConversationOverrides(
+        context.userContext.profile.userId || context.technical.sessionId, 
+        contextPrompt,
+        context.careerFocus.careerCard.title
+      );
+
+      // Store overrides in session for UI components to use
+      session.conversationOverrides = overrides;
 
       console.log('✅ Career discussion initialized successfully', {
         sessionId: session.sessionId,
@@ -89,8 +97,9 @@ class CareerAwareVoiceService implements CareerDiscussionService {
 
       return {
         sessionId: session.sessionId,
-        agentResponse: response,
-        contextLoaded: true
+        agentResponse,
+        contextLoaded: true,
+        conversationOverrides: overrides // NEW: Return overrides for UI
       };
 
     } catch (error) {
@@ -170,32 +179,26 @@ Ready to have an informed career discussion!
   }
 
   /**
-   * Send context to the ElevenLabs agent by updating agent configuration
+   * Build conversation overrides instead of global agent PATCH (MODERN APPROACH)
+   * Returns conversation overrides for privacy-safe per-session context
    */
-  private async sendContextToAgent(agentId: string, contextPrompt: string): Promise<string> {
-    if (!this.elevenLabsApiKey) {
-      throw new Error('ElevenLabs API key not configured');
-    }
-
-    console.log('📤 Sending context to agent:', {
-      agentId,
+  private async buildConversationOverrides(
+    userId: string,
+    contextPrompt: string,
+    careerTitle: string
+  ): Promise<{ overrides: any; agentResponse: string }> {
+    console.log('🔒 Building conversation overrides (privacy-safe):', {
+      userId: userId.substring(0, 8) + '...',
       contextLength: contextPrompt.length,
-      preview: contextPrompt.substring(0, 200) + '...'
+      careerTitle,
+      approach: 'PER_SESSION_OVERRIDES'
     });
 
-    try {
-      // Update the agent's context via ElevenLabs API
-      const response = await fetch(`https://api.elevenlabs.io/v1/convai/agents/${agentId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'xi-api-key': this.elevenLabsApiKey
-        },
-        body: JSON.stringify({
-          conversation_config: {
-            agent: {
-              prompt: {
-                prompt: `You are an expert career counselor specializing in AI-powered career guidance.
+    // Get user data for personalized first message
+    const userData = await getUserById(userId);
+    const userName = (userData?.careerProfile?.name || userData?.displayName || 'there').trim();
+    
+    const fullPrompt = `You are an expert career counselor specializing in AI-powered career guidance.
 
 ${contextPrompt}
 
@@ -206,36 +209,32 @@ RESPONSE STYLE:
 - Reference the user's interests and profile when relevant
 - Provide specific, actionable career insights
 
-You already have all the context about this user and career path. Start the conversation by acknowledging what you know and ask what they'd like to explore first about this specific career.`,
-                tool_ids: [
-                  'tool_1201k1nmz5tyeav9h3rejbs6xds1', // analyze_conversation_for_careers
-                  'tool_6401k1nmz60te5cbmnvytjtdqmgv', // generate_career_recommendations  
-                  'tool_5401k1nmz66eevwswve1q0rqxmwj', // trigger_instant_insights
-                  'tool_8501k1nmz6bves9syexedj36520r'  // update_person_profile
-                ]
-              }
-            }
-          }
-        })
-      });
+🚨 CRITICAL PRIVACY PROTECTION:
+- NEVER use names from previous conversations
+- NEVER reference previous user details from other sessions
+- ALWAYS treat this as a completely fresh session with ${userName}
+- Only use information provided in the current session context
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ ElevenLabs API error:', response.status, errorText);
-        throw new Error(`ElevenLabs API error: ${response.status}`);
+You already have all the context about this user and career path. Start the conversation by acknowledging what you know and ask what they'd like to explore first about this specific career.`;
+
+    const firstMessage = `Hi ${userName}! I have all the details about your career path in ${careerTitle}. What would you like to explore first about this career?`;
+
+    const overrides = {
+      agent: {
+        prompt: {
+          prompt: fullPrompt
+        },
+        firstMessage,
+        language: "en"
       }
+    };
 
-      const result = await response.json();
-      console.log('✅ Agent context updated successfully');
-
-      return `Hi! I have all the details about your career path loaded. I can see how this aligns with your interests and background. What would you like to explore first about this career?`;
-
-    } catch (error) {
-      console.error('❌ Failed to send context to ElevenLabs agent:', error);
-      
-      // Fallback to basic response if API call fails
-      return `Hi! I'm ready to discuss your career path. What aspect would you like to explore first?`;
-    }
+    console.log('✅ Conversation overrides built successfully (NO GLOBAL PATCH)');
+    
+    return {
+      overrides,
+      agentResponse: firstMessage
+    };
   }
 
   /**
@@ -678,6 +677,14 @@ You already have all the context about this user and career path. Start the conv
     }
 
     return activeSessions.sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
+  }
+
+  /**
+   * Get conversation overrides for a session (for UI components)
+   */
+  getConversationOverrides(sessionId: string): any | null {
+    const session = this.activeSessions.get(sessionId);
+    return session?.conversationOverrides || null;
   }
 }
 
