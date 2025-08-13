@@ -870,47 +870,27 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     setConnectionStatus('connecting');
 
     try {
-      // 🎯 PHASE 3: Inject enhanced context based on user type and career context
-      console.log('🔧 Injecting enhanced context before conversation start...');
-      
+      // 🎯 PHASE 3: Build per-session overrides (privacy-safe)
+      console.log('🔧 Building conversation overrides before start...');
       const contextService = new UnifiedVoiceContextService();
-      
-      let contextResult;
-      
+      let overrides: any | undefined;
+
       if (!currentUser) {
-        // Guest user - inject discovery context with optional topic
-        console.log('👤 Guest user detected - injecting discovery context');
-        if (careerContext && careerContext.title) {
-          contextResult = await contextService.injectGuestContextWithTopic(agentId, careerContext.title);
-        } else {
-          contextResult = await contextService.injectGuestContext(agentId);
-        }
-      } else if (careerContext && careerContext.title) {
-        // Authenticated user with career context - preserve existing career context instead of resetting
-        console.log('🎯 Authenticated user with career context - preserving existing career context');
-        contextResult = await contextService.preserveCareerContext(agentId, currentUser.uid, careerContext);
+        console.log('👤 Guest user - building guest overrides');
+        overrides = await contextService.createGuestOverrides(careerContext?.title);
       } else {
-        // Authenticated user without specific career context - inject personalized context
-        console.log('🔐 Authenticated user without career context - injecting personalized context');
-        contextResult = await contextService.injectAuthenticatedContext(agentId, currentUser.uid);
+        console.log('👤 Authenticated user - building authenticated overrides');
+        overrides = await contextService.createAuthenticatedOverrides(currentUser.uid, careerContext);
       }
-      
-      if (contextResult?.success) {
-        console.log('✅ Enhanced context injection completed successfully');
-      } else {
-        console.error('❌ CRITICAL: Enhanced context injection failed for conversation:', {
-          result: contextResult,
-          agentId,
-          userType: !currentUser ? 'guest' : (careerContext?.title ? 'authenticated_with_career' : 'authenticated'),
-          careerContext: careerContext?.title || 'none',
-          timestamp: new Date().toISOString(),
-          fallbackUsed: contextResult?.fallbackUsed || false
-        });
-        console.warn('⚠️ Conversation will proceed with default agent configuration - this may result in poor user experience');
-      }
-      
-      // Start session WITHOUT letting the agent auto-inject its default greeting twice
-      await conversation.startSession({ agentId });
+
+      // Start session with overrides and userId for isolation
+      const startOptions: any = {
+        agentId,
+        ...(currentUser ? { userId: currentUser.uid } : {}),
+        overrides
+      };
+
+      await conversation.startSession(startOptions);
       console.log('✅ Enhanced chat conversation started successfully');
     } catch (error) {
       console.error('❌ Failed to start enhanced chat conversation:', error);

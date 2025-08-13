@@ -953,6 +953,45 @@ ${contextPrompt}
   }
 
   /**
+   * Create conversation-level overrides for authenticated users
+   * Uses per-session overrides to avoid modifying the agent globally
+   */
+  public async createAuthenticatedOverrides(
+    userId: string,
+    careerContext?: { title?: string }
+  ): Promise<any> {
+    const userData = await getUserById(userId);
+    if (!userData) {
+      // Fallback to a very safe guest-style prompt
+      const prompt = await this.buildGuestContext();
+      const firstMessage = "Hi I'm Sarah an AI assistant, what's your name?";
+      return this.buildConversationOverrides(prompt, firstMessage, 'authenticated');
+    }
+
+    if (careerContext?.title) {
+      const prompt = await this.buildCareerContext(userData, careerContext);
+      const name = (userData.careerProfile?.name || userData.displayName || 'there').trim();
+      const firstMessage = `Welcome back ${name}! Let's dive deeper into ${careerContext.title}. What would you like to explore together first?`;
+      return this.buildConversationOverrides(prompt, firstMessage, 'career-deep-dive');
+    }
+
+    const prompt = await this.buildAuthenticatedContext(userData);
+    const firstMessage = await this.generatePersonalizedFirstMessage(userData);
+    return this.buildConversationOverrides(prompt, firstMessage, 'authenticated');
+  }
+
+  /**
+   * Create conversation-level overrides for guest users
+   */
+  public async createGuestOverrides(topicTitle?: string): Promise<any> {
+    const prompt = await this.buildGuestContext();
+    const firstMessage = topicTitle
+      ? `Let's talk about ${topicTitle}. I can personalize suggestions around this—what would you like to explore first?`
+      : "Hi I'm Sarah an AI assistant, what's your name?";
+    return this.buildConversationOverrides(prompt, firstMessage, 'guest');
+  }
+
+  /**
    * Build basic discovery context for guest users
    */
   private async buildGuestContext(): Promise<string> {
