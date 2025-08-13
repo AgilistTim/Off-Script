@@ -28,6 +28,7 @@ import {
   Home,
   Star,
   Lightbulb,
+  Trash2,
   Rocket
 } from 'lucide-react';
 import { ContextualCard, CardContent } from '../ui/card';
@@ -38,9 +39,10 @@ import { DesignProvider } from '../../context/DesignContext';
 interface UnifiedCareerCardProps {
   career: any;
   onAskAI?: () => void;
+  onDelete?: () => void;
 }
 
-const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }) => {
+const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI, onDelete }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
 
@@ -172,6 +174,22 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI }
               {career.description || 'Comprehensive career analysis available'}
             </p>
           </div>
+          
+          {/* Delete Button (only show if onDelete is provided) */}
+          {onDelete && (
+            <div className="flex flex-col items-end space-y-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
+                className="p-2 text-primary-black/40 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors group"
+                title="Remove this career option"
+              >
+                <Trash2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Summary Information Grid */}

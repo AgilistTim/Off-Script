@@ -171,6 +171,13 @@ const Dashboard: React.FC = () => {
   const [showAllAlternatives, setShowAllAlternatives] = useState(false);
   const [dataRefreshKey, setDataRefreshKey] = useState(0); // Force refresh trigger
 
+  // Enhanced career card management state
+  const [hiddenCareerCards, setHiddenCareerCards] = useState<Set<string>>(new Set());
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set(['primary']));
+  const [groupedCareers, setGroupedCareers] = useState<{
+    [theme: string]: any[];
+  }>({});
+
   // Voice discussion modal state
   const [voiceDiscussionModal, setVoiceDiscussionModal] = useState<{
     isOpen: boolean;
@@ -196,6 +203,141 @@ const Dashboard: React.FC = () => {
     primary: null
   });
   
+  // Career card grouping and management functions
+  const groupCareersByTheme = useCallback((careers: any[]) => {
+    const visibleCareers = careers.filter(career => !hiddenCareerCards.has(career.title));
+    
+    const grouped: { [theme: string]: any[] } = {
+      primary: [],
+      technology: [],
+      creative: [],
+      business: [],
+      healthcare: [],
+      education: [],
+      engineering: [],
+      social: [],
+      other: []
+    };
+
+    visibleCareers.forEach(career => {
+      if (career.isPrimary) {
+        grouped.primary.push(career);
+        return;
+      }
+
+      const title = career.title.toLowerCase();
+      const description = (career.description || '').toLowerCase();
+      
+      // Theme classification logic
+      if (title.includes('tech') || title.includes('software') || title.includes('data') || 
+          title.includes('ai') || title.includes('cyber') || title.includes('cloud') ||
+          title.includes('developer') || title.includes('programmer') || title.includes('digital')) {
+        grouped.technology.push(career);
+      } else if (title.includes('design') || title.includes('creative') || title.includes('art') ||
+                 title.includes('media') || title.includes('content') || title.includes('marketing')) {
+        grouped.creative.push(career);
+      } else if (title.includes('business') || title.includes('management') || title.includes('finance') ||
+                 title.includes('sales') || title.includes('strategy') || title.includes('analyst') ||
+                 title.includes('consultant') || title.includes('product')) {
+        grouped.business.push(career);
+      } else if (title.includes('health') || title.includes('medical') || title.includes('nurse') ||
+                 title.includes('therapy') || title.includes('care') || title.includes('wellness')) {
+        grouped.healthcare.push(career);
+      } else if (title.includes('teacher') || title.includes('education') || title.includes('training') ||
+                 title.includes('academic') || title.includes('instructor') || title.includes('tutor')) {
+        grouped.education.push(career);
+      } else if (title.includes('engineer') || title.includes('construction') || title.includes('architect') ||
+                 title.includes('mechanical') || title.includes('civil') || title.includes('electrical')) {
+        grouped.engineering.push(career);
+      } else if (title.includes('social') || title.includes('community') || title.includes('charity') ||
+                 title.includes('non-profit') || title.includes('public') || title.includes('government')) {
+        grouped.social.push(career);
+      } else {
+        grouped.other.push(career);
+      }
+    });
+
+    // Remove empty groups
+    Object.keys(grouped).forEach(key => {
+      if (grouped[key].length === 0 && key !== 'primary') {
+        delete grouped[key];
+      }
+    });
+
+    return grouped;
+  }, [hiddenCareerCards]);
+
+  const softDeleteCareerCard = useCallback(async (careerTitle: string) => {
+    // Update local state immediately for UI responsiveness
+    setHiddenCareerCards(prev => new Set([...prev, careerTitle]));
+    
+    try {
+      // TODO: In the future, save negative feedback to Firebase for analytics
+      // This will help us understand what users don't want and improve recommendations
+      console.log(`🗑️ Soft-deleted career card: ${careerTitle} (retained for analytics)`);
+      
+      // Show user feedback
+      setNotification({
+        message: `Removed "${careerTitle}" from your recommendations`,
+        type: 'info'
+      });
+      
+      // Auto-dismiss notification
+      setTimeout(() => setNotification(null), 3000);
+      
+    } catch (error) {
+      console.error('Error processing career card deletion:', error);
+      // Revert local state on error
+      setHiddenCareerCards(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(careerTitle);
+        return newSet;
+      });
+    }
+  }, []);
+
+  const toggleGroup = useCallback((groupName: string) => {
+    setExpandedGroups(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(groupName)) {
+        newSet.delete(groupName);
+      } else {
+        newSet.add(groupName);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const getGroupDisplayName = (groupKey: string) => {
+    const groupNames: { [key: string]: string } = {
+      primary: '🎯 Your Primary Match',
+      technology: '💻 Technology & Digital',
+      creative: '🎨 Creative & Design',
+      business: '💼 Business & Management',
+      healthcare: '🏥 Healthcare & Wellness',
+      education: '📚 Education & Training',
+      engineering: '⚙️ Engineering & Construction',
+      social: '🤝 Social & Community',
+      other: '🌟 Other Opportunities'
+    };
+    return groupNames[groupKey] || groupKey;
+  };
+
+  const getGroupIcon = (groupKey: string) => {
+    const groupIcons: { [key: string]: any } = {
+      primary: Target,
+      technology: Zap,
+      creative: Sparkles,
+      business: Building,
+      healthcare: Heart,
+      education: GraduationCap,
+      engineering: Shield,
+      social: Users,
+      other: Star
+    };
+    return groupIcons[groupKey] || Star;
+  };
+
   // Cache for career card details to reduce API calls
   const [careerCardCache, setCareerCardCache] = useState<Map<string, any>>(new Map());
   
@@ -720,6 +862,16 @@ const Dashboard: React.FC = () => {
           const guidanceData = currentCardsResult.value;
           setStructuredGuidance(guidanceData);
           console.log('✅ Loaded structured career guidance:', guidanceData.totalPathways, 'pathways');
+          
+          // Group careers for accordion display
+          const allCareers = [];
+          if (guidanceData.primaryPathway) {
+            allCareers.push({ ...guidanceData.primaryPathway, isPrimary: true });
+          }
+          allCareers.push(...guidanceData.alternativePathways);
+          
+          const grouped = groupCareersByTheme(allCareers);
+          setGroupedCareers(grouped);
           
           // Force clear all caches to ensure fresh data
           if (guidanceData.totalPathways > 0) {
@@ -1441,31 +1593,18 @@ const Dashboard: React.FC = () => {
             </ContextualButton>
           </div>
           
-          {/* 🎯 UNIFIED CAREER CARDS: All careers treated equally */}
+          {/* 🎯 GROUPED CAREER ACCORDION: Organized by themes with soft delete */}
           {(() => {
-            // Create flattened array of all careers
-            const allCareers = [];
-            
-            // Add primary career first
-            if (structuredGuidance.primaryPathway) {
-              allCareers.push({
-                ...structuredGuidance.primaryPathway,
-                isPrimary: true
-              });
-            }
-            
-            // Add all alternative careers
-            structuredGuidance.alternativePathways.forEach(career => {
-              allCareers.push({
-                ...career,
-                isPrimary: false
-              });
-            });
+            // Get total career count
+            const totalCareers = Object.values(groupedCareers).reduce((sum, group) => sum + group.length, 0);
+            const totalHidden = hiddenCareerCards.size;
 
-            if (allCareers.length === 0) {
+            if (totalCareers === 0) {
               return (
                 <div className="text-center py-12">
-                  <p className="text-primary-white/70">No career guidance available yet. Start a conversation to discover your career paths!</p>
+                  <p className="text-primary-white/70 text-lg">
+                    <span className="text-primary-green font-bold">Ready to explore?</span> Start a conversation to discover career paths tailored to you.
+                  </p>
                 </div>
               );
             }
@@ -1477,26 +1616,107 @@ const Dashboard: React.FC = () => {
                     Your Career Discoveries
                   </h2>
                   <p className="text-primary-white/70">
-                    {allCareers.length} pathway{allCareers.length !== 1 ? 's' : ''} discovered • Enhanced with real UK data
+                    {totalCareers} pathway{totalCareers !== 1 ? 's' : ''} discovered • Enhanced with real UK data
+                    {totalHidden > 0 && (
+                      <span className="text-primary-yellow ml-2">• {totalHidden} hidden</span>
+                    )}
                   </p>
                 </div>
                 
-                {/* Grid of Career Cards */}
-                <div className="grid grid-cols-1 gap-6">
-                  {allCareers.map((career, index) => (
-                    <UnifiedCareerCard
-                      key={career.title || index}
-                      career={career}
-                      onAskAI={() => {
-                        if (career.isPrimary) {
-                          handleAskAIAboutPrimary();
-                        } else {
-                          handleAskAIAboutAlternative(career);
-                        }
-                      }}
-                    />
-                  ))}
+                {/* Accordion Groups of Career Cards */}
+                <div className="space-y-4">
+                  {Object.entries(groupedCareers).map(([groupKey, careers]) => {
+                    if (careers.length === 0) return null;
+                    
+                    const isExpanded = expandedGroups.has(groupKey);
+                    const GroupIcon = getGroupIcon(groupKey);
+                    
+                    return (
+                      <motion.div
+                        key={groupKey}
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="bg-primary-white/10 backdrop-blur-sm rounded-xl border border-primary-white/20 overflow-hidden"
+                      >
+                        {/* Group Header */}
+                        <button
+                          onClick={() => toggleGroup(groupKey)}
+                          className="w-full px-6 py-4 flex items-center justify-between hover:bg-primary-white/5 transition-colors"
+                        >
+                          <div className="flex items-center space-x-3">
+                            <GroupIcon className="h-6 w-6 text-primary-yellow" />
+                            <div className="text-left">
+                              <h3 className="text-lg font-bold text-primary-white">
+                                {getGroupDisplayName(groupKey)}
+                              </h3>
+                              <p className="text-sm text-primary-white/70">
+                                {careers.length} career{careers.length !== 1 ? 's' : ''}
+                              </p>
+                            </div>
+                          </div>
+                          <motion.div
+                            animate={{ rotate: isExpanded ? 180 : 0 }}
+                            transition={{ duration: 0.2 }}
+                          >
+                            <ArrowRight className="h-5 w-5 text-primary-white/60" />
+                          </motion.div>
+                        </button>
+
+                        {/* Group Content */}
+                        <AnimatePresence>
+                          {isExpanded && (
+                            <motion.div
+                              initial={{ height: 0, opacity: 0 }}
+                              animate={{ height: 'auto', opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }}
+                              transition={{ duration: 0.3 }}
+                              className="overflow-hidden"
+                            >
+                              <div className="px-6 pb-6 space-y-4">
+                                {careers.map((career, index) => (
+                                  <div key={career.title || index} className="relative">
+                                    <UnifiedCareerCard
+                                      career={career}
+                                      onAskAI={() => {
+                                        if (career.isPrimary) {
+                                          handleAskAIAboutPrimary();
+                                        } else {
+                                          handleAskAIAboutAlternative(career);
+                                        }
+                                      }}
+                                      onDelete={() => softDeleteCareerCard(career.title)}
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    );
+                  })}
                 </div>
+
+                {/* Expand All / Collapse All Controls */}
+                {Object.keys(groupedCareers).length > 1 && (
+                  <div className="flex justify-center space-x-4 pt-4">
+                    <ContextualButton
+                      onClick={() => setExpandedGroups(new Set(Object.keys(groupedCareers)))}
+                      intent="secondary"
+                      size="sm"
+                    >
+                      Expand All
+                    </ContextualButton>
+                    <ContextualButton
+                      onClick={() => setExpandedGroups(new Set(['primary']))}
+                      intent="secondary"
+                      size="sm"
+                    >
+                      Collapse All
+                    </ContextualButton>
+                  </div>
+                )}
               </div>
             );
           })()}
