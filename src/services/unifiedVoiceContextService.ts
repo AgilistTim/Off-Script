@@ -960,8 +960,17 @@ ${contextPrompt}
     userId: string,
     careerContext?: { title?: string; id?: string }
   ): Promise<any> {
+    console.log('🔍 DEBUG: Creating authenticated overrides for userId:', userId);
     const userData = await getUserById(userId);
+    console.log('🔍 DEBUG: User data found:', {
+      hasUserData: !!userData,
+      displayName: userData?.displayName,
+      careerProfileName: userData?.careerProfile?.name,
+      careerContext
+    });
+    
     if (!userData) {
+      console.warn('⚠️ No user data found, falling back to guest prompt');
       // Fallback to a very safe guest-style prompt
       const prompt = await this.buildGuestContext();
       const firstMessage = "Hi I'm Sarah an AI assistant, what's your name?";
@@ -985,6 +994,7 @@ ${contextPrompt}
 
     const prompt = await this.buildAuthenticatedContext(userData);
     const firstMessage = await this.generatePersonalizedFirstMessage(userData);
+    console.log('🔍 DEBUG: Generated personalized first message:', firstMessage);
     return this.buildConversationOverrides(prompt, firstMessage, 'authenticated');
   }
 

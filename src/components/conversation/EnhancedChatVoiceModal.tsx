@@ -883,6 +883,14 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         overrides = await contextService.createAuthenticatedOverrides(currentUser.uid, careerContext);
       }
 
+      console.log('🔍 DEBUG: Conversation overrides structure:', {
+        overrides,
+        agentId,
+        userId: currentUser?.uid,
+        careerContext,
+        firstMessage: overrides?.agent?.firstMessage
+      });
+
       // Start session with overrides and userId for isolation
       // Using the official @elevenlabs/react API format
       await conversation.startSession({
