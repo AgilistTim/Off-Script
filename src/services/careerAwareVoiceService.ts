@@ -84,10 +84,15 @@ class CareerAwareVoiceService implements CareerDiscussionService {
       // Build conversation overrides instead of global agent PATCH
       // Use technical.sessionId as userId (it contains the actual user ID)
       const userId = context.technical.sessionId;
+      
+      // Get user data from context to avoid Firebase permission issues
+      const userData = context.userContext?.profile || null;
+      
       const { overrides, agentResponse } = await this.buildConversationOverrides(
         userId, 
         contextPrompt,
-        context.careerFocus.careerCard.title
+        context.careerFocus.careerCard.title,
+        userData
       );
 
       // Store overrides in session for UI components to use
@@ -188,18 +193,29 @@ Ready to have an informed career discussion!
   private async buildConversationOverrides(
     userId: string,
     contextPrompt: string,
-    careerTitle: string
+    careerTitle: string,
+    userData?: any
   ): Promise<{ overrides: any; agentResponse: string }> {
     console.log('🔒 Building conversation overrides (privacy-safe):', {
       userId: userId.substring(0, 8) + '...',
       contextLength: contextPrompt.length,
       careerTitle,
-      approach: 'PER_SESSION_OVERRIDES'
+      approach: 'PER_SESSION_OVERRIDES',
+      hasUserData: !!userData
     });
 
-    // Get user data for personalized first message
-    const userData = await getUserById(userId);
-    const userName = (userData?.careerProfile?.name || userData?.displayName || 'there').trim();
+    // Use passed user data to avoid Firebase permission issues
+    // Note: userData from context.userContext.profile doesn't include displayName
+    // So we'll use a safe fallback for now
+    let userName = 'there';
+    if (userData?.name) {
+      userName = userData.name;
+    } else if (userData?.careerProfile?.name) {
+      userName = userData.careerProfile.name;
+    } else if (userData?.displayName) {
+      userName = userData.displayName;
+    }
+    userName = userName.trim();
     
     const fullPrompt = `You are an expert career counselor specializing in AI-powered career guidance.
 
