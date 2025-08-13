@@ -205,12 +205,22 @@ Ready to have an informed career discussion!
     });
 
     // Extract user name from the properly preserved user data
+    console.log('🔍 DEBUG: Extracting user name from userData:', {
+      userData,
+      name: userData?.name,
+      careerProfileName: userData?.careerProfile?.name,
+      displayName: userData?.displayName,
+      fallback: 'there'
+    });
+    
     const userName = (
       userData?.name || 
       userData?.careerProfile?.name || 
       userData?.displayName || 
       'there'
     ).trim();
+    
+    console.log('🔍 DEBUG: Final userName extracted:', { userName });
     
     const fullPrompt = `You are an expert career counselor specializing in AI-powered career guidance.
 
