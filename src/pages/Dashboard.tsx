@@ -625,13 +625,20 @@ const Dashboard: React.FC = () => {
             return videosSnapshot.docs.map(doc => doc.id);
           })(),
           
-          // Fetch structured career guidance data
+          // Fetch ALL career cards (which already aggregates correctly across all threads)
           (async () => {
-            console.log('🔍 DASHBOARD DEBUG - Starting structured career guidance fetch for user:', currentUser.uid);
+            console.log('🔍 DASHBOARD DEBUG - Starting career cards fetch for user:', currentUser.uid);
             
-            // Force refresh to ensure we get the latest data including enhancements
+            // Use the working getCurrentCareerCards method that already aggregates all threads
             const careerPathwayService = new CareerPathwayService();
-        const structuredData = await careerPathwayService.forceRefreshStructuredGuidance(currentUser.uid);
+            const allCareerCards = await careerPathwayService.getCurrentCareerCards(currentUser.uid);
+            
+            // Transform flat array to structured format expected by Dashboard
+            const structuredData = {
+              primaryPathway: allCareerCards.find(card => card.isPrimary) || allCareerCards[0] || null,
+              alternativePathways: allCareerCards.filter(card => !card.isPrimary || card !== allCareerCards[0]),
+              totalPathways: allCareerCards.length
+            };
             console.log('🔍 DASHBOARD DEBUG - Service returned structured data:', {
               hasPrimary: !!structuredData.primaryPathway,
               primaryTitle: structuredData.primaryPathway?.title,
