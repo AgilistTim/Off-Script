@@ -44,6 +44,22 @@ interface CareerCardWithMetadata extends CareerCard {
   threadId?: string;
   createdAt: Date;
   updatedAt: Date;
+  // Enhanced data fields that may be merged from enhancedCareerCards
+  enhancedSalary?: any;
+  careerProgression?: any[];
+  dayInTheLife?: any;
+  industryTrends?: any[];
+  topUKEmployers?: any[];
+  professionalTestimonials?: any[];
+  additionalQualifications?: any[];
+  workLifeBalance?: any;
+  inDemandSkills?: any[];
+  professionalAssociations?: any[];
+  enhancedSources?: string[];
+  isEnhanced?: boolean;
+  enhancedAt?: Date | string;
+  enhancementSource?: string;
+  enhancementStatus?: string;
 }
 
 interface CareerFilters {
