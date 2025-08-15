@@ -6,7 +6,8 @@ import {
   signOut, 
   onAuthStateChanged, 
   signInWithPopup,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail
 } from 'firebase/auth';
 import { auth, googleProvider } from '../services/firebase';
 import { createUserDocument, getUserById } from '../services/userService';
@@ -21,6 +22,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, displayName: string) => Promise<{ user: FirebaseUser; migrationResult: any }>;
   signIn: (email: string, password: string) => Promise<{ user: FirebaseUser; migrationResult: any }>;
   logout: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   refreshUserData: () => Promise<User | null>;
   hasGuestData: () => boolean;
   getGuestDataPreview: () => any;
@@ -229,6 +231,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return await signOut(auth);
   };
 
+  // Reset password
+  const resetPassword = async (email: string): Promise<void> => {
+    return await sendPasswordResetEmail(auth, email);
+  };
+
   // Guest data helper methods
   const hasGuestData = (): boolean => {
     return GuestMigrationService.hasGuestDataToMigrate();
@@ -262,6 +269,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signIn,
     logout,
+    resetPassword,
     refreshUserData,
     hasGuestData,
     getGuestDataPreview

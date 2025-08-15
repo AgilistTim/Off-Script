@@ -23,7 +23,12 @@ const Login: React.FC = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { signIn } = useAuth();
+  const [showResetForm, setShowResetForm] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetSuccess, setResetSuccess] = useState(false);
+  const [resetError, setResetError] = useState('');
+  const { signIn, resetPassword } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -74,6 +79,39 @@ const Login: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      setResetError('');
+      setResetLoading(true);
+      
+      await resetPassword(resetEmail);
+      setResetSuccess(true);
+      
+      // Auto-hide success message and reset form after 5 seconds
+      setTimeout(() => {
+        setShowResetForm(false);
+        setResetSuccess(false);
+        setResetEmail('');
+      }, 5000);
+      
+    } catch (err) {
+      console.error('Password reset error:', err);
+      setResetError('Failed to send password reset email. Please check the email address and try again.');
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
+  const toggleResetForm = () => {
+    setShowResetForm(!showResetForm);
+    setResetEmail('');
+    setResetError('');
+    setResetSuccess(false);
+    setError('');
   };
 
   return (
@@ -235,16 +273,126 @@ const Login: React.FC = () => {
               </div>
             </form>
             
-            <div className="mt-6 sm:mt-8 text-center">
-              <p className="text-primary-white/70 font-medium text-sm sm:text-base">
-                Don't have an account?{' '}
-                <Link 
-                  to="/auth/register" 
-                  className="text-transparent bg-clip-text bg-gradient-to-r from-electric-blue to-neon-pink font-black hover:from-neon-pink hover:to-cyber-yellow transition-all duration-200"
+            {/* Password Reset Section */}
+            <div className="mt-6 sm:mt-8">
+              <AnimatePresence>
+                {showResetForm && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.3 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="p-4 sm:p-6 bg-gradient-to-r from-electric-blue/10 to-neon-pink/10 border border-electric-blue/30 rounded-xl backdrop-blur-sm mb-6">
+                      <h3 className="text-lg sm:text-xl font-black text-electric-blue mb-4 text-center">
+                        RESET PASSWORD
+                      </h3>
+                      
+                      {resetSuccess ? (
+                        <motion.div
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          className="text-center"
+                        >
+                          <div className="w-12 h-12 bg-gradient-to-r from-acid-green to-cyber-yellow rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Mail className="w-6 h-6 text-primary-black" />
+                          </div>
+                          <p className="text-acid-green font-bold text-sm sm:text-base mb-2">
+                            Password reset email sent!
+                          </p>
+                          <p className="text-primary-white/70 text-sm">
+                            Check your inbox and follow the instructions to reset your password.
+                          </p>
+                        </motion.div>
+                      ) : (
+                        <form onSubmit={handlePasswordReset} className="space-y-4">
+                          {resetError && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className="p-3 bg-gradient-to-r from-neon-pink/20 to-electric-blue/20 border border-neon-pink/50 rounded-lg"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <AlertCircle className="w-4 h-4 text-neon-pink flex-shrink-0" />
+                                <p className="text-neon-pink text-sm">{resetError}</p>
+                              </div>
+                            </motion.div>
+                          )}
+                          
+                          <div className="space-y-2">
+                            <label htmlFor="resetEmail" className="block text-xs sm:text-sm font-black text-electric-blue uppercase tracking-wider">
+                              EMAIL ADDRESS
+                            </label>
+                            <div className="relative">
+                              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <Mail className="w-4 h-4 text-primary-white/40" />
+                              </div>
+                              <input
+                                id="resetEmail"
+                                type="email"
+                                value={resetEmail}
+                                onChange={(e) => setResetEmail(e.target.value)}
+                                className="street-form-input w-full pl-10 pr-3 py-3 text-sm"
+                                placeholder="Enter your email"
+                                required
+                              />
+                            </div>
+                          </div>
+                          
+                          <div className="flex space-x-3">
+                            <motion.button
+                              type="submit"
+                              disabled={resetLoading}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              className="flex-1 py-3 bg-gradient-to-r from-electric-blue to-neon-pink text-primary-black font-black text-sm rounded-xl hover:from-neon-pink hover:to-cyber-yellow transition-all duration-200 disabled:opacity-50"
+                            >
+                              {resetLoading ? (
+                                <div className="flex items-center justify-center space-x-2">
+                                  <div className="w-4 h-4 border-2 border-primary-black/30 border-t-primary-black rounded-full animate-spin" />
+                                  <span>SENDING...</span>
+                                </div>
+                              ) : (
+                                'SEND RESET EMAIL'
+                              )}
+                            </motion.button>
+                            
+                            <motion.button
+                              type="button"
+                              onClick={toggleResetForm}
+                              whileHover={{ scale: 1.02 }}
+                              whileTap={{ scale: 0.98 }}
+                              className="px-4 py-3 border border-primary-white/20 text-primary-white/70 font-bold text-sm rounded-xl hover:border-primary-white/40 hover:text-primary-white transition-all duration-200"
+                            >
+                              CANCEL
+                            </motion.button>
+                          </div>
+                        </form>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+              
+              <div className="text-center space-y-2">
+                <button
+                  onClick={toggleResetForm}
+                  className="text-primary-white/70 hover:text-electric-blue font-medium text-sm transition-colors duration-200"
                 >
-                  Create one here
-                </Link>
-              </p>
+                  {showResetForm ? 'Back to sign in' : 'Forgot your password?'}
+                </button>
+                
+                <p className="text-primary-white/70 font-medium text-sm sm:text-base">
+                  Don't have an account?{' '}
+                  <Link 
+                    to="/auth/register" 
+                    className="text-transparent bg-clip-text bg-gradient-to-r from-electric-blue to-neon-pink font-black hover:from-neon-pink hover:to-cyber-yellow transition-all duration-200"
+                  >
+                    Create one here
+                  </Link>
+                </p>
+              </div>
             </div>
           </div>
         </motion.div>
