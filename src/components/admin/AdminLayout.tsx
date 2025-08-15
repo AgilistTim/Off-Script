@@ -3,14 +3,15 @@ import { Outlet, Navigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { 
   LayoutGrid, 
-  Video, 
+  MessageSquare, 
   Users, 
   BarChart3, 
   Settings, 
   LogOut,
   Menu,
   X,
-  Home
+  Home,
+  Briefcase
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -36,12 +37,13 @@ const AdminLayout: React.FC = () => {
   }
 
   const sidebarItems = [
-    { name: 'Dashboard', path: '/admin', icon: <LayoutGrid size={20} /> },
-    { name: 'Videos', path: '/admin/videos', icon: <Video size={20} /> },
-    { name: 'Users', path: '/admin/users', icon: <Users size={20} /> },
-    { name: 'Analytics', path: '/admin/analytics', icon: <BarChart3 size={20} /> },
-    { name: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
-  ];
+  { name: 'Dashboard', path: '/admin', icon: <LayoutGrid size={20} /> },
+  { name: 'Users', path: '/admin/users', icon: <Users size={20} /> },
+  { name: 'Conversations', path: '/admin/conversations', icon: <MessageSquare size={20} /> },
+  { name: 'Career Cards', path: '/admin/career-cards', icon: <Briefcase size={20} /> },
+  { name: 'Analytics', path: '/admin/analytics', icon: <BarChart3 size={20} /> },
+  { name: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
+];
 
   const isActive = (path: string) => {
     return location.pathname === path || 
@@ -62,7 +64,9 @@ const AdminLayout: React.FC = () => {
       <div className="lg:hidden fixed top-4 left-4 z-30">
         <button 
           onClick={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
-          className="p-2 rounded-md bg-white dark:bg-gray-800 shadow-md"
+          className="p-2 rounded-md bg-white dark:bg-gray-800 shadow-md hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          aria-label={isMobileSidebarOpen ? 'Close navigation menu' : 'Open navigation menu'}
+          aria-expanded={isMobileSidebarOpen}
         >
           {isMobileSidebarOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
@@ -77,13 +81,15 @@ const AdminLayout: React.FC = () => {
       )}
 
       {/* Sidebar */}
-      <motion.div 
+      <motion.nav 
         className={`fixed lg:static inset-y-0 left-0 w-64 bg-white dark:bg-gray-800 shadow-lg z-30 transform ${
           isMobileSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         } transition-transform duration-300 ease-in-out`}
         initial={{ width: isSidebarOpen ? 256 : 80 }}
         animate={{ width: isSidebarOpen ? 256 : 80 }}
         transition={{ duration: 0.3 }}
+        aria-label="Admin navigation"
+        role="navigation"
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
@@ -139,6 +145,8 @@ const AdminLayout: React.FC = () => {
                       }
                       setIsMobileSidebarOpen(false);
                     }}
+                    aria-label={`Navigate to ${item.name}`}
+                    aria-current={isActive(item.path) ? 'page' : undefined}
                   >
                     <span className="flex-shrink-0">{item.icon}</span>
                     {isSidebarOpen && <span className="ml-3">{item.name}</span>}
@@ -180,14 +188,19 @@ const AdminLayout: React.FC = () => {
             </button>
           </div>
         </div>
-      </motion.div>
+      </motion.nav>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col overflow-hidden">
         {/* Header bar */}
         <header className="bg-white dark:bg-gray-800 shadow-sm border-b dark:border-gray-700">
           <div className="flex items-center justify-between p-4">
-            <h1 className="text-xl font-semibold text-gray-800 dark:text-white">Admin Panel</h1>
+            <div>
+              <h1 className="text-xl font-semibold text-gray-800 dark:text-white">Admin Panel</h1>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                {sidebarItems.find(item => isActive(item.path))?.name || 'Dashboard'}
+              </p>
+            </div>
             <div className="flex items-center space-x-4">
               <Link 
                 to="/" 

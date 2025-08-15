@@ -14,7 +14,7 @@ const TestLoginButton: React.FC = () => {
       setLoading(true);
       await signInWithEmailAndPassword(auth, TEST_EMAIL, TEST_PASSWORD);
       // Navigate to admin videos page
-      window.location.href = '/admin/videos';
+      window.location.href = '/admin';
     } catch (error) {
       console.error('Login error:', error);
       alert('Failed to log in with test account. See console for details.');

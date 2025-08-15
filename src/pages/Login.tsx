@@ -62,7 +62,7 @@ const Login: React.FC = () => {
       const userData = userDoc.data();
       
       if (userData && userData.role === 'admin') {
-        navigate('/admin/videos');
+        navigate('/admin');
       } else {
         // Navigate to dashboard and pass migration result if present
         navigate('/dashboard', migrationResult ? { 

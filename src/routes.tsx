@@ -18,8 +18,9 @@ const Register = lazy(() => import('./pages/Register'));
 
 // Admin pages
 const AdminDashboard = lazy(() => import('./pages/admin/Dashboard'));
-const AdminVideos = lazy(() => import('./pages/admin/Videos'));
 const AdminUsers = lazy(() => import('./pages/admin/Users'));
+const AdminConversations = lazy(() => import('./pages/admin/Conversations'));
+const AdminCareerCards = lazy(() => import('./pages/admin/CareerCards'));
 const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 
@@ -155,12 +156,16 @@ export const router = createBrowserRouter([
         element: <AdminDashboard />
       },
       {
-        path: 'videos',
-        element: <AdminVideos />
-      },
-      {
         path: 'users',
         element: <AdminUsers />
+      },
+      {
+        path: 'conversations',
+        element: <AdminConversations />
+      },
+      {
+        path: 'career-cards',
+        element: <AdminCareerCards />
       },
       {
         path: 'analytics',

@@ -387,7 +387,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         interests: summaryData.interests || [],
         careerGoals: summaryData.careerGoals || [],
         skills: summaryData.skills || [],
-        createdAt: summaryData.createdAt?.toDate() || new Date(),
+        createdAt: summaryData.createdAt instanceof Timestamp ? summaryData.createdAt.toDate() : new Date(),
         learningPaths: summaryData.learningPaths || [],
         reflectiveQuestions: summaryData.reflectiveQuestions || [],
         enriched: summaryData.enriched || false
@@ -442,7 +442,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
         interests: summaryData.interests || [],
         careerGoals: summaryData.careerGoals || [],
         skills: summaryData.skills || [],
-        createdAt: summaryData.createdAt?.toDate() || new Date(),
+        createdAt: summaryData.createdAt instanceof Timestamp ? summaryData.createdAt.toDate() : new Date(),
         learningPaths: summaryData.learningPaths || [],
         reflectiveQuestions: summaryData.reflectiveQuestions || [],
         enriched: summaryData.enriched || false
