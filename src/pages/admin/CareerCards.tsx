@@ -534,7 +534,7 @@ const AdminCareerCards: React.FC = () => {
               <h3 className="text-md font-medium text-gray-800 dark:text-white mb-3">Top Industries</h3>
               <div className="space-y-2">
                 {analytics.topIndustries.slice(0, 5).map((item, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                  <div key={`industry-${item.industry}-${index}`} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
                     <span className="text-sm text-gray-700 dark:text-gray-300">{item.industry}</span>
                     <div className="flex items-center space-x-2">
                       <span className="text-sm font-medium text-gray-900 dark:text-white">{item.count}</span>
@@ -550,7 +550,7 @@ const AdminCareerCards: React.FC = () => {
               <h3 className="text-md font-medium text-gray-800 dark:text-white mb-3">Most Active Users</h3>
               <div className="space-y-2">
                 {analytics.userEngagement.slice(0, 5).map((user, index) => (
-                  <div key={index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                  <div key={`user-${user.userId}-${index}`} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
                     <span className="text-sm text-gray-700 dark:text-gray-300 truncate">{user.userName}</span>
                     <span className="text-sm font-medium text-gray-900 dark:text-white">{user.cardsCount} cards</span>
                   </div>
@@ -711,7 +711,7 @@ const AdminCareerCards: React.FC = () => {
           <div className="p-6">
             <div className="space-y-4">
               {[...Array(5)].map((_, i) => (
-                <div key={i} className="animate-pulse">
+                <div key={`loading-skeleton-${i}`} className="animate-pulse">
                   <div className="flex items-center space-x-4 p-4">
                     <div className="w-4 h-4 bg-gray-200 dark:bg-gray-700 rounded"></div>
                     <div className="flex-1 space-y-2">
@@ -887,7 +887,7 @@ const AdminCareerCards: React.FC = () => {
                     <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-3">Key Skills</h3>
                     <div className="flex flex-wrap gap-2">
                       {selectedCard.keySkills.map((skill, index) => (
-                        <span key={index} className="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm">
+                        <span key={`skill-${skill}-${index}`} className="px-3 py-1 bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full text-sm">
                           {skill}
                         </span>
                       ))}
@@ -901,7 +901,7 @@ const AdminCareerCards: React.FC = () => {
                     <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-3">Next Steps</h3>
                     <ul className="list-disc list-inside space-y-1">
                       {selectedCard.nextSteps.map((step, index) => (
-                        <li key={index} className="text-gray-600 dark:text-gray-400">{step}</li>
+                        <li key={`step-${index}-${step.slice(0, 20)}`} className="text-gray-600 dark:text-gray-400">{step}</li>
                       ))}
                     </ul>
                   </div>
