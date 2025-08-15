@@ -108,7 +108,7 @@ const AdminCareerCards: React.FC = () => {
         if (data.guidance?.primaryPathway) {
           const card: CareerCardWithMetadata = {
             ...data.guidance.primaryPathway,
-            id: data.guidance.primaryPathway.id || doc.id,
+            id: `thread_${doc.id}_primary`,
             userId: data.userId,
             userName: data.userName || 'Unknown User',
             userEmail: data.userEmail,
@@ -125,7 +125,7 @@ const AdminCareerCards: React.FC = () => {
           data.guidance.alternativePathways.forEach((pathway: any, index: number) => {
             const card: CareerCardWithMetadata = {
               ...pathway,
-              id: pathway.id || `${doc.id}_alt_${index}`,
+              id: `thread_${doc.id}_alt_${index}`,
               userId: data.userId,
               userName: data.userName || 'Unknown User',
               userEmail: data.userEmail,
@@ -151,7 +151,7 @@ const AdminCareerCards: React.FC = () => {
           data.careerCards.forEach((pathway: any, index: number) => {
             const card: CareerCardWithMetadata = {
               ...pathway,
-              id: pathway.id || `${doc.id}_career_${index}`,
+              id: `exploration_${doc.id}_career_${index}`,
               userId: data.userId,
               userName: data.guestName || data.userName || 'Guest User',
               userEmail: data.userEmail || 'guest@example.com',
