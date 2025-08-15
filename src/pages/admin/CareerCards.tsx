@@ -94,6 +94,86 @@ const AdminCareerCards: React.FC = () => {
     filterAndSortCards();
   }, [careerCards, searchTerm, filters, sortField, sortDirection]);
 
+  const mergeEnhancedData = async (cards: CareerCardWithMetadata[]) => {
+    try {
+      // Get all enhanced career cards
+      const enhancedCareerCardsRef = collection(db, 'enhancedCareerCards');
+      const enhancedSnapshot = await getDocs(enhancedCareerCardsRef);
+      
+      // Create a map of enhanced data keyed by career title (normalized)
+      const enhancedDataMap = new Map<string, any>();
+      
+      enhancedSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        if (data.careerTitle && data.enhancedData) {
+          const normalizedTitle = data.careerTitle.toLowerCase().replace(/[^a-z0-9]/g, '');
+          enhancedDataMap.set(normalizedTitle, {
+            id: doc.id,
+            ...data,
+            enhancedData: data.enhancedData
+          });
+        }
+      });
+      
+      // Merge enhanced data with cards
+      cards.forEach(card => {
+        if (card.title) {
+          const normalizedCardTitle = card.title.toLowerCase().replace(/[^a-z0-9]/g, '');
+          const enhancedData = enhancedDataMap.get(normalizedCardTitle);
+          
+          if (enhancedData && enhancedData.enhancedData) {
+            // Extract enhanced fields from the enhancedData object
+            const enhanced = enhancedData.enhancedData;
+            
+            // Merge enhanced fields into the card
+            Object.assign(card, {
+              isEnhanced: true,
+              enhancedAt: enhancedData.createdAt,
+              enhancementSource: enhancedData.source || 'perplexity',
+              enhancementStatus: 'enhanced',
+              
+              // Add enhanced fields if they exist
+              ...(enhanced.enhancedSalary && { enhancedSalary: enhanced.enhancedSalary }),
+              ...(enhanced.careerProgression && { careerProgression: enhanced.careerProgression }),
+              ...(enhanced.dayInTheLife && { dayInTheLife: enhanced.dayInTheLife }),
+              ...(enhanced.industryTrends && { industryTrends: enhanced.industryTrends }),
+              ...(enhanced.topUKEmployers && { topUKEmployers: enhanced.topUKEmployers }),
+              ...(enhanced.professionalTestimonials && { professionalTestimonials: enhanced.professionalTestimonials }),
+              ...(enhanced.additionalQualifications && { additionalQualifications: enhanced.additionalQualifications }),
+              ...(enhanced.workLifeBalance && { workLifeBalance: enhanced.workLifeBalance }),
+              ...(enhanced.inDemandSkills && { inDemandSkills: enhanced.inDemandSkills }),
+              ...(enhanced.professionalAssociations && { professionalAssociations: enhanced.professionalAssociations }),
+              ...(enhanced.enhancedSources && { enhancedSources: enhanced.enhancedSources }),
+              
+              // Also try direct fields in case they're stored at the top level
+              ...(enhanced.salaryData && { enhancedSalary: enhanced.salaryData }),
+              ...(enhanced.skills && { inDemandSkills: enhanced.skills }),
+              ...(enhanced.employers && { topUKEmployers: enhanced.employers }),
+              ...(enhanced.qualifications && { additionalQualifications: enhanced.qualifications }),
+              ...(enhanced.associations && { professionalAssociations: enhanced.associations }),
+              ...(enhanced.testimonials && { professionalTestimonials: enhanced.testimonials }),
+              ...(enhanced.trends && { industryTrends: enhanced.trends }),
+              ...(enhanced.progression && { careerProgression: enhanced.progression }),
+              ...(enhanced.workLife && { workLifeBalance: enhanced.workLife }),
+              ...(enhanced.sources && { enhancedSources: enhanced.sources })
+            });
+            
+            console.log(`✅ Merged enhanced data for: ${card.title}`, {
+              hasEnhancedSalary: !!card.enhancedSalary,
+              hasCareerProgression: !!card.careerProgression,
+              hasDayInTheLife: !!card.dayInTheLife,
+              hasInDemandSkills: !!card.inDemandSkills,
+              hasEnhancedSources: !!card.enhancedSources
+            });
+          }
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error merging enhanced data:', error);
+    }
+  };
+
   const fetchCareerCards = async () => {
     try {
       setLoading(true);
@@ -165,6 +245,9 @@ const AdminCareerCards: React.FC = () => {
           });
         }
       }
+      
+      // Merge enhanced data from enhancedCareerCards collection
+      await mergeEnhancedData(allCards);
       
       setCareerCards(allCards);
       generateAnalytics(allCards);
