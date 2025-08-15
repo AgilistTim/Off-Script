@@ -176,6 +176,11 @@ service cloud.firestore {
       }
     }
     
+    // Collection group queries for admin search functionality
+    match /{path=**}/messages/{messageId} {
+      allow read: if isAuthenticated() && isAdmin();
+    }
+    
     // Default deny
     match /{document=**} {
       allow read, write: if false;
