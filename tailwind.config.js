@@ -131,7 +131,7 @@ export default {
 			// New Organic Color Palette - Dice.fm + Calm.com Hybrid
 			'primary-yellow': '#f0ff8c',       // Bright yellow-green (energy)
 			'primary-peach': '#fdc0a8',        // Warm peach (existing, now primary)
-			'primary-green': '#81f08c',        // Fresh green (growth/discovery)
+			'primary-green': '#22c55e',        // Fresh green with better contrast (growth/discovery)
 			'primary-lavender': '#cfceff',     // Soft purple (gentleness)
 			'primary-mint': '#d8fdf0',         // Pale mint (calm/serene)
 			'primary-white': '#ffffff',        // Pure white
@@ -142,13 +142,13 @@ export default {
 			'calm': '#d8fdf0',                 // Mint for serene content areas
 			'warm': '#fdc0a8',                 // Peach for warmth/connection
 			'soft': '#cfceff',                 // Lavender for gentle touches
-			'fresh': '#81f08c',                // Green for growth/action
+			'fresh': '#22c55e',                // Green for growth/action
 
 			// Legacy Colors - Preserved for Gradual Migration
 			'primary-blue': '#8cc9ff',         // Keep existing blue
 			'electric-blue': '#00ffff',        // Keep for transition period
 			'neon-pink': '#ff006e',            // Keep for transition period
-			'acid-green': '#8ac926',           // Keep for transition period
+			'acid-green': '#4a7c59',           // Darker green for better contrast
 			'sunset-orange': '#ff7900',        // Keep for transition period
 			'alert-orange': '#ff6b35',         // Keep for alerts
 			'cyber-purple': '#9d4edd',         // Keep for transition period

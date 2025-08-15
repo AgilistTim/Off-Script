@@ -119,17 +119,17 @@ const Header: React.FC = () => {
           </Link>
 
           {/* Desktop Navigation - Hidden until lg (1023px+) */}
-          <nav className="hidden lg:flex space-x-8">
+          <nav className="hidden lg:flex space-x-6">
             <Link 
               to="/chat"
-              className="transition-colors duration-brand font-medium text-primary-black hover:text-primary-green"
+              className="transition-colors duration-brand font-bold text-lg px-4 py-2 rounded-xl bg-primary-mint/80 text-primary-black hover:bg-primary-green hover:text-primary-white hover:scale-105 transform"
             >
               Chat
             </Link>
             {currentUser && (
               <Link 
                 to="/dashboard"
-                className="transition-colors duration-brand font-medium text-primary-black hover:text-primary-green"
+                className="transition-colors duration-brand font-bold text-lg px-4 py-2 rounded-xl bg-primary-mint/80 text-primary-black hover:bg-primary-green hover:text-primary-white hover:scale-105 transform"
               >
                 Dashboard
               </Link>
@@ -137,9 +137,9 @@ const Header: React.FC = () => {
             {isAdmin && (
               <Link 
                 to="/admin"
-                className="text-primary-peach hover:text-primary-yellow transition-colors duration-brand flex items-center font-medium"
+                className="text-primary-peach hover:text-primary-yellow transition-colors duration-brand flex items-center font-bold text-lg px-4 py-2 rounded-xl bg-primary-peach/20 hover:bg-primary-peach/40"
               >
-                <Shield className="h-4 w-4 mr-1" />
+                <Shield className="h-5 w-5 mr-2" />
                 Admin
               </Link>
             )}
@@ -214,18 +214,18 @@ const Header: React.FC = () => {
             <div className="py-4 space-y-2">
               <Link 
                 to="/chat"
-                className="block w-full text-left px-4 py-3 text-primary-black hover:bg-primary-green/10 hover:text-primary-green rounded-xl transition-all duration-brand font-medium"
+                className="block w-full text-left px-6 py-4 bg-primary-mint/80 text-primary-black hover:bg-primary-green hover:text-primary-white rounded-xl transition-all duration-brand font-bold text-lg mb-3"
                 onClick={() => setIsMenuOpen(false)}
               >
-                Chat
+                💬 Chat
               </Link>
               {currentUser && (
                 <Link 
                   to="/dashboard"
-                  className="block w-full text-left px-4 py-3 text-primary-black hover:bg-primary-green/10 hover:text-primary-green rounded-xl transition-all duration-brand font-medium"
+                  className="block w-full text-left px-6 py-4 bg-primary-mint/80 text-primary-black hover:bg-primary-green hover:text-primary-white rounded-xl transition-all duration-brand font-bold text-lg mb-3"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  Dashboard
+                  📊 Dashboard
                 </Link>
               )}
               {isAdmin && (

@@ -7,7 +7,7 @@ import { useDesignMode } from "@/hooks/useDesignMode"
 
 const buttonVariants = cva(
   // Base Off Script button styles
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-button text-button-fluid font-medium transition-all duration-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+  "inline-flex items-center justify-center gap-2 rounded-button text-button-fluid font-medium transition-all duration-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 break-words text-center leading-tight",
   {
     variants: {
       variant: {
@@ -36,14 +36,14 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {
-        // Off Script sizing - large horizontal padding
-        default: "px-6 sm:px-8 lg:px-40 py-3 sm:py-4 min-h-[44px]", // Mobile-first responsive sizing
-        sm: "px-4 sm:px-6 lg:px-20 py-2 text-sm min-h-[44px]",
-        lg: "px-6 sm:px-8 lg:px-48 py-4 sm:py-5 lg:py-6 text-lg min-h-[44px]",
+        // Off Script sizing - responsive horizontal padding to prevent overflow
+        default: "px-4 sm:px-6 lg:px-8 xl:px-12 py-3 sm:py-4 min-h-[44px] max-w-full", // Mobile-first responsive sizing
+        sm: "px-3 sm:px-4 lg:px-6 py-2 text-sm min-h-[44px] max-w-full",
+        lg: "px-6 sm:px-8 lg:px-12 xl:px-16 py-4 sm:py-5 lg:py-6 text-lg min-h-[44px] max-w-full",
         icon: "h-10 w-10",
         // Compact versions for UI elements
-        compact: "px-6 py-2",
-        "compact-sm": "px-4 py-1 text-sm",
+        compact: "px-6 py-2 max-w-full",
+        "compact-sm": "px-4 py-1 text-sm max-w-full",
       },
     },
     defaultVariants: {
