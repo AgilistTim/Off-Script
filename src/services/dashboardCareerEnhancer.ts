@@ -5,7 +5,7 @@ import { toast } from 'react-hot-toast';
 import { mcpBridgeService, PerplexitySearchParams, PerplexitySearchResult, PerplexityStructuredCareerData } from './mcpBridgeService';
 import type { CareerCard, EnhancedCareerCard, VerifiedEnhancedCareerCard } from '../types/careerCard';
 import { firestore } from './firebase';
-import { doc, getDoc, setDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, serverTimestamp, query, where, orderBy, limit, getDocs, updateDoc } from 'firebase/firestore';
 import { environmentConfig } from '../config/environment';
 
 /**
@@ -1012,9 +1012,117 @@ export class DashboardCareerEnhancer {
 
       await setDoc(docRef, firestoreDoc);
       console.log('💾 Saved to Firestore:', careerTitle, { confidence });
+      
+      // Also merge enhanced data back to threadCareerGuidance for user-facing display
+      await this.mergeEnhancedDataToThreadGuidance(careerTitle, data);
+      
     } catch (error) {
       console.warn('⚠️ Firestore write error for', careerTitle, ':', error);
       // Don't throw - Firestore is supplementary to cache
+    }
+  }
+
+  /**
+   * Merge enhanced data from enhancedCareerCards back to threadCareerGuidance for user-facing display
+   */
+  private async mergeEnhancedDataToThreadGuidance(careerTitle: string, enhancedData: EnhancedCareerData): Promise<void> {
+    try {
+      console.log(`🔄 Merging enhanced data for "${careerTitle}" back to threadCareerGuidance`);
+      
+      // Find threadCareerGuidance documents that contain this career title
+      const threadGuidanceRef = collection(firestore, 'threadCareerGuidance');
+      const guidanceSnapshot = await getDocs(threadGuidanceRef);
+      
+      let mergedCount = 0;
+      
+      for (const docSnap of guidanceSnapshot.docs) {
+        const data = docSnap.data();
+        let hasUpdates = false;
+        const updates: any = {};
+        
+        // Check and update primary pathway
+        if (data.guidance?.primaryPathway?.title?.toLowerCase() === careerTitle.toLowerCase()) {
+          console.log(`🎯 Found matching primary pathway in doc ${docSnap.id}`);
+          
+          updates['guidance.primaryPathway'] = {
+            ...data.guidance.primaryPathway,
+            // Map enhanced data to the fields expected by user-facing components
+            enhancedSalary: enhancedData.verifiedSalaryRanges,
+            careerProgression: enhancedData.currentEducationPathways,
+            dayInTheLife: enhancedData.workEnvironmentDetails,
+            industryTrends: enhancedData.industryGrowthProjection,
+            topUKEmployers: enhancedData.realTimeMarketDemand,
+            professionalTestimonials: enhancedData.competencyRequirements,
+            additionalQualifications: enhancedData.competencyRequirements?.qualificationPathway,
+            workLifeBalance: enhancedData.workEnvironmentDetails,
+            inDemandSkills: enhancedData.competencyRequirements?.technicalSkills,
+            professionalAssociations: enhancedData.competencyRequirements?.softSkills,
+            enhancedSources: enhancedData.sources || [],
+            isEnhanced: true,
+            enhancedAt: new Date(),
+            enhancementSource: 'perplexity',
+            enhancementStatus: 'enhanced'
+          };
+          hasUpdates = true;
+        }
+        
+        // Check and update alternative pathways
+        if (data.guidance?.alternativePathways?.length > 0) {
+          const updatedAlternatives = data.guidance.alternativePathways.map((pathway: any) => {
+            if (pathway.title?.toLowerCase() === careerTitle.toLowerCase()) {
+              console.log(`🎯 Found matching alternative pathway in doc ${docSnap.id}`);
+              return {
+                ...pathway,
+                // Map enhanced data to the fields expected by user-facing components
+                enhancedSalary: enhancedData.verifiedSalaryRanges,
+                careerProgression: enhancedData.currentEducationPathways,
+                dayInTheLife: enhancedData.workEnvironmentDetails,
+                industryTrends: enhancedData.industryGrowthProjection,
+                topUKEmployers: enhancedData.realTimeMarketDemand,
+                professionalTestimonials: enhancedData.competencyRequirements,
+                additionalQualifications: enhancedData.competencyRequirements?.qualificationPathway,
+                workLifeBalance: enhancedData.workEnvironmentDetails,
+                inDemandSkills: enhancedData.competencyRequirements?.technicalSkills,
+                professionalAssociations: enhancedData.competencyRequirements?.softSkills,
+                enhancedSources: enhancedData.sources || [],
+                isEnhanced: true,
+                enhancedAt: new Date(),
+                enhancementSource: 'perplexity',
+                enhancementStatus: 'enhanced'
+              };
+            }
+            return pathway;
+          });
+          
+          // Check if any alternatives were updated
+          const hasAlternativeUpdates = updatedAlternatives.some((pathway: any, index: number) => 
+            pathway.isEnhanced && !data.guidance.alternativePathways[index].isEnhanced
+          );
+          
+          if (hasAlternativeUpdates) {
+            updates['guidance.alternativePathways'] = updatedAlternatives;
+            hasUpdates = true;
+          }
+        }
+        
+        // Save updates if any were made
+        if (hasUpdates) {
+          updates.updatedAt = new Date();
+          await updateDoc(doc(firestore, 'threadCareerGuidance', docSnap.id), updates);
+          mergedCount++;
+          console.log(`✅ Merged enhanced data to threadCareerGuidance document: ${docSnap.id}`);
+        }
+      }
+      
+      if (mergedCount > 0) {
+        console.log(`🎉 Successfully merged enhanced data for "${careerTitle}" to ${mergedCount} threadCareerGuidance documents`);
+      } else {
+        console.log(`⚠️ No matching threadCareerGuidance documents found for "${careerTitle}"`);
+      }
+      
+    } catch (error) {
+      console.error(`❌ Error merging enhanced data for "${careerTitle}":`, error);
+      // Don't throw - this is supplementary functionality
     }
   }
 
@@ -1161,6 +1269,42 @@ export class DashboardCareerEnhancer {
         errors
       });
       
+      throw error;
+    }
+  }
+
+  /**
+   * Public method to manually merge existing enhanced data back to threadCareerGuidance
+   * Useful for fixing existing cards that weren't properly merged
+   */
+  async mergeExistingEnhancedData(): Promise<{ merged: number; errors: string[] }> {
+    try {
+      console.log('🔄 Starting manual merge of existing enhanced data...');
+      
+      // Get all enhanced career cards
+      const enhancedCardsRef = collection(firestore, this.FIRESTORE_COLLECTION);
+      const enhancedSnapshot = await getDocs(enhancedCardsRef);
+      
+      let mergedCount = 0;
+      const errors: string[] = [];
+      
+      for (const docSnap of enhancedSnapshot.docs) {
+        try {
+          const data = docSnap.data() as FirestoreEnhancedCareer;
+          await this.mergeEnhancedDataToThreadGuidance(data.careerTitle, data.enhancedData);
+          mergedCount++;
+        } catch (error) {
+          const errorMsg = `Failed to merge ${docSnap.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          errors.push(errorMsg);
+          console.error(errorMsg);
+        }
+      }
+      
+      console.log(`🎉 Manual merge completed: ${mergedCount} cards processed, ${errors.length} errors`);
+      return { merged: mergedCount, errors };
+      
+    } catch (error) {
+      console.error('❌ Manual merge failed:', error);
       throw error;
     }
   }
