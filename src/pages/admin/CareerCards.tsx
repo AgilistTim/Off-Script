@@ -753,6 +753,11 @@ const AdminCareerCards: React.FC = () => {
                           }`}>
                             {card.pathwayType}
                           </span>
+                          {card.isEnhanced && (
+                            <span className="px-2 py-1 text-xs rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+                              ✨ Enhanced
+                            </span>
+                          )}
                         </div>
                         
                         <p className="text-sm text-gray-600 dark:text-gray-400 mb-3 line-clamp-2">
@@ -908,22 +913,206 @@ const AdminCareerCards: React.FC = () => {
                 )}
 
                 {/* Enhanced Data */}
-                {selectedCard.enhancement?.status === 'completed' && selectedCard.perplexityData && (
-                  <div>
-                    <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-3">Enhanced Market Data</h3>
-                    <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
-                      <p className="text-sm text-green-700 dark:text-green-300">
-                        This career card has been enhanced with real-time market data from Perplexity.
-                      </p>
-                      {selectedCard.perplexityData.verifiedSalaryRanges && (
-                        <div className="mt-2">
-                          <span className="text-sm font-medium">Verified Salary Ranges:</span>
-                          <p className="text-sm">
-                            Entry: £{selectedCard.perplexityData.verifiedSalaryRanges.entry?.min?.toLocaleString()}-£{selectedCard.perplexityData.verifiedSalaryRanges.entry?.max?.toLocaleString()}
+                {selectedCard.isEnhanced && (
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="text-lg font-medium text-gray-800 dark:text-white mb-3">Enhanced Career Data</h3>
+                      <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg mb-4">
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm text-green-700 dark:text-green-300">
+                            ✅ This career card has been enhanced with comprehensive market data
                           </p>
+                          {selectedCard.enhancedAt && (
+                            <span className="text-xs text-green-600 dark:text-green-400">
+                              Enhanced: {new Date(selectedCard.enhancedAt).toLocaleDateString()}
+                            </span>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
+
+                    {/* Enhanced Salary Information */}
+                    {selectedCard.enhancedSalary && (
+                      <div>
+                        <h4 className="text-md font-medium text-gray-800 dark:text-white mb-2">💰 Salary Information</h4>
+                        <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                          <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                            {typeof selectedCard.enhancedSalary === 'string' 
+                              ? selectedCard.enhancedSalary 
+                              : JSON.stringify(selectedCard.enhancedSalary, null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Day in the Life */}
+                    {selectedCard.dayInTheLife && (
+                      <div>
+                        <h4 className="text-md font-medium text-gray-800 dark:text-white mb-2">🌅 Day in the Life</h4>
+                        <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+                          {selectedCard.dayInTheLife}
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Career Progression */}
+                    {selectedCard.careerProgression && selectedCard.careerProgression.length > 0 && (
+                      <div>
+                        <h4 className="text-md font-medium text-gray-800 dark:text-white mb-2">📈 Career Progression</h4>
+                        <ul className="list-disc list-inside space-y-1">
+                          {selectedCard.careerProgression.map((step, index) => (
+                            <li key={`progression-${index}`} className="text-gray-600 dark:text-gray-400 text-sm">
+                              {step}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* In-Demand Skills */}
+                    {selectedCard.inDemandSkills && selectedCard.inDemandSkills.length > 0 && (
+                      <div>
+                        <h4 className="text-md font-medium text-gray-800 dark:text-white mb-2">🔥 In-Demand Skills</h4>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedCard.inDemandSkills.map((skill, index) => (
+                            <span key={`demand-skill-${index}`} className="px-2 py-1 bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200 rounded text-xs">
+                              {skill}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Industry Trends */}
+                    {selectedCard.industryTrends && selectedCard.industryTrends.length > 0 && (
+                      <div>
+                        <h4 className="text-md font-medium text-gray-800 dark:text-white mb-2">📊 Industry Trends</h4>
+                        <ul className="list-disc list-inside space-y-1">
+                          {selectedCard.industryTrends.map((trend, index) => (
+                            <li key={`trend-${index}`} className="text-gray-600 dark:text-gray-400 text-sm">
+                              {trend}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Top UK Employers */}
+                    {selectedCard.topUKEmployers && selectedCard.topUKEmployers.length > 0 && (
+                      <div>
+                        <h4 className="text-md font-medium text-gray-800 dark:text-white mb-2">🏢 Top UK Employers</h4>
+                        <div className="grid grid-cols-2 gap-2">
+                          {selectedCard.topUKEmployers.map((employer, index) => (
+                            <div key={`employer-${index}`} className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded text-sm">
+                              <div className="font-medium text-blue-800 dark:text-blue-200">
+                                {typeof employer === 'string' ? employer : employer.name || employer.company}
+                              </div>
+                              {typeof employer === 'object' && employer.description && (
+                                <div className="text-blue-600 dark:text-blue-300 text-xs mt-1">
+                                  {employer.description}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Work-Life Balance */}
+                    {selectedCard.workLifeBalance && (
+                      <div>
+                        <h4 className="text-md font-medium text-gray-800 dark:text-white mb-2">⚖️ Work-Life Balance</h4>
+                        <div className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+                          <pre className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
+                            {typeof selectedCard.workLifeBalance === 'string' 
+                              ? selectedCard.workLifeBalance 
+                              : JSON.stringify(selectedCard.workLifeBalance, null, 2)}
+                          </pre>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Additional Qualifications */}
+                    {selectedCard.additionalQualifications && selectedCard.additionalQualifications.length > 0 && (
+                      <div>
+                        <h4 className="text-md font-medium text-gray-800 dark:text-white mb-2">🎓 Additional Qualifications</h4>
+                        <ul className="list-disc list-inside space-y-1">
+                          {selectedCard.additionalQualifications.map((qual, index) => (
+                            <li key={`qualification-${index}`} className="text-gray-600 dark:text-gray-400 text-sm">
+                              {typeof qual === 'string' ? qual : qual.name || qual.title}
+                              {typeof qual === 'object' && qual.description && (
+                                <span className="text-gray-500 dark:text-gray-500 ml-2">- {qual.description}</span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Professional Associations */}
+                    {selectedCard.professionalAssociations && selectedCard.professionalAssociations.length > 0 && (
+                      <div>
+                        <h4 className="text-md font-medium text-gray-800 dark:text-white mb-2">🤝 Professional Associations</h4>
+                        <div className="space-y-2">
+                          {selectedCard.professionalAssociations.map((assoc, index) => (
+                            <div key={`association-${index}`} className="bg-purple-50 dark:bg-purple-900/20 p-2 rounded text-sm">
+                              <div className="font-medium text-purple-800 dark:text-purple-200">
+                                {typeof assoc === 'string' ? assoc : assoc.name}
+                              </div>
+                              {typeof assoc === 'object' && assoc.description && (
+                                <div className="text-purple-600 dark:text-purple-300 text-xs mt-1">
+                                  {assoc.description}
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Professional Testimonials */}
+                    {selectedCard.professionalTestimonials && selectedCard.professionalTestimonials.length > 0 && (
+                      <div>
+                        <h4 className="text-md font-medium text-gray-800 dark:text-white mb-2">💬 Professional Testimonials</h4>
+                        <div className="space-y-3">
+                          {selectedCard.professionalTestimonials.map((testimonial, index) => (
+                            <div key={`testimonial-${index}`} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg border-l-4 border-green-500">
+                              <p className="text-gray-700 dark:text-gray-300 text-sm italic">
+                                "{typeof testimonial === 'string' ? testimonial : testimonial.quote || testimonial.content}"
+                              </p>
+                              {typeof testimonial === 'object' && (testimonial.author || testimonial.name) && (
+                                <p className="text-gray-500 dark:text-gray-400 text-xs mt-2">
+                                  — {testimonial.author || testimonial.name}
+                                  {testimonial.title && <span>, {testimonial.title}</span>}
+                                </p>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Enhancement Sources */}
+                    {selectedCard.enhancedSources && selectedCard.enhancedSources.length > 0 && (
+                      <div>
+                        <h4 className="text-md font-medium text-gray-800 dark:text-white mb-2">📚 Enhancement Sources</h4>
+                        <div className="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                          {selectedCard.enhancedSources.map((source, index) => (
+                            <div key={`source-${index}`}>
+                              {typeof source === 'string' ? (
+                                source.startsWith('http') ? (
+                                  <a href={source} target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline">
+                                    {source}
+                                  </a>
+                                ) : source
+                              ) : (
+                                JSON.stringify(source)
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
