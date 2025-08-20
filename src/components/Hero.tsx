@@ -351,34 +351,34 @@ const Hero: React.FC = () => {
       <AnimatePresence>
         {showPostConversationCTA && !currentUser && !showVoiceModal && (
           <motion.div
-            className="fixed inset-0 bg-primary-black/80 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
+            className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[300] flex items-center justify-center p-4"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             style={{ pointerEvents: 'auto' }}
           >
             <motion.div
-              className="bg-gradient-to-br from-primary-white/10 to-primary-white/5 backdrop-blur-xl border border-primary-green/30 rounded-3xl p-8 max-w-md w-full text-center"
+              className="bg-white border-2 border-black rounded-3xl p-8 max-w-md w-full text-center shadow-2xl"
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               style={{ pointerEvents: 'auto' }}
             >
               <motion.div
-                className="w-16 h-16 bg-gradient-to-r from-primary-green to-primary-yellow rounded-2xl flex items-center justify-center mx-auto mb-6"
+                className="w-16 h-16 bg-black rounded-2xl flex items-center justify-center mx-auto mb-6"
                 animate={{ rotate: [0, 360] }}
                 transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
               >
-                <CheckCircle className="w-8 h-8 text-primary-black" />
+                <CheckCircle className="w-8 h-8 text-white" />
               </motion.div>
               
-              <h3 className="text-2xl font-bold text-primary-white mb-4">
+              <h3 className="text-2xl font-bold text-black mb-4">
                 Great Conversation!
               </h3>
-              <p className="text-primary-white/70 mb-2">
-                You discovered <span className="text-primary-green font-bold">{discoveredCareerCards.length} career insights</span>
+              <p className="text-gray-600 mb-2">
+                You discovered <span className="text-black font-bold">{discoveredCareerCards.length} career insights</span>
               </p>
-              <p className="text-primary-white/70 mb-8">
+              <p className="text-gray-600 mb-8">
                 Sign up to save your progress and continue exploring
               </p>
               
@@ -403,7 +403,7 @@ const Hero: React.FC = () => {
                 <Button
                   onClick={handleDismissPostCTA}
                   variant="ghost"
-                  className="w-full py-2 text-primary-white/50 hover:text-primary-white/70"
+                  className="w-full py-2 text-gray-500 hover:text-gray-700"
                 >
                   Maybe later
                 </Button>

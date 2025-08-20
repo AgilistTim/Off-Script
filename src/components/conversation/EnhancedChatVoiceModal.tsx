@@ -56,6 +56,11 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from '../ui/accordion';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '../ui/collapsible';
 import { useAuth } from '../../context/AuthContext';
 
 import { mcpQueueService } from '../../services/mcpQueueService';
@@ -110,6 +115,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     personalQualities: string[];
   }>({ interests: [], goals: [], skills: [], personalQualities: [] });
   const [careerCards, setCareerCards] = useState<any[]>([]);
+  const [newContentAdded, setNewContentAdded] = useState<string | null>(null);
   const [ctaBottomOffsetPx, setCtaBottomOffsetPx] = useState<number>(0);
   
   // Progress tracking for career analysis
@@ -117,6 +123,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const mobileScrollAreaRef = useRef<HTMLDivElement>(null);
   const conversationInitialized = useRef<boolean>(false);
   
   // Ref to always access current conversation history (avoids stale closure)
@@ -620,12 +627,23 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           };
 
           // Update local state for immediate UI feedback
-          setDiscoveredInsights(prev => ({
-            interests: [...new Set([...prev.interests, ...newInsights.interests])],
-            goals: [...new Set([...prev.goals, ...newInsights.goals])],
-            skills: [...new Set([...prev.skills, ...newInsights.skills])],
-            personalQualities: [...new Set([...prev.personalQualities, ...newInsights.personalQualities])]
-          }));
+          setDiscoveredInsights(prev => {
+            const updated = {
+              interests: [...new Set([...prev.interests, ...newInsights.interests])],
+              goals: [...new Set([...prev.goals, ...newInsights.goals])],
+              skills: [...new Set([...prev.skills, ...newInsights.skills])],
+              personalQualities: [...new Set([...prev.personalQualities, ...newInsights.personalQualities])]
+            };
+            
+            // Show notification for new content
+            const totalNewItems = newInsights.interests.length + newInsights.goals.length + newInsights.skills.length + newInsights.personalQualities.length;
+            if (totalNewItems > 0) {
+              setNewContentAdded(`Added ${totalNewItems} new profile detail${totalNewItems > 1 ? 's' : ''}`);
+              setTimeout(() => setNewContentAdded(null), 4000);
+            }
+            
+            return updated;
+          });
 
           // CRITICAL: Also save to guest session if user is not logged in
           if (!currentUser) {
@@ -781,15 +799,66 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     }
   });
 
-  // Auto-scroll to bottom of conversation
+  // Auto-scroll to bottom of conversation - Enhanced reliability for both mobile and desktop
   useEffect(() => {
-    if (scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      }
+    const scrollToBottom = () => {
+      // Function to scroll a specific container
+      const scrollContainer = (containerRef: React.RefObject<HTMLDivElement>) => {
+        if (containerRef.current) {
+          const scrollElement = containerRef.current.querySelector('[data-radix-scroll-area-viewport]');
+          if (scrollElement) {
+            const scrollHeight = scrollElement.scrollHeight;
+            const clientHeight = scrollElement.clientHeight;
+            const maxScrollTop = scrollHeight - clientHeight;
+            
+            // Force scroll to absolute bottom
+            const forceScroll = () => {
+              scrollElement.scrollTop = maxScrollTop;
+            };
+            
+            // Multiple scroll attempts with different strategies
+            forceScroll(); // Immediate
+            requestAnimationFrame(forceScroll); // After paint
+            setTimeout(forceScroll, 50); // Early fallback
+            setTimeout(forceScroll, 150); // Late fallback
+            
+            // Also try smooth scroll as backup
+            setTimeout(() => {
+              scrollElement.scrollTo({
+                top: scrollElement.scrollHeight,
+                behavior: 'smooth'
+              });
+            }, 200);
+          }
+        }
+      };
+
+      // Scroll both mobile and desktop containers
+      scrollContainer(mobileScrollAreaRef);
+      scrollContainer(scrollAreaRef);
+    };
+
+    scrollToBottom();
+  }, [conversationHistory, isSpeaking]);
+
+  // Additional scroll trigger specifically for new messages
+  useEffect(() => {
+    if (conversationHistory.length > 0) {
+      const timer = setTimeout(() => {
+        // Scroll both containers
+        [mobileScrollAreaRef, scrollAreaRef].forEach(ref => {
+          if (ref.current) {
+            const scrollContainer = ref.current.querySelector('[data-radix-scroll-area-viewport]');
+            if (scrollContainer) {
+              scrollContainer.scrollTop = scrollContainer.scrollHeight;
+            }
+          }
+        });
+      }, 300);
+      
+      return () => clearTimeout(timer);
     }
-  }, [conversationHistory]);
+  }, [conversationHistory.length]);
 
   // Sync with external conversation history
   useEffect(() => {
@@ -1053,10 +1122,10 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           </DialogHeader>
           <div className="flex items-center justify-center h-full">
             <div className="flex flex-col items-center space-y-4 text-center">
-              <AlertTriangle className="h-8 w-8 text-template-secondary" />
-              <h3 className="text-lg font-bold text-template-secondary">Configuration Missing</h3>
+              <AlertTriangle className="h-8 w-8 text-black" />
+              <h3 className="text-lg font-bold text-black">Configuration Missing</h3>
               <p className="text-black">ElevenLabs configuration is not available. Please check your environment setup.</p>
-              <Button onClick={onClose} variant="outline" className="border-template-primary text-template-primary hover:bg-template-primary hover:text-white min-h-[44px]">
+              <Button onClick={onClose} variant="outline" className="border-black text-black hover:bg-template-primary hover:text-white min-h-[44px]">
                 Close
               </Button>
             </div>
@@ -1106,12 +1175,247 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
           {/* Flexible Content Area */}
           <div className="min-h-0 h-full overflow-hidden px-2 md:px-4 pt-2">
-            <div className="flex flex-col md:flex-row md:space-x-4 h-full">
-              {/* Career Insights Panel - Top on mobile, Left on desktop */}
-              <div className="block w-full md:w-64 lg:w-72 xl:w-80 flex-shrink-0 md:h-full">
-                {/* Mobile: Fixed height container with scroll */}
-                <div className="h-48 md:h-full overflow-hidden">
-                <Card className="bg-gray-50 border-2 border-black h-full flex flex-col overflow-hidden min-h-[300px]">
+            {/* Mobile Layout: Stacked */}
+            <div className="flex flex-col h-full md:hidden">
+              {/* Mobile: Collapsible Career Insights */}
+              <div className="flex-shrink-0 border-b-2 border-gray-200">
+                <Collapsible defaultOpen={careerCards.length > 0 || discoveredInsights.interests.length > 0 || discoveredInsights.goals.length > 0 || discoveredInsights.skills.length > 0 || discoveredInsights.personalQualities.length > 0}>
+                  <CollapsibleTrigger className="w-full p-4 flex justify-between items-center hover:bg-gray-50 rounded-lg transition-colors">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-8 h-8 bg-template-primary rounded-lg flex items-center justify-center relative">
+                        <Briefcase className="w-4 h-4 text-white" />
+                        {(careerCards.length > 0 || discoveredInsights.interests.length > 0 || discoveredInsights.goals.length > 0 || discoveredInsights.skills.length > 0 || discoveredInsights.personalQualities.length > 0) && (
+                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-template-accent rounded-full animate-pulse border border-white" />
+                        )}
+                      </div>
+                      <div className="flex flex-col items-start">
+                        <span className="text-lg font-bold text-black">
+                          Career Insights
+                        </span>
+                        {(careerCards.length > 0 || discoveredInsights.interests.length > 0 || discoveredInsights.goals.length > 0 || discoveredInsights.skills.length > 0 || discoveredInsights.personalQualities.length > 0) && (
+                          <span className="text-xs text-black font-medium">
+                            {careerCards.length} careers • {discoveredInsights.interests.length + discoveredInsights.goals.length + discoveredInsights.skills.length + discoveredInsights.personalQualities.length} profile details
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <ChevronDown className="h-5 w-5 text-gray-600 transition-transform ui-open:rotate-180" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="px-4 pb-4">
+                    {/* New Content Notification */}
+                    {newContentAdded && (
+                      <div className="mb-3 p-2 bg-white text-black rounded-lg border-2 border-black text-center text-sm font-medium animate-pulse">
+                        ✨ {newContentAdded}
+                      </div>
+                    )}
+                    <div className="max-h-80 overflow-y-auto bg-gray-50 rounded-lg border-2 border-black p-4">
+                      {/* Progress Indicator - Only show when analyzing, no min-height */}
+                      {isAnalyzing && progressUpdate && (
+                        <div className="bg-white rounded-lg p-3 border-2 border-black mb-4">
+                          <div className="flex items-center space-x-2 mb-2">
+                            <Loader2 className="w-4 h-4 animate-spin text-black" />
+                            <span className="text-sm font-medium text-black">Analyzing Career Path</span>
+                          </div>
+                          <div className="text-xs text-gray-800 mb-2">
+                            {progressUpdate.message || 'Processing your conversation...'}
+                          </div>
+                          <div className="w-full bg-gray-200 rounded-full h-2">
+                            <div 
+                              className="bg-black h-2 rounded-full transition-all duration-500 ease-out"
+                              style={{ width: `${progressUpdate.progress || 0}%` }}
+                            />
+                          </div>
+                          <div className="text-xs text-gray-600 mt-1 text-center">
+                            {progressUpdate.progress || 0}% complete
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Profile Details - Show First */}
+                      {(discoveredInsights.interests.length > 0 || 
+                        discoveredInsights.goals.length > 0 || 
+                        discoveredInsights.skills.length > 0 ||
+                        discoveredInsights.personalQualities.length > 0) && (
+                        <div className="mb-4 p-3 bg-white rounded-lg border-2 border-black">
+                          <h4 className="text-sm font-bold text-black mb-3">Profile Details from Conversation:</h4>
+                          <div className="space-y-3 text-xs">
+                            {/* Personal Qualities */}
+                            {discoveredInsights.personalQualities.length > 0 && (
+                              <div className="bg-gray-50 border border-gray-300 rounded-lg p-2">
+                                <div className="flex items-center space-x-2 mb-2">
+                                  <Star className="w-4 h-4 text-black" />
+                                  <span className="font-bold text-black text-sm">Your Strengths:</span>
+                                </div>
+                                <div className="grid grid-cols-1 gap-1">
+                                  {discoveredInsights.personalQualities.map((quality, idx) => (
+                                    <div key={idx} className="flex items-center space-x-2 bg-white rounded px-2 py-1">
+                                      <Award className="w-3 h-3 text-black" />
+                                      <span className="text-black font-medium text-xs">{quality}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {discoveredInsights.interests.length > 0 && (
+                              <div>
+                                <span className="font-medium text-black">Interests:</span>
+                                <div className="ml-2 text-gray-700">
+                                  {discoveredInsights.interests.map((interest, idx) => (
+                                    <p key={idx}>• {interest}</p>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {discoveredInsights.goals.length > 0 && (
+                              <div>
+                                <span className="font-medium text-black">Career Goals:</span>
+                                <div className="ml-2 text-gray-700">
+                                  {discoveredInsights.goals.map((goal, idx) => (
+                                    <p key={idx}>• {goal}</p>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {discoveredInsights.skills.length > 0 && (
+                              <div>
+                                <span className="font-medium text-black">Skills Mentioned:</span>
+                                <div className="ml-2 text-gray-700">
+                                  {discoveredInsights.skills.map((skill, idx) => (
+                                    <p key={idx}>• {skill}</p>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {/* Career Cards for Mobile */}
+                      {careerCards.length > 0 && (
+                        <div className="space-y-3">
+                          {careerCards.map((card, index) => {
+                            const matchBadge = getMatchBadge(card.matchScore || 85);
+                            const MatchIcon = matchBadge.icon;
+                            
+                            return (
+                              <div key={index} className="border-2 border-black rounded-lg bg-white p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center space-x-2">
+                                    <Briefcase className="w-4 h-4 text-black" />
+                                    <h4 className="text-sm font-bold text-black">{card.title}</h4>
+                                  </div>
+                                  <Badge className="text-xs bg-gray-100 text-black border border-black">
+                                    <MatchIcon className="w-3 h-3 mr-1" />
+                                    {card.matchScore || 85}%
+                                  </Badge>
+                                </div>
+                                <p className="text-xs text-gray-600 mb-2">
+                                  {card.description || 'Career pathway discovered from our conversation'}
+                                </p>
+                                {(card.salaryRange || card.averageSalary || card.growthOutlook) && (
+                                  <div className="flex items-center space-x-4 text-xs">
+                                    {(card.salaryRange || card.averageSalary) && (
+                                      <div className="flex items-center space-x-1">
+                                        <PoundSterling className="w-3 h-3 text-black" />
+                                        <span className="text-black">
+                                          {card.salaryRange || formatSalary(card.averageSalary)}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {card.growthOutlook && (
+                                      <div className="flex items-center space-x-1">
+                                        <TrendingUp className="w-3 h-3 text-black" />
+                                        <span className="text-black">{card.growthOutlook}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                      
+                      {/* Smart Placeholder Text */}
+                      {!careerContext && careerCards.length === 0 && (discoveredInsights.interests.length === 0 && discoveredInsights.goals.length === 0 && discoveredInsights.skills.length === 0 && discoveredInsights.personalQualities.length === 0) && (
+                        <div className="text-center py-8">
+                          <div className="max-w-sm mx-auto">
+                            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                              <User className="w-8 h-8 text-gray-400" />
+                            </div>
+                            <h4 className="text-base font-bold text-black mb-3">Building Your Career Profile</h4>
+                            <p className="text-sm text-gray-600 leading-relaxed">
+                              As we chat, I'll build out your profile and discover career ideas tailored specifically for you. 
+                              Start the conversation to see your insights appear here!
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+              </div>
+
+              {/* Mobile: Chat Area */}
+              <div className="flex-1 flex flex-col min-h-0">
+                <ScrollArea ref={mobileScrollAreaRef} className="flex-1 px-2">
+                  <div className="space-y-4 pb-4">
+                    {conversationHistory.map((message, index) => (
+                      <motion.div
+                        key={index}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div className={`max-w-[85%] px-4 py-3 rounded-xl break-words ${
+                          message.role === 'user' 
+                            ? 'bg-template-primary text-white' 
+                            : 'bg-white text-black border-2 border-black'
+                        }`}>
+                          <div className="flex items-start space-x-2 mb-2">
+                            {message.role === 'user' ? (
+                              <User className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                            ) : (
+                              <Bot className="w-4 h-4 mt-0.5 text-black flex-shrink-0" />
+                            )}
+                            <span className="text-xs font-medium opacity-70">
+                              {message.role === 'user' ? (currentUser ? (userData?.profile?.displayName || 'You') : 'You') : agentInfo.name}
+                            </span>
+                          </div>
+                          <p className="text-sm leading-relaxed break-words overflow-wrap-anywhere">{message.content}</p>
+                          <p className="text-xs opacity-50 mt-2">
+                            {formatTime(message.timestamp)}
+                          </p>
+                        </div>
+                      </motion.div>
+                    ))}
+                    
+                    {isSpeaking && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        className="flex justify-start"
+                      >
+                        <div className="bg-gray-100 text-black border-2 border-gray-300 px-4 py-3 rounded-xl max-w-xs">
+                          <div className="flex items-center space-x-2">
+                            <Volume2 className="w-4 h-4 text-black animate-pulse" />
+                            <span className="text-sm">AI is speaking...</span>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                </ScrollArea>
+              </div>
+            </div>
+
+            {/* Desktop Layout: Side-by-side */}
+            <div className="hidden md:flex md:flex-row md:space-x-4 h-full">
+              {/* Desktop: Career Insights Panel */}
+              <div className="block w-64 lg:w-72 xl:w-80 flex-shrink-0 h-full">
+                <div className="h-full overflow-hidden">
+                <Card className="bg-gray-50 border-2 border-black h-full flex flex-col overflow-hidden min-h-[200px]">
                   <CardHeader className="pb-3 flex-shrink-0">
                     <div className="flex items-center justify-between">
                       <CardTitle className="text-lg font-black text-black">
@@ -1126,32 +1430,97 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4 overflow-y-auto flex-1 min-h-0 relative h-full">
-                    {/* Progress Indicator - Fixed container to prevent jiggling */}
-                    <div className="min-h-[120px] mb-4 flex flex-col justify-start">
-                      {isAnalyzing && progressUpdate && (
-                        <div className="bg-white rounded-lg p-3 border-2 border-template-primary">
+                    {/* New Content Notification */}
+                    {newContentAdded && (
+                      <div className="mb-3 p-2 bg-white text-black rounded-lg border-2 border-black text-center text-sm font-medium animate-pulse">
+                        ✨ {newContentAdded}
+                      </div>
+                    )}
+                    
+                    {/* Progress Indicator - Only show when analyzing, no min-height */}
+                    {isAnalyzing && progressUpdate && (
+                      <div className="bg-white rounded-lg p-3 border-2 border-black mb-4">
                         <div className="flex items-center space-x-2 mb-2">
-                          <Loader2 className="w-4 h-4 animate-spin text-template-primary" />
-                          <span className="text-sm font-medium text-template-primary">Analyzing Career Path</span>
+                          <Loader2 className="w-4 h-4 animate-spin text-black" />
+                          <span className="text-sm font-medium text-black">Analyzing Career Path</span>
                         </div>
                         <div className="text-xs text-gray-800 mb-2">
                           {progressUpdate.message || 'Processing your conversation...'}
                         </div>
                         <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
-                            className="bg-template-primary h-2 rounded-full transition-all duration-500 ease-out"
+                            className="bg-black h-2 rounded-full transition-all duration-500 ease-out"
                             style={{ width: `${progressUpdate.progress || 0}%` }}
                           />
                         </div>
                         <div className="text-xs text-gray-600 mt-1 text-center">
                           {progressUpdate.progress || 0}% complete
                         </div>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                     
-                    {/* Discovered Career Cards - Fixed container to prevent layout shift */}
-                    <div className="min-h-[200px]">
+                    {/* Profile Details - Show First */}
+                    {(discoveredInsights.interests.length > 0 || 
+                      discoveredInsights.goals.length > 0 || 
+                      discoveredInsights.skills.length > 0 ||
+                      discoveredInsights.personalQualities.length > 0) && (
+                      <div className="mb-4 p-3 bg-white rounded-lg border-2 border-black">
+                        <h4 className="text-sm font-bold text-black mb-3">Profile Details from Conversation:</h4>
+                        <div className="space-y-3 text-xs">
+                          {/* Personal Qualities */}
+                          {discoveredInsights.personalQualities.length > 0 && (
+                            <div className="bg-gray-50 border border-gray-300 rounded-lg p-2">
+                              <div className="flex items-center space-x-2 mb-2">
+                                <Star className="w-4 h-4 text-black" />
+                                <span className="font-bold text-black text-sm">Your Strengths:</span>
+                              </div>
+                              <div className="grid grid-cols-1 gap-1">
+                                {discoveredInsights.personalQualities.map((quality, idx) => (
+                                  <div key={idx} className="flex items-center space-x-2 bg-white rounded px-2 py-1">
+                                    <Award className="w-3 h-3 text-black" />
+                                    <span className="text-black font-medium text-xs">{quality}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          
+                          {discoveredInsights.interests.length > 0 && (
+                            <div>
+                              <span className="font-medium text-black">Interests:</span>
+                              <div className="ml-2 text-gray-700">
+                                {discoveredInsights.interests.map((interest, idx) => (
+                                  <p key={idx}>• {interest}</p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {discoveredInsights.goals.length > 0 && (
+                            <div>
+                              <span className="font-medium text-black">Career Goals:</span>
+                              <div className="ml-2 text-gray-700">
+                                {discoveredInsights.goals.map((goal, idx) => (
+                                  <p key={idx}>• {goal}</p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {discoveredInsights.skills.length > 0 && (
+                            <div>
+                              <span className="font-medium text-black">Skills Mentioned:</span>
+                              <div className="ml-2 text-gray-700">
+                                {discoveredInsights.skills.map((skill, idx) => (
+                                  <p key={idx}>• {skill}</p>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Discovered Career Cards - Show After Profile */}
+                    <div>
                     {careerCards.length > 0 && (
                       <Accordion type="single" collapsible className="space-y-2">
                         {careerCards.map((card, index) => {
@@ -1167,7 +1536,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                               <AccordionTrigger className="hover:no-underline py-3">
                                 <div className="flex items-center justify-between w-full mr-3">
                                   <div className="flex items-center space-x-3">
-                                    <Briefcase className="w-4 h-4 text-template-primary" />
+                                    <Briefcase className="w-4 h-4 text-black" />
                                     <div className="text-left">
                                       <h4 className="text-sm font-bold text-black">{card.title}</h4>
                                       <p className="text-xs text-gray-600 line-clamp-1">
@@ -1175,7 +1544,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                       </p>
                                     </div>
                                   </div>
-                                  <Badge className={`text-xs ${matchBadge.color} ml-2`}>
+                                  <Badge className="text-xs bg-gray-100 text-black border border-black ml-2">
                                     <MatchIcon className="w-3 h-3 mr-1" />
                                     {card.matchScore || 85}%
                                   </Badge>
@@ -1188,7 +1557,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                   <div className="grid grid-cols-2 gap-3 text-xs">
                                     {(card.salaryRange || card.averageSalary) && (
                                       <div className="flex items-center space-x-1">
-                                        <PoundSterling className="w-3 h-3 text-template-primary" />
+                                        <PoundSterling className="w-3 h-3 text-black" />
                                         <span className="text-black">
                                           {card.salaryRange || formatSalary(card.averageSalary)}
                                         </span>
@@ -1196,7 +1565,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                     )}
                                     {card.growthOutlook && (
                                       <div className="flex items-center space-x-1">
-                                        <TrendingUp className="w-3 h-3 text-template-secondary" />
+                                        <TrendingUp className="w-3 h-3 text-black" />
                                         <span className="text-black">{card.growthOutlook}</span>
                                       </div>
                                     )}
@@ -1206,8 +1575,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                   {card.roleFundamentals && (
                                     <div className="border-t-2 border-gray-200 pt-3">
                                       <div className="flex items-center space-x-2 mb-2">
-                                        <Target className="w-3 h-3 text-template-primary" />
-                                        <h5 className="text-xs font-bold text-template-primary">Role Fundamentals</h5>
+                                        <Target className="w-3 h-3 text-black" />
+                                        <h5 className="text-xs font-bold text-black">Role Fundamentals</h5>
                                       </div>
                                       <p className="text-xs text-gray-800 mb-2">{card.roleFundamentals.corePurpose}</p>
                                       {card.roleFundamentals.typicalResponsibilities && (
@@ -1216,7 +1585,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                           <ul className="text-xs text-gray-600 space-y-1">
                                             {card.roleFundamentals.typicalResponsibilities.slice(0, 3).map((resp, i) => (
                                               <li key={i} className="flex items-start space-x-1">
-                                                <span className="text-template-primary mt-0.5">•</span>
+                                                <span className="text-black mt-0.5">•</span>
                                                 <span>{resp}</span>
                                               </li>
                                             ))}
@@ -1229,15 +1598,15 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                   {card.competencyRequirements && (
                                     <div className="border-t-2 border-gray-200 pt-3">
                                       <div className="flex items-center space-x-2 mb-2">
-                                        <Wrench className="w-3 h-3 text-template-primary" />
-                                        <h5 className="text-xs font-bold text-template-primary">Skills & Requirements</h5>
+                                        <Wrench className="w-3 h-3 text-black" />
+                                        <h5 className="text-xs font-bold text-black">Skills & Requirements</h5>
                                       </div>
                                       {card.competencyRequirements.technicalSkills && (
                                         <div className="mb-2">
                                           <p className="text-xs font-semibold text-black mb-1">Technical Skills:</p>
                                           <div className="flex flex-wrap gap-1">
                                             {card.competencyRequirements.technicalSkills.slice(0, 4).map((skill, i) => (
-                                              <Badge key={i} variant="outline" className="text-xs border-template-primary text-template-primary">
+                                              <Badge key={i} variant="outline" className="text-xs border-black text-black">
                                                 {skill}
                                               </Badge>
                                             ))}
@@ -1260,8 +1629,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                   {card.compensationRewards && (
                                     <div className="border-t-2 border-gray-200 pt-3">
                                       <div className="flex items-center space-x-2 mb-2">
-                                        <DollarSign className="w-3 h-3 text-template-primary" />
-                                        <h5 className="text-xs font-bold text-template-primary">Compensation</h5>
+                                        <DollarSign className="w-3 h-3 text-black" />
+                                        <h5 className="text-xs font-bold text-black">Compensation</h5>
                                       </div>
                                       {card.compensationRewards.salaryRange && (
                                         <div className="grid grid-cols-2 gap-2 text-xs">
@@ -1281,8 +1650,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                   {card.careerTrajectory && (
                                     <div className="border-t-2 border-gray-200 pt-3">
                                       <div className="flex items-center space-x-2 mb-2">
-                                        <TrendingUpIcon className="w-3 h-3 text-template-primary" />
-                                        <h5 className="text-xs font-bold text-template-primary">Career Path</h5>
+                                        <TrendingUpIcon className="w-3 h-3 text-black" />
+                                        <h5 className="text-xs font-bold text-black">Career Path</h5>
                                       </div>
                                       {card.careerTrajectory.progressionSteps && (
                                         <div className="space-y-1">
@@ -1303,12 +1672,12 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                       {card.skills && (
                                         <div className="border-t-2 border-gray-200 pt-3">
                                           <div className="flex items-center space-x-2 mb-2">
-                                            <Wrench className="w-3 h-3 text-template-primary" />
-                                            <h5 className="text-xs font-bold text-template-primary">Key Skills</h5>
+                                            <Wrench className="w-3 h-3 text-black" />
+                                            <h5 className="text-xs font-bold text-black">Key Skills</h5>
                                           </div>
                                           <div className="flex flex-wrap gap-1">
                                             {card.skills.map((skill, i) => (
-                                              <Badge key={i} variant="outline" className="text-xs border-template-primary text-template-primary">
+                                              <Badge key={i} variant="outline" className="text-xs border-black text-black">
                                                 {skill}
                                               </Badge>
                                             ))}
@@ -1319,13 +1688,13 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                       {card.nextSteps && (
                                         <div className="border-t-2 border-gray-200 pt-3">
                                           <div className="flex items-center space-x-2 mb-2">
-                                            <Target className="w-3 h-3 text-template-primary" />
-                                            <h5 className="text-xs font-bold text-template-primary">Next Steps</h5>
+                                            <Target className="w-3 h-3 text-black" />
+                                            <h5 className="text-xs font-bold text-black">Next Steps</h5>
                                           </div>
                                           <ul className="text-xs text-gray-600 space-y-1">
                                             {card.nextSteps.slice(0, 3).map((step, i) => (
                                               <li key={i} className="flex items-start space-x-1">
-                                                <span className="text-template-primary mt-0.5">•</span>
+                                                <span className="text-black mt-0.5">•</span>
                                                 <span>{step}</span>
                                               </li>
                                             ))}
@@ -1345,7 +1714,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     {/* Original Career Context */}
                     {careerContext && (
                       <div className="border-t-2 border-gray-200 pt-4">
-                        <h4 className="text-sm font-bold text-template-primary mb-2">Discussion Focus:</h4>
+                        <h4 className="text-sm font-bold text-black mb-2">Discussion Focus:</h4>
                         <div className="space-y-2">
                           <h5 className="font-bold text-black">{careerContext.title}</h5>
                           {careerContext.averageSalary && (
@@ -1368,14 +1737,14 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                       discoveredInsights.skills.length > 0 ||
                       discoveredInsights.personalQualities.length > 0) && (
                       <div className="border-t-2 border-gray-200 pt-4">
-                        <h4 className="text-sm font-bold text-template-primary mb-2">Insights from Discussion:</h4>
+                        <h4 className="text-sm font-bold text-black mb-2">Insights from Discussion:</h4>
                         <div className="space-y-3 text-xs">
                           {/* Personal Qualities - Confidence Building Section */}
                           {discoveredInsights.personalQualities.length > 0 && (
-                            <div className="bg-white border-2 border-template-primary rounded-lg p-3">
+                            <div className="bg-white border-2 border-black rounded-lg p-3">
                               <div className="flex items-center space-x-2 mb-2">
-                                <Star className="w-4 h-4 text-template-accent" />
-                                <span className="font-bold text-template-accent">Your Strengths:</span>
+                                <Star className="w-4 h-4 text-black" />
+                                <span className="font-bold text-black">Your Strengths:</span>
                               </div>
                               <div className="grid grid-cols-1 gap-2">
                                 {discoveredInsights.personalQualities.map((quality, idx) => {
@@ -1383,19 +1752,19 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                   const getQualityIcon = (quality: string) => {
                                     const lowerQuality = quality.toLowerCase();
                                     if (lowerQuality.includes('innovative') || lowerQuality.includes('creative')) {
-                                      return { Icon: Lightbulb, color: 'text-template-accent' };
+                                      return { Icon: Lightbulb, color: 'text-black' };
                                     } else if (lowerQuality.includes('organised') || lowerQuality.includes('organized')) {
-                                      return { Icon: CheckCircle2, color: 'text-template-primary' };
+                                      return { Icon: CheckCircle2, color: 'text-black' };
                                     } else if (lowerQuality.includes('leader') || lowerQuality.includes('confident')) {
-                                      return { Icon: Crown, color: 'text-template-secondary' };
+                                      return { Icon: Crown, color: 'text-black' };
                                     } else if (lowerQuality.includes('analytical') || lowerQuality.includes('thoughtful')) {
-                                      return { Icon: Target, color: 'text-template-primary' };
+                                      return { Icon: Target, color: 'text-black' };
                                     } else if (lowerQuality.includes('passionate') || lowerQuality.includes('enthusiastic')) {
-                                      return { Icon: Heart, color: 'text-template-secondary' };
+                                      return { Icon: Heart, color: 'text-black' };
                                     } else if (lowerQuality.includes('adaptable') || lowerQuality.includes('flexible')) {
-                                      return { Icon: Zap, color: 'text-template-accent' };
+                                      return { Icon: Zap, color: 'text-black' };
                                     } else {
-                                      return { Icon: Award, color: 'text-template-primary' };
+                                      return { Icon: Award, color: 'text-black' };
                                     }
                                   };
                                   
@@ -1419,7 +1788,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                           
                           {discoveredInsights.interests.length > 0 && (
                             <div>
-                              <span className="font-medium text-template-primary">New Interests:</span>
+                              <span className="font-medium text-black">New Interests:</span>
                               <div className="ml-2 text-gray-600">
                                 {discoveredInsights.interests.map((interest, idx) => (
                                   <p key={idx}>• {interest}</p>
@@ -1429,7 +1798,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                           )}
                           {discoveredInsights.goals.length > 0 && (
                             <div>
-                              <span className="font-medium text-template-secondary">Career Goals:</span>
+                              <span className="font-medium text-black">Career Goals:</span>
                               <div className="ml-2 text-gray-600">
                                 {discoveredInsights.goals.map((goal, idx) => (
                                   <p key={idx}>• {goal}</p>
@@ -1439,7 +1808,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                           )}
                           {discoveredInsights.skills.length > 0 && (
                             <div>
-                              <span className="font-medium text-template-accent">Skills Mentioned:</span>
+                              <span className="font-medium text-black">Skills Mentioned:</span>
                               <div className="ml-2 text-gray-600">
                                 {discoveredInsights.skills.map((skill, idx) => (
                                   <p key={idx}>• {skill}</p>
@@ -1452,29 +1821,28 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     )}
                     </div>
 
-                    {/* Discussion Topics - Fixed height container to prevent wiggling */}
-                    <div className="min-h-[140px]">
-                      {!careerContext && careerCards.length === 0 && (
-                        <div>
-                          <h4 className="text-sm font-bold text-template-secondary mb-2">What you can explore:</h4>
-                          <div className="space-y-1 text-xs text-gray-600">
-                            <p>• Career interests and goals</p>
-                            <p>• Skills and training paths</p>
-                            <p>• Industry trends and outlook</p>
-                            <p>• Work-life balance expectations</p>
-                            <p>• Educational requirements</p>
-                            <p>• Career progression paths</p>
+                    {/* Smart Placeholder Text */}
+                    {!careerContext && careerCards.length === 0 && (discoveredInsights.interests.length === 0 && discoveredInsights.goals.length === 0 && discoveredInsights.skills.length === 0 && discoveredInsights.personalQualities.length === 0) && (
+                      <div className="text-center py-8">
+                        <div className="max-w-sm mx-auto">
+                          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <User className="w-8 h-8 text-gray-400" />
                           </div>
+                          <h4 className="text-base font-bold text-black mb-3">Building Your Career Profile</h4>
+                          <p className="text-sm text-gray-600 leading-relaxed">
+                            As we chat, I'll build out your profile and discover career ideas tailored specifically for you. 
+                            Start the conversation to see your insights appear here!
+                          </p>
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
                 </div>
               </div>
 
               {/* Voice Conversation Panel - Bottom on mobile, Right on desktop */}
-              <div className="flex-1 flex flex-col min-h-0 mt-4 md:mt-0">
+              <div className="flex-1 flex flex-col min-h-0 min-h-[40vh] md:min-h-0 mt-0 md:mt-0">
                 <div className="flex-1 h-full">
                   <ScrollArea ref={scrollAreaRef} className="h-full pr-2">
                     <div className="space-y-4 pb-4">
@@ -1494,7 +1862,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                               {message.role === 'user' ? (
                                 <User className="w-4 h-4 mt-0.5 flex-shrink-0" />
                               ) : (
-                                <Bot className="w-4 h-4 mt-0.5 text-template-primary flex-shrink-0" />
+                                <Bot className="w-4 h-4 mt-0.5 text-black flex-shrink-0" />
                               )}
                               <span className="text-xs font-medium opacity-70">
                                 {message.role === 'user' ? (currentUser ? (userData?.profile?.displayName || 'You') : 'You') : agentInfo.name}
@@ -1516,7 +1884,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                         >
                           <div className="bg-gray-100 text-black border-2 border-gray-300 px-4 py-3 rounded-xl max-w-xs">
                             <div className="flex items-center space-x-2">
-                              <Volume2 className="w-4 h-4 text-template-primary animate-pulse" />
+                              <Volume2 className="w-4 h-4 text-black animate-pulse" />
                               <span className="text-sm">AI is speaking...</span>
                             </div>
                           </div>
@@ -1588,7 +1956,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     discoveredInsights.skills.length > 0 ||
                     discoveredInsights.personalQualities.length > 0) && (
                     <div className="flex items-center space-x-3">
-                      <div className="text-xs text-template-primary">
+                      <div className="text-xs text-black">
                         <span className="font-medium">Insights discovered:</span>
                         <span className="ml-2">
                           {discoveredInsights.interests.length + discoveredInsights.goals.length + discoveredInsights.skills.length + discoveredInsights.personalQualities.length} items
@@ -1598,7 +1966,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   )}
 
                   {!apiKey && (
-                    <div className="text-xs text-template-secondary">
+                    <div className="text-xs text-black">
                       Configure ElevenLabs API key to enable voice discussions
                     </div>
                   )}
