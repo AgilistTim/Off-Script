@@ -5,8 +5,8 @@ import { EnhancedChatVoiceModal } from '../conversation/EnhancedChatVoiceModal';
 import { cn } from '../../lib/utils';
 import { toast } from 'sonner';
 import { Mic, Sparkles, Target, Users, UserPlus, LogIn, Crown, Zap, Brain, CheckCircle } from 'lucide-react';
-import { ContextualButton } from '../ui/button';
-import { ContextualCard } from '../ui/card';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
 import { DesignProvider } from '../../context/DesignContext';
 import { CareerCard } from '../../types/careerCard';
 
@@ -249,8 +249,8 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.8, delay: 0.7 }}
             >
-              <ContextualButton
-                intent="cta"
+              <Button
+                variant="primary"
                 onClick={async () => {
                   console.log('🚀 ConversationView: Opening enhanced modal');
                   await checkActiveCareerContext();
@@ -263,7 +263,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
                   <span>START CONVERSATION</span>
                 </div>
                 <p className="text-sm mt-2 opacity-90">Voice-first career guidance with AI insights</p>
-              </ContextualButton>
+              </Button>
             </motion.div>
 
             {/* Feature Highlights */}
@@ -271,23 +271,23 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
               className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto"
               variants={containerVariants}
             >
-              <ContextualCard purpose="highlight" mood="neutral" className="text-center">
+              <Card   className="text-center">
                 <Brain className="w-12 h-12 text-primary-green mx-auto mb-4" />
                 <h3 className="text-lg font-bold text-primary-black mb-2">AI-Powered Analysis</h3>
                 <p className="text-sm text-primary-black/70">Real-time career insights as you speak</p>
-              </ContextualCard>
+              </Card>
 
-              <ContextualCard purpose="highlight" mood="neutral" className="text-center">
+              <Card   className="text-center">
                 <Target className="w-12 h-12 text-primary-peach mx-auto mb-4" />
                 <h3 className="text-lg font-bold text-primary-black mb-2">Personalized Matching</h3>
                 <p className="text-sm text-primary-black/70">Career cards tailored to your interests</p>
-              </ContextualCard>
+              </Card>
 
-              <ContextualCard purpose="highlight" mood="neutral" className="text-center">
+              <Card   className="text-center">
                 <Sparkles className="w-12 h-12 text-primary-yellow mx-auto mb-4" />
                 <h3 className="text-lg font-bold text-primary-black mb-2">Instant Discovery</h3>
                 <p className="text-sm text-primary-black/70">Find hidden career opportunities</p>
-              </ContextualCard>
+              </Card>
             </motion.div>
           </div>
         </motion.div>
@@ -350,31 +350,31 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
               </p>
               
               <div className="space-y-3">
-                <ContextualButton
-                  intent="cta"
+                <Button
+                  variant="primary"
                   onClick={handleSignUp}
                   className="w-full py-3"
                 >
                   <UserPlus className="w-5 h-5 mr-2" />
                   Sign Up Free
-                </ContextualButton>
+                </Button>
                 
-                <ContextualButton
-                  intent="secondary"
+                <Button
+                  variant="outline"
                   onClick={handleLogin}
                   className="w-full py-3"
                 >
                   <LogIn className="w-5 h-5 mr-2" />
                   Login
-                </ContextualButton>
+                </Button>
                 
-                <ContextualButton
-                  intent="secondary"
+                <Button
+                  variant="outline"
                   onClick={handleDismissPostCTA}
                   className="w-full py-2 opacity-50"
                 >
                   Maybe Later
-                </ContextualButton>
+                </Button>
               </div>
             </motion.div>
           </motion.div>

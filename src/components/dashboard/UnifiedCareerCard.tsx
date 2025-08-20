@@ -31,9 +31,9 @@ import {
   Trash2,
   Rocket
 } from 'lucide-react';
-import { ContextualCard, CardContent } from '../ui/card';
+import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { ContextualButton } from '../ui/button';
+import { Button } from '../ui/button';
 import { DesignProvider } from '../../context/DesignContext';
 
 interface UnifiedCareerCardProps {
@@ -147,7 +147,7 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI, 
 
   return (
     <DesignProvider mode={{ aesthetic: 'calm', energy: 'low', interaction: 'gentle' }}>
-      <ContextualCard purpose="content" mood="neutral" className="shadow-glow-calm">
+      <Card className="shadow-card">
         <CardContent className="p-6">
         {/* Header Section */}
         <div className="flex items-start justify-between mb-4">
@@ -271,16 +271,16 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI, 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-4 items-stretch sm:items-center">
           {onAskAI && (
-            <ContextualButton
-              intent="cta"
+            <Button
+              variant="primary"
               onClick={onAskAI}
               className="w-[92%] self-center sm:w-auto sm:flex-1 justify-center"
             >
               Ask AI About This Career
-            </ContextualButton>
+            </Button>
           )}
-          <ContextualButton
-            intent="secondary"
+          <Button
+            variant="outline"
             onClick={() => setIsExpanded(!isExpanded)}
             className="w-[92%] self-center sm:w-auto sm:flex-1 justify-center"
           >
@@ -295,7 +295,7 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI, 
                 View Full Details
               </>
             )}
-          </ContextualButton>
+          </Button>
         </div>
 
         {/* Expandable Detailed Sections */}
@@ -1088,7 +1088,7 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI, 
           )}
         </AnimatePresence>
         </CardContent>
-      </ContextualCard>
+      </Card>
     </DesignProvider>
   );
 };

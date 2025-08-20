@@ -3,8 +3,8 @@ import { motion } from 'framer-motion';
 import { Brain, Target, PoundSterling, Users, ArrowRight, Zap, Crown, Rocket, Star } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { EnhancedChatVoiceModal } from './conversation/EnhancedChatVoiceModal';
-import { ContextualCard, CardHeader, CardTitle, CardContent, CardFooter } from './ui/card';
-import { ContextualButton } from './ui/button';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from './ui/card';
+import { Button } from './ui/button';
 
 const UKPathwaysSection: React.FC = () => {
   const navigate = useNavigate();
@@ -235,9 +235,9 @@ const UKPathwaysSection: React.FC = () => {
                   }
                   className="cursor-pointer"
                 >
-                  <ContextualCard 
-                    purpose="interactive" 
-                    mood="neutral" 
+                  <Card 
+                     
+                     
                     className="h-full min-h-[320px] transition-all duration-500 hover:shadow-xl flex flex-col"
                   >
                     <CardHeader>
@@ -280,8 +280,8 @@ const UKPathwaysSection: React.FC = () => {
 
                     <CardFooter className="pt-4 border-t border-primary-black/10">
                       <div className="flex items-center justify-center w-full">
-                        <ContextualButton
-                          intent="chat-cta"
+                        <Button
+                          variant="primary"
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
@@ -295,10 +295,10 @@ const UKPathwaysSection: React.FC = () => {
                         >
                           <Users className="h-4 w-4 mr-2" />
                           Ask AI about this
-                        </ContextualButton>
+                        </Button>
                       </div>
                     </CardFooter>
-                  </ContextualCard>
+                  </Card>
                 </motion.div>
               );
             })}

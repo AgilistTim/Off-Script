@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, useAnimation, AnimatePresence } from 'framer-motion';
 import { Sparkles, ArrowRight, Volume2, Users, Zap, Play, Pause, CheckCircle, UserPlus } from 'lucide-react';
-import { ContextualButton, Button } from './ui/button';
+import { Button } from './ui/button';
 import { EnhancedChatVoiceModal } from './conversation/EnhancedChatVoiceModal';
 import { useAuth } from '../context/AuthContext';
 
@@ -216,16 +216,16 @@ const Hero: React.FC = () => {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <ContextualButton
+                  <Button
                     onClick={handleStartVoiceChat}
-                    intent="cta"
+                    variant="primary"
                     size="lg"
                     className="font-semibold text-lg px-8 py-4 min-h-[48px] group"
                   >
                     <Volume2 className="h-5 w-5 mr-3 group-hover:animate-pulse" />
                     Start Voice Chat
                     <ArrowRight className="h-5 w-5 ml-3 group-hover:translate-x-1 transition-transform duration-300" />
-                  </ContextualButton>
+                  </Button>
                 </motion.div>
               </motion.div>
 
@@ -383,30 +383,30 @@ const Hero: React.FC = () => {
               </p>
               
               <div className="space-y-3">
-                <ContextualButton
+                <Button
                   onClick={handleSignUp}
-                  intent="cta"
+                  variant="primary"
                   className="w-full font-bold py-3"
                 >
                   <UserPlus className="w-5 h-5 mr-2" />
                   Sign Up Free
-                </ContextualButton>
+                </Button>
                 
-                <ContextualButton
+                <Button
                   onClick={handleLogin}
-                  intent="secondary"
+                  variant="outline"
                   className="w-full py-3"
                 >
                   Already have an account? Log in
-                </ContextualButton>
+                </Button>
                 
-                <ContextualButton
+                <Button
                   onClick={handleDismissPostCTA}
-                  intent="navigation"
+                  variant="ghost"
                   className="w-full py-2 text-primary-white/50 hover:text-primary-white/70"
                 >
                   Maybe later
-                </ContextualButton>
+                </Button>
               </div>
             </motion.div>
           </motion.div>

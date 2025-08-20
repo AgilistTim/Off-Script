@@ -3,8 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Menu, X, Search, MessageCircle, User, Shield, LogOut } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { User as UserType } from '../models/User';
-import { ContextualButton } from './ui/button';
-import { DesignProvider } from '../context/DesignContext';
+import { Button } from './ui/button';
 
 const Header: React.FC = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -19,9 +18,9 @@ const Header: React.FC = () => {
   const isHomePage = location.pathname === '/';
   const isAdmin = userData?.role === 'admin';
 
-  // Determine logo color based on page and device
+  // Clean B&W logo color
   const getLogoColor = () => {
-    return 'text-primary-black';
+    return 'text-black';
   };
 
   const handleLogout = async () => {
@@ -64,8 +63,7 @@ const Header: React.FC = () => {
   }, []);
 
   return (
-    <DesignProvider mode={{ aesthetic: 'hybrid', energy: 'medium', interaction: 'energetic' }}>
-      <header className="masthead fixed top-0 left-0 right-0 bg-gradient-to-r from-primary-white/95 to-primary-mint/30 backdrop-blur-sm border-b border-primary-green/30 z-40" id="masthead">
+      <header className="masthead fixed top-0 left-0 right-0 bg-white border-b-2 border-black z-40" id="masthead">
         <div className="container">
           <div className="flex justify-between items-center py-4 lg:py-6">
           
@@ -119,29 +117,31 @@ const Header: React.FC = () => {
           </Link>
 
           {/* Desktop Navigation - Hidden until lg (1023px+) */}
-          <nav className="hidden lg:flex space-x-6">
-            <Link 
-              to="/chat"
-              className="transition-colors duration-brand font-bold text-lg px-4 py-2 rounded-xl bg-primary-mint/80 text-primary-black hover:bg-primary-green hover:text-primary-white hover:scale-105 transform"
+          <nav className="hidden lg:flex space-x-4">
+            <Button 
+              asChild
+              variant="primary"
             >
-              Chat
-            </Link>
+              <Link to="/chat">Chat</Link>
+            </Button>
             {currentUser && (
-              <Link 
-                to="/dashboard"
-                className="transition-colors duration-brand font-bold text-lg px-4 py-2 rounded-xl bg-primary-mint/80 text-primary-black hover:bg-primary-green hover:text-primary-white hover:scale-105 transform"
+              <Button 
+                asChild
+                variant="outline"
               >
-                Dashboard
-              </Link>
+                <Link to="/dashboard">Dashboard</Link>
+              </Button>
             )}
             {isAdmin && (
-              <Link 
-                to="/admin"
-                className="text-primary-peach hover:text-primary-yellow transition-colors duration-brand flex items-center font-bold text-lg px-4 py-2 rounded-xl bg-primary-peach/20 hover:bg-primary-peach/40"
+              <Button 
+                asChild
+                variant="accent"
               >
-                <Shield className="h-5 w-5 mr-2" />
-                Admin
-              </Link>
+                <Link to="/admin" className="flex items-center">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Admin
+                </Link>
+              </Button>
             )}
           </nav>
 
@@ -152,7 +152,7 @@ const Header: React.FC = () => {
                 <button 
                   ref={profileButtonRef}
                   onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-                  className="p-2 transition-colors duration-brand flex items-center rounded-full hover:bg-primary-green/10 text-primary-black hover:text-primary-green"
+                  className="p-2 transition-all duration-300 flex items-center rounded-full hover:bg-gray-100 text-black border-2 border-transparent hover:border-black"
                 >
                   {currentUser.photoURL ? (
                     <img 
@@ -167,18 +167,18 @@ const Header: React.FC = () => {
                 {isProfileMenuOpen && (
                   <div 
                     ref={profileMenuRef}
-                    className="absolute right-0 mt-2 w-48 bg-primary-white rounded-2xl shadow-lg py-2 z-50 border border-gray-100"
+                    className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-card py-2 z-50 border-2 border-black"
                   >
                     <Link 
                       to="/profile" 
-                      className="block px-4 py-3 text-sm text-primary-black hover:bg-primary-green/10 hover:text-primary-green transition-colors duration-brand"
+                      className="block px-4 py-3 text-sm text-black hover:bg-gray-100 transition-all duration-300"
                       onClick={() => setIsProfileMenuOpen(false)}
                     >
                       Profile
                     </Link>
                     <button 
                       onClick={handleLogout}
-                      className="block w-full text-left px-4 py-3 text-sm text-primary-peach hover:bg-primary-peach/10 transition-colors duration-brand"
+                      className="block w-full text-left px-4 py-3 text-sm text-black hover:bg-gray-100 transition-all duration-300"
                     >
                       Logout
                     </button>
@@ -186,19 +186,19 @@ const Header: React.FC = () => {
                 )}
               </div>
             ) : (
-              <ContextualButton
-                intent="secondary"
+              <Button
+                variant="outline"
                 onClick={() => navigate('/login')}
-                className="flex items-center px-6 py-2"
+                className="flex items-center"
               >
                 <User className="h-4 w-4 mr-2" />
-                <span>Login</span>
-              </ContextualButton>
+                Login
+              </Button>
             )}
             
             {/* Mobile Menu Toggle - visible until lg */}
             <button
-              className="lg:hidden p-2 transition-colors duration-brand rounded-md text-primary-black hover:text-primary-green"
+              className="lg:hidden p-2 transition-all duration-300 rounded-md text-black hover:bg-gray-100 border-2 border-transparent hover:border-black"
               onClick={() => setIsMenuOpen(!isMenuOpen)}
             >
               {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
@@ -209,72 +209,98 @@ const Header: React.FC = () => {
 
       {/* Mobile Menu */}
       {isMenuOpen && (
-        <div className="lg:hidden bg-primary-white/95 backdrop-blur-sm border-t border-primary-green/30">
+        <div className="lg:hidden bg-white border-t-2 border-black">
           <div className="container">
-            <div className="py-4 space-y-2">
-              <Link 
-                to="/chat"
-                className="block w-full text-left px-6 py-4 bg-primary-mint/80 text-primary-black hover:bg-primary-green hover:text-primary-white rounded-xl transition-all duration-brand font-bold text-lg mb-3"
-                onClick={() => setIsMenuOpen(false)}
+            <div className="py-4 space-y-3">
+              <Button 
+                asChild
+                variant="primary"
+                className="w-full justify-start"
               >
-                💬 Chat
-              </Link>
-              {currentUser && (
                 <Link 
-                  to="/dashboard"
-                  className="block w-full text-left px-6 py-4 bg-primary-mint/80 text-primary-black hover:bg-primary-green hover:text-primary-white rounded-xl transition-all duration-brand font-bold text-lg mb-3"
+                  to="/chat"
                   onClick={() => setIsMenuOpen(false)}
                 >
-                  📊 Dashboard
+                  <MessageCircle className="h-4 w-4 mr-2" />
+                  Chat
                 </Link>
+              </Button>
+              {currentUser && (
+                <Button 
+                  asChild
+                  variant="outline"
+                  className="w-full justify-start"
+                >
+                  <Link 
+                    to="/dashboard"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Dashboard
+                  </Link>
+                </Button>
               )}
               {isAdmin && (
-                <Link 
-                  to="/admin"
-                  className="block w-full text-left px-4 py-3 text-primary-peach hover:bg-primary-peach/10 hover:text-primary-yellow rounded-xl flex items-center transition-all duration-brand font-medium"
-                  onClick={() => setIsMenuOpen(false)}
+                <Button 
+                  asChild
+                  variant="accent"
+                  className="w-full justify-start"
                 >
-                  <Shield className="h-4 w-4 mr-2" />
-                  Admin Panel
-                </Link>
+                  <Link 
+                    to="/admin"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Shield className="h-4 w-4 mr-2" />
+                    Admin
+                  </Link>
+                </Button>
               )}
               {currentUser && (
                 <>
-                  <Link 
-                    to="/profile"
-                    className="block w-full text-left px-4 py-3 text-primary-black hover:bg-primary-green/10 hover:text-primary-green rounded-xl transition-all duration-brand font-medium"
-                    onClick={() => setIsMenuOpen(false)}
+                  <Button 
+                    asChild
+                    variant="ghost"
+                    className="w-full justify-start"
                   >
-                    Profile
-                  </Link>
-                  <button 
+                    <Link 
+                      to="/profile"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Profile
+                    </Link>
+                  </Button>
+                  <Button 
+                    variant="ghost"
+                    className="w-full justify-start"
                     onClick={() => {
                       handleLogout();
                       setIsMenuOpen(false);
                     }}
-                    className="block w-full text-left px-4 py-3 bg-primary-peach text-primary-black hover:bg-primary-peach/80 rounded-xl flex items-center transition-all duration-brand font-medium"
                   >
                     <LogOut className="h-4 w-4 mr-2" />
                     Logout
-                  </button>
+                  </Button>
                 </>
               )}
               {!currentUser && (
-                <Link 
-                  to="/login"
-                  className="block w-full text-left px-4 py-3 bg-primary-green text-primary-black hover:bg-primary-yellow hover:text-primary-black rounded-xl flex items-center transition-all duration-brand font-medium"
-                  onClick={() => setIsMenuOpen(false)}
+                <Button 
+                  asChild
+                  variant="outline"
+                  className="w-full justify-start"
                 >
-                  <User className="h-4 w-4 mr-2" />
-                  Login
-                </Link>
+                  <Link 
+                    to="/login"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <User className="h-4 w-4 mr-2" />
+                    Login
+                  </Link>
+                </Button>
               )}
             </div>
           </div>
         </div>
       )}
     </header>
-    </DesignProvider>
   );
 };
 

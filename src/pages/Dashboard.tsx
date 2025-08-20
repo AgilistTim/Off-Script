@@ -35,8 +35,8 @@ import VideoCard from '../components/video/VideoCard';
 import CareerGuidancePanel from '../components/career-guidance/CareerGuidancePanel';
 import CareerExplorationOverview from '../components/career-guidance/CareerExplorationOverview';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { ContextualButton } from '../components/ui/button';
-import { ContextualCard, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
+import { Button } from '../components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { firestore } from '../services/firebase';
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
@@ -1554,23 +1554,23 @@ const Dashboard: React.FC = () => {
               </p>
             </div>
             <div className="flex flex-col xs:flex-row gap-3 sm:flex-row sm:space-x-4 w-full sm:w-auto">
-              <ContextualButton 
+              <Button 
                 onClick={refreshDashboard}
-                intent="secondary"
+                variant="outline"
                 className="w-full sm:w-auto whitespace-nowrap"
                 disabled={loading}
               >
                 <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
                 REFRESH
-              </ContextualButton>
-              <ContextualButton 
+              </Button>
+              <Button 
                 onClick={() => window.location.href = '/profile'}
-                intent="cta"
+                variant="primary"
                 className="w-full sm:w-auto whitespace-nowrap"
               >
                 <Crown className="h-5 w-5 mr-2" />
                 VIEW PROFILE
-              </ContextualButton>
+              </Button>
             </div>
           </div>
         </div>
@@ -1603,7 +1603,7 @@ const Dashboard: React.FC = () => {
                 )}
               </p>
             </div>
-            <ContextualButton
+            <Button
               onClick={async () => {
                 console.log('🔄 Manual refresh triggered');
                 if (currentUser) {
@@ -1616,12 +1616,12 @@ const Dashboard: React.FC = () => {
                   });
                 }
               }}
-              intent="secondary"
+              variant="outline"
               className="w-full sm:w-auto whitespace-nowrap"
             >
               <RefreshCw className="h-4 w-4 mr-2" />
               Refresh Data
-            </ContextualButton>
+            </Button>
           </div>
           
           {/* 🎯 GROUPED CAREER ACCORDION: Organized by themes with soft delete */}
@@ -1732,20 +1732,20 @@ const Dashboard: React.FC = () => {
                 {/* Expand All / Collapse All Controls */}
                 {Object.keys(groupedCareers).length > 1 && (
                   <div className="flex justify-center space-x-4 pt-4">
-                    <ContextualButton
+                    <Button
                       onClick={() => setExpandedGroups(new Set(Object.keys(groupedCareers)))}
-                      intent="secondary"
+                      variant="outline"
                       size="sm"
                     >
                       Expand All
-                    </ContextualButton>
-                    <ContextualButton
+                    </Button>
+                    <Button
                       onClick={() => setExpandedGroups(new Set(['primary']))}
-                      intent="secondary"
+                      variant="outline"
                       size="sm"
                     >
                       Collapse All
-                    </ContextualButton>
+                    </Button>
                   </div>
                 )}
               </div>
@@ -1773,14 +1773,14 @@ const Dashboard: React.FC = () => {
             <p className="text-xl text-primary-black/80 max-w-2xl mx-auto">
               Continue your career conversation to discover more opportunities and get personalized guidance
             </p>
-            <ContextualButton 
+            <Button 
               onClick={() => window.location.href = '/chat'}
-              intent="chat-cta"
+              variant="primary"
               className="inline-flex items-center space-x-3 px-8 py-4 text-lg"
             >
               <MessageSquare className="w-6 h-6" />
               <span>CONTINUE CONVERSATION</span>
-            </ContextualButton>
+            </Button>
           </div>
         </div>
       </motion.div>

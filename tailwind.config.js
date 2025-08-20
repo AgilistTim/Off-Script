@@ -128,79 +128,77 @@ export default {
 			'calm-fade': 'calmFade 1s ease-in-out',
 		},
   				colors: {
-			// New Organic Color Palette - Dice.fm + Calm.com Hybrid
-			'primary-yellow': '#f0ff8c',       // Bright yellow-green (energy)
-			'primary-peach': '#fdc0a8',        // Warm peach (existing, now primary)
-			'primary-green': '#22c55e',        // Fresh green with better contrast (growth/discovery)
-			'primary-lavender': '#cfceff',     // Soft purple (gentleness)
-			'primary-mint': '#d8fdf0',         // Pale mint (calm/serene)
-			'primary-white': '#ffffff',        // Pure white
-			'primary-black': '#000000',        // Pure black
+			// Core Black & White System
+			black: '#000000',
+			white: '#ffffff',
+			
+			// Grayscale Palette - Solid Colors Only
+			gray: {
+				50: '#fafafa',
+				100: '#f5f5f5',
+				200: '#e5e5e5',
+				300: '#d4d4d4',
+				400: '#a3a3a3',
+				500: '#737373',
+				600: '#525252',
+				700: '#404040',
+				800: '#262626',
+				900: '#171717',
+			},
 
-			// Functional Color Mappings
-			'energy': '#f0ff8c',               // Yellow for high-energy interactions
-			'calm': '#d8fdf0',                 // Mint for serene content areas
-			'warm': '#fdc0a8',                 // Peach for warmth/connection
-			'soft': '#cfceff',                 // Lavender for gentle touches
-			'fresh': '#22c55e',                // Green for growth/action
+			// Template Colors - ONLY for Buttons & CTAs
+			'template-primary': '#22c55e',     // Green for primary actions
+			'template-secondary': '#fdc0a8',   // Peach for secondary actions
+			'template-accent': '#f0ff8c',      // Yellow for accent elements
 
-			// Legacy Colors - Preserved for Gradual Migration
-			'primary-blue': '#8cc9ff',         // Keep existing blue
-			'electric-blue': '#00ffff',        // Keep for transition period
-			'neon-pink': '#ff006e',            // Keep for transition period
-			'acid-green': '#4a7c59',           // Darker green for better contrast
-			'sunset-orange': '#ff7900',        // Keep for transition period
-			'alert-orange': '#ff6b35',         // Keep for alerts
-			'cyber-purple': '#9d4edd',         // Keep for transition period
-			'deep-purple': '#7209b7',          // Keep for transition period
-			'hot-magenta': '#f72585',          // Keep for transition period
-			'cyber-yellow': '#ffbe0b',         // Keep for transition period
-			'gradient-start': '#7209b7',       // Keep for existing gradients
-			'gradient-middle': '#f72585',      // Keep for existing gradients
-			'gradient-end': '#ff006e',         // Keep for existing gradients
+			// Semantic Colors - Solid Only
+			success: '#16a34a',
+			warning: '#d97706',
+			error: '#dc2626',
+			info: '#2563eb',
 
-			// Utility Colors
-			'text-body': '#000000',
-			'text-secondary': '#111111',
-			'text-muted': '#666666',
+			// Text Colors - Black & White System
+			'text-primary': '#000000',
+			'text-secondary': '#404040',
+			'text-muted': '#737373',
 			'text-inverse': '#ffffff',
-			'border-neutral': '#dbdbdb',
-			'bg-glass': 'rgba(255, 255, 255, 0.1)',
-			'bg-dark-glass': 'rgba(0, 0, 0, 0.2)',
-			border: '#e5e7eb',
-			input: '#f3f4f6',
-			ring: '#374151',
-			background: '#ffffff',
-			foreground: '#111827',
 
-			// shadcn/ui Color System - Preserved
+			// Border & Background - No Transparency
+			border: '#e5e5e5',
+			'border-strong': '#d4d4d4',
+			input: '#f5f5f5',
+			ring: '#737373',
+			background: '#ffffff',
+			foreground: '#000000',
+
+			// shadcn/ui Color System - Updated for B&W
 			primary: {
-				DEFAULT: '#111827',
+				DEFAULT: '#000000',
 				foreground: '#ffffff'
 			},
 			secondary: {
-				DEFAULT: '#f9fafb',
-				foreground: '#111827'
+				DEFAULT: '#f5f5f5',
+				foreground: '#000000'
 			},
 			destructive: {
-				DEFAULT: '#ef4444',
+				DEFAULT: '#dc2626',
 				foreground: '#ffffff'
 			},
 			muted: {
-				DEFAULT: '#f9fafb',
-				foreground: '#6b7280'
+				DEFAULT: '#f5f5f5',
+				foreground: '#737373'
 			},
 			accent: {
-				DEFAULT: '#f9fafb',
-				foreground: '#111827'
+				DEFAULT: '#fafafa',
+				foreground: '#000000'
 			},
 			popover: {
 				DEFAULT: '#ffffff',
-				foreground: '#111827'
+				foreground: '#000000'
 			},
 			card: {
 				DEFAULT: '#ffffff',
-				foreground: '#111827'
+				foreground: '#000000'
 			}
 		},
   		borderRadius: {
@@ -218,30 +216,26 @@ export default {
   			brand: '300ms',
   			carousel: '2000ms'
   		},
-  		backdropBlur: {
-  			xs: '2px',
-  			'4xl': '72px'
-  		},
-  				boxShadow: {
-			// Legacy Shadows - Preserved
-			glow: '0 0 20px rgba(114, 9, 183, 0.3)',
-			'glow-pink': '0 0 20px rgba(255, 0, 110, 0.3)',
-			'glow-blue': '0 0 20px rgba(0, 255, 255, 0.3)',
-			'glow-yellow': '0 0 20px rgba(255, 190, 11, 0.3)',
-			'glow-green': '0 0 20px rgba(138, 201, 38, 0.3)',
-			street: '0 8px 32px rgba(0, 0, 0, 0.3)',
-			brutal: '8px 8px 0px rgba(0, 0, 0, 1)',
-
-			// New Hybrid Shadows - Dice.fm + Calm.com
-			'glow-energy': '0 0 20px rgba(240, 255, 140, 0.4)',      // Yellow glow
-			'glow-calm': '0 0 20px rgba(216, 253, 240, 0.6)',        // Mint glow
-			'glow-warm': '0 0 20px rgba(253, 192, 168, 0.4)',        // Peach glow
-			'glow-soft': '0 0 20px rgba(207, 206, 255, 0.5)',        // Lavender glow
-			'glow-fresh': '0 0 20px rgba(129, 240, 140, 0.4)',       // Green glow
-			'brutal-punk': '6px 6px 0px rgba(0, 0, 0, 1)',           // Smaller brutal shadow
-			'brutal-heavy': '12px 12px 0px rgba(0, 0, 0, 1)',        // Larger brutal shadow
-			'soft-calm': '0 4px 20px rgba(216, 253, 240, 0.2)',      // Soft calm shadow
-			'soft-warm': '0 4px 20px rgba(253, 192, 168, 0.2)',      // Soft warm shadow
+  		boxShadow: {
+			// Clean B&W Shadow System - No Transparency
+			'sm': '0 1px 2px 0 #d4d4d4',
+			'md': '0 4px 6px -1px #d4d4d4',
+			'lg': '0 10px 15px -3px #d4d4d4',
+			'xl': '0 20px 25px -5px #d4d4d4',
+			'2xl': '0 25px 50px -12px #d4d4d4',
+			'inner': 'inset 0 2px 4px 0 #d4d4d4',
+			'none': '0 0 #0000',
+			
+			// Card shadows
+			'card': '0 2px 8px 0 #e5e5e5',
+			'card-hover': '0 4px 12px 0 #d4d4d4',
+			
+			// Focus states
+			'focus': '0 0 0 3px #a3a3a3',
+			
+			// Unified border shadows for consistency
+			'border-light': '0 1px 3px 0 #e5e5e5',
+			'border-medium': '0 2px 6px 0 #d4d4d4',
 		},
   		keyframes: {
   			fadeCarousel: {
@@ -375,24 +369,11 @@ export default {
 			}
 		},
   				backgroundImage: {
-			// Legacy Gradients - Preserved for Migration
-			'gradient-street': 'linear-gradient(135deg, #7209b7 0%, #f72585 50%, #ff006e 100%)',
-			'gradient-cyber': 'linear-gradient(135deg, #00ffff 0%, #7209b7 100%)',
-			'gradient-sunset': 'linear-gradient(135deg, #ff7900 0%, #f72585 100%)',
-			'gradient-neon': 'linear-gradient(135deg, #8ac926 0%, #00ffff 100%)',
-			'gradient-brutal': 'linear-gradient(45deg, #000000 25%, transparent 25%), linear-gradient(-45deg, #000000 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #000000 75%), linear-gradient(-45deg, transparent 75%, #000000 75%)',
-
-			// New Hybrid Gradients - Dice.fm + Calm.com
-			'gradient-energetic': 'linear-gradient(135deg, #f0ff8c 0%, #81f08c 100%)',         // Yellow to green
-			'gradient-calm': 'linear-gradient(135deg, #d8fdf0 0%, #cfceff 100%)',             // Mint to lavender
-			'gradient-warm': 'linear-gradient(135deg, #fdc0a8 0%, #f0ff8c 100%)',             // Peach to yellow
-			'gradient-fresh': 'linear-gradient(135deg, #81f08c 0%, #d8fdf0 100%)',            // Green to mint
-			'gradient-hybrid': 'linear-gradient(135deg, #fdc0a8 0%, #f0ff8c 50%, #81f08c 100%)', // Peach-yellow-green
-			'gradient-organic': 'linear-gradient(135deg, #d8fdf0 0%, #cfceff 50%, #fdc0a8 100%)', // Mint-lavender-peach
-		},
-  		backgroundSize: {
-  			brutal: '20px 20px'
-  		}
+			// Simple B&W Gradients for Subtle Effects Only
+			'gradient-light': 'linear-gradient(135deg, #ffffff 0%, #fafafa 100%)',
+			'gradient-gray': 'linear-gradient(135deg, #f5f5f5 0%, #e5e5e5 100%)',
+			'none': 'none',
+		}
   	}
   },
   plugins: [require("tailwindcss-animate")],

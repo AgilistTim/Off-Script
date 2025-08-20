@@ -1047,16 +1047,16 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       if (!apiKey || !agentId) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-[95vw] max-w-5xl h-[80dvh] bg-gradient-to-br from-primary-white via-primary-mint/10 to-primary-white p-6 border-primary-green/30 shadow-[0_0_50px_rgba(129,240,140,0.3)]">
+        <DialogContent className="w-[95vw] max-w-5xl h-[80dvh] bg-white p-6 border-2 border-black shadow-card">
           <DialogHeader>
             <DialogTitle className="sr-only">Configuration Error</DialogTitle>
           </DialogHeader>
           <div className="flex items-center justify-center h-full">
             <div className="flex flex-col items-center space-y-4 text-center">
-              <AlertTriangle className="h-8 w-8 text-primary-peach" />
-              <h3 className="text-lg font-bold text-neon-pink">Configuration Missing</h3>
-              <p className="text-primary-white">ElevenLabs configuration is not available. Please check your environment setup.</p>
-              <Button onClick={onClose} variant="outline" className="border-electric-blue text-electric-blue hover:bg-electric-blue/10 min-h-[44px]">
+              <AlertTriangle className="h-8 w-8 text-template-secondary" />
+              <h3 className="text-lg font-bold text-template-secondary">Configuration Missing</h3>
+              <p className="text-black">ElevenLabs configuration is not available. Please check your environment setup.</p>
+              <Button onClick={onClose} variant="outline" className="border-template-primary text-template-primary hover:bg-template-primary hover:text-white min-h-[44px]">
                 Close
               </Button>
             </div>
@@ -1071,24 +1071,24 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
-        className="md:max-w-7xl md:w-[95vw] md:h-[85vh] w-screen max-w-none h-[100dvh] p-0 bg-gradient-to-br from-primary-white to-primary-mint/20 border border-primary-green/30 [&>button]:hidden z-[120] grid grid-rows-[auto_1fr_auto]"
+        className="md:max-w-7xl md:w-[95vw] md:h-[85vh] w-screen max-w-none h-[100dvh] p-0 bg-white border-2 border-black [&>button]:hidden z-[120] grid grid-rows-[auto_1fr_auto]"
         aria-describedby="enhanced-chat-description"
       >
           {/* Fixed Header */}
-          <DialogHeader className="border-b border-electric-blue/20 pb-4 px-4 pt-4 md:px-6 flex-shrink-0">
+          <DialogHeader className="border-b-2 border-black pb-4 px-4 pt-4 md:px-6 flex-shrink-0">
             <div id="enhanced-chat-description" className="sr-only">
               Enhanced voice chat interface for career guidance and conversation analysis
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-electric-blue to-neon-pink rounded-xl flex items-center justify-center">
-                  <MessageSquare className="w-6 h-6 text-primary-white" />
+                <div className="w-12 h-12 bg-template-primary rounded-button flex items-center justify-center">
+                  <MessageSquare className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <DialogTitle className="text-xl font-black text-primary-black">
+                  <DialogTitle className="text-xl font-bold text-black">
                     {agentInfo.name}
                   </DialogTitle>
-                  <p className="text-primary-white/70 text-sm">
+                  <p className="text-gray-600 text-sm">
                     {agentInfo.description}
                   </p>
                 </div>
@@ -1097,7 +1097,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                 onClick={onClose}
                 variant="ghost"
                 size="sm"
-                className="text-primary-white/70 hover:text-primary-white"
+                className="text-gray-600 hover:text-black"
               >
                 <X className="w-5 h-5" />
               </Button>
@@ -1111,14 +1111,14 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               <div className="block w-full md:w-64 lg:w-72 xl:w-80 flex-shrink-0 md:h-full">
                 {/* Mobile: Fixed height container with scroll */}
                 <div className="h-48 md:h-full overflow-hidden">
-                <Card className="bg-gradient-to-br from-primary-mint/20 to-primary-lavender/10 border border-primary-green/30 h-full flex flex-col overflow-hidden min-h-[300px]">
+                <Card className="bg-gray-50 border-2 border-black h-full flex flex-col overflow-hidden min-h-[300px]">
                   <CardHeader className="pb-3 flex-shrink-0">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg font-black text-primary-black">
+                      <CardTitle className="text-lg font-black text-black">
                         CAREER INSIGHTS
                       </CardTitle>
                       {careerCards.length > 0 && (
-                        <Badge className="bg-gradient-to-r from-primary-green to-primary-yellow text-primary-black font-bold">
+                        <Badge className="bg-template-primary text-white font-bold">
                           <Sparkles className="w-3 h-3 mr-1" />
                           {careerCards.length} FOUND
                         </Badge>
@@ -1129,21 +1129,21 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     {/* Progress Indicator - Fixed container to prevent jiggling */}
                     <div className="min-h-[120px] mb-4 flex flex-col justify-start">
                       {isAnalyzing && progressUpdate && (
-                        <div className="bg-primary-mint/20 rounded-lg p-3 border border-primary-green/30">
+                        <div className="bg-white rounded-lg p-3 border-2 border-template-primary">
                         <div className="flex items-center space-x-2 mb-2">
-                          <Loader2 className="w-4 h-4 animate-spin text-primary-green" />
-                          <span className="text-sm font-medium text-primary-green">Analyzing Career Path</span>
+                          <Loader2 className="w-4 h-4 animate-spin text-template-primary" />
+                          <span className="text-sm font-medium text-template-primary">Analyzing Career Path</span>
                         </div>
-                        <div className="text-xs text-primary-black/80 mb-2">
+                        <div className="text-xs text-gray-800 mb-2">
                           {progressUpdate.message || 'Processing your conversation...'}
                         </div>
-                        <div className="w-full bg-primary-white/20 rounded-full h-2">
+                        <div className="w-full bg-gray-200 rounded-full h-2">
                           <div 
-                            className="bg-gradient-to-r from-primary-green to-primary-yellow h-2 rounded-full transition-all duration-500 ease-out"
+                            className="bg-template-primary h-2 rounded-full transition-all duration-500 ease-out"
                             style={{ width: `${progressUpdate.progress || 0}%` }}
                           />
                         </div>
-                        <div className="text-xs text-primary-black/60 mt-1 text-center">
+                        <div className="text-xs text-gray-600 mt-1 text-center">
                           {progressUpdate.progress || 0}% complete
                         </div>
                         </div>
@@ -1162,15 +1162,15 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                             <AccordionItem 
                               key={index} 
                               value={`career-${index}`}
-                              className="border border-primary-green/30 rounded-lg bg-primary-white/95 px-3"
+                              className="border-2 border-black rounded-lg bg-white px-3"
                             >
                               <AccordionTrigger className="hover:no-underline py-3">
                                 <div className="flex items-center justify-between w-full mr-3">
                                   <div className="flex items-center space-x-3">
-                                    <Briefcase className="w-4 h-4 text-primary-green" />
+                                    <Briefcase className="w-4 h-4 text-template-primary" />
                                     <div className="text-left">
-                                      <h4 className="text-sm font-bold text-primary-black">{card.title}</h4>
-                                      <p className="text-xs text-primary-black/70 line-clamp-1">
+                                      <h4 className="text-sm font-bold text-black">{card.title}</h4>
+                                      <p className="text-xs text-gray-600 line-clamp-1">
                                         {card.description || 'Career pathway discovered from our conversation'}
                                       </p>
                                     </div>
@@ -1188,35 +1188,35 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                   <div className="grid grid-cols-2 gap-3 text-xs">
                                     {(card.salaryRange || card.averageSalary) && (
                                       <div className="flex items-center space-x-1">
-                                        <PoundSterling className="w-3 h-3 text-primary-green" />
-                                        <span className="text-primary-black">
+                                        <PoundSterling className="w-3 h-3 text-template-primary" />
+                                        <span className="text-black">
                                           {card.salaryRange || formatSalary(card.averageSalary)}
                                         </span>
                                       </div>
                                     )}
                                     {card.growthOutlook && (
                                       <div className="flex items-center space-x-1">
-                                        <TrendingUp className="w-3 h-3 text-primary-peach" />
-                                        <span className="text-primary-black">{card.growthOutlook}</span>
+                                        <TrendingUp className="w-3 h-3 text-template-secondary" />
+                                        <span className="text-black">{card.growthOutlook}</span>
                                       </div>
                                     )}
                                   </div>
 
                                   {/* Comprehensive Career Data Sections */}
                                   {card.roleFundamentals && (
-                                    <div className="border-t border-electric-blue/20 pt-3">
+                                    <div className="border-t-2 border-gray-200 pt-3">
                                       <div className="flex items-center space-x-2 mb-2">
-                                        <Target className="w-3 h-3 text-neon-pink" />
-                                        <h5 className="text-xs font-bold text-neon-pink">Role Fundamentals</h5>
+                                        <Target className="w-3 h-3 text-template-primary" />
+                                        <h5 className="text-xs font-bold text-template-primary">Role Fundamentals</h5>
                                       </div>
-                                      <p className="text-xs text-primary-white/80 mb-2">{card.roleFundamentals.corePurpose}</p>
+                                      <p className="text-xs text-gray-800 mb-2">{card.roleFundamentals.corePurpose}</p>
                                       {card.roleFundamentals.typicalResponsibilities && (
                                         <div>
-                                          <p className="text-xs font-semibold text-primary-white mb-1">Key Responsibilities:</p>
-                                          <ul className="text-xs text-primary-white/70 space-y-1">
+                                          <p className="text-xs font-semibold text-black mb-1">Key Responsibilities:</p>
+                                          <ul className="text-xs text-gray-600 space-y-1">
                                             {card.roleFundamentals.typicalResponsibilities.slice(0, 3).map((resp, i) => (
                                               <li key={i} className="flex items-start space-x-1">
-                                                <span className="text-acid-green mt-0.5">•</span>
+                                                <span className="text-template-primary mt-0.5">•</span>
                                                 <span>{resp}</span>
                                               </li>
                                             ))}
@@ -1227,17 +1227,17 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                   )}
 
                                   {card.competencyRequirements && (
-                                    <div className="border-t border-electric-blue/20 pt-3">
+                                    <div className="border-t-2 border-gray-200 pt-3">
                                       <div className="flex items-center space-x-2 mb-2">
-                                        <Wrench className="w-3 h-3 text-acid-green" />
-                                        <h5 className="text-xs font-bold text-acid-green">Skills & Requirements</h5>
+                                        <Wrench className="w-3 h-3 text-template-primary" />
+                                        <h5 className="text-xs font-bold text-template-primary">Skills & Requirements</h5>
                                       </div>
                                       {card.competencyRequirements.technicalSkills && (
                                         <div className="mb-2">
-                                          <p className="text-xs font-semibold text-primary-white mb-1">Technical Skills:</p>
+                                          <p className="text-xs font-semibold text-black mb-1">Technical Skills:</p>
                                           <div className="flex flex-wrap gap-1">
                                             {card.competencyRequirements.technicalSkills.slice(0, 4).map((skill, i) => (
-                                              <Badge key={i} variant="outline" className="text-xs border-acid-green/30 text-acid-green">
+                                              <Badge key={i} variant="outline" className="text-xs border-template-primary text-template-primary">
                                                 {skill}
                                               </Badge>
                                             ))}
@@ -1246,8 +1246,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                       )}
                                       {card.competencyRequirements.qualificationPathway && (
                                         <div>
-                                          <p className="text-xs font-semibold text-primary-white mb-1">Education:</p>
-                                          <p className="text-xs text-primary-white/70">
+                                          <p className="text-xs font-semibold text-black mb-1">Education:</p>
+                                          <p className="text-xs text-gray-600">
                                             {card.competencyRequirements.qualificationPathway.degrees?.[0] || 
                                              card.competencyRequirements.qualificationPathway.alternativeRoutes?.[0] ||
                                              'Various pathways available'}
@@ -1258,20 +1258,20 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                   )}
 
                                   {card.compensationRewards && (
-                                    <div className="border-t border-electric-blue/20 pt-3">
+                                    <div className="border-t-2 border-gray-200 pt-3">
                                       <div className="flex items-center space-x-2 mb-2">
-                                        <DollarSign className="w-3 h-3 text-acid-green" />
-                                        <h5 className="text-xs font-bold text-acid-green">Compensation</h5>
+                                        <DollarSign className="w-3 h-3 text-template-primary" />
+                                        <h5 className="text-xs font-bold text-template-primary">Compensation</h5>
                                       </div>
                                       {card.compensationRewards.salaryRange && (
                                         <div className="grid grid-cols-2 gap-2 text-xs">
                                           <div>
-                                            <p className="font-semibold text-primary-white">Entry Level:</p>
-                                            <p className="text-primary-white/70">£{card.compensationRewards.salaryRange.entry?.toLocaleString()}</p>
+                                            <p className="font-semibold text-black">Entry Level:</p>
+                                            <p className="text-gray-600">£{card.compensationRewards.salaryRange.entry?.toLocaleString()}</p>
                                           </div>
                                           <div>
-                                            <p className="font-semibold text-primary-white">Senior Level:</p>
-                                            <p className="text-primary-white/70">£{card.compensationRewards.salaryRange.senior?.toLocaleString()}</p>
+                                            <p className="font-semibold text-black">Senior Level:</p>
+                                            <p className="text-gray-600">£{card.compensationRewards.salaryRange.senior?.toLocaleString()}</p>
                                           </div>
                                         </div>
                                       )}
@@ -1279,17 +1279,17 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                   )}
 
                                   {card.careerTrajectory && (
-                                    <div className="border-t border-electric-blue/20 pt-3">
+                                    <div className="border-t-2 border-gray-200 pt-3">
                                       <div className="flex items-center space-x-2 mb-2">
-                                        <TrendingUpIcon className="w-3 h-3 text-electric-blue" />
-                                        <h5 className="text-xs font-bold text-electric-blue">Career Path</h5>
+                                        <TrendingUpIcon className="w-3 h-3 text-template-primary" />
+                                        <h5 className="text-xs font-bold text-template-primary">Career Path</h5>
                                       </div>
                                       {card.careerTrajectory.progressionSteps && (
                                         <div className="space-y-1">
                                           {card.careerTrajectory.progressionSteps.slice(0, 3).map((step, i) => (
                                             <div key={i} className="flex justify-between text-xs">
-                                              <span className="text-primary-white font-medium">{step.title}</span>
-                                              <span className="text-primary-white/70">{step.timeFrame}</span>
+                                              <span className="text-black font-medium">{step.title}</span>
+                                              <span className="text-gray-600">{step.timeFrame}</span>
                                             </div>
                                           ))}
                                         </div>
@@ -1301,14 +1301,14 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                   {(card.skills || card.nextSteps || card.keyResponsibilities) && !card.roleFundamentals && (
                                     <>
                                       {card.skills && (
-                                        <div className="border-t border-electric-blue/20 pt-3">
+                                        <div className="border-t-2 border-gray-200 pt-3">
                                           <div className="flex items-center space-x-2 mb-2">
-                                            <Wrench className="w-3 h-3 text-acid-green" />
-                                            <h5 className="text-xs font-bold text-acid-green">Key Skills</h5>
+                                            <Wrench className="w-3 h-3 text-template-primary" />
+                                            <h5 className="text-xs font-bold text-template-primary">Key Skills</h5>
                                           </div>
                                           <div className="flex flex-wrap gap-1">
                                             {card.skills.map((skill, i) => (
-                                              <Badge key={i} variant="outline" className="text-xs border-acid-green/30 text-acid-green">
+                                              <Badge key={i} variant="outline" className="text-xs border-template-primary text-template-primary">
                                                 {skill}
                                               </Badge>
                                             ))}
@@ -1317,15 +1317,15 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                       )}
                                       
                                       {card.nextSteps && (
-                                        <div className="border-t border-electric-blue/20 pt-3">
+                                        <div className="border-t-2 border-gray-200 pt-3">
                                           <div className="flex items-center space-x-2 mb-2">
-                                            <Target className="w-3 h-3 text-neon-pink" />
-                                            <h5 className="text-xs font-bold text-neon-pink">Next Steps</h5>
+                                            <Target className="w-3 h-3 text-template-primary" />
+                                            <h5 className="text-xs font-bold text-template-primary">Next Steps</h5>
                                           </div>
-                                          <ul className="text-xs text-primary-white/70 space-y-1">
+                                          <ul className="text-xs text-gray-600 space-y-1">
                                             {card.nextSteps.slice(0, 3).map((step, i) => (
                                               <li key={i} className="flex items-start space-x-1">
-                                                <span className="text-acid-green mt-0.5">•</span>
+                                                <span className="text-template-primary mt-0.5">•</span>
                                                 <span>{step}</span>
                                               </li>
                                             ))}
@@ -1344,17 +1344,17 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
                     {/* Original Career Context */}
                     {careerContext && (
-                      <div className="border-t border-electric-blue/20 pt-4">
-                        <h4 className="text-sm font-bold text-neon-pink mb-2">Discussion Focus:</h4>
+                      <div className="border-t-2 border-gray-200 pt-4">
+                        <h4 className="text-sm font-bold text-template-primary mb-2">Discussion Focus:</h4>
                         <div className="space-y-2">
-                          <h5 className="font-bold text-electric-blue">{careerContext.title}</h5>
+                          <h5 className="font-bold text-black">{careerContext.title}</h5>
                           {careerContext.averageSalary && (
-                            <p className="text-xs text-primary-white/70">
+                            <p className="text-xs text-gray-600">
                               Salary: {formatSalary(careerContext.averageSalary)}
                             </p>
                           )}
                           {careerContext.growthOutlook && (
-                            <p className="text-xs text-primary-white/70">
+                            <p className="text-xs text-gray-600">
                               Growth: {careerContext.growthOutlook}
                             </p>
                           )}
@@ -1367,15 +1367,15 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                       discoveredInsights.goals.length > 0 || 
                       discoveredInsights.skills.length > 0 ||
                       discoveredInsights.personalQualities.length > 0) && (
-                      <div className="border-t border-electric-blue/20 pt-4">
-                        <h4 className="text-sm font-bold text-acid-green mb-2">Insights from Discussion:</h4>
+                      <div className="border-t-2 border-gray-200 pt-4">
+                        <h4 className="text-sm font-bold text-template-primary mb-2">Insights from Discussion:</h4>
                         <div className="space-y-3 text-xs">
                           {/* Personal Qualities - Confidence Building Section */}
                           {discoveredInsights.personalQualities.length > 0 && (
-                            <div className="bg-gradient-to-r from-acid-green/10 to-neon-pink/10 border border-acid-green/30 rounded-lg p-3">
+                            <div className="bg-white border-2 border-template-primary rounded-lg p-3">
                               <div className="flex items-center space-x-2 mb-2">
-                                <Star className="w-4 h-4 text-cyber-yellow" />
-                                <span className="font-bold text-cyber-yellow">Your Strengths:</span>
+                                <Star className="w-4 h-4 text-template-accent" />
+                                <span className="font-bold text-template-accent">Your Strengths:</span>
                               </div>
                               <div className="grid grid-cols-1 gap-2">
                                 {discoveredInsights.personalQualities.map((quality, idx) => {
@@ -1383,34 +1383,34 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                                   const getQualityIcon = (quality: string) => {
                                     const lowerQuality = quality.toLowerCase();
                                     if (lowerQuality.includes('innovative') || lowerQuality.includes('creative')) {
-                                      return { Icon: Lightbulb, color: 'text-cyber-yellow' };
+                                      return { Icon: Lightbulb, color: 'text-template-accent' };
                                     } else if (lowerQuality.includes('organised') || lowerQuality.includes('organized')) {
-                                      return { Icon: CheckCircle2, color: 'text-acid-green' };
+                                      return { Icon: CheckCircle2, color: 'text-template-primary' };
                                     } else if (lowerQuality.includes('leader') || lowerQuality.includes('confident')) {
-                                      return { Icon: Crown, color: 'text-neon-pink' };
+                                      return { Icon: Crown, color: 'text-template-secondary' };
                                     } else if (lowerQuality.includes('analytical') || lowerQuality.includes('thoughtful')) {
-                                      return { Icon: Target, color: 'text-electric-blue' };
+                                      return { Icon: Target, color: 'text-template-primary' };
                                     } else if (lowerQuality.includes('passionate') || lowerQuality.includes('enthusiastic')) {
-                                      return { Icon: Heart, color: 'text-neon-pink' };
+                                      return { Icon: Heart, color: 'text-template-secondary' };
                                     } else if (lowerQuality.includes('adaptable') || lowerQuality.includes('flexible')) {
-                                      return { Icon: Zap, color: 'text-cyber-yellow' };
+                                      return { Icon: Zap, color: 'text-template-accent' };
                                     } else {
-                                      return { Icon: Award, color: 'text-acid-green' };
+                                      return { Icon: Award, color: 'text-template-primary' };
                                     }
                                   };
                                   
                                   const { Icon, color } = getQualityIcon(quality);
                                   
                                   return (
-                                    <div key={idx} className="flex items-center space-x-2 bg-primary-white/5 rounded px-2 py-1">
+                                    <div key={idx} className="flex items-center space-x-2 bg-gray-50 rounded px-2 py-1">
                                       <Icon className={`w-3 h-3 ${color}`} />
-                                      <span className="text-primary-white font-medium">{quality}</span>
+                                      <span className="text-black font-medium">{quality}</span>
                                     </div>
                                   );
                                 })}
                               </div>
                               <div className="mt-2 text-center">
-                                <p className="text-xs text-primary-white/80 italic">
+                                <p className="text-xs text-gray-600 italic">
                                   ✨ These qualities make you unique and valuable in any career path
                                 </p>
                               </div>
@@ -1419,8 +1419,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                           
                           {discoveredInsights.interests.length > 0 && (
                             <div>
-                              <span className="font-medium text-electric-blue">New Interests:</span>
-                              <div className="ml-2 text-primary-white/80">
+                              <span className="font-medium text-template-primary">New Interests:</span>
+                              <div className="ml-2 text-gray-600">
                                 {discoveredInsights.interests.map((interest, idx) => (
                                   <p key={idx}>• {interest}</p>
                                 ))}
@@ -1429,8 +1429,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                           )}
                           {discoveredInsights.goals.length > 0 && (
                             <div>
-                              <span className="font-medium text-neon-pink">Career Goals:</span>
-                              <div className="ml-2 text-primary-white/80">
+                              <span className="font-medium text-template-secondary">Career Goals:</span>
+                              <div className="ml-2 text-gray-600">
                                 {discoveredInsights.goals.map((goal, idx) => (
                                   <p key={idx}>• {goal}</p>
                                 ))}
@@ -1439,8 +1439,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                           )}
                           {discoveredInsights.skills.length > 0 && (
                             <div>
-                              <span className="font-medium text-cyber-yellow">Skills Mentioned:</span>
-                              <div className="ml-2 text-primary-white/80">
+                              <span className="font-medium text-template-accent">Skills Mentioned:</span>
+                              <div className="ml-2 text-gray-600">
                                 {discoveredInsights.skills.map((skill, idx) => (
                                   <p key={idx}>• {skill}</p>
                                 ))}
@@ -1456,8 +1456,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     <div className="min-h-[140px]">
                       {!careerContext && careerCards.length === 0 && (
                         <div>
-                          <h4 className="text-sm font-bold text-primary-peach mb-2">What you can explore:</h4>
-                          <div className="space-y-1 text-xs text-primary-black/70">
+                          <h4 className="text-sm font-bold text-template-secondary mb-2">What you can explore:</h4>
+                          <div className="space-y-1 text-xs text-gray-600">
                             <p>• Career interests and goals</p>
                             <p>• Skills and training paths</p>
                             <p>• Industry trends and outlook</p>
@@ -1487,14 +1487,14 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                         >
                           <div className={`max-w-[80%] px-4 py-3 rounded-xl break-words ${
                             message.role === 'user' 
-                              ? 'bg-gradient-to-r from-primary-green to-primary-mint text-primary-black' 
-                              : 'bg-gradient-to-r from-primary-lavender/80 to-primary-peach/80 text-primary-black border border-primary-green/20'
+                              ? 'bg-template-primary text-white' 
+                              : 'bg-white text-black border-2 border-black'
                           }`}>
                             <div className="flex items-start space-x-2 mb-2">
                               {message.role === 'user' ? (
                                 <User className="w-4 h-4 mt-0.5 flex-shrink-0" />
                               ) : (
-                                <Bot className="w-4 h-4 mt-0.5 text-primary-green flex-shrink-0" />
+                                <Bot className="w-4 h-4 mt-0.5 text-template-primary flex-shrink-0" />
                               )}
                               <span className="text-xs font-medium opacity-70">
                                 {message.role === 'user' ? (currentUser ? (userData?.profile?.displayName || 'You') : 'You') : agentInfo.name}
@@ -1514,9 +1514,9 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                           animate={{ opacity: 1 }}
                           className="flex justify-start"
                         >
-                          <div className="bg-gradient-to-r from-primary-gray to-primary-white/10 text-primary-white border border-electric-blue/20 px-4 py-3 rounded-xl max-w-xs">
+                          <div className="bg-gray-100 text-black border-2 border-gray-300 px-4 py-3 rounded-xl max-w-xs">
                             <div className="flex items-center space-x-2">
-                              <Volume2 className="w-4 h-4 text-electric-blue animate-pulse" />
+                              <Volume2 className="w-4 h-4 text-template-primary animate-pulse" />
                               <span className="text-sm">AI is speaking...</span>
                             </div>
                           </div>
@@ -1530,8 +1530,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           </div>
 
           {/* Fixed Footer */}
-          <div className="flex-shrink-0 border-t border-primary-green/20 p-4">
-            <div className="bg-gradient-to-r from-primary-white/90 to-primary-mint/30 rounded-xl p-4 border border-primary-green/20 backdrop-blur">
+          <div className="flex-shrink-0 border-t-2 border-gray-200 p-4">
+            <div className="bg-gray-50 rounded-xl p-4 border-2 border-black">
               <div className="flex flex-col space-y-3 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
                 <div className="flex items-center justify-center lg:justify-start">
                   {!isConnected ? (
@@ -1539,7 +1539,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                       onClick={handleStartConversation}
                       disabled={connectionStatus === 'connecting' || !apiKey}
                       aria-label="Start voice chat"
-                      className="bg-gradient-to-r from-primary-green to-primary-yellow text-primary-black font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-primary-yellow/70 shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-primary-black"
+                      className="bg-template-primary text-white font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-template-primary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black"
                     >
                       {connectionStatus === 'connecting' ? (
                         <>
@@ -1558,7 +1558,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                       onClick={handleEndConversation}
                       disabled={isLoading}
                       aria-label="End voice call"
-                      className="bg-gradient-to-r from-neon-pink to-sunset-orange text-primary-white font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-neon-pink/70"
+                      className="bg-template-secondary text-black font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-template-secondary border-2 border-black"
                     >
                       {isLoading ? (
                         <>
@@ -1577,7 +1577,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
                 <div className="flex items-center space-x-2">
                   {isConnected && (
-                    <div className="flex items-center space-x-2 text-sm text-primary-white/70">
+                    <div className="flex items-center space-x-2 text-sm text-gray-600">
                       <Radio className="w-4 h-4" />
                       <span>Voice conversation active</span>
                     </div>
@@ -1588,7 +1588,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     discoveredInsights.skills.length > 0 ||
                     discoveredInsights.personalQualities.length > 0) && (
                     <div className="flex items-center space-x-3">
-                      <div className="text-xs text-electric-blue">
+                      <div className="text-xs text-template-primary">
                         <span className="font-medium">Insights discovered:</span>
                         <span className="ml-2">
                           {discoveredInsights.interests.length + discoveredInsights.goals.length + discoveredInsights.skills.length + discoveredInsights.personalQualities.length} items
@@ -1598,7 +1598,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   )}
 
                   {!apiKey && (
-                    <div className="text-xs text-sunset-orange">
+                    <div className="text-xs text-template-secondary">
                       Configure ElevenLabs API key to enable voice discussions
                     </div>
                   )}
