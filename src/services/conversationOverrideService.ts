@@ -9,6 +9,7 @@ import { getUserById } from './userService';
 import careerPathwayService from './careerPathwayService';
 import { PersonaType, PersonaProfile, personaService } from './personaService';
 import { guestSessionService } from './guestSessionService';
+import { userPersonaService } from './userPersonaService';
 
 interface ConversationOverrides {
   agent: {
@@ -80,6 +81,7 @@ export class ConversationOverrideService {
   /**
    * Build authenticated user conversation overrides
    * For general conversations without specific career focus
+   * Now includes persona-aware customization for registered users
    */
   async buildAuthenticatedOverrides(userId: string): Promise<ConversationOverrides> {
     console.log('🔒 Building authenticated conversation overrides:', {
@@ -91,18 +93,35 @@ export class ConversationOverrideService {
       throw new Error(`User data not found for userId: ${userId}`);
     }
 
-    const contextPrompt = await this.buildAuthenticatedContextPrompt(userData);
-    const firstMessage = await this.buildPersonalizedFirstMessage(userData);
+    // Check for existing persona classification
+    const personaContext = await userPersonaService.getPersonaConversationContext(userId);
+    
+    if (personaContext.hasPersona) {
+      console.log('🧠 Using persona-aware overrides for authenticated user:', {
+        userId: userId.substring(0, 8) + '...',
+        persona: personaService.getPersonaDisplayName(personaContext.personaType!),
+        confidence: Math.round(personaContext.confidence! * 100) + '%'
+      });
+      
+      // Build persona-tailored overrides for registered users
+      return this.buildAuthenticatedPersonaOverrides(userData, personaContext);
+    } else {
+      console.log('📝 No persona found - using standard authenticated overrides');
+      
+      // Use standard authenticated overrides
+      const contextPrompt = await this.buildAuthenticatedContextPrompt(userData);
+      const firstMessage = await this.buildPersonalizedFirstMessage(userData);
 
-    return {
-      agent: {
-        prompt: {
-          prompt: contextPrompt
-        },
-        firstMessage,
-        language: "en"
-      }
-    };
+      return {
+        agent: {
+          prompt: {
+            prompt: contextPrompt
+          },
+          firstMessage,
+          language: "en"
+        }
+      };
+    }
   }
 
   /**
@@ -529,6 +548,114 @@ Remember: This user has been classified as ${personaName} based on their convers
       exploring_undecided: `${namePrefix}I can tell you're actively exploring different career possibilities, which is great! Let's help you organize your thoughts and compare your options. What's been most interesting so far?`,
       tentatively_decided: `${namePrefix}It seems like you have some direction in mind for your career path, which is exciting! I'd love to help you explore the details and address any questions. What's drawing you toward this path?`,
       focused_confident: `${namePrefix}I can see you have clear career goals, which is fantastic! Let's dive into the specifics and create a concrete action plan. What's your main focus right now?`
+    };
+    
+    return messages[persona];
+  }
+
+  /**
+   * Build persona-tailored overrides for authenticated users
+   */
+  private async buildAuthenticatedPersonaOverrides(
+    userData: any,
+    personaContext: any
+  ): Promise<ConversationOverrides> {
+    const persona = personaContext.personaType;
+    const userName = userData.careerProfile?.name || userData.displayName || 'there';
+    
+    // Build persona-specific prompt for authenticated users
+    const contextPrompt = `You are Sarah, an expert career counselor specializing in persona-based career guidance for young adults.
+
+AUTHENTICATED USER: ${userName}
+- Persona Classification: ${personaService.getPersonaDisplayName(persona)}
+- Confidence: ${Math.round(personaContext.confidence * 100)}%
+- Known Interests: ${userData.careerProfile?.interests?.slice(0, 5).join(', ') || 'Continue discovering through conversation'}
+- Known Skills: ${userData.careerProfile?.skills?.slice(0, 5).join(', ') || 'Continue identifying through discussion'}
+- Career Goals: ${userData.careerProfile?.careerGoals?.slice(0, 3).join(', ') || 'Exploring career direction'}
+
+PERSONA-TAILORED APPROACH:
+${this.getPersonaApproach(persona)}
+
+CONVERSATION STYLE (Based on Persona):
+${this.getPersonaSpecificGuidance(persona)}
+
+RESPONSE GUIDELINES:
+- Reference their existing profile when relevant
+- Adapt conversation style to their persona type
+- Keep responses 30-60 words for voice conversations
+- Be natural and conversational
+- Build on previous conversations and known preferences
+
+MCP-ENHANCED TOOLS AVAILABLE:
+1. **analyze_conversation_for_careers** - Generate career cards based on interests
+2. **generate_career_recommendations** - Create detailed UK career paths
+3. **trigger_instant_insights** - Provide immediate analysis and value
+4. **update_person_profile** - Refine existing profile with new insights
+
+PERSONA-SPECIFIC STRATEGY:
+${this.getPersonaConversationStrategy(persona)}
+
+🚨 PRIVACY PROTECTION:
+- Build on their existing profile and conversation history
+- Reference their known interests and goals appropriately
+- Maintain continuity from previous sessions while respecting their persona needs
+
+Welcome back ${userName}! Continue providing value aligned with their ${personaService.getPersonaDisplayName(persona)} persona.`;
+
+    // Build persona-tailored first message
+    const firstMessage = this.buildAuthenticatedPersonaFirstMessage(userData, persona, personaContext);
+
+    return {
+      agent: {
+        prompt: {
+          prompt: contextPrompt
+        },
+        firstMessage,
+        language: "en"
+      }
+    };
+  }
+
+  /**
+   * Get persona-specific conversation strategy for authenticated users
+   */
+  private getPersonaConversationStrategy(persona: PersonaType): string {
+    const strategies = {
+      uncertain_unengaged: "Continue building their confidence. Reference their previous interests to spark engagement. Focus on exploration over decision-making.",
+      exploring_undecided: "Help them organize and compare their known interests. Provide structure to their exploration. Build on previous conversations to narrow focus.",
+      tentatively_decided: "Validate their current direction while exploring any remaining concerns. Provide detailed information about their preferred paths. Build confidence in their choices.",
+      focused_confident: "Support their clear direction with specific, actionable guidance. Focus on implementation and next steps. Leverage their motivation for concrete progress."
+    };
+    return strategies[persona];
+  }
+
+  /**
+   * Build persona-tailored first message for authenticated users
+   */
+  private buildAuthenticatedPersonaFirstMessage(
+    userData: any,
+    persona: PersonaType,
+    personaContext: any
+  ): string {
+    const userName = userData.careerProfile?.name || userData.displayName || 'there';
+    const interests = userData.careerProfile?.interests || [];
+    
+    const messages = {
+      uncertain_unengaged: interests.length > 0 
+        ? `Welcome back ${userName}! I remember your interest in ${interests.slice(0, 2).join(' and ')}. No pressure today - what's been on your mind lately about your future?`
+        : `Hi ${userName}! Great to see you again. What would you like to explore about your career journey today? We can take it at whatever pace feels right for you.`,
+      
+      exploring_undecided: interests.length > 0
+        ? `Hi ${userName}! I see you've been exploring ${interests.slice(0, 2).join(' and ')}. Ready to dive deeper into any of these areas, or is there something new you'd like to discuss?`
+        : `Welcome back ${userName}! You're doing great exploring different career possibilities. What would you like to focus on today?`,
+      
+      tentatively_decided: userData.careerProfile?.careerGoals?.length > 0
+        ? `Welcome back ${userName}! I remember you were considering ${userData.careerProfile.careerGoals[0]}. How are you feeling about that direction? Any questions or new thoughts?`
+        : `Hi ${userName}! Good to see you again. What aspects of your career path would you like to explore further today?`,
+      
+      focused_confident: userData.careerProfile?.careerGoals?.length > 0
+        ? `Hey ${userName}! Ready to make progress on your ${userData.careerProfile.careerGoals[0]} goals? What specific steps can we tackle today?`
+        : `Welcome back ${userName}! I love your focus and determination. What concrete steps can we work on for your career today?`
     };
     
     return messages[persona];

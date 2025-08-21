@@ -33,6 +33,7 @@ interface MigrationRecord {
     profileFields: string[];
     videoProgress: boolean;
     engagementMetrics: boolean;
+    personaClassification: boolean;
   };
   migrationSource: 'registration' | 'login';
 }
@@ -73,7 +74,8 @@ export class GuestMigrationService {
           careerCards: 0,
           profileFields: [],
           videoProgress: false,
-          engagementMetrics: false
+          engagementMetrics: false,
+          personaClassification: false
         },
         migrationSource: source
       };
@@ -138,7 +140,17 @@ export class GuestMigrationService {
         );
       }
 
-      // 5. Create initial user preferences with guest insights
+      // 5. Transfer persona classification data
+      if (guestSession.personaProfile) {
+        migrationTasks.push(
+          this.transferPersonaClassification(userId, guestSession)
+            .then(() => {
+              migrationRecord.dataTransferred.personaClassification = true;
+            })
+        );
+      }
+
+      // 6. Create initial user preferences with guest insights
       migrationTasks.push(
         this.initializeEnhancedUserPreferences(userId, guestSession)
           .then(() => {
@@ -493,6 +505,108 @@ export class GuestMigrationService {
     } catch (error) {
       // Don't fail the migration if video progress can't be transferred
       console.warn('⚠️ Could not transfer video progress (non-critical):', error);
+    }
+  }
+
+  /**
+   * Transfer persona classification data to registered user
+   */
+  private static async transferPersonaClassification(
+    userId: string,
+    guestSession: GuestSession
+  ): Promise<void> {
+    if (!guestSession.personaProfile) {
+      console.warn('⚠️ No persona profile found in guest session');
+      return;
+    }
+
+    try {
+      console.log('🧠 Transferring persona classification data:', {
+        userId: userId.substring(0, 8) + '...',
+        persona: guestSession.personaProfile.classification.type,
+        confidence: Math.round(guestSession.personaProfile.classification.confidence * 100) + '%',
+        stage: guestSession.personaProfile.classification.stage,
+        onboardingStage: guestSession.onboardingStage
+      });
+
+      // Create a persona profile document for the registered user
+      const personaRef = doc(db, 'userPersonaProfiles', userId);
+      
+      // Prepare persona data for Firebase with proper serialization
+      const personaData = {
+        userId,
+        
+        // Current classification
+        classification: {
+          type: guestSession.personaProfile.classification.type,
+          confidence: guestSession.personaProfile.classification.confidence,
+          stage: guestSession.personaProfile.classification.stage,
+          reasoning: guestSession.personaProfile.classification.reasoning,
+          timestamp: guestSession.personaProfile.classification.timestamp
+        },
+
+        // Analysis history
+        analysisHistory: guestSession.personaAnalysisHistory.map(analysis => ({
+          timestamp: analysis.timestamp,
+          messageCount: analysis.messageCount,
+          classification: {
+            type: analysis.classification.type,
+            confidence: analysis.classification.confidence,
+            stage: analysis.classification.stage,
+            reasoning: analysis.classification.reasoning
+          }
+        })),
+
+        // Onboarding progression
+        onboarding: {
+          currentStage: guestSession.onboardingStage,
+          isComplete: guestSession.personaProfile.onboardingComplete,
+          journeyStage: guestSession.personaProfile.journeyStage
+        },
+
+        // Recommendations (persona-tailored guidance)
+        recommendations: guestSession.personaProfile.recommendations,
+
+        // Classification triggers (for analysis refinement)
+        triggers: guestSession.classificationTriggers.map(trigger => ({
+          type: trigger.type,
+          signal: trigger.signal,
+          weight: trigger.weight,
+          personaIndicator: trigger.personaIndicator,
+          messageIndex: trigger.messageIndex,
+          confidence: trigger.confidence
+        })),
+
+        // Metadata
+        migratedFromGuest: true,
+        guestSessionId: guestSession.sessionId,
+        migratedAt: serverTimestamp(),
+        createdAt: guestSession.personaProfile.createdAt,
+        updatedAt: new Date().toISOString()
+      };
+
+      // Save persona profile to Firebase
+      await setDoc(personaRef, personaData);
+
+      // Also update the user's main document with basic persona info
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        personaType: guestSession.personaProfile.classification.type,
+        personaConfidence: guestSession.personaProfile.classification.confidence,
+        onboardingStage: guestSession.onboardingStage,
+        hasPersonaProfile: true,
+        personaLastUpdated: serverTimestamp()
+      });
+
+      console.log('✅ Successfully transferred persona classification to registered user:', {
+        personaType: guestSession.personaProfile.classification.type,
+        analysisHistoryCount: guestSession.personaAnalysisHistory.length,
+        triggerCount: guestSession.classificationTriggers.length
+      });
+
+    } catch (error) {
+      // Don't fail the migration if persona transfer fails
+      console.warn('⚠️ Could not transfer persona classification (non-critical):', error);
     }
   }
 
