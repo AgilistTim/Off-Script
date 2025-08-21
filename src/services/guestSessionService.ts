@@ -3,7 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 // Import types from their actual locations
 import { CareerCard, PersonProfile } from '../types/careerCard';
-import { PersonaProfile, PersonaClassification, ConversationTrigger } from './personaService';
+import { PersonaProfile, PersonaClassification, ConversationTrigger, PersonaTailoredRecommendations } from './personaService';
 
 interface UserPersona {
   type: string;
