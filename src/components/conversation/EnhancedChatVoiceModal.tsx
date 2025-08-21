@@ -56,6 +56,7 @@ import { useAuth } from '../../context/AuthContext';
 import { progressAwareMCPService, MCPProgressUpdate } from '../../services/progressAwareMCPService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 import { guestSessionService } from '../../services/guestSessionService';
+import { personaOnboardingService } from '../../services/personaOnboardingService';
 import { careerPathwayService } from '../../services/careerPathwayService';
 import { lightweightCareerSuggestionService } from '../../services/lightweightCareerSuggestionService';
 import environmentConfig from '../../config/environment';
@@ -767,7 +768,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         // Save message to guest session for migration
         if (!currentUser) {
           try {
-            guestSessionService.addConversationMessage(newMessage.role, newMessage.content);
             const guestSession = guestSessionService.getGuestSession();
             console.log('💾 [GUEST FLOW] Saved message to guest session for migration:', {
               messageRole: newMessage.role,
@@ -775,6 +775,26 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               totalMessages: guestSession.conversationHistory.length,
               sessionId: guestSession.sessionId
             });
+
+            // Process message and potentially trigger persona analysis (async, non-blocking)
+            personaOnboardingService.processConversationMessage(
+              newMessage.role, 
+              newMessage.content
+            ).then(analysisResult => {
+              if (analysisResult.analysisTriggered && analysisResult.result) {
+                const personaSummary = personaOnboardingService.getPersonaSummary();
+                console.log('🧠 [PERSONA ANALYSIS] Classification updated:', {
+                  hasPersona: personaSummary.hasPersona,
+                  type: personaSummary.type,
+                  confidence: personaSummary.confidence,
+                  stage: personaSummary.stage,
+                  onboardingStage: guestSessionService.getCurrentOnboardingStage()
+                });
+              }
+            }).catch(error => {
+              console.error('❌ [PERSONA ANALYSIS] Failed to process message:', error);
+            });
+            
           } catch (error) {
             console.error('❌ [GUEST FLOW] Failed to save message to guest session:', error);
           }
@@ -982,8 +1002,16 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         let overrides: any | undefined;
 
         if (!currentUser) {
-          console.log('👤 Guest user - building guest overrides');
-          overrides = await contextService.createGuestOverrides();
+          console.log('👤 Guest user - initializing persona-aware onboarding');
+          
+          // Initialize persona-based onboarding
+          personaOnboardingService.initializeOnboarding();
+          
+          // Get persona-aware conversation options
+          const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions(agentId);
+          overrides = personaOptions.overrides;
+          
+          console.log('🧠 Persona-aware guest conversation initialized');
         } else {
           console.log('👤 Authenticated user - building authenticated overrides');
           overrides = await contextService.createAuthenticatedOverrides(currentUser.uid);
@@ -1161,7 +1189,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         // Save message to guest session for migration
         if (!currentUser) {
           try {
-            guestSessionService.addConversationMessage(newMessage.role, newMessage.content);
             const guestSession = guestSessionService.getGuestSession();
             console.log('💾 [GUEST FLOW] Saved text message to guest session for migration:', {
               messageRole: newMessage.role,
@@ -1169,6 +1196,26 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               totalMessages: guestSession.conversationHistory.length,
               sessionId: guestSession.sessionId
             });
+
+            // Process message and potentially trigger persona analysis (async, non-blocking)
+            personaOnboardingService.processConversationMessage(
+              newMessage.role, 
+              newMessage.content
+            ).then(analysisResult => {
+              if (analysisResult.analysisTriggered && analysisResult.result) {
+                const personaSummary = personaOnboardingService.getPersonaSummary();
+                console.log('🧠 [PERSONA ANALYSIS] Classification updated from text:', {
+                  hasPersona: personaSummary.hasPersona,
+                  type: personaSummary.type,
+                  confidence: personaSummary.confidence,
+                  stage: personaSummary.stage,
+                  onboardingStage: guestSessionService.getCurrentOnboardingStage()
+                });
+              }
+            }).catch(error => {
+              console.error('❌ [PERSONA ANALYSIS] Failed to process text message:', error);
+            });
+            
           } catch (error) {
             console.error('❌ [GUEST FLOW] Failed to save text message to guest session:', error);
           }
