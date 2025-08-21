@@ -36,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
+import OnboardingProgress, { type OnboardingStage } from '../ui/onboarding-progress';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -115,12 +116,94 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   const [progressUpdate, setProgressUpdate] = useState<MCPProgressUpdate | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   
+  // Onboarding progress tracking
+  const [extractedProfileData, setExtractedProfileData] = useState<{
+    name?: string;
+    education?: string;
+    careerDirection?: string;
+    careerCardsGenerated?: number;
+  }>({});
+  const [currentOnboardingStage, setCurrentOnboardingStage] = useState<OnboardingStage>('initial');
+  
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const mobileScrollAreaRef = useRef<HTMLDivElement>(null);
   const conversationInitialized = useRef<boolean>(false);
   
   // Ref to always access current conversation history (avoids stale closure)
   const conversationHistoryRef = useRef<ConversationMessage[]>([]);
+
+  // Extract profile data from conversation
+  const extractProfileDataFromConversation = (messages: ConversationMessage[]) => {
+    const extracted: typeof extractedProfileData = {};
+    
+    // Extract name - look for "I'm [Name]" or "My name is [Name]" patterns
+    const namePatterns = [
+      /(?:I'm|I am)\s+([A-Z][a-zA-Z]+)(?:\.|$|\s)/i,
+      /(?:My name is|Name is|Call me)\s+([A-Z][a-zA-Z]+)/i,
+      /(?:Hi|Hello),?\s*(?:I'm|I am)\s+([A-Z][a-zA-Z]+)/i
+    ];
+    
+    // Extract education/work status
+    const educationPatterns = [
+      /(?:I'm|I am)\s+(?:currently\s+)?(?:in\s+)?(secondary school|college|university|working|graduated)/i,
+      /(?:I'm|I am)\s+(?:a\s+)?(student|worker|graduate)/i,
+      /(?:taking a gap year|gap year)/i
+    ];
+    
+    // Extract career direction
+    const careerPatterns = [
+      /(?:interested in|like|enjoy|want to work in)\s+([^.]+)/i,
+      /(?:exploring|considering)\s+([^.]+)/i,
+      /(?:career|job|work)\s+in\s+([^.]+)/i
+    ];
+
+    for (const message of messages) {
+      if (message.role === 'user') {
+        const content = message.content;
+        
+        // Extract name
+        if (!extracted.name) {
+          for (const pattern of namePatterns) {
+            const match = content.match(pattern);
+            if (match && match[1]) {
+              extracted.name = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+              break;
+            }
+          }
+        }
+        
+        // Extract education/work
+        if (!extracted.education) {
+          for (const pattern of educationPatterns) {
+            const match = content.match(pattern);
+            if (match && match[1]) {
+              extracted.education = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+              break;
+            } else if (match && match[0]) {
+              extracted.education = match[0].charAt(0).toUpperCase() + match[0].slice(1).toLowerCase();
+              break;
+            }
+          }
+        }
+        
+        // Extract career interests
+        if (!extracted.careerDirection) {
+          for (const pattern of careerPatterns) {
+            const match = content.match(pattern);
+            if (match && match[1]) {
+              extracted.careerDirection = match[1].trim().charAt(0).toUpperCase() + match[1].trim().slice(1);
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    // Count career cards generated
+    extracted.careerCardsGenerated = careerCards.length;
+    
+    return extracted;
+  };
   
   // Ref to always access current career cards (avoids stale closure)
   const careerCardsRef = useRef<any[]>([]);
@@ -934,6 +1017,41 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     careerCardsRef.current = careerCards;
   }, [careerCards]);
 
+  // Extract profile data from conversation history
+  useEffect(() => {
+    if (conversationHistory.length > 0) {
+      const extracted = extractProfileDataFromConversation(conversationHistory);
+      setExtractedProfileData(prev => ({
+        ...prev,
+        ...extracted
+      }));
+    }
+  }, [conversationHistory, careerCards]);
+
+  // Sync onboarding stage with guest session service
+  useEffect(() => {
+    if (!currentUser) {
+      // For guest users, get the onboarding stage from the guest session service
+      const currentStage = guestSessionService.getCurrentOnboardingStage();
+      setCurrentOnboardingStage(currentStage as OnboardingStage);
+      
+      console.log('🎯 Onboarding progress updated:', {
+        stage: currentStage,
+        extractedData: extractedProfileData
+      });
+    }
+  }, [currentUser, conversationHistory]);
+
+  // Log progress for debugging
+  useEffect(() => {
+    console.log('📊 Profile extraction progress:', {
+      stage: currentOnboardingStage,
+      extracted: extractedProfileData,
+      conversationLength: conversationHistory.length,
+      careerCardsCount: careerCards.length
+    });
+  }, [currentOnboardingStage, extractedProfileData, conversationHistory.length, careerCards.length]);
+
   // Handle conversation start
   const handleStartConversation = async () => {
     if (!conversation || !conversation.startSession) {
@@ -1562,6 +1680,17 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               </Button>
             </div>
           </DialogHeader>
+
+          {/* Onboarding Progress Bar - Only show for guest users during onboarding */}
+          {!currentUser && currentOnboardingStage !== 'complete' && (
+            <div className="px-4 md:px-6 pt-4 border-b border-gray-200 pb-4">
+              <OnboardingProgress 
+                currentStage={currentOnboardingStage}
+                extractedData={extractedProfileData}
+                className="w-full"
+              />
+            </div>
+          )}
 
           {/* Flexible Content Area */}
           <div className="min-h-0 h-full overflow-hidden px-2 md:px-4 pt-2">
