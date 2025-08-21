@@ -1004,14 +1004,23 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         if (!currentUser) {
           console.log('👤 Guest user - initializing persona-aware onboarding');
           
-          // Initialize persona-based onboarding with fresh start
-          personaOnboardingService.initializeOnboarding(undefined, true);
+          // Check if we have existing conversation history from mode switch
+          const hasExistingConversation = conversationHistory.length > 0;
+          console.log('🔄 Checking for existing conversation:', {
+            historyLength: conversationHistory.length,
+            hasExisting: hasExistingConversation
+          });
+          
+          // Initialize persona-based onboarding (preserve existing session if switching modes)
+          personaOnboardingService.initializeOnboarding(undefined, !hasExistingConversation);
           
           // Get persona-aware conversation options
           const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions(agentId);
           overrides = personaOptions.overrides;
           
-          console.log('🧠 Persona-aware guest conversation initialized');
+          console.log('🧠 Persona-aware guest conversation initialized:', {
+            preservedExisting: hasExistingConversation
+          });
         } else {
           console.log('👤 Authenticated user - building authenticated overrides');
           overrides = await contextService.createAuthenticatedOverrides(currentUser.uid);
@@ -1100,8 +1109,25 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         const contextService = new UnifiedVoiceContextService();
 
         if (!currentUser) {
-          console.log('👤 Guest user - building guest overrides');
-          overrides = await contextService.createGuestOverrides();
+          console.log('👤 Guest user - initializing persona-aware onboarding for text mode');
+          
+          // Check if we have existing conversation history from mode switch
+          const hasExistingConversation = conversationHistory.length > 0;
+          console.log('🔄 Text mode - checking for existing conversation:', {
+            historyLength: conversationHistory.length,
+            hasExisting: hasExistingConversation
+          });
+          
+          // Initialize persona-based onboarding (preserve existing session if switching modes)
+          personaOnboardingService.initializeOnboarding(undefined, !hasExistingConversation);
+          
+          // Get persona-aware conversation options
+          const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions(textOnlyAgentId);
+          overrides = personaOptions.overrides;
+          
+          console.log('🧠 Text mode persona-aware guest conversation initialized:', {
+            preservedExisting: hasExistingConversation
+          });
         } else {
           console.log('👤 Authenticated user - building authenticated overrides');
           overrides = await contextService.createAuthenticatedOverrides(currentUser.uid);
@@ -1396,14 +1422,30 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     // Text mode doesn't need connection setup
   };
 
-  // Reset mode selection
+  // Reset mode selection while preserving conversation history
   const handleResetMode = () => {
-    console.log('🔄 Resetting communication mode');
+    console.log('🔄 Switching communication mode while preserving context');
+    
+    // Preserve current conversation history before switching
+    const currentHistory = [...conversationHistory];
+    console.log('💾 Preserving conversation history:', {
+      messageCount: currentHistory.length,
+      hasMessages: currentHistory.length > 0
+    });
+    
     setCommunicationMode(null);
     
-    // End voice session if active
+    // End voice session if active, but keep the conversation history
     if (isConnected || connectionStatus === 'connecting') {
+      console.log('🔄 Ending voice session but preserving context');
       handleEndConversation();
+      
+      // Restore conversation history after a brief delay to allow cleanup
+      setTimeout(() => {
+        console.log('🔄 Restoring conversation history after mode switch');
+        setConversationHistory(currentHistory);
+        conversationHistoryRef.current = currentHistory;
+      }, 100);
     }
   };
 
