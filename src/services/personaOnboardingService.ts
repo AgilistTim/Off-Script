@@ -40,26 +40,52 @@ export class PersonaOnboardingService {
 
   /**
    * Initialize persona-based onboarding for a new session
+   * Detects if this should be a fresh start or continuation
    */
-  initializeOnboarding(sessionId?: string): void {
-    console.log('🎯 Initializing persona-based onboarding');
+  initializeOnboarding(sessionId?: string, forceReset: boolean = false): void {
+    console.log('🎯 Initializing persona-based onboarding:', { forceReset });
     
-    // Ensure guest session is initialized
-    if (!guestSessionService.getSessionId()) {
-      console.log('📝 No session found, initializing new guest session');
-      // Session will be auto-initialized by guestSessionService
-    }
+    const currentSessionId = guestSessionService.getSessionId();
+    const existingSession = currentSessionId ? guestSessionService.getGuestSession() : null;
     
-    // Set initial onboarding stage
-    const currentStage = guestSessionService.getCurrentOnboardingStage();
-    if (currentStage === 'initial') {
+    // Check if we should start fresh onboarding
+    const shouldStartFresh = (
+      forceReset ||
+      !currentSessionId ||
+      !existingSession ||
+      existingSession.conversationHistory.length === 0 ||
+      existingSession.onboardingStage === 'initial'
+    );
+    
+    if (shouldStartFresh) {
+      console.log('🆕 Starting fresh persona-based onboarding');
+      
+      // Clear any existing session to start completely fresh
+      if (currentSessionId && existingSession && existingSession.conversationHistory.length > 0) {
+        console.log('🧹 Clearing existing session for fresh start');
+        guestSessionService.clearSession();
+      }
+      
+      // Initialize fresh session and onboarding
       guestSessionService.updateOnboardingStage('discovery');
-      console.log('✅ Onboarding stage set to discovery');
+      console.log('✅ Fresh onboarding stage set to discovery');
+    } else {
+      // Continue existing onboarding
+      const currentStage = guestSessionService.getCurrentOnboardingStage();
+      console.log('🔄 Continuing existing onboarding at stage:', currentStage);
+      
+      // Ensure we're not in a completed state when starting conversation
+      if (['journey_active', 'complete'].includes(currentStage)) {
+        console.log('⚠️ Session was marked complete, but starting new conversation - resetting to discovery');
+        guestSessionService.clearSession();
+        guestSessionService.updateOnboardingStage('discovery');
+      }
     }
     
     console.log('🎯 Persona onboarding initialized:', {
       sessionId: guestSessionService.getSessionId(),
-      stage: guestSessionService.getCurrentOnboardingStage()
+      stage: guestSessionService.getCurrentOnboardingStage(),
+      messageCount: guestSessionService.getConversationForAnalysis().length
     });
   }
 

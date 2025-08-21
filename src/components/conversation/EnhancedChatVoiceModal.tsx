@@ -1004,8 +1004,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         if (!currentUser) {
           console.log('👤 Guest user - initializing persona-aware onboarding');
           
-          // Initialize persona-based onboarding
-          personaOnboardingService.initializeOnboarding();
+          // Initialize persona-based onboarding with fresh start
+          personaOnboardingService.initializeOnboarding(undefined, true);
           
           // Get persona-aware conversation options
           const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions(agentId);

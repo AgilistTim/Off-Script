@@ -692,13 +692,15 @@ Remember: You're transitioning from assessment to value delivery. Show them the 
     });
 
     // Determine conversation stage based on onboarding progress
+    // Always start with discovery for fresh sessions, even if shouldAnalyze is true
     let conversationStage: 'discovery' | 'classification' | 'tailored_guidance' = 'discovery';
     
-    if (currentStage === 'classification' || shouldAnalyze) {
+    if (currentStage === 'classification') {
       conversationStage = 'classification';
     } else if (['tailored_guidance', 'journey_active'].includes(currentStage)) {
       conversationStage = 'tailored_guidance';
     }
+    // Note: We don't use shouldAnalyze here because we want to start fresh conversations in discovery mode
 
     const overrides = await this.buildPersonaOnboardingOverrides(
       sessionId || guestSessionService.getSessionId(),
