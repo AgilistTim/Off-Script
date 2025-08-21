@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 // Import types from their actual locations
 import { CareerCard, PersonProfile } from '../types/careerCard';
+import { PersonaProfile, PersonaClassification, ConversationTrigger } from './personaService';
 
 interface UserPersona {
   type: string;
@@ -60,6 +61,16 @@ export interface GuestSession {
     sessionsWithActivity: number;
     lastCareerAnalysis: string | null;
   };
+
+  // Persona-based onboarding data
+  personaProfile?: PersonaProfile | null;
+  onboardingStage: 'initial' | 'discovery' | 'classification' | 'tailored_guidance' | 'journey_active' | 'complete';
+  classificationTriggers: ConversationTrigger[];
+  personaAnalysisHistory: Array<{
+    timestamp: string;
+    classification: PersonaClassification;
+    messageCount: number;
+  }>;
 }
 
 // Guest session actions
@@ -91,6 +102,15 @@ interface GuestSessionActions {
   // Migration helpers
   getSessionForMigration: () => GuestSession;
   hasSignificantData: () => boolean;
+
+  // Persona-based onboarding actions
+  updateOnboardingStage: (stage: GuestSession['onboardingStage']) => void;
+  setPersonaProfile: (profile: PersonaProfile) => void;
+  addClassificationTrigger: (trigger: ConversationTrigger) => void;
+  addPersonaAnalysis: (classification: PersonaClassification) => void;
+  getPersonaProfile: () => PersonaProfile | null;
+  getCurrentOnboardingStage: () => GuestSession['onboardingStage'];
+  shouldTriggerPersonaAnalysis: () => boolean;
 }
 
 // Create guest session store with persistence
@@ -119,6 +139,12 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
         sessionsWithActivity: 1,
         lastCareerAnalysis: null
       },
+
+      // Persona-based onboarding initial state
+      personaProfile: null,
+      onboardingStage: 'initial',
+      classificationTriggers: [],
+      personaAnalysisHistory: [],
 
       // Actions
       initializeSession: () => {
@@ -159,7 +185,12 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
             careerCardsGenerated: 0,
             sessionsWithActivity: 0,
             lastCareerAnalysis: null
-          }
+          },
+          // Reset persona fields
+          personaProfile: null,
+          onboardingStage: 'initial',
+          classificationTriggers: [],
+          personaAnalysisHistory: []
         });
         console.log('🧹 Guest session cleared');
       },
@@ -341,6 +372,95 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
         });
         
         return result;
+      },
+
+      // Persona-based onboarding actions
+      updateOnboardingStage: (stage: GuestSession['onboardingStage']) => {
+        const state = get();
+        set({
+          onboardingStage: stage,
+          lastActive: new Date().toISOString()
+        });
+        console.log('🎯 Onboarding stage updated:', { from: state.onboardingStage, to: stage });
+      },
+
+      setPersonaProfile: (profile: PersonaProfile) => {
+        set({
+          personaProfile: profile,
+          lastActive: new Date().toISOString()
+        });
+        console.log('👤 Persona profile set:', {
+          type: profile.classification.type,
+          confidence: Math.round(profile.classification.confidence * 100) + '%',
+          stage: profile.journeyStage
+        });
+      },
+
+      addClassificationTrigger: (trigger: ConversationTrigger) => {
+        const state = get();
+        set({
+          classificationTriggers: [...state.classificationTriggers, trigger],
+          lastActive: new Date().toISOString()
+        });
+        console.log('🎯 Classification trigger added:', {
+          type: trigger.type,
+          signal: trigger.signal.substring(0, 50),
+          personaIndicator: trigger.personaIndicator
+        });
+      },
+
+      addPersonaAnalysis: (classification: PersonaClassification) => {
+        const state = get();
+        set({
+          personaAnalysisHistory: [...state.personaAnalysisHistory, {
+            timestamp: new Date().toISOString(),
+            classification,
+            messageCount: state.conversationHistory.length
+          }],
+          lastActive: new Date().toISOString()
+        });
+        console.log('📊 Persona analysis added to history:', {
+          type: classification.type,
+          confidence: Math.round(classification.confidence * 100) + '%',
+          totalAnalyses: state.personaAnalysisHistory.length + 1
+        });
+      },
+
+      getPersonaProfile: () => {
+        return get().personaProfile;
+      },
+
+      getCurrentOnboardingStage: () => {
+        return get().onboardingStage;
+      },
+
+      shouldTriggerPersonaAnalysis: () => {
+        const state = get();
+        
+        // Trigger conditions:
+        // 1. At least 2 user messages (1 exchange)
+        // 2. Every 2 messages after that for refinement
+        // 3. Not already in journey_active or complete stage
+        
+        const userMessages = state.conversationHistory.filter(msg => msg.role === 'user').length;
+        const lastAnalysis = state.personaAnalysisHistory[state.personaAnalysisHistory.length - 1];
+        const messagesSinceLastAnalysis = lastAnalysis ? userMessages - lastAnalysis.messageCount : userMessages;
+        
+        const shouldTrigger = (
+          userMessages >= 2 && // At least one exchange
+          messagesSinceLastAnalysis >= 2 && // New content to analyze
+          !['journey_active', 'complete'].includes(state.onboardingStage) // Still in onboarding
+        );
+        
+        console.log('🤔 Should trigger persona analysis?', {
+          userMessages,
+          messagesSinceLastAnalysis,
+          currentStage: state.onboardingStage,
+          lastAnalysisMessageCount: lastAnalysis?.messageCount || 0,
+          shouldTrigger
+        });
+        
+        return shouldTrigger;
       }
     }),
     {
@@ -359,6 +479,11 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
         userPersona: state.userPersona,
         videoProgress: state.videoProgress,
         engagementMetrics: state.engagementMetrics,
+        // Persist persona onboarding data
+        personaProfile: state.personaProfile,
+        onboardingStage: state.onboardingStage,
+        classificationTriggers: state.classificationTriggers,
+        personaAnalysisHistory: state.personaAnalysisHistory,
         // Skip analysisResults to keep storage light
       }),
       
@@ -433,6 +558,49 @@ export class GuestSessionService {
   // Name helper for ElevenLabs integration
   getGuestName(): string | null {
     return this.store.getState().personProfile?.name || null;
+  }
+
+  // Persona-based onboarding methods
+  updateOnboardingStage(stage: GuestSession['onboardingStage']): void {
+    this.store.getState().updateOnboardingStage(stage);
+  }
+
+  setPersonaProfile(profile: PersonaProfile): void {
+    this.store.getState().setPersonaProfile(profile);
+  }
+
+  addClassificationTrigger(trigger: ConversationTrigger): void {
+    this.store.getState().addClassificationTrigger(trigger);
+  }
+
+  addPersonaAnalysis(classification: PersonaClassification): void {
+    this.store.getState().addPersonaAnalysis(classification);
+  }
+
+  getPersonaProfile(): PersonaProfile | null {
+    return this.store.getState().getPersonaProfile();
+  }
+
+  getCurrentOnboardingStage(): GuestSession['onboardingStage'] {
+    return this.store.getState().getCurrentOnboardingStage();
+  }
+
+  shouldTriggerPersonaAnalysis(): boolean {
+    return this.store.getState().shouldTriggerPersonaAnalysis();
+  }
+
+  // Convenience methods for persona workflow
+  getConversationForAnalysis(): Array<{role: string; content: string; timestamp: string}> {
+    return this.store.getState().getConversationHistory();
+  }
+
+  isPersonaClassified(): boolean {
+    const profile = this.getPersonaProfile();
+    return profile?.classification?.stage === 'confirmed';
+  }
+
+  getPersonaRecommendations(): PersonaTailoredRecommendations | null {
+    return this.getPersonaProfile()?.recommendations || null;
   }
 }
 
