@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ArrowRight, TrendingUp, Clock, DollarSign, CheckCircle, Users, Target } from 'lucide-react';
 
 interface Pathway {
@@ -105,7 +105,6 @@ const pathways: Pathway[] = [
 ];
 
 const AlternativePathways: React.FC = () => {
-  const [selectedPathway, setSelectedPathway] = useState<string | null>(null);
 
   return (
     <section id="pathways" className="py-20 bg-white">

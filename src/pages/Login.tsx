@@ -166,7 +166,7 @@ const Login: React.FC = () => {
           <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-electric-blue to-neon-pink rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-glow-blue">
             <Crown className="w-8 h-8 sm:w-10 sm:h-10 text-primary-white" />
           </div>
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow mb-3 sm:mb-4 animate-glow-pulse">
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-street font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow mb-3 sm:mb-4 animate-glow-pulse">
             SIGN IN
           </h1>
           <p className="text-base sm:text-lg text-primary-white/70">
@@ -201,7 +201,7 @@ const Login: React.FC = () => {
             
             <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
               <div className="space-y-2">
-                <label htmlFor="email" className="block text-xs sm:text-sm font-black text-electric-blue uppercase tracking-wider">
+                <label htmlFor="email" className="block text-xs sm:text-sm font-bold text-electric-blue uppercase tracking-wider">
                   EMAIL ADDRESS
                 </label>
                 <div className="relative">
@@ -221,7 +221,7 @@ const Login: React.FC = () => {
               </div>
               
               <div className="space-y-2">
-                <label htmlFor="password" className="block text-xs sm:text-sm font-black text-electric-blue uppercase tracking-wider">
+                <label htmlFor="password" className="block text-xs sm:text-sm font-bold text-electric-blue uppercase tracking-wider">
                   PASSWORD
                 </label>
                 <div className="relative">
@@ -240,7 +240,7 @@ const Login: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-3 sm:pr-4 flex items-center text-primary-white/40 hover:text-primary-white transition-colors"
+                    className="absolute inset-y-0 right-0 pr-3 sm:pr-4 flex items-center text-white/40 hover:text-white transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
                   </button>
@@ -285,7 +285,7 @@ const Login: React.FC = () => {
                     className="overflow-hidden"
                   >
                     <div className="p-4 sm:p-6 bg-gradient-to-r from-electric-blue/10 to-neon-pink/10 border border-electric-blue/30 rounded-xl backdrop-blur-sm mb-6">
-                      <h3 className="text-lg sm:text-xl font-black text-electric-blue mb-4 text-center">
+                      <h3 className="text-lg sm:text-xl font-bold text-electric-blue mb-4 text-center">
                         RESET PASSWORD
                       </h3>
                       
@@ -321,7 +321,7 @@ const Login: React.FC = () => {
                           )}
                           
                           <div className="space-y-2">
-                            <label htmlFor="resetEmail" className="block text-xs sm:text-sm font-black text-electric-blue uppercase tracking-wider">
+                            <label htmlFor="resetEmail" className="block text-xs sm:text-sm font-bold text-electric-blue uppercase tracking-wider">
                               EMAIL ADDRESS
                             </label>
                             <div className="relative">
@@ -346,7 +346,7 @@ const Login: React.FC = () => {
                               disabled={resetLoading}
                               whileHover={{ scale: 1.02 }}
                               whileTap={{ scale: 0.98 }}
-                              className="flex-1 py-3 bg-gradient-to-r from-electric-blue to-neon-pink text-primary-black font-black text-sm rounded-xl hover:from-neon-pink hover:to-cyber-yellow transition-all duration-200 disabled:opacity-50"
+                              className="flex-1 py-3 bg-gradient-to-r from-gray-600 to-gray-700 text-primary-black font-bold text-sm rounded-xl hover:from-neon-pink hover:to-cyber-yellow transition-all duration-200 disabled:opacity-50"
                             >
                               {resetLoading ? (
                                 <div className="flex items-center justify-center space-x-2">
@@ -363,7 +363,7 @@ const Login: React.FC = () => {
                               onClick={toggleResetForm}
                               whileHover={{ scale: 1.02 }}
                               whileTap={{ scale: 0.98 }}
-                              className="px-4 py-3 border border-primary-white/20 text-primary-white/70 font-bold text-sm rounded-xl hover:border-primary-white/40 hover:text-primary-white transition-all duration-200"
+                              className="px-4 py-3 border border-white/20 text-primary-white/70 font-bold text-sm rounded-xl hover:border-white/40 hover:text-white transition-all duration-200"
                             >
                               CANCEL
                             </motion.button>
@@ -378,7 +378,7 @@ const Login: React.FC = () => {
               <div className="text-center space-y-2">
                 <button
                   onClick={toggleResetForm}
-                  className="text-primary-white/70 hover:text-electric-blue font-medium text-sm transition-colors duration-200"
+                  className="text-primary-white/70 hover:text-gray-400 font-medium text-sm transition-colors duration-200"
                 >
                   {showResetForm ? 'Back to sign in' : 'Forgot your password?'}
                 </button>
@@ -387,7 +387,7 @@ const Login: React.FC = () => {
                   Don't have an account?{' '}
                   <Link 
                     to="/auth/register" 
-                    className="text-transparent bg-clip-text bg-gradient-to-r from-electric-blue to-neon-pink font-black hover:from-neon-pink hover:to-cyber-yellow transition-all duration-200"
+                    className="text-transparent bg-clip-text bg-gradient-to-r from-gray-600 to-gray-700 font-bold hover:from-neon-pink hover:to-cyber-yellow transition-all duration-200"
                   >
                     Create one here
                   </Link>

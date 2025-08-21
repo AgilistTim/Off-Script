@@ -1,5 +1,5 @@
 import React from 'react';
-import { MessageCircle, Mail, Phone, Twitter, Linkedin, Github } from 'lucide-react';
+import { Mail, Phone, Twitter, Linkedin, Github } from 'lucide-react';
 
 const Footer: React.FC = () => {
   const scrollToSection = (sectionId: string) => {
@@ -34,7 +34,7 @@ const Footer: React.FC = () => {
                   fontFamily="Barlow Semi Condensed, sans-serif" 
                   fontSize="24" 
                   fontWeight="700"
-                  className="text-primary-black"
+                  className="text-black"
                 >
                   OFF
                 </text>
@@ -45,7 +45,7 @@ const Footer: React.FC = () => {
                   fontSize="24" 
                   fontWeight="700" 
                   fontStyle="italic"
-                  className="text-primary-black"
+                  className="text-black"
                 >
                   SCRIPT
                 </text>
@@ -57,7 +57,7 @@ const Footer: React.FC = () => {
                   y2="32" 
                   stroke="currentColor" 
                   strokeWidth="2"
-                  className="text-primary-black"
+                  className="text-black"
                 />
               </svg>
             </div>
@@ -101,7 +101,7 @@ const Footer: React.FC = () => {
             
             {/* Explore Section */}
             <div className="space-y-4">
-              <h3 className="font-bold text-primary-black">Explore</h3>
+              <h3 className="font-bold text-black">Explore</h3>
               <div className="space-y-3">
                 <button 
                   onClick={() => scrollToSection('explore')} 
@@ -126,7 +126,7 @@ const Footer: React.FC = () => {
 
             {/* Resources Section */}
             <div className="space-y-4">
-              <h3 className="font-bold text-primary-black">Resources</h3>
+              <h3 className="font-bold text-black">Resources</h3>
               <div className="space-y-3">
                 <button 
                   onClick={() => scrollToSection('hero')} 
@@ -151,7 +151,7 @@ const Footer: React.FC = () => {
 
             {/* Contact Section */}
             <div className="space-y-4 col-span-2 md:col-span-1">
-              <h3 className="font-bold text-primary-black">Contact</h3>
+              <h3 className="font-bold text-black">Contact</h3>
               <div className="space-y-3">
                 <a 
                   href="mailto:hello@offscript.com" 

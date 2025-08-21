@@ -163,7 +163,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         {/* Animated Background Elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <motion.div
-            className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-primary-mint/20 to-primary-lavender/20 rounded-full blur-3xl"
+            className="absolute top-1/4 left-1/4 w-96 h-96 bg-gradient-to-r from-teal-200/20 to-purple-100/20 rounded-full blur-3xl"
             animate={{
               x: [0, 100, 0],
               y: [0, -50, 0],
@@ -176,7 +176,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
             }}
           />
           <motion.div
-            className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-r from-primary-yellow/20 to-primary-green/20 rounded-full blur-3xl"
+            className="absolute bottom-1/4 right-1/4 w-80 h-80 bg-gradient-to-r from-yellow-200/20 to-green-200/20 rounded-full blur-3xl"
             animate={{
               x: [0, -80, 0],
               y: [0, 60, 0],
@@ -201,7 +201,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
           <div className="max-w-4xl mx-auto text-center">
             {/* Main Title */}
             <motion.h1 
-              className="text-6xl lg:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-primary-green via-primary-yellow to-primary-peach mb-6"
+              className="text-6xl lg:text-8xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-green-500 via-yellow-400 to-orange-500 mb-6"
               animate={{
                 backgroundPosition: ["0% 50%", "100% 50%", "0% 50%"]
               }}
@@ -215,7 +215,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
               VOICE CAREER
             </motion.h1>
             <motion.div
-              className="text-4xl lg:text-6xl font-black text-primary-black mb-8"
+              className="text-4xl lg:text-6xl font-bold text-black mb-8"
               animate={{
                 textShadow: [
                   "0 0 10px rgba(129, 240, 140, 0.5)",
@@ -234,7 +234,7 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
             
             {/* Subtitle */}
             <motion.p 
-              className="text-xl lg:text-2xl text-primary-green font-semibold tracking-wide mb-12"
+              className="text-xl lg:text-2xl text-green-600 font-semibold tracking-wide mb-12"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.5 }}
@@ -272,21 +272,21 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
               variants={containerVariants}
             >
               <Card   className="text-center">
-                <Brain className="w-12 h-12 text-primary-green mx-auto mb-4" />
-                <h3 className="text-lg font-bold text-primary-black mb-2">AI-Powered Analysis</h3>
-                <p className="text-sm text-primary-black/70">Real-time career insights as you speak</p>
+                <Brain className="w-12 h-12 text-green-600 mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-black mb-2">AI-Powered Analysis</h3>
+                <p className="text-sm text-black/70">Real-time career insights as you speak</p>
               </Card>
 
               <Card   className="text-center">
-                <Target className="w-12 h-12 text-primary-peach mx-auto mb-4" />
-                <h3 className="text-lg font-bold text-primary-black mb-2">Personalized Matching</h3>
-                <p className="text-sm text-primary-black/70">Career cards tailored to your interests</p>
+                <Target className="w-12 h-12 text-orange-500 mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-black mb-2">Personalized Matching</h3>
+                <p className="text-sm text-black/70">Career cards tailored to your interests</p>
               </Card>
 
               <Card   className="text-center">
-                <Sparkles className="w-12 h-12 text-primary-yellow mx-auto mb-4" />
-                <h3 className="text-lg font-bold text-primary-black mb-2">Instant Discovery</h3>
-                <p className="text-sm text-primary-black/70">Find hidden career opportunities</p>
+                <Sparkles className="w-12 h-12 text-yellow-500 mx-auto mb-4" />
+                <h3 className="text-lg font-bold text-black mb-2">Instant Discovery</h3>
+                <p className="text-sm text-black/70">Find hidden career opportunities</p>
               </Card>
             </motion.div>
           </div>
@@ -299,18 +299,18 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
         >
           <div className="flex items-center space-x-2">
             <motion.div
-              className="w-3 h-3 bg-primary-green rounded-full"
+              className="w-3 h-3 bg-green-500 rounded-full"
               animate={{ scale: [1, 1.3, 1] }}
               transition={{ duration: 2, repeat: Infinity }}
             />
-            <span className="text-primary-green font-semibold">AI READY</span>
+            <span className="text-green-600 font-semibold">AI READY</span>
           </div>
-          <div className="text-primary-black/50">•</div>
-          <div className="text-primary-lavender font-semibold">
+          <div className="text-black/50">•</div>
+          <div className="text-purple-500 font-semibold">
             {discoveredCareerCards.length} INSIGHTS GENERATED
           </div>
-          <div className="text-primary-black/50">•</div>
-          <div className="text-primary-yellow font-semibold">
+          <div className="text-black/50">•</div>
+          <div className="text-yellow-500 font-semibold">
             {currentUser ? 'AUTHENTICATED' : 'GUEST MODE'}
           </div>
         </motion.div>

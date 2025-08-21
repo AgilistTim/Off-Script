@@ -1,13 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useConversation } from '@elevenlabs/react';
 import { 
   X, 
-  Mic, 
-  MicOff, 
   Loader2, 
   Volume2,
-  VolumeX,
   MessageSquare,
   User,
   Bot,
@@ -23,21 +20,14 @@ import {
   Wrench,
   DollarSign,
   TrendingUp as TrendingUpIcon,
-  BarChart3,
-  Building2,
-  Clock,
   AlertTriangle,
   Heart,
-  Shield,
   Lightbulb,
   Star,
   CheckCircle2,
   Zap,
   Award,
-  Smile,
   Radio,
-  Save,
-  CheckCircle
 } from 'lucide-react';
 
 import { 
@@ -63,13 +53,13 @@ import {
 } from '../ui/collapsible';
 import { useAuth } from '../../context/AuthContext';
 
-import { mcpQueueService } from '../../services/mcpQueueService';
 import { progressAwareMCPService, MCPProgressUpdate } from '../../services/progressAwareMCPService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 import { guestSessionService } from '../../services/guestSessionService';
 import { careerPathwayService } from '../../services/careerPathwayService';
 import { lightweightCareerSuggestionService } from '../../services/lightweightCareerSuggestionService';
 import environmentConfig from '../../config/environment';
+import { ChatTextInput } from './ChatTextInput';
 
 
 
@@ -79,6 +69,8 @@ interface ConversationMessage {
   content: string;
   timestamp: Date;
 }
+
+type CommunicationMode = 'voice' | 'text' | null;
 
 interface EnhancedChatVoiceModalProps {
   isOpen: boolean;
@@ -106,7 +98,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [isLoading, setIsLoading] = useState(false);
-  const [savingInsights, setSavingInsights] = useState(false);
+  const [communicationMode, setCommunicationMode] = useState<CommunicationMode>(null);
   const [insightsSaved, setInsightsSaved] = useState(false);
   const [discoveredInsights, setDiscoveredInsights] = useState<{
     interests: string[];
@@ -292,11 +284,8 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
 
 
-  // Initialize conversation (only when environment config is ready)
-  const conversation = useConversation({
-    agentId: agentId || '', // Fallback to empty string when config not ready
-    // Remove firstMessage override to prevent WebSocket connection issues
-    clientTools: {
+  // Define client tools that can be used by both voice and text modes
+  const clientTools = {
       analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
         console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - Enhanced modal with progress tracking!');
         console.log('🔍 Tool parameters:', parameters);
@@ -718,7 +707,13 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           return "I'm having trouble accessing the career analysis system right now. Could you tell me more about your interests while I try again?";
         }
       },
-    },
+    };
+
+  // Initialize conversation (only when environment config is ready)
+  const conversation = useConversation({
+    agentId: agentId || '', // Fallback to empty string when config not ready
+    // Remove firstMessage override to prevent WebSocket connection issues
+    clientTools,
     onConnect: () => {
       if (conversationInitialized.current) {
         console.log('⚠️ Conversation already initialized, skipping duplicate connection');
@@ -1031,6 +1026,97 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     }
   };
 
+  // Handle text-only conversation start
+  const handleStartTextOnlyConversation = async () => {
+    if (!conversation || !conversation.startSession) {
+      console.error('❌ Conversation object not available for text-only mode');
+      return;
+    }
+
+    setIsLoading(true);
+    setConnectionStatus('connecting');
+
+    try {
+      console.log('🔧 Starting text-only conversation session...');
+      
+      // Use dedicated text-only agent instead of applying overrides
+      const textOnlyAgentId = import.meta.env.VITE_ELEVENLABS_TEXT_AGENT_ID;
+      
+      if (!textOnlyAgentId) {
+        throw new Error('Text-only agent ID not configured. Please set VITE_ELEVENLABS_TEXT_AGENT_ID in .env');
+      }
+      
+      console.log('🎭 Using dedicated text-only agent:', textOnlyAgentId);
+      
+      // Get appropriate overrides based on context (but without textOnly since agent is pre-configured)
+      let overrides: any | undefined;
+      
+      if (careerContext && careerContext.title) {
+        console.log('✅ Career context provided - using career-aware overrides');
+        
+        try {
+          // Import and check for active career session overrides
+          const { careerAwareVoiceService } = await import('../../services/careerAwareVoiceService');
+          const activeSessions = careerAwareVoiceService.getActiveSessions(currentUser?.uid || '');
+          
+          if (activeSessions.length > 0) {
+            const activeSessionId = activeSessions[0].sessionId;
+            overrides = careerAwareVoiceService.getConversationOverrides(activeSessionId);
+            console.log('🎙️ Using existing career conversation overrides');
+          }
+        } catch (error) {
+          console.warn('⚠️ Error getting career overrides:', error);
+        }
+      } else {
+        console.log('🔧 No career context - building general conversation overrides...');
+        const contextService = new UnifiedVoiceContextService();
+
+        if (!currentUser) {
+          console.log('👤 Guest user - building guest overrides');
+          overrides = await contextService.createGuestOverrides();
+        } else {
+          console.log('👤 Authenticated user - building authenticated overrides');
+          overrides = await contextService.createAuthenticatedOverrides(currentUser.uid);
+        }
+      }
+
+      console.log('🔍 DEBUG: Text-only conversation setup:', {
+        textOnlyAgentId,
+        hasOverrides: !!overrides,
+        userId: currentUser?.uid
+      });
+
+      // Start session with dedicated text-only agent (no textOnly override needed)
+      await conversation.startSession({
+        agentId: textOnlyAgentId,
+        userId: currentUser?.uid,
+        overrides: overrides
+      });
+      
+      console.log('✅ Text-only conversation started successfully with dedicated agent');
+    } catch (error) {
+      console.error('❌ Failed to start text-only conversation:', error);
+      
+      // Fallback to basic text-only session
+      try {
+        console.log('🔄 Attempting fallback text-only session...');
+        await conversation.startSession({ 
+          agentId, 
+          overrides: {
+            conversation: {
+              textOnly: true
+            }
+          }
+        });
+        console.log('✅ Fallback text-only conversation started');
+      } catch (fallbackError) {
+        console.error('❌ Fallback text-only conversation start also failed:', fallbackError);
+        setConnectionStatus('disconnected');
+        setIsLoading(false);
+      }
+    }
+  };
+
   // Handle conversation end
   const handleEndConversation = async () => {
     try {
@@ -1041,6 +1127,236 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       console.error('❌ Failed to end enhanced chat conversation:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // Send text message function
+  const sendTextMessage = async (messageText: string) => {
+    if (!messageText.trim()) {
+      console.warn('Cannot send message: empty text');
+      return;
+    }
+    
+    // In text mode, we don't need a voice connection
+    if (communicationMode === 'voice' && !isConnected) {
+      console.warn('Cannot send message: voice mode requires connection');
+      return;
+    }
+
+    try {
+      console.log('📤 Sending text message via enhanced modal:', messageText);
+      
+      // Add user message to conversation history immediately for responsive UI
+      const newMessage: ConversationMessage = {
+        role: 'user',
+        content: messageText.trim(),
+        timestamp: new Date()
+      };
+      
+      setConversationHistory(prev => {
+        const updated = [...prev, newMessage];
+        conversationHistoryRef.current = updated; // Keep ref in sync
+        console.log(`📝 Text message added to history. Total messages: ${updated.length}`);
+        
+        // Save message to guest session for migration
+        if (!currentUser) {
+          try {
+            guestSessionService.addConversationMessage(newMessage.role, newMessage.content);
+            const guestSession = guestSessionService.getGuestSession();
+            console.log('💾 [GUEST FLOW] Saved text message to guest session for migration:', {
+              messageRole: newMessage.role,
+              messagePreview: newMessage.content.substring(0, 50) + '...',
+              totalMessages: guestSession.conversationHistory.length,
+              sessionId: guestSession.sessionId
+            });
+          } catch (error) {
+            console.error('❌ [GUEST FLOW] Failed to save text message to guest session:', error);
+          }
+        }
+        
+        return updated;
+      });
+      
+      // Handle text-only mode using dedicated ElevenLabs text-only agent
+      if (communicationMode === 'text') {
+        console.log('📱 Text-only mode: Using dedicated ElevenLabs text-only agent');
+        
+        // Start text-only conversation session if not already connected
+        if (conversation && connectionStatus !== 'connected') {
+          try {
+            console.log('🔧 Starting text-only conversation session...');
+            await handleStartTextOnlyConversation();
+          } catch (error) {
+            console.error('❌ Failed to start text-only conversation session:', error);
+          }
+        }
+        
+        // Send message using ElevenLabs conversation hook (text-only mode)
+        if (conversation && conversation.sendUserMessage && connectionStatus === 'connected') {
+          try {
+            console.log('📤 Sending message via ElevenLabs text-only conversation:', messageText);
+            await conversation.sendUserMessage(messageText);
+            console.log('✅ Text message sent successfully via ElevenLabs text-only mode');
+          } catch (error) {
+            console.error('❌ Failed to send text message via ElevenLabs:', error);
+            
+            // Fallback: Add a basic response
+            const fallbackMessage: ConversationMessage = {
+              role: 'assistant',
+              content: "I'm here to help you explore your career options. Could you tell me more about your interests?",
+              timestamp: new Date()
+            };
+            
+            setConversationHistory(prev => [...prev, fallbackMessage]);
+          }
+        } else {
+          console.warn('⚠️ Text-only conversation not ready. Status:', {
+            hasConversation: !!conversation,
+            hasSendUserMessage: !!(conversation && conversation.sendUserMessage),
+            connectionStatus,
+            isConnected
+          });
+          
+          // Fallback: Add a basic response  
+          const fallbackMessage: ConversationMessage = {
+            role: 'assistant',
+            content: "Let me help you discover career opportunities. What interests you most about your future career?",
+            timestamp: new Date()
+          };
+            
+          setConversationHistory(prev => {
+            const updated = [...prev, fallbackMessage];
+            conversationHistoryRef.current = updated;
+            
+            // Save AI message to guest session
+            if (!currentUser) {
+              try {
+                guestSessionService.addConversationMessage(fallbackMessage.role, fallbackMessage.content);
+              } catch (error) {
+                console.error('❌ Failed to save AI message to guest session:', error);
+              }
+            }
+            
+            return updated;
+          });
+        }
+      } else {
+        // Voice mode - just log that message was added
+        console.log('✅ Text message added to conversation history via enhanced modal - voice agent will see and respond');
+      }
+    } catch (error) {
+      console.error('❌ Failed to send text message via enhanced modal:', error);
+    }
+  };
+
+  // Check if analysis should be triggered (replicates ElevenLabs agent logic)
+  const checkIfAnalysisShouldBeTriggered = (messages: ConversationMessage[], latestMessage: string): boolean => {
+    const validMessages = messages.filter(msg => 
+      msg.content && 
+      msg.content.trim().length > 0 && 
+      !msg.content.includes('Connected to enhanced chat voice assistant')
+    );
+    
+    // Need at least 4 messages for meaningful analysis
+    if (validMessages.length < 4) return false;
+    
+    // Check for career-related keywords in the conversation
+    const conversationText = validMessages.map(m => m.content).join(' ').toLowerCase();
+    const latestText = latestMessage.toLowerCase();
+    
+    const careerKeywords = [
+      'career', 'job', 'work', 'profession', 'industry', 'field',
+      'skills', 'experience', 'goals', 'interests', 'passion',
+      'salary', 'growth', 'opportunities', 'future', 'path',
+      'education', 'training', 'qualifications', 'degree'
+    ];
+    
+    const keywordMatches = careerKeywords.filter(keyword => 
+      conversationText.includes(keyword) || latestText.includes(keyword)
+    ).length;
+    
+    // Trigger analysis if we have career context and sufficient conversation
+    const shouldTrigger = keywordMatches >= 3 && validMessages.length >= 4;
+    
+    console.log('🤖 Analysis trigger check:', {
+      validMessages: validMessages.length,
+      keywordMatches,
+      shouldTrigger,
+      sample: conversationText.substring(0, 100) + '...'
+    });
+    
+    return shouldTrigger;
+  };
+
+  // Generate immediate AI response for text-only mode
+  const generateImmediateResponse = (userMessage: string, messageCount: number): string => {
+    const lowerMessage = userMessage.toLowerCase();
+    
+    // First message responses
+    if (messageCount <= 1) {
+      const firstResponses = [
+        "Hello! I'm your AI career advisor. I'm here to help you explore career paths that align with your interests, skills, and goals. What would you like to know about your career options?",
+        "Hi there! Thanks for reaching out. I specialize in helping people discover career paths that suit them. What's on your mind about your career journey?",
+        "Welcome! I'm excited to help you explore your career possibilities. Whether you're just starting out or looking for a change, I can provide personalized guidance. What career topics interest you most?",
+        "Great to meet you! I'm here to provide personalized career guidance based on your unique interests and goals. What would you like to discuss about your career path?"
+      ];
+      
+      if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
+        return firstResponses[Math.floor(Math.random() * firstResponses.length)];
+      }
+    }
+    
+    // Interest/passion responses
+    if (lowerMessage.includes('interest') || lowerMessage.includes('passionate') || lowerMessage.includes('love') || lowerMessage.includes('enjoy')) {
+      return "That's wonderful! Your interests and passions are key to finding a fulfilling career. I'm analyzing what you've shared to identify careers that align with what energizes you. Tell me more about what specifically excites you about this area.";
+    }
+    
+    // Skills responses
+    if (lowerMessage.includes('skill') || lowerMessage.includes('good at') || lowerMessage.includes('talent')) {
+      return "Excellent! Understanding your skills is crucial for career planning. I'm processing your strengths to match them with suitable career paths. What other skills do you feel confident about, or what skills would you like to develop?";
+    }
+    
+    // Goals/ambition responses  
+    if (lowerMessage.includes('goal') || lowerMessage.includes('want to') || lowerMessage.includes('hope to') || lowerMessage.includes('dream')) {
+      return "Your goals and aspirations are important guides for your career journey. I'm analyzing how your ambitions can translate into specific career opportunities. What timeline are you thinking about for achieving these goals?";
+    }
+    
+    // Work environment responses
+    if (lowerMessage.includes('environment') || lowerMessage.includes('workplace') || lowerMessage.includes('team') || lowerMessage.includes('remote') || lowerMessage.includes('office')) {
+      return "Work environment preferences are really important for job satisfaction! I'm taking note of your preferences to suggest careers that offer the kind of workplace culture you're looking for. What other aspects of a work environment matter to you?";
+    }
+    
+    // Default encouraging responses
+    const defaultResponses = [
+      "I can see you're thinking about your career path - that's great! I'm analyzing what you've shared to identify opportunities that might be a good fit. What other aspects of your career are you curious about?",
+      "Thanks for sharing that with me. Every detail helps me understand what kind of career environment would suit you best. I'm working on finding some personalized recommendations. What else would you like to explore?",
+      "That's valuable information! I'm processing your preferences to find career matches that align with your interests and goals. Is there anything specific about your ideal career that you'd like to discuss?",
+      "I appreciate you sharing your thoughts. This helps me build a better picture of what you're looking for in a career. I'm analyzing this to provide you with tailored suggestions. What questions do you have about different career paths?"
+    ];
+    
+    return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
+  };
+
+  // Handle mode selection
+  const handleModeSelection = (mode: CommunicationMode) => {
+    console.log(`🎯 Communication mode selected: ${mode}`);
+    setCommunicationMode(mode);
+    
+    if (mode === 'voice') {
+      // Start voice conversation automatically
+      handleStartConversation();
+    }
+    // Text mode doesn't need connection setup
+  };
+
+  // Reset mode selection
+  const handleResetMode = () => {
+    console.log('🔄 Resetting communication mode');
+    setCommunicationMode(null);
+    
+    // End voice session if active
+    if (isConnected || connectionStatus === 'connecting') {
+      handleEndConversation();
     }
   };
 
@@ -1078,21 +1394,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
   const agentInfo = getAgentInfo();
 
-  // Handle saving insights to profile
-  const handleSaveInsights = async () => {
-    setSavingInsights(true);
-    try {
-      // Here you would typically save to Firebase/backend
-      // For now, we'll just simulate the save
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setInsightsSaved(true);
-      console.log('✅ Insights saved to profile:', discoveredInsights);
-    } catch (error) {
-      console.error('❌ Failed to save insights:', error);
-    } finally {
-      setSavingInsights(false);
-    }
-  };
 
   // Format salary display
   const formatSalary = (salary: string | number | undefined): string => {
@@ -1418,7 +1719,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                 <Card className="bg-gray-50 border-2 border-black h-full flex flex-col overflow-hidden min-h-[200px]">
                   <CardHeader className="pb-3 flex-shrink-0">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg font-black text-black">
+                      <CardTitle className="text-lg font-bold text-black">
                         CAREER INSIGHTS
                       </CardTitle>
                       {careerCards.length > 0 && (
@@ -1899,49 +2200,92 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
           {/* Fixed Footer */}
           <div className="flex-shrink-0 border-t-2 border-gray-200 p-4">
-            <div className="bg-gray-50 rounded-xl p-4 border-2 border-black">
-              <div className="flex flex-col space-y-3 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
-                <div className="flex items-center justify-center lg:justify-start">
-                  {!isConnected ? (
+            <div className="bg-gray-50 rounded-xl p-4 border-2 border-black space-y-4">
+              
+              {/* Mode Selection - Show when no mode selected */}
+              {!communicationMode && (
+                <div className="text-center space-y-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-black mb-2">Choose Communication Mode</h3>
+                    <p className="text-sm text-gray-600">Select how you'd like to interact with your career assistant</p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <Button
-                      onClick={handleStartConversation}
-                      disabled={connectionStatus === 'connecting' || !apiKey}
-                      aria-label="Start voice chat"
-                      className="bg-template-primary text-white font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-template-primary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black"
+                      onClick={() => handleModeSelection('voice')}
+                      disabled={!apiKey}
+                      className="bg-template-primary text-white font-bold px-6 py-3 rounded-xl hover:scale-105 transition-transform duration-200 min-h-[48px] focus:outline-none focus:ring-2 focus:ring-template-primary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black"
                     >
-                      {connectionStatus === 'connecting' ? (
-                        <>
-                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                          Connecting...
-                        </>
-                      ) : (
-                        <>
-                          <PhoneCall className="w-5 h-5 mr-2" />
-                          Start Voice Chat
-                        </>
-                      )}
+                      <PhoneCall className="w-5 h-5 mr-2" />
+                      Voice Chat
                     </Button>
-                  ) : (
                     <Button
-                      onClick={handleEndConversation}
-                      disabled={isLoading}
-                      aria-label="End voice call"
-                      className="bg-template-secondary text-black font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-template-secondary border-2 border-black"
+                      onClick={() => handleModeSelection('text')}
+                      className="bg-template-secondary text-black font-bold px-6 py-3 rounded-xl hover:scale-105 transition-transform duration-200 min-h-[48px] focus:outline-none focus:ring-2 focus:ring-template-secondary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black"
                     >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                          Ending...
-                        </>
-                      ) : (
-                        <>
-                          <PhoneOff className="w-5 h-5 mr-2" />
-                          End Call
-                        </>
-                      )}
+                      <MessageSquare className="w-5 h-5 mr-2" />
+                      Text Chat
                     </Button>
+                  </div>
+                  {!apiKey && (
+                    <p className="text-xs text-gray-600">
+                      Voice chat requires ElevenLabs configuration. Text chat is always available.
+                    </p>
                   )}
                 </div>
+              )}
+
+              {/* Voice Mode Controls */}
+              {communicationMode === 'voice' && (
+                <div className="flex flex-col space-y-3 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
+                  <div className="flex items-center justify-center lg:justify-start space-x-3">
+                    {!isConnected ? (
+                      <Button
+                        onClick={handleStartConversation}
+                        disabled={connectionStatus === 'connecting' || !apiKey}
+                        aria-label="Start voice chat"
+                        className="bg-template-primary text-white font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-template-primary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black"
+                      >
+                        {connectionStatus === 'connecting' ? (
+                          <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Connecting...
+                          </>
+                        ) : (
+                          <>
+                            <PhoneCall className="w-5 h-5 mr-2" />
+                            Start Voice Chat
+                          </>
+                        )}
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleEndConversation}
+                        disabled={isLoading}
+                        aria-label="End voice call"
+                        className="bg-template-secondary text-black font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-template-secondary border-2 border-black"
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Ending...
+                          </>
+                        ) : (
+                          <>
+                            <PhoneOff className="w-5 h-5 mr-2" />
+                            End Call
+                          </>
+                        )}
+                      </Button>
+                    )}
+                    <Button
+                      onClick={handleResetMode}
+                      variant="outline"
+                      size="sm"
+                      className="border-black text-black hover:bg-gray-100"
+                    >
+                      Switch Mode
+                    </Button>
+                  </div>
 
                 <div className="flex items-center space-x-2">
                   {isConnected && (
@@ -1972,6 +2316,63 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   )}
                 </div>
               </div>
+              )}
+
+              {/* Text Mode Controls */}
+              {communicationMode === 'text' && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2 text-sm text-black">
+                      <MessageSquare className="w-4 h-4" />
+                      <span className="font-medium">Text Chat Mode</span>
+                    </div>
+                    <Button
+                      onClick={handleResetMode}
+                      variant="outline"
+                      size="sm"
+                      className="border-black text-black hover:bg-gray-100"
+                    >
+                      Switch Mode
+                    </Button>
+                  </div>
+                  
+                  <ChatTextInput
+                    onSendMessage={sendTextMessage}
+                    disabled={false}
+                    placeholder="Type your message..."
+                    className="w-full"
+                    isLoading={isLoading}
+                  />
+                  
+                  <div className="text-center">
+                    <p className="text-xs text-gray-600">
+                      💬 Text-only conversation - no voice connection needed
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Voice + Text Input for Voice Mode */}
+              {communicationMode === 'voice' && (connectionStatus === 'connected' || connectionStatus === 'disconnected') && (
+                <div className="w-full">
+                  <ChatTextInput
+                    onSendMessage={sendTextMessage}
+                    disabled={!isConnected}
+                    placeholder={isConnected ? "Type a message or use voice..." : "Start voice chat to enable messaging"}
+                    className="w-full"
+                    isLoading={isLoading}
+                  />
+                </div>
+              )}
+
+              {/* Helper Text for Voice Mode */}
+              {communicationMode === 'voice' && isConnected && (
+                <div className="text-center">
+                  <p className="text-xs text-gray-600">
+                    🎙️ Voice chat active - speak or type your messages
+                  </p>
+                </div>
+              )}
             </div>
           </div>
       </DialogContent>

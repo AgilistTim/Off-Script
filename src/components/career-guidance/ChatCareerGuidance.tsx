@@ -6,13 +6,10 @@ import { Badge } from '../ui/badge';
 import { 
   ExternalLink,
   Target,
-  GraduationCap,
   Heart,
-  ArrowRight,
   Clock,
   DollarSign,
-  MapPin,
-  Users
+  MapPin
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 

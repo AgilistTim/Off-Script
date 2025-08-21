@@ -1011,6 +1011,7 @@ ${contextPrompt}
 
   /**
    * Build basic discovery context for guest users
+   * FIXED: No longer injects fake career interests from previous sessions
    */
   private async buildGuestContext(): Promise<string> {
     // Check if guest has a captured name
@@ -1023,12 +1024,7 @@ ${contextPrompt}
     const engagementMetrics = guestSessionService.getEngagementMetrics();
     const guestSession = guestSessionService.getGuestSession();
     
-    // Get guest career cards for context
-    const guestSessionId = guestSessionService.getSessionId();
-    const careerCards = await this.getCareerCardsForContext(guestSessionId, true);
-    const careerCardContext = this.formatCareerCardsForElevenLabsContext(careerCards, guestName || undefined);
-    
-    let contextPrompt = `USER CONTEXT: Guest User
+    let contextPrompt = `USER CONTEXT: Guest User (Fresh Start)
 ${nameContext}
 - Conversation messages: ${engagementMetrics.messageCount}
 - Career cards generated: ${engagementMetrics.careerCardsGenerated}
@@ -1039,18 +1035,15 @@ ${nameContext}
 CONVERSATION GOALS (ENHANCED FOR CONVERSION):
 - PRIORITY: Generate at least 1 career card within first 3-4 exchanges
 - Help them identify interests, skills, and career aspirations quickly
-- Use extract_and_update_profile tool early to capture name and insights
+- Use update_person_profile tool early to capture name and insights
 - AGGRESSIVELY use analyze_conversation_for_careers when ANY interests mentioned
 - Use trigger_instant_insights for immediate engagement and value
 - Build trust through immediate valuable insights and career recommendations
 - Show clear value to encourage account creation
 
-PERSONA: Warm, encouraging career guide who helps young adults discover their potential`;
+CRITICAL: Do NOT assume any interests, skills, or career preferences until the user explicitly mentions them. Start with a clean slate and discover their interests through conversation.
 
-    // Add career card context if available
-    if (careerCardContext) {
-      contextPrompt += `\n\n${careerCardContext}`;
-    }
+PERSONA: Warm, encouraging career guide who helps young adults discover their potential`;
 
     return contextPrompt;
   }

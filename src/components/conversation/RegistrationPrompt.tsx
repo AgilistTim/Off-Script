@@ -56,7 +56,7 @@ export const RegistrationPrompt: React.FC<RegistrationPromptProps> = ({
             </motion.div>
             <div>
               <motion.h3 
-                className="text-3xl font-street font-black text-black mb-2"
+                className="text-3xl font-street font-extrabold text-black mb-2"
               >
                 UNLOCK CAREER MODE
               </motion.h3>
@@ -138,7 +138,7 @@ export const RegistrationPrompt: React.FC<RegistrationPromptProps> = ({
           <div className="flex flex-col sm:flex-row gap-4">
             <motion.button
               onClick={onRegister}
-              className="flex-1 bg-black hover:bg-gray-800 text-white font-street font-black text-lg py-4 px-8 rounded-2xl transition-all duration-300 flex items-center justify-center space-x-3 shadow-lg"
+              className="flex-1 bg-black hover:bg-gray-800 text-white font-street font-bold text-lg py-4 px-8 rounded-2xl transition-all duration-300 flex items-center justify-center space-x-3 shadow-lg"
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >

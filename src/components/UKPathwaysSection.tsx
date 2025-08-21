@@ -89,31 +89,31 @@ const UKPathwaysSection: React.FC = () => {
   const getColorClasses = (color: string) => {
     const colors = {
       blue: {
-        bg: "bg-gradient-to-br from-primary-mint/30 to-primary-lavender/20",
-        border: "border-primary-green/30",
-        text: "text-primary-black",
-        icon: "text-primary-green",
-        hover: "hover:bg-gradient-to-br hover:from-primary-mint/40 hover:to-primary-lavender/30",
-        gradient: "from-primary-green to-primary-yellow",
-        tagline: "bg-primary-green/20 text-primary-black"
+        bg: "bg-gradient-to-br from-teal-200/30 to-purple-100/20",
+        border: "border-green-300/30",
+        text: "text-black",
+        icon: "text-green-600",
+        hover: "hover:bg-gradient-to-br hover:from-teal-200/40 hover:to-purple-100/30",
+        gradient: "from-green-500 to-yellow-400",
+        tagline: "bg-green-200/20 text-black"
       },
       purple: {
-        bg: "bg-gradient-to-br from-primary-peach/30 to-primary-lavender/20",
-        border: "border-primary-peach/30",
-        text: "text-primary-black",
-        icon: "text-primary-peach",
-        hover: "hover:bg-gradient-to-br hover:from-primary-peach/40 hover:to-primary-lavender/30",
-        gradient: "from-primary-peach to-primary-yellow",
-        tagline: "bg-primary-peach/20 text-primary-black"
+        bg: "bg-gradient-to-br from-orange-200/30 to-purple-100/20",
+        border: "border-orange-300/30",
+        text: "text-black",
+        icon: "text-orange-500",
+        hover: "hover:bg-gradient-to-br hover:from-orange-200/40 hover:to-purple-100/30",
+        gradient: "from-orange-500 to-yellow-400",
+        tagline: "bg-orange-200/20 text-black"
       },
       indigo: {
-        bg: "bg-gradient-to-br from-primary-lavender/30 to-primary-mint/20",
-        border: "border-primary-lavender/30",
-        text: "text-primary-black",
-        icon: "text-primary-lavender",
-        hover: "hover:bg-gradient-to-br hover:from-primary-lavender/40 hover:to-primary-mint/30",
-        gradient: "from-primary-lavender to-primary-mint",
-        tagline: "bg-primary-lavender/20 text-primary-black"
+        bg: "bg-gradient-to-br from-purple-200/30 to-teal-100/20",
+        border: "border-purple-300/30",
+        text: "text-black",
+        icon: "text-purple-500",
+        hover: "hover:bg-gradient-to-br hover:from-purple-200/40 hover:to-teal-100/30",
+        gradient: "from-purple-500 to-teal-400",
+        tagline: "bg-purple-200/20 text-black"
       }
     };
     return colors[color as keyof typeof colors] || colors.blue;
@@ -133,7 +133,7 @@ const UKPathwaysSection: React.FC = () => {
 
   return (
     <>
-      <section className="py-20 bg-gradient-to-br from-primary-white via-primary-mint/40 to-primary-lavender/40 text-primary-black relative overflow-hidden" id="career-journey">
+      <section className="py-20 bg-gradient-to-br from-white via-teal-100/40 to-purple-100/40 text-black relative overflow-hidden" id="career-journey">
         {/* Background Effects */}
         <div className="absolute inset-0">
           <motion.div
@@ -142,7 +142,7 @@ const UKPathwaysSection: React.FC = () => {
               rotate: [0, 90, 180, 270, 360]
             }}
             transition={{ duration: 30, repeat: Infinity, ease: "linear" }}
-           className="absolute top-20 left-20 w-96 h-96 bg-primary-mint/20 rounded-full blur-3xl"
+           className="absolute top-20 left-20 w-96 h-96 bg-teal-200/20 rounded-full blur-3xl"
           />
           <motion.div
             animate={{
@@ -150,7 +150,7 @@ const UKPathwaysSection: React.FC = () => {
               rotate: [360, 270, 180, 90, 0]
             }}
             transition={{ duration: 25, repeat: Infinity, ease: "linear" }}
-           className="absolute bottom-20 right-20 w-80 h-80 bg-primary-peach/20 rounded-full blur-3xl"
+           className="absolute bottom-20 right-20 w-80 h-80 bg-orange-200/20 rounded-full blur-3xl"
           />
         </div>
 
@@ -168,10 +168,10 @@ const UKPathwaysSection: React.FC = () => {
               whileInView={{ scale: 1, opacity: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.2 }}
-               className="inline-flex items-center space-x-3 bg-primary-green/20 backdrop-blur-sm px-6 py-3 rounded-full border border-primary-green/30 mb-8"
+               className="inline-flex items-center space-x-3 bg-green-200/20 backdrop-blur-sm px-6 py-3 rounded-full border border-green-300/30 mb-8"
             >
-              <Crown className="h-5 w-5 text-primary-green" />
-               <span className="text-primary-black font-semibold text-sm">
+              <Crown className="h-5 w-5 text-green-600" />
+               <span className="text-black font-semibold text-sm">
                 Why Choose OffScript?
               </span>
             </motion.div>
@@ -185,10 +185,10 @@ const UKPathwaysSection: React.FC = () => {
               whileInView="visible"
               viewport={{ once: true }}
               transition={{ duration: 0.8, delay: 0.3 }}
-               className="font-bold text-4xl sm:text-5xl lg:text-6xl text-primary-black mb-6 leading-tight"
+               className="font-bold text-4xl sm:text-5xl lg:text-6xl text-black mb-6 leading-tight"
             >
               Self-Made
-              <span className="block text-transparent bg-gradient-to-r from-primary-green via-primary-yellow to-primary-peach bg-clip-text">
+              <span className="block text-transparent bg-gradient-to-r from-green-500 via-yellow-400 to-orange-500 bg-clip-text">
                 Futures
               </span>
             </motion.h2>
@@ -198,10 +198,10 @@ const UKPathwaysSection: React.FC = () => {
               whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, delay: 0.5 }}
-               className="text-xl text-primary-black/80 max-w-3xl mx-auto leading-relaxed"
+               className="text-xl text-black/80 max-w-3xl mx-auto leading-relaxed"
             >
               Explore proven UK pathways that help you land meaningful careers without university debt. 
-              <strong className="text-primary-green"> Let AI understand your goals and guide you to the right path.</strong>
+              <strong className="text-green-600"> Let AI understand your goals and guide you to the right path.</strong>
             </motion.p>
           </motion.div>
 
@@ -245,7 +245,7 @@ const UKPathwaysSection: React.FC = () => {
                         <motion.div
                           whileHover={{ rotate: 12, scale: 1.1 }}
                           transition={{ duration: 0.3 }}
-                          className="w-16 h-16 bg-primary-white/80 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-sm"
+                          className="w-16 h-16 bg-white/80 backdrop-blur-sm rounded-2xl flex items-center justify-center shadow-sm"
                         >
                           <IconComponent className={`h-8 w-8 ${colors.icon}`} />
                         </motion.div>
@@ -255,30 +255,30 @@ const UKPathwaysSection: React.FC = () => {
                           transition={{ duration: 0.3 }}
                           className="opacity-60 group-hover:opacity-100 transition-opacity duration-300"
                         >
-                          <ArrowRight className="h-6 w-6 text-primary-black/40" />
+                          <ArrowRight className="h-6 w-6 text-black/40" />
                         </motion.div>
                       </div>
 
-                      <CardTitle className="text-2xl lg:text-3xl text-primary-black leading-tight mb-2">
+                      <CardTitle className="text-2xl lg:text-3xl text-black leading-tight mb-2">
                         {card.title}
                       </CardTitle>
-                      <div className="font-semibold text-lg text-primary-green uppercase tracking-wide">
+                      <div className="font-semibold text-lg text-green-600 uppercase tracking-wide">
                         {card.subtitle}
                       </div>
                     </CardHeader>
 
                     <CardContent className="flex-1">
-                      <p className="text-primary-black/80 text-lg font-medium leading-relaxed mb-4">
+                      <p className="text-black/80 text-lg font-medium leading-relaxed mb-4">
                         {card.message}
                       </p>
                       
-                      <div className="flex items-center space-x-2 text-primary-black/60">
+                      <div className="flex items-center space-x-2 text-black/60">
                         <Star className="h-4 w-4" />
                         <span className="text-sm font-medium">{card.tagline}</span>
                       </div>
                     </CardContent>
 
-                    <CardFooter className="pt-4 border-t border-primary-black/10">
+                    <CardFooter className="pt-4 border-t border-black/10">
                       <div className="flex items-center justify-center w-full">
                         <Button
                           variant="primary"
@@ -325,7 +325,7 @@ const UKPathwaysSection: React.FC = () => {
                   contextId: 'general',
                 })
               }
-              className="bg-gradient-to-r from-primary-green to-primary-yellow hover:from-primary-yellow hover:to-primary-green text-primary-black font-semibold text-xl px-16 py-6 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl group border-0"
+              className="bg-gradient-to-r from-green-500 to-yellow-400 hover:from-yellow-400 hover:to-green-500 text-black font-semibold text-xl px-16 py-6 rounded-full transition-all duration-300 shadow-lg hover:shadow-xl group border-0"
             >
               <span className="flex items-center space-x-4">
                 <Rocket className="h-6 w-6 group-hover:animate-pulse" />

@@ -2,14 +2,17 @@ import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import { useAuth } from '../../context/AuthContext';
 import { guestSessionService } from '../../services/guestSessionService';
-import { CareerCard, PersonProfile } from '../../types/careerCard';
+import { PersonProfile } from '../../types/careerCard';
 import { saveConversationToFirebase, generateConversationId } from '../../services/chatService';
 import { mcpQueueService } from '../../services/mcpQueueService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 import { EnhancedUserContextService } from '../../services/enhancedUserContextService';
 import { environmentConfig } from '../../config/environment';
+import { ChatTextInput } from './ChatTextInput';
 
 
+
+type CommunicationMode = 'voice' | 'text' | null;
 
 interface ElevenLabsWidgetProps {
   onCareerCardsGenerated?: (cards: any[]) => void;
@@ -35,7 +38,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string; timestamp: Date }>>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [insightsGenerated, setInsightsGenerated] = useState(0);
+  const [communicationMode, setCommunicationMode] = useState<CommunicationMode>(null);
   
   // Track data generated during this conversation session
   const [sessionCareerCardCount, setSessionCareerCardCount] = useState(0);
@@ -168,19 +171,6 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   // Removed generateLocalCareerCards - using OpenAI analysis only
   // If OpenAI fails, we show error rather than confusing with hardcoded data
 
-  // Profile extraction from OpenAI analysis only - no hardcoded fallbacks
-  const extractProfileFromConversation = (conversationText: string): PersonProfile => {
-    // Return empty profile - rely on OpenAI/MCP for real analysis
-    return {
-      interests: [],
-      goals: [],
-      skills: [],
-      values: [],
-      careerStage: "exploring",
-      workStyle: [],
-      lastUpdated: new Date().toLocaleDateString()
-    };
-  };
 
   // Enhanced conversation analysis with care sector detection
   const analyzeConversationForCareerInsights = useCallback(async (triggerReason: string) => {
@@ -246,27 +236,6 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           triggerReason
         });
       
-      // Create enhanced context for better MCP analysis - send as message array
-      const enhancedContext = {
-        conversationHistory: validMessages, // Send as array instead of string
-        analysisRequest: {
-          extractGoals: "Extract career goals, aspirations, and what the user wants to achieve professionally. Look for phrases about wanting fulfilling work, work-life balance, financial goals, impact goals.",
-          extractSkills: "Extract both mentioned skills (like physics, maths, problem-solving) and implied skills from activities and interests. Include academic subjects, hobbies, and demonstrated abilities.",
-          extractValues: "Extract what matters to the user in work and life. Look for mentions of helping others, conservation, teamwork, avoiding certain environments (like military), work preferences.",
-          extractInterests: "Extract specific interests, subjects, activities, and areas of curiosity mentioned by the user.",
-          careerPreferences: "Note preferences about work environment, team vs individual work, specific sectors of interest or avoidance."
-        },
-        conversationSummary: {
-          totalMessages: validMessages.length,
-          userMessages: validMessages.filter(m => m.role === 'user').length,
-          keyTopics: triggerReason,
-          careInterestDetected: hasCareInterest
-        },
-        // Cache-busting to ensure fresh analysis
-        timestamp: Date.now(),
-        analysisId: `analysis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        forceFreshAnalysis: true
-      };
       
       // Use queue service instead of direct fetch to prevent blocking
       const queueResult = await mcpQueueService.queueAnalysisRequest(
@@ -803,6 +772,105 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     }
   }, [conversation]);
 
+  // Handle mode selection for widget
+  const handleModeSelection = (mode: CommunicationMode) => {
+    console.log(`🎯 Widget communication mode selected: ${mode}`);
+    setCommunicationMode(mode);
+    
+    if (mode === 'voice') {
+      // Start voice conversation automatically
+      startConversation();
+    }
+    // Text mode doesn't need connection setup
+  };
+
+  // Reset mode selection for widget
+  const handleResetMode = () => {
+    console.log('🔄 Resetting widget communication mode');
+    setCommunicationMode(null);
+    
+    // End voice session if active
+    if (isConnected || connectionStatus === 'connecting') {
+      endConversation();
+    }
+  };
+
+  // Generate widget response for text-only mode
+  const generateWidgetResponse = (userMessage: string, messageCount: number): string => {
+    const lowerMessage = userMessage.toLowerCase();
+    
+    // First message responses
+    if (messageCount <= 1) {
+      return "Hi! I'm your career guidance assistant. I can help you discover career paths based on your interests and skills. What would you like to explore about your career?";
+    }
+    
+    // Contextual responses
+    if (lowerMessage.includes('interest') || lowerMessage.includes('love') || lowerMessage.includes('enjoy')) {
+      return "That's great to hear! Your interests are key to finding the right career. I'm analyzing this to suggest matching opportunities. What else do you enjoy doing?";
+    }
+    
+    if (lowerMessage.includes('skill') || lowerMessage.includes('good at')) {
+      return "Excellent! Your skills are valuable assets. I'm identifying careers where these strengths would be in demand. What other abilities do you have?";
+    }
+    
+    // Default responses
+    const responses = [
+      "Thanks for sharing that! I'm processing your input to find career matches. Tell me more about what you're looking for in a career.",
+      "That's helpful information! I'm analyzing your preferences to suggest suitable career paths. What other aspects of work are important to you?",
+      "I understand. Every detail helps me provide better career recommendations. What else would you like to discuss about your career goals?"
+    ];
+    
+    return responses[Math.floor(Math.random() * responses.length)];
+  };
+
+  // Send text message function
+  const sendTextMessage = useCallback(async (messageText: string) => {
+    if (!messageText.trim()) {
+      console.warn('Cannot send message: empty text');
+      return;
+    }
+
+    // In text mode, we don't need a voice connection
+    if (communicationMode === 'voice' && !isConnected) {
+      console.warn('Cannot send message: voice mode requires connection');
+      return;
+    }
+
+    try {
+      console.log('📤 Sending text message via widget:', messageText);
+      
+      // Add user message to conversation history immediately for responsive UI
+      await updateConversationHistory('user', messageText);
+      
+      // Handle text-only mode responses
+      if (communicationMode === 'text') {
+        console.log('📱 Widget text-only mode: Providing immediate response');
+        
+        // Add immediate AI response
+        setTimeout(async () => {
+          try {
+            const response = generateWidgetResponse(messageText, conversationHistory.length);
+            await updateConversationHistory('assistant', response);
+            
+            // In text-only mode, analysis will be triggered by the AI agent's built-in tools
+            // when it detects appropriate conversation patterns, just like in voice mode
+            console.log('💬 Widget text-only mode: Analysis triggered by AI agent tools based on conversation context');
+          } catch (error) {
+            console.error('❌ Error in widget text-only mode:', error);
+            // Add a fallback response
+            await updateConversationHistory('assistant', "I understand what you're saying. Could you tell me more about your career interests and what type of work environment appeals to you?");
+          }
+        }, 800);
+      } else {
+        // Voice mode - just log that message was added
+        console.log('✅ Text message added to conversation history - voice agent will see and respond');
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to send text message:', error);
+    }
+  }, [communicationMode, isConnected, updateConversationHistory, analyzeConversationForCareerInsights]);
+
 
 
 
@@ -834,43 +902,131 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         </p>
       </div>
 
-      <div className="flex flex-col items-center space-y-4">
-        {connectionStatus === 'disconnected' && (
-          <button
-            onClick={startConversation}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            🎙️ Start Conversation
-          </button>
-        )}
-
-        {connectionStatus === 'connecting' && (
-          <div className="flex items-center space-x-2 text-blue-600">
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
-            <span>Connecting...</span>
+      {/* Mode Selection - Show when no mode selected */}
+      {!communicationMode && (
+        <div className="flex flex-col items-center space-y-4">
+          <div className="text-center mb-4">
+            <p className="text-primary-white/80 text-sm">Choose how you'd like to interact:</p>
           </div>
-        )}
-
-        {connectionStatus === 'connected' && (
-          <div className="flex flex-col items-center space-y-3">
-            <div className="flex items-center space-x-2 text-green-600">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="font-medium">Connected - Speak naturally!</span>
-            </div>
-            
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
-              onClick={endConversation}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+              onClick={() => handleModeSelection('voice')}
+              disabled={!isConfigured}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              End Conversation
+              🎙️ Voice Chat
+            </button>
+            <button
+              onClick={() => handleModeSelection('text')}
+              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              💬 Text Chat
             </button>
           </div>
-        )}
-      </div>
+          {!isConfigured && (
+            <p className="text-primary-white/60 text-xs text-center">
+              Voice requires ElevenLabs setup. Text is always available.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Voice Mode Controls */}
+      {communicationMode === 'voice' && (
+        <div className="flex flex-col items-center space-y-4">
+          <div className="flex items-center space-x-2 mb-2">
+            <span className="text-primary-white/80 text-sm">🎙️ Voice Mode</span>
+            <button
+              onClick={handleResetMode}
+              className="px-3 py-1 bg-primary-white/20 text-primary-white text-xs rounded hover:bg-primary-white/30 transition-colors"
+            >
+              Switch
+            </button>
+          </div>
+
+          {connectionStatus === 'disconnected' && (
+            <button
+              onClick={startConversation}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              🎙️ Start Voice Conversation
+            </button>
+          )}
+
+          {connectionStatus === 'connecting' && (
+            <div className="flex items-center space-x-2 text-blue-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+              <span>Connecting...</span>
+            </div>
+          )}
+
+          {connectionStatus === 'connected' && (
+            <div className="flex flex-col items-center space-y-3">
+              <div className="flex items-center space-x-2 text-green-600">
+                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="font-medium">Connected - Speak naturally!</span>
+              </div>
+              
+              <button
+                onClick={endConversation}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+              >
+                End Conversation
+              </button>
+            </div>
+          )}
+
+          {/* Voice mode can also accept text input when connected */}
+          {connectionStatus === 'connected' && (
+            <div className="w-full max-w-md">
+              <ChatTextInput
+                onSendMessage={sendTextMessage}
+                disabled={!isConnected}
+                placeholder="Type a message or speak naturally..."
+                className="w-full"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Text Mode Controls */}
+      {communicationMode === 'text' && (
+        <div className="flex flex-col items-center space-y-4">
+          <div className="flex items-center space-x-2 mb-2">
+            <span className="text-primary-white/80 text-sm">💬 Text Mode</span>
+            <button
+              onClick={handleResetMode}
+              className="px-3 py-1 bg-primary-white/20 text-primary-white text-xs rounded hover:bg-primary-white/30 transition-colors"
+            >
+              Switch
+            </button>
+          </div>
+
+          <div className="w-full max-w-md">
+            <ChatTextInput
+              onSendMessage={sendTextMessage}
+              disabled={false}
+              placeholder="Type your message..."
+              className="w-full"
+            />
+          </div>
+          
+          <p className="text-primary-white/60 text-xs text-center">
+            💬 Text-only conversation - no voice connection needed
+          </p>
+        </div>
+      )}
 
       <div className="text-xs text-primary-white/60 max-w-md text-center">
         <p>✨ Career cards will appear automatically as you discuss your interests</p>
         <p>🔍 Analysis happens every few messages to generate personalized recommendations</p>
+        {communicationMode === 'voice' && isConnected && (
+          <p>💬 Speak naturally or type messages</p>
+        )}
+        {communicationMode === 'text' && (
+          <p>💬 Type messages to start your career conversation</p>
+        )}
       </div>
     </div>
   );

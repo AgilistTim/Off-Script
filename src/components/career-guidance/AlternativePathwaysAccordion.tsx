@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
-  ChevronDown,
-  ChevronUp,
   Star,
   PoundSterling,
   TrendingUp,
@@ -84,7 +82,7 @@ const AlternativePathwaysAccordion: React.FC<AlternativePathwaysAccordionProps> 
     >
       {/* Section Header */}
       <div className="text-center">
-        <h2 className="text-3xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-electric-blue to-neon-pink mb-4">
+        <h2 className="text-3xl font-street font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-electric-blue to-neon-pink mb-4">
           Alternative Paths Worth Exploring
         </h2>
         <p className="text-lg text-primary-white/80 max-w-2xl mx-auto">
@@ -101,7 +99,7 @@ const AlternativePathwaysAccordion: React.FC<AlternativePathwaysAccordionProps> 
             onValueChange={setExpandedItems}
             className="space-y-4"
           >
-            {displayedAlternatives.map((pathway, index) => {
+            {displayedAlternatives.map((pathway) => {
               const salaryDisplay = formatSalaryDisplay(pathway.averageSalary);
               
               return (

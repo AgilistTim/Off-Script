@@ -305,19 +305,19 @@ const Profile: React.FC = () => {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, ease: [0.6, 0.01, 0.05, 0.95] }}
-      className={`relative overflow-hidden rounded-2xl p-8 shadow-2xl border border-primary-green/20 ${gradient}`}
+      className={`relative overflow-hidden rounded-2xl p-6 sm:p-8 shadow-2xl border border-gray-600/20 ${gradient}`}
     >
-      <div className="absolute inset-0 bg-gradient-to-br from-primary-white/60 to-primary-white/50 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-gradient-to-br from-white/60 to-white/50 backdrop-blur-sm" />
       <div className="relative">
-        <div className="flex items-center space-x-4 mb-6">
-          <div className="w-12 h-12 bg-gradient-to-br from-primary-green to-primary-peach rounded-xl flex items-center justify-center shadow-lg">
+        <div className="flex items-center space-x-4 mb-4 sm:mb-6">
+          <div className="w-12 h-12 bg-gradient-to-br from-gray-600 to-gray-700 rounded-xl flex items-center justify-center shadow-lg">
             {icon}
           </div>
-          <h2 className="text-2xl font-street font-black text-primary-black">
+          <h2 className="text-xl sm:text-2xl font-street font-bold text-black">
             {title}
           </h2>
         </div>
-        <div className="text-primary-black">
+        <div className="text-black">
           {children}
         </div>
       </div>
@@ -348,7 +348,7 @@ const Profile: React.FC = () => {
         </div>
       ) : (
         <div className="text-center py-8">
-          <div className="text-primary-black/40 text-lg font-medium">
+          <div className="text-black/40 text-lg font-medium">
             {emptyMessage}
           </div>
         </div>
@@ -357,7 +357,7 @@ const Profile: React.FC = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-white via-primary-mint/5 to-primary-lavender/10 pt-24 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-gradient-to-br from-white via-gray-100/5 to-gray-200/10 pt-24 px-4 sm:px-6 lg:px-8">
       <div className="max-w-6xl mx-auto py-8">
         {/* Header */}
         <motion.div
@@ -366,10 +366,10 @@ const Profile: React.FC = () => {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <h1 className="text-6xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-primary-green via-primary-peach to-primary-yellow mb-4 animate-glow-pulse">
+          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-street font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-gray-600 via-gray-700 to-gray-800 mb-4 animate-glow-pulse">
             YOUR PROFILE
           </h1>
-          <p className="text-xl text-primary-black/80 font-medium">
+          <p className="text-lg sm:text-xl text-black/80 font-medium">
             Your career journey insights and preferences
           </p>
         </motion.div>
@@ -383,8 +383,8 @@ const Profile: React.FC = () => {
               exit={{ opacity: 0, y: -10 }}
               className={`mb-8 p-4 rounded-xl font-bold text-center ${
                 message.type === 'success' 
-                  ? 'bg-gradient-to-r from-acid-green/20 to-cyber-yellow/20 text-acid-green border border-acid-green/30' 
-                  : 'bg-gradient-to-r from-primary-peach/20 to-primary-lavender/20 text-primary-peach border border-primary-peach/30'
+                  ? 'bg-gradient-to-r from-gray-200/20 to-gray-300/20 text-gray-700 border border-gray-600/30' 
+                  : 'bg-gradient-to-r from-gray-300/20 to-gray-400/20 text-gray-600 border border-gray-500/30'
               }`}
             >
               {message.text}
@@ -410,43 +410,43 @@ const Profile: React.FC = () => {
           >
             <ProfileSection
               title={migratedProfile ? "AI CAREER INSIGHTS" : "YOUR CAREER PROFILE"}
-              icon={<Zap className="w-6 h-6 text-primary-black" />}
-              gradient="bg-gradient-to-br from-primary-green to-primary-peach"
+              icon={<Zap className="w-6 h-6 text-black" />}
+              gradient="bg-gradient-to-br from-gray-600 to-gray-700"
             >
               <div className="grid grid-cols-1 gap-8">
                 {/* Career Profile - Interests, Goals, Skills */}
                 <div className="space-y-6">
-                  <h3 className="text-xl font-black text-primary-black mb-4">
+                  <h3 className="text-xl font-bold text-black mb-4">
                     {migratedProfile ? "MIGRATED CAREER PROFILE" : "FROM YOUR CONVERSATIONS"}
                   </h3>
                   
                   {migratedProfile ? (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                       <div>
-                        <h4 className="text-lg font-black text-primary-black mb-3">INTERESTS</h4>
+                        <h4 className="text-lg font-semibold text-black mb-3">INTERESTS</h4>
                         <TagDisplay
                           items={migratedProfile.interests || []}
-                          color="bg-gradient-to-r from-primary-peach to-primary-yellow text-primary-black"
+                          color="bg-blue-100 text-blue-800"
                           icon={<Heart className="w-4 h-4" />}
                           emptyMessage="No interests discovered yet"
                         />
                       </div>
                       
                       <div>
-                        <h4 className="text-lg font-black text-neon-pink mb-3">CAREER GOALS</h4>
+                        <h4 className="text-lg font-semibold text-gray-600 mb-3">CAREER GOALS</h4>
                         <TagDisplay
                           items={migratedProfile.goals || []}
-                          color="bg-gradient-to-r from-primary-green to-primary-peach text-primary-black"
+                          color="bg-green-100 text-green-800"
                           icon={<Target className="w-4 h-4" />}
                           emptyMessage="No career goals identified yet"
                         />
                       </div>
                       
                       <div>
-                        <h4 className="text-lg font-black text-acid-green mb-3">SKILLS</h4>
+                        <h4 className="text-lg font-semibold text-gray-700 mb-3">SKILLS</h4>
                         <TagDisplay
                           items={migratedProfile.skills || []}
-                          color="bg-gradient-to-r from-primary-green to-primary-lavender text-primary-black"
+                          color="bg-indigo-100 text-indigo-800"
                           icon={<Star className="w-4 h-4" />}
                           emptyMessage="No skills assessed yet"
                         />
@@ -455,30 +455,30 @@ const Profile: React.FC = () => {
                   ) : (combinedProfile || profile) ? (
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                       <div>
-                        <h4 className="text-lg font-black text-primary-black mb-3">INTERESTS</h4>
+                        <h4 className="text-lg font-semibold text-black mb-3">INTERESTS</h4>
                         <TagDisplay
                           items={(combinedProfile?.interests?.length ? combinedProfile.interests : profile.interests) || []}
-                          color="bg-gradient-to-r from-primary-peach to-primary-yellow text-primary-black"
+                          color="bg-blue-100 text-blue-800"
                           icon={<Heart className="w-4 h-4" />}
                           emptyMessage="No interests identified yet"
                         />
                       </div>
                       
                       <div>
-                        <h4 className="text-lg font-black text-neon-pink mb-3">CAREER GOALS</h4>
+                        <h4 className="text-lg font-semibold text-gray-600 mb-3">CAREER GOALS</h4>
                         <TagDisplay
                           items={(combinedProfile?.careerGoals?.length ? combinedProfile.careerGoals : profile.careerGoals) || []}
-                          color="bg-gradient-to-r from-primary-green to-primary-peach text-primary-black"
+                          color="bg-green-100 text-green-800"
                           icon={<Target className="w-4 h-4" />}
                           emptyMessage="No career goals identified yet"
                         />
                       </div>
                       
                       <div>
-                        <h4 className="text-lg font-black text-acid-green mb-3">SKILLS</h4>
+                        <h4 className="text-lg font-semibold text-gray-700 mb-3">SKILLS</h4>
                         <TagDisplay
                           items={(combinedProfile?.skills?.length ? combinedProfile.skills : profile.skills) || []}
-                          color="bg-gradient-to-r from-primary-green to-primary-lavender text-primary-black"
+                          color="bg-indigo-100 text-indigo-800"
                           icon={<Star className="w-4 h-4" />}
                           emptyMessage="No skills identified yet"
                         />
@@ -486,7 +486,7 @@ const Profile: React.FC = () => {
                     </div>
                   ) : (
                     <div className="text-center py-8">
-                      <div className="text-primary-black/40 text-lg font-medium">
+                      <div className="text-black/40 text-lg font-medium">
                         No career profile data available yet
                       </div>
                     </div>
@@ -507,17 +507,17 @@ const Profile: React.FC = () => {
           >
             <ProfileSection
               title="CONVERSATION INSIGHTS"
-              icon={<Lightbulb className="w-6 h-6 text-primary-black" />}
-              gradient="bg-gradient-to-br from-primary-peach to-primary-lavender"
+              icon={<Lightbulb className="w-6 h-6 text-black" />}
+              gradient="bg-gradient-to-br from-orange-300 to-purple-300"
             >
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Personal Traits */}
                 {combinedProfile.enhancedPersonalData.personalityTraits?.length > 0 && (
                   <div>
-                    <h4 className="text-lg font-black text-neon-pink mb-3">PERSONALITY TRAITS</h4>
+                    <h4 className="text-lg font-semibold text-gray-600 mb-3">PERSONALITY TRAITS</h4>
                     <TagDisplay
                       items={combinedProfile.enhancedPersonalData.personalityTraits}
-                      color="bg-gradient-to-r from-primary-peach to-primary-lavender text-primary-black"
+                      color="bg-amber-100 text-amber-800"
                       icon={<Smile className="w-4 h-4" />}
                       emptyMessage="No traits identified"
                     />
@@ -527,10 +527,10 @@ const Profile: React.FC = () => {
                 {/* Motivations */}
                 {combinedProfile.enhancedPersonalData.motivations?.length > 0 && (
                   <div>
-                    <h4 className="text-lg font-black text-cyber-yellow mb-3">MOTIVATIONS</h4>
+                    <h4 className="text-lg font-semibold text-yellow-600 mb-3">MOTIVATIONS</h4>
                     <TagDisplay
                       items={combinedProfile.enhancedPersonalData.motivations}
-                      color="bg-gradient-to-r from-cyber-yellow to-acid-green text-primary-black"
+                      color="bg-emerald-100 text-emerald-800"
                       icon={<Zap className="w-4 h-4" />}
                       emptyMessage="No motivations identified"
                     />
@@ -540,9 +540,9 @@ const Profile: React.FC = () => {
                 {/* Communication Style */}
                 {combinedProfile.enhancedPersonalData.communicationStyle && (
                   <div>
-                    <h4 className="text-lg font-black text-primary-black mb-3">COMMUNICATION STYLE</h4>
-                    <div className="bg-primary-white/10 rounded-lg p-4">
-                      <div className="text-primary-black font-medium">
+                    <h4 className="text-lg font-semibold text-black mb-3">COMMUNICATION STYLE</h4>
+                    <div className="bg-white/10 rounded-lg p-4">
+                      <div className="text-black font-medium">
                         {combinedProfile.enhancedPersonalData.communicationStyle}
                       </div>
                     </div>
@@ -552,10 +552,10 @@ const Profile: React.FC = () => {
                 {/* Preferences */}
                 {combinedProfile.enhancedPersonalData.preferences?.length > 0 && (
                   <div>
-                    <h4 className="text-lg font-black text-acid-green mb-3">PREFERENCES</h4>
+                    <h4 className="text-lg font-black text-gray-700 mb-3">PREFERENCES</h4>
                     <TagDisplay
                       items={combinedProfile.enhancedPersonalData.preferences}
-                      color="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black"
+                      color="bg-purple-100 text-purple-800"
                       icon={<Heart className="w-4 h-4" />}
                       emptyMessage="No preferences identified"
                     />
@@ -570,16 +570,16 @@ const Profile: React.FC = () => {
           {/* Basic Profile Information */}
           <ProfileSection
             title="BASIC INFO"
-            icon={<User className="w-6 h-6 text-primary-black" />}
-            gradient="bg-gradient-to-br from-primary-yellow to-primary-green"
+            icon={<User className="w-6 h-6 text-black" />}
+            gradient="bg-gradient-to-br from-yellow-400 to-green-500"
           >
             {!isEditingProfile ? (
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-black text-primary-black">PROFILE DETAILS</h3>
+                  <h3 className="text-lg font-bold text-black">PROFILE DETAILS</h3>
                   <button
                     onClick={() => setIsEditingProfile(true)}
-                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-electric-blue to-neon-pink rounded-lg text-primary-black font-bold hover:scale-105 transition-transform duration-200"
+                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-pink-500 rounded-lg text-white font-bold hover:scale-105 transition-transform duration-200"
                   >
                     <Edit3 className="w-4 h-4" />
                     <span>EDIT</span>
@@ -587,73 +587,73 @@ const Profile: React.FC = () => {
                 </div>
                 
                 {profile.displayName && (
-                  <div className="bg-primary-white/10 rounded-lg p-4">
-                    <div className="text-primary-black font-bold mb-2">DISPLAY NAME</div>
-                    <div className="text-primary-black">{profile.displayName}</div>
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="text-black font-bold mb-2">DISPLAY NAME</div>
+                    <div className="text-black">{profile.displayName}</div>
                   </div>
                 )}
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-primary-white/10 rounded-lg p-4">
-                    <div className="text-primary-black font-bold mb-1">SCHOOL</div>
-                    <div className="text-primary-black">{profile.school || 'Not specified'}</div>
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="text-black font-bold mb-1">SCHOOL</div>
+                    <div className="text-black">{profile.school || 'Not specified'}</div>
                   </div>
-                  <div className="bg-primary-white/10 rounded-lg p-4">
-                    <div className="text-primary-black font-bold mb-1">GRADE</div>
-                    <div className="text-primary-black">{profile.grade || 'Not specified'}</div>
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="text-black font-bold mb-1">GRADE</div>
+                    <div className="text-black">{profile.grade || 'Not specified'}</div>
                   </div>
                 </div>
                 
                 {profile.bio && (
-                  <div className="bg-primary-white/10 rounded-lg p-4">
-                    <div className="text-primary-black font-bold mb-2">BIO</div>
-                    <div className="text-primary-black">{profile.bio}</div>
+                  <div className="bg-white/10 rounded-lg p-4">
+                    <div className="text-black font-bold mb-2">BIO</div>
+                    <div className="text-black">{profile.bio}</div>
                   </div>
                 )}
               </div>
             ) : (
               <form onSubmit={handleProfileSubmit} className="space-y-6">
                 <div>
-                  <label className="block text-primary-black font-bold mb-2">DISPLAY NAME</label>
+                  <label className="block text-black font-bold mb-2">DISPLAY NAME</label>
                   <input
                     type="text"
                     value={profile.displayName || ''}
                     onChange={(e) => setProfile(prev => ({ ...prev, displayName: e.target.value }))}
-                    className="w-full px-4 py-3 bg-primary-white/10 border border-electric-blue/30 rounded-lg text-primary-black placeholder-primary-white/50 focus:border-electric-blue focus:outline-none"
+                    className="w-full px-4 py-3 bg-white/10 border border-blue-500/30 rounded-lg text-black placeholder-white/50 focus:border-blue-500 focus:outline-none"
                     placeholder="How should we address you?"
                   />
                 </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-primary-black font-bold mb-2">SCHOOL</label>
+                    <label className="block text-black font-bold mb-2">SCHOOL</label>
                     <input
                       type="text"
                       value={profile.school || ''}
                       onChange={(e) => setProfile(prev => ({ ...prev, school: e.target.value }))}
-                      className="w-full px-4 py-3 bg-primary-white/10 border border-electric-blue/30 rounded-lg text-primary-black placeholder-primary-white/50 focus:border-electric-blue focus:outline-none"
+                      className="w-full px-4 py-3 bg-white/10 border border-blue-500/30 rounded-lg text-black placeholder-white/50 focus:border-blue-500 focus:outline-none"
                       placeholder="Your school..."
                     />
                   </div>
                   <div>
-                    <label className="block text-primary-black font-bold mb-2">GRADE</label>
+                    <label className="block text-black font-bold mb-2">GRADE</label>
                     <input
                       type="text"
                       value={profile.grade || ''}
                       onChange={(e) => setProfile(prev => ({ ...prev, grade: e.target.value }))}
-                      className="w-full px-4 py-3 bg-primary-white/10 border border-electric-blue/30 rounded-lg text-primary-black placeholder-primary-white/50 focus:border-electric-blue focus:outline-none"
+                      className="w-full px-4 py-3 bg-white/10 border border-blue-500/30 rounded-lg text-black placeholder-white/50 focus:border-blue-500 focus:outline-none"
                       placeholder="Your grade..."
                     />
                   </div>
                 </div>
                 
                 <div>
-                  <label className="block text-primary-black font-bold mb-2">BIO</label>
+                  <label className="block text-black font-bold mb-2">BIO</label>
                   <textarea
                     value={profile.bio || ''}
                     onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
                     rows={4}
-                    className="w-full px-4 py-3 bg-primary-white/10 border border-electric-blue/30 rounded-lg text-primary-black placeholder-primary-white/50 focus:border-electric-blue focus:outline-none resize-none"
+                    className="w-full px-4 py-3 bg-primary-white/10 border border-electric-blue/30 rounded-lg text-black placeholder-primary-white/50 focus:border-electric-blue focus:outline-none resize-none"
                     placeholder="Tell us about yourself..."
                   />
                 </div>
@@ -662,14 +662,14 @@ const Profile: React.FC = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-electric-blue to-neon-pink rounded-lg text-primary-black font-bold hover:scale-105 transition-transform duration-200 disabled:opacity-50"
+                    className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-pink-500 rounded-lg text-white font-bold hover:scale-105 transition-transform duration-200 disabled:opacity-50"
                   >
                     <span>{loading ? 'SAVING...' : 'SAVE CHANGES'}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsEditingProfile(false)}
-                    className="px-6 py-3 bg-primary-green/10 border border-primary-green/30 rounded-lg text-primary-black font-bold hover:bg-primary-green/20 transition-colors duration-200"
+                    className="px-6 py-3 bg-green-500/10 border border-green-500/30 rounded-lg text-black font-bold hover:bg-green-500/20 transition-colors duration-200"
                   >
                     CANCEL
                   </button>
@@ -681,16 +681,16 @@ const Profile: React.FC = () => {
           {/* Preferences */}
           <ProfileSection
             title="PREFERENCES"
-            icon={<BookOpen className="w-6 h-6 text-primary-black" />}
-            gradient="bg-gradient-to-br from-primary-lavender to-primary-mint"
+            icon={<BookOpen className="w-6 h-6 text-black" />}
+            gradient="bg-gradient-to-br from-purple-300 to-teal-300"
           >
             {!isEditingPreferences ? (
               <div className="space-y-6">
                 <div className="flex justify-between items-center">
-                  <h3 className="text-lg font-black text-primary-black">SETTINGS</h3>
+                  <h3 className="text-lg font-black text-black">SETTINGS</h3>
                   <button
                     onClick={() => setIsEditingPreferences(true)}
-                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-electric-blue to-neon-pink rounded-lg text-primary-black font-bold hover:scale-105 transition-transform duration-200"
+                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-500 to-pink-500 rounded-lg text-white font-bold hover:scale-105 transition-transform duration-200"
                   >
                     <Edit3 className="w-4 h-4" />
                     <span>EDIT</span>
@@ -698,19 +698,19 @@ const Profile: React.FC = () => {
                 </div>
                 
                 <div className="space-y-4">
-                  <div className="bg-primary-white/10 rounded-lg p-4 flex justify-between items-center">
-                    <span className="text-primary-black font-bold">THEME</span>
-                    <span className="text-primary-black font-bold uppercase">{preferences.theme}</span>
+                  <div className="bg-white/10 rounded-lg p-4 flex justify-between items-center">
+                    <span className="text-black font-bold">THEME</span>
+                    <span className="text-black font-bold uppercase">{preferences.theme}</span>
                   </div>
-                  <div className="bg-primary-white/10 rounded-lg p-4 flex justify-between items-center">
-                    <span className="text-primary-black font-bold">NOTIFICATIONS</span>
-                    <span className={`font-bold uppercase ${preferences.notifications ? 'text-acid-green' : 'text-neon-pink'}`}>
+                  <div className="bg-white/10 rounded-lg p-4 flex justify-between items-center">
+                    <span className="text-black font-bold">NOTIFICATIONS</span>
+                    <span className={`font-bold uppercase ${preferences.notifications ? 'text-gray-700' : 'text-gray-600'}`}>
                       {preferences.notifications ? 'ENABLED' : 'DISABLED'}
                     </span>
                   </div>
-                  <div className="bg-primary-white/10 rounded-lg p-4 flex justify-between items-center">
-                    <span className="text-primary-black font-bold">EMAIL UPDATES</span>
-                    <span className={`font-bold uppercase ${preferences.emailUpdates ? 'text-acid-green' : 'text-neon-pink'}`}>
+                  <div className="bg-white/10 rounded-lg p-4 flex justify-between items-center">
+                    <span className="text-black font-bold">EMAIL UPDATES</span>
+                    <span className={`font-bold uppercase ${preferences.emailUpdates ? 'text-gray-700' : 'text-gray-600'}`}>
                       {preferences.emailUpdates ? 'ENABLED' : 'DISABLED'}
                     </span>
                   </div>
@@ -720,11 +720,11 @@ const Profile: React.FC = () => {
               <form onSubmit={handlePreferencesSubmit} className="space-y-6">
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-primary-black font-bold mb-2">THEME</label>
+                    <label className="block text-black font-bold mb-2">THEME</label>
                     <select
                       value={preferences.theme}
                       onChange={(e) => setPreferences(prev => ({ ...prev, theme: e.target.value as 'light' | 'dark' | 'system' }))}
-                      className="w-full px-4 py-3 bg-primary-white/10 border border-electric-blue/30 rounded-lg text-primary-black focus:border-electric-blue focus:outline-none"
+                      className="w-full px-4 py-3 bg-white/10 border border-blue-500/30 rounded-lg text-black focus:border-blue-500 focus:outline-none"
                     >
                       <option value="system">SYSTEM</option>
                       <option value="light">LIGHT</option>
@@ -738,9 +738,9 @@ const Profile: React.FC = () => {
                       id="notifications"
                       checked={preferences.notifications}
                       onChange={(e) => setPreferences(prev => ({ ...prev, notifications: e.target.checked }))}
-                      className="w-5 h-5 text-primary-black bg-primary-white/10 border-electric-blue/30 rounded focus:ring-electric-blue"
+                      className="w-5 h-5 text-black bg-white/10 border-blue-500/30 rounded focus:ring-blue-500"
                     />
-                    <label htmlFor="notifications" className="text-primary-black font-bold">
+                    <label htmlFor="notifications" className="text-black font-bold">
                       ENABLE NOTIFICATIONS
                     </label>
                   </div>
@@ -751,9 +751,9 @@ const Profile: React.FC = () => {
                       id="emailUpdates"
                       checked={preferences.emailUpdates}
                       onChange={(e) => setPreferences(prev => ({ ...prev, emailUpdates: e.target.checked }))}
-                      className="w-5 h-5 text-primary-black bg-primary-white/10 border-electric-blue/30 rounded focus:ring-electric-blue"
+                      className="w-5 h-5 text-black bg-white/10 border-blue-500/30 rounded focus:ring-blue-500"
                     />
-                    <label htmlFor="emailUpdates" className="text-primary-black font-bold">
+                    <label htmlFor="emailUpdates" className="text-black font-bold">
                       ENABLE EMAIL UPDATES
                     </label>
                   </div>
@@ -763,14 +763,14 @@ const Profile: React.FC = () => {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-electric-blue to-neon-pink rounded-lg text-primary-black font-bold hover:scale-105 transition-transform duration-200 disabled:opacity-50"
+                    className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-500 to-pink-500 rounded-lg text-white font-bold hover:scale-105 transition-transform duration-200 disabled:opacity-50"
                   >
                     <span>{loading ? 'SAVING...' : 'SAVE CHANGES'}</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setIsEditingPreferences(false)}
-                    className="px-6 py-3 bg-primary-green/10 border border-primary-green/30 rounded-lg text-primary-black font-bold hover:bg-primary-green/20 transition-colors duration-200"
+                    className="px-6 py-3 bg-green-500/10 border border-green-500/30 rounded-lg text-black font-bold hover:bg-green-500/20 transition-colors duration-200"
                   >
                     CANCEL
                   </button>
@@ -788,18 +788,18 @@ const Profile: React.FC = () => {
             transition={{ duration: 0.6, delay: 0.3 }}
             className="text-center py-16"
           >
-            <div className="w-24 h-24 bg-gradient-to-br from-primary-green to-primary-peach rounded-full flex items-center justify-center mx-auto mb-6 shadow-glow-blue">
-              <Rocket className="w-12 h-12 text-primary-black" />
+            <div className="w-24 h-24 bg-gradient-to-br from-gray-600 to-gray-700 rounded-full flex items-center justify-center mx-auto mb-6 shadow-glow-blue">
+              <Rocket className="w-12 h-12 text-black" />
             </div>
-            <h3 className="text-3xl font-street font-black text-primary-black mb-4">
+            <h3 className="text-3xl font-street font-black text-black mb-4">
               START YOUR CAREER JOURNEY
             </h3>
-            <p className="text-xl text-primary-black/70 mb-8 max-w-2xl mx-auto">
+            <p className="text-xl text-black/70 mb-8 max-w-2xl mx-auto">
               Begin a conversation with our AI to unlock personalized career insights and build your profile
             </p>
             <button
               onClick={() => window.location.href = '/chat'}
-              className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-primary-green via-primary-peach to-primary-yellow rounded-xl text-primary-black font-black text-lg hover:scale-105 transition-transform duration-200 shadow-glow-blue"
+              className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-green-500 via-orange-400 to-yellow-500 rounded-xl text-black font-bold text-lg hover:scale-105 transition-transform duration-200 shadow-glow-blue"
             >
               <Zap className="w-6 h-6" />
               <span>START CONVERSATION</span>

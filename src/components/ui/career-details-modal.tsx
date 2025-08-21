@@ -57,7 +57,7 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
           >
             <div className="h-full flex flex-col">
               {/* Header */}
-              <div className="bg-gradient-to-r from-primary-green to-primary-lavender text-primary-black p-6 relative">
+              <div className="bg-gradient-to-r from-gray-100 to-gray-200 text-black p-6 relative">
                 <div className="absolute top-4 right-4 flex gap-2">
                   {onRefreshDetails && (
                     <button
@@ -75,7 +75,7 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                 
                 <div className="pr-12">
                   <h2 className="text-2xl md:text-3xl font-bold mb-2">{careerCard.title}</h2>
-                  <div className="flex items-center gap-4 text-primary-black/70 mb-2">
+                  <div className="flex items-center gap-4 text-gray-600 mb-2">
                     <div className="flex items-center gap-1">
                       <Briefcase className="h-4 w-4" />
                       <span>{careerCard.industry || 'Various Industries'}</span>
@@ -84,12 +84,12 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                   
                   <div className="flex items-center gap-2 text-sm">
                     {careerCard.perplexityData ? (
-                      <div className="flex items-center gap-1 bg-primary-green/20 px-2 py-1 rounded text-primary-black">
+                      <div className="flex items-center gap-1 bg-gray-200/80 px-2 py-1 rounded text-black">
                         <CheckCircle className="h-3 w-3" />
                         <span>Enhanced AI data available</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1 bg-primary-lavender/20 px-2 py-1 rounded text-primary-black">
+                      <div className="flex items-center gap-1 bg-gray-100/80 px-2 py-1 rounded text-black">
                         <CheckCircle className="h-3 w-3" />
                         <span>Basic data only</span>
                       </div>
@@ -111,7 +111,7 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
                   </div>
                   <button
                     onClick={onClose}
-                    className="px-6 py-2 bg-primary-green text-primary-black rounded-lg hover:bg-primary-yellow transition-colors font-medium"
+                    className="px-6 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors font-medium"
                   >
                     Got it
                   </button>
@@ -175,7 +175,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
               <h3 className="text-lg font-semibold mb-3 text-gray-900">Skills</h3>
               <div className="flex flex-wrap gap-2">
                 {careerCard.keySkills.map((skill, index) => (
-                  <span key={index} className="px-3 py-1 bg-primary-lavender/20 text-primary-black rounded-full text-sm">
+                  <span key={index} className="px-3 py-1 bg-gray-200/80 text-black rounded-full text-sm">
                     {skill}
                   </span>
                 ))}
@@ -190,12 +190,12 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
   return (
     <div className="space-y-4">
       {/* Success Message */}
-              <div className="bg-gradient-to-r from-primary-green/10 to-primary-lavender/10 p-4 rounded-lg border border-primary-green/30">
-        <h2 className="text-lg font-bold text-primary-black mb-2 flex items-center gap-2">
+              <div className="bg-gradient-to-r from-gray-100/10 to-gray-200/10 p-4 rounded-lg border border-gray-300/30">
+        <h2 className="text-lg font-bold text-black mb-2 flex items-center gap-2">
           <CheckCircle className="h-5 w-5" />
           🎉 COMPREHENSIVE CAREER INTELLIGENCE AVAILABLE!
         </h2>
-        <p className="text-sm text-primary-black/70">All enhanced career data is displayed below in comprehensive sections</p>
+        <p className="text-sm text-gray-600">All enhanced career data is displayed below in comprehensive sections</p>
       </div>
 
       {/* Accordion Sections */}
@@ -208,9 +208,9 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
           icon={Target}
           isExpanded={expandedSections.has('overview')}
           onToggle={() => toggleSection('overview')}
-          bgColor="bg-primary-lavender/10"
-          borderColor="border-primary-lavender/30"
-          textColor="text-primary-black"
+          bgColor="bg-gray-100/10"
+          borderColor="border-gray-200/30"
+          textColor="text-black"
         >
           <div className="space-y-4">
             {careerCard.roleFundamentals && (
@@ -228,7 +228,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                     <ul className="text-sm text-gray-700 space-y-1">
                       {careerCard.roleFundamentals.problemsSolved.map((problem, i) => (
                         <li key={i} className="flex items-start gap-2">
-                          <span className="text-primary-green mt-1">•</span>
+                          <span className="text-gray-600 mt-1">•</span>
                           <span>{problem}</span>
                         </li>
                       ))}
@@ -242,7 +242,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                     <ul className="text-sm text-gray-700 space-y-1">
                       {careerCard.roleFundamentals.typicalResponsibilities.map((resp, i) => (
                         <li key={i} className="flex items-start gap-2">
-                          <span className="text-primary-green mt-1">•</span>
+                          <span className="text-gray-600 mt-1">•</span>
                           <span>{resp}</span>
                         </li>
                       ))}
@@ -255,7 +255,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                     <h4 className="font-semibold text-gray-900 mb-2">Key Stakeholders</h4>
                     <div className="flex flex-wrap gap-2">
                       {careerCard.roleFundamentals.keyStakeholders.map((stakeholder, i) => (
-                        <span key={i} className="px-3 py-1 bg-primary-lavender/20 text-primary-black rounded-full text-sm">
+                        <span key={i} className="px-3 py-1 bg-gray-200/80 text-black rounded-full text-sm">
                           {stakeholder}
                         </span>
                       ))}
@@ -282,9 +282,9 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
           icon={DollarSign}
           isExpanded={expandedSections.has('compensation')}
           onToggle={() => toggleSection('compensation')}
-          bgColor="bg-primary-green/10"
-          borderColor="border-primary-green/30"
-          textColor="text-primary-black"
+          bgColor="bg-gray-200/10"
+          borderColor="border-gray-300/30"
+          textColor="text-black"
         >
           <div className="space-y-4">
             {/* Perplexity salary data */}
@@ -292,21 +292,21 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
               <div>
                 <h4 className="font-semibold text-gray-900 mb-3">Verified Salary Ranges</h4>
                 <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="text-center p-3 bg-primary-green/20 rounded-lg">
+                  <div className="text-center p-3 bg-gray-200/20 rounded-lg">
                     <div className="text-xs text-gray-600 mb-1">Entry Level</div>
-                    <div className="font-bold text-primary-black">
+                    <div className="font-bold text-black">
                       £{careerCard.perplexityData.verifiedSalaryRanges.entry.min.toLocaleString()} - £{careerCard.perplexityData.verifiedSalaryRanges.entry.max.toLocaleString()}
                     </div>
                   </div>
-                  <div className="text-center p-3 bg-primary-green/20 rounded-lg">
+                  <div className="text-center p-3 bg-gray-200/20 rounded-lg">
                     <div className="text-xs text-gray-600 mb-1">Mid Level</div>
-                    <div className="font-bold text-primary-black">
+                    <div className="font-bold text-black">
                       £{careerCard.perplexityData.verifiedSalaryRanges.mid.min.toLocaleString()} - £{careerCard.perplexityData.verifiedSalaryRanges.mid.max.toLocaleString()}
                     </div>
                   </div>
-                  <div className="text-center p-3 bg-primary-green/20 rounded-lg">
+                  <div className="text-center p-3 bg-gray-200/20 rounded-lg">
                     <div className="text-xs text-gray-600 mb-1">Senior Level</div>
-                    <div className="font-bold text-primary-black">
+                    <div className="font-bold text-black">
                       £{careerCard.perplexityData.verifiedSalaryRanges.senior.min.toLocaleString()} - £{careerCard.perplexityData.verifiedSalaryRanges.senior.max.toLocaleString()}
                     </div>
                   </div>
@@ -357,7 +357,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                     <div className="space-y-2 text-sm">
                       {careerCard.compensationRewards.nonFinancialBenefits.pension && (
                         <div className="flex items-start gap-2">
-                          <Shield className="h-4 w-4 text-primary-green mt-0.5" />
+                          <Shield className="h-4 w-4 text-gray-600 mt-0.5" />
                           <div>
                             <span className="font-medium">Pension:</span> {careerCard.compensationRewards.nonFinancialBenefits.pension}
                           </div>
@@ -365,7 +365,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                       )}
                       {careerCard.compensationRewards.nonFinancialBenefits.healthcare && (
                         <div className="flex items-start gap-2">
-                          <Shield className="h-4 w-4 text-primary-green mt-0.5" />
+                          <Shield className="h-4 w-4 text-gray-600 mt-0.5" />
                           <div>
                             <span className="font-medium">Healthcare:</span> {careerCard.compensationRewards.nonFinancialBenefits.healthcare}
                           </div>
@@ -406,9 +406,9 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
           icon={Book}
           isExpanded={expandedSections.has('skills')}
           onToggle={() => toggleSection('skills')}
-          bgColor="bg-primary-peach/10"
-          borderColor="border-primary-peach/30"
-          textColor="text-primary-black"
+          bgColor="bg-orange-100/10"
+          borderColor="border-orange-200/30"
+          textColor="text-black"
         >
           <div className="space-y-4">
             {careerCard.competencyRequirements && (
@@ -418,7 +418,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                     <h4 className="font-semibold text-gray-900 mb-2">Technical Skills Required</h4>
                     <div className="flex flex-wrap gap-2">
                       {careerCard.competencyRequirements.technicalSkills.map((skill, i) => (
-                        <span key={i} className="px-3 py-1 bg-primary-peach/20 text-primary-black rounded-full text-sm">
+                        <span key={i} className="px-3 py-1 bg-orange-100/80 text-black rounded-full text-sm">
                           {skill}
                         </span>
                       ))}
@@ -431,7 +431,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                     <h4 className="font-semibold text-gray-900 mb-2">Soft Skills Needed</h4>
                     <div className="flex flex-wrap gap-2">
                       {careerCard.competencyRequirements.softSkills.map((skill, i) => (
-                        <span key={i} className="px-3 py-1 bg-primary-peach/20 text-primary-black rounded-full text-sm">
+                        <span key={i} className="px-3 py-1 bg-orange-100/80 text-black rounded-full text-sm">
                           {skill}
                         </span>
                       ))}
@@ -564,7 +564,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                 <h4 className="font-semibold text-gray-900 mb-2">Key Skills</h4>
                 <div className="flex flex-wrap gap-2">
                   {careerCard.keySkills.map((skill, i) => (
-                    <span key={i} className="px-3 py-1 bg-primary-peach/20 text-primary-black rounded-full text-sm">
+                    <span key={i} className="px-3 py-1 bg-orange-100/80 text-black rounded-full text-sm">
                       {skill}
                     </span>
                   ))}
@@ -581,9 +581,9 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
           icon={TrendingUp}
           isExpanded={expandedSections.has('career')}
           onToggle={() => toggleSection('career')}
-          bgColor="bg-primary-yellow/10"
-          borderColor="border-primary-yellow/30"
-          textColor="text-primary-black"
+          bgColor="bg-yellow-100/10"
+          borderColor="border-yellow-200/30"
+          textColor="text-black"
         >
           <div className="space-y-4">
             {careerCard.careerTrajectory && (
@@ -676,9 +676,9 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
           icon={BarChart3}
           isExpanded={expandedSections.has('market')}
           onToggle={() => toggleSection('market')}
-          bgColor="bg-primary-mint/10"
-          borderColor="border-primary-mint/30"
-          textColor="text-primary-black"
+          bgColor="bg-teal-100/10"
+          borderColor="border-teal-200/30"
+          textColor="text-black"
         >
           <div className="space-y-4">
             {careerCard.labourMarketDynamics && (
@@ -846,9 +846,9 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
           icon={Building2}
           isExpanded={expandedSections.has('environment')}
           onToggle={() => toggleSection('environment')}
-          bgColor="bg-primary-mint/10"
-          borderColor="border-primary-mint/30"
-          textColor="text-primary-black"
+          bgColor="bg-teal-100/10"
+          borderColor="border-teal-200/30"
+          textColor="text-black"
         >
           <div className="space-y-4">
             {careerCard.workEnvironmentCulture && (

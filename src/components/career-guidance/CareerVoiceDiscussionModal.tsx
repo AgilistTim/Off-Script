@@ -1,26 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useConversation } from '@elevenlabs/react';
 import { 
   X, 
-  Mic, 
-  MicOff, 
   Loader2, 
   Crown,
   Sparkles,
   PoundSterling,
   TrendingUp,
-  Briefcase,
   Volume2,
-  VolumeX,
   MessageSquare,
   User,
   Bot,
   Radio,
   PhoneCall,
-  PhoneOff,
-  Save,
-  CheckCircle
+  PhoneOff
 } from 'lucide-react';
 
 import { 
@@ -48,7 +42,6 @@ interface CareerVoiceDiscussionModalProps {
   isOpen: boolean;
   onClose: () => void;
   careerData: any;
-  discussionContext: any;
   sessionId: string;
   isPrimary?: boolean;
 }
@@ -57,7 +50,6 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
   isOpen,
   onClose,
   careerData,
-  discussionContext,
   sessionId,
   isPrimary = true
 }) => {
@@ -67,8 +59,6 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
-  const [savingInsights, setSavingInsights] = useState(false);
-  const [insightsSaved, setInsightsSaved] = useState(false);
   const [discoveredInsights, setDiscoveredInsights] = useState<{
     interests: string[];
     goals: string[];
@@ -234,52 +224,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
     setIsSpeaking(false);
   };
 
-  // Track user input (this would be called by ElevenLabs when user speaks)
-  const handleUserInput = async (userMessage: string) => {
-    const newMessage: ConversationMessage = {
-      role: 'user',
-      content: userMessage,
-      timestamp: new Date()
-    };
-    setConversationHistory(prev => [...prev, newMessage]);
-    
-    // Track message with careerAwareVoiceService
-    if (sessionId) {
-      const { careerAwareVoiceService } = await import('../../services/careerAwareVoiceService');
-      await careerAwareVoiceService.trackConversationMessage(sessionId, 'user', userMessage);
-      
-      // Update insights display
-      const insights = careerAwareVoiceService.getSessionInsights(sessionId);
-      if (insights) {
-        setDiscoveredInsights(insights.discoveredInsights);
-      }
-    }
-  };
 
-  // Save insights to user profile
-  const handleSaveInsights = async () => {
-    if (!sessionId) return;
-    
-    setSavingInsights(true);
-    try {
-      const { careerAwareVoiceService } = await import('../../services/careerAwareVoiceService');
-      const result = await careerAwareVoiceService.saveInsightsToProfile(sessionId);
-      
-      if (result.success) {
-        setInsightsSaved(true);
-        console.log('✅ Insights saved to profile:', result.updatedFields);
-        
-        // Show success feedback
-        setTimeout(() => setInsightsSaved(false), 3000);
-      } else {
-        console.error('❌ Failed to save insights:', result.error);
-      }
-    } catch (error) {
-      console.error('❌ Error saving insights:', error);
-    } finally {
-      setSavingInsights(false);
-    }
-  };
 
   // Format career data for display
   const formatSalary = (salary: any): string => {

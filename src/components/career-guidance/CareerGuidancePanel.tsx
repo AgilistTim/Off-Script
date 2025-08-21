@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { ComprehensiveCareerGuidance } from '../../services/careerPathwayService';
 import { Button } from '../ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Badge } from '../ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { 
   GraduationCap, 
@@ -73,7 +72,7 @@ const CareerGuidancePanel: React.FC<CareerGuidancePanelProps> = ({
     );
   }
 
-  const { userProfile, primaryPathway, alternativePathways, crossCuttingResources } = guidance;
+  const { userProfile, primaryPathway, crossCuttingResources } = guidance;
 
   // Clear career stage descriptions
   const getCareerStageDescription = (stage: string) => {

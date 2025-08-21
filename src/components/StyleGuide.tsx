@@ -14,14 +14,14 @@ const StyleGuide: React.FC = () => {
   ];
 
   const colors = [
-    { name: 'Primary Black', class: 'bg-primary-black text-white', hex: '#000000' },
-    { name: 'Primary White', class: 'bg-primary-white text-black border border-gray-200', hex: '#ffffff' },
-    { name: 'Primary Blue', class: 'bg-primary-blue text-black', hex: '#8cc9ff' },
-    { name: 'Primary Yellow', class: 'bg-primary-yellow text-black', hex: '#f0ff8c' },
-    { name: 'Primary Mint', class: 'bg-primary-mint text-black', hex: '#d8fdf0' },
-    { name: 'Primary Peach', class: 'bg-primary-peach text-black', hex: '#fdc0a8' },
-    { name: 'Primary Lavender', class: 'bg-primary-lavender text-black', hex: '#cfceff' },
-    { name: 'Primary Green', class: 'bg-primary-green text-black', hex: '#81f08c' }
+    { name: 'Black', class: 'bg-black text-white', hex: '#000000' },
+    { name: 'White', class: 'bg-white text-black border border-gray-200', hex: '#ffffff' },
+    { name: 'Gray 100', class: 'bg-gray-100 text-black', hex: '#f3f4f6' },
+    { name: 'Gray 200', class: 'bg-gray-200 text-black', hex: '#e5e7eb' },
+    { name: 'Gray 300', class: 'bg-gray-300 text-black', hex: '#d1d5db' },
+    { name: 'Gray 600', class: 'bg-gray-600 text-white', hex: '#4b5563' },
+    { name: 'Gray 700', class: 'bg-gray-700 text-white', hex: '#374151' },
+    { name: 'Gray 800', class: 'bg-gray-800 text-white', hex: '#1f2937' }
   ];
 
   return (

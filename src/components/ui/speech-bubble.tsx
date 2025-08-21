@@ -11,22 +11,22 @@ const speechBubbleVariants = cva(
     variants: {
       variant: {
         // User speech bubbles (right side)
-        user: "bg-primary-green text-primary-black ml-auto rounded-br-sm shadow-glow-fresh",
-        "user-energetic": "bg-primary-yellow text-primary-black ml-auto rounded-br-sm shadow-brutal-punk border-2 border-primary-black",
-        "user-calm": "bg-primary-mint text-primary-black ml-auto rounded-br-lg shadow-soft-calm",
+        user: "bg-gray-100 text-black ml-auto rounded-br-sm shadow-lg",
+        "user-energetic": "bg-white text-black ml-auto rounded-br-sm shadow-xl border-2 border-black",
+        "user-calm": "bg-gray-50 text-black ml-auto rounded-br-lg shadow-md",
         
         // Assistant speech bubbles (left side)  
-        assistant: "bg-primary-lavender text-primary-black mr-auto rounded-bl-sm shadow-soft-calm",
-        "assistant-energetic": "bg-primary-peach text-primary-black mr-auto rounded-bl-sm shadow-glow-warm border-2 border-primary-green",
-        "assistant-calm": "bg-primary-mint/60 text-primary-black mr-auto rounded-bl-lg shadow-soft-calm backdrop-blur-sm",
+        assistant: "bg-gray-800 text-white mr-auto rounded-bl-sm shadow-lg",
+        "assistant-energetic": "bg-black text-white mr-auto rounded-bl-sm shadow-xl border-2 border-gray-300",
+        "assistant-calm": "bg-gray-700/80 text-white mr-auto rounded-bl-lg shadow-md backdrop-blur-sm",
         
         // System messages (centered)
-        system: "bg-primary-white/80 text-primary-black mx-auto rounded-2xl shadow-sm border border-primary-black/10 backdrop-blur-sm",
+        system: "bg-white/90 text-black mx-auto rounded-2xl shadow-sm border border-gray-200 backdrop-blur-sm",
         
         // Special variants
-        warm: "bg-primary-peach text-primary-black rounded-3xl shadow-glow-warm",
-        fresh: "bg-primary-green text-primary-black rounded-3xl shadow-glow-fresh border border-primary-black",
-        soft: "bg-primary-lavender/70 text-primary-black rounded-3xl shadow-soft-calm backdrop-blur-md",
+        warm: "bg-gray-200 text-black rounded-3xl shadow-lg",
+        fresh: "bg-gray-100 text-black rounded-3xl shadow-lg border border-black",
+        soft: "bg-gray-100/70 text-black rounded-3xl shadow-md backdrop-blur-md",
       },
       size: {
         sm: "p-3 text-xs max-w-xs",
