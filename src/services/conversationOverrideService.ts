@@ -517,12 +517,13 @@ CONVERSATION FLOW (ENHANCED FOR CAREER CARDS):
 
   /**
    * Build stage-appropriate overrides for ongoing discovery/classification
+   * NOW USES STRUCTURED 6-QUESTION ONBOARDING FLOW
    */
   private async buildOnboardingStageOverrides(
     currentStage: string,
     onboardingStage: string
   ): Promise<ConversationOverrides> {
-    console.log('🔍 Building stage-appropriate overrides:', {
+    console.log('🔍 Building stage-appropriate overrides (STRUCTURED ONBOARDING):', {
       currentStage,
       onboardingStage
     });
@@ -532,8 +533,9 @@ CONVERSATION FLOW (ENHANCED FOR CAREER CARDS):
 
     switch (currentStage) {
       case 'discovery':
-        contextPrompt = this.buildDiscoveryStagePrompt();
-        firstMessage = "Hi! I'm Sarah, your AI career advisor. I'd love to learn more about you to provide the best guidance. What's your name, and what brings you here today?";
+        // Use structured onboarding flow instead of generic discovery
+        contextPrompt = this.buildGuestOnboardingContextPrompt();
+        firstMessage = "Hi I'm Sarah, an AI assistant. By getting to know you I can help you find potential careers and opportunities that might interest you. It works best when you chat to me like a friend and the voice chat is usually much easier. As I learn about you I will share insights about your goals, interests and skills and use this to suggest careers we can explore together. First up, what name can I use?";
         break;
       case 'classification':
         contextPrompt = this.buildClassificationStagePrompt();
@@ -544,8 +546,8 @@ CONVERSATION FLOW (ENHANCED FOR CAREER CARDS):
         firstMessage = "Based on our conversation, I'm starting to understand your career journey better. Let me provide some personalized insights for you.";
         break;
       default:
-        contextPrompt = this.buildGuestContextPrompt();
-        firstMessage = "Hi! I'm Sarah, your AI career advisor. What's your name, and what would you like to explore about your career?";
+        contextPrompt = this.buildGuestOnboardingContextPrompt();
+        firstMessage = "Hi I'm Sarah, an AI assistant. By getting to know you I can help you find potential careers and opportunities that might interest you. It works best when you chat to me like a friend and the voice chat is usually much easier. As I learn about you I will share insights about your goals, interests and skills and use this to suggest careers we can explore together. First up, what name can I use?";
     }
 
     return {
