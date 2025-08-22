@@ -36,7 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
-import OnboardingProgress, { type OnboardingStage } from '../ui/onboarding-progress';
+import { type OnboardingStage } from '../ui/onboarding-progress';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -58,6 +58,7 @@ import { progressAwareMCPService, MCPProgressUpdate } from '../../services/progr
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 import { guestSessionService } from '../../services/guestSessionService';
 import { personaOnboardingService } from '../../services/personaOnboardingService';
+import { realTimePersonaAdaptationService } from '../../services/realTimePersonaAdaptationService';
 import { careerPathwayService } from '../../services/careerPathwayService';
 import { lightweightCareerSuggestionService } from '../../services/lightweightCareerSuggestionService';
 import environmentConfig from '../../config/environment';
@@ -124,6 +125,10 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     careerCardsGenerated?: number;
   }>({});
   const [currentOnboardingStage, setCurrentOnboardingStage] = useState<OnboardingStage>('initial');
+  
+  // Real-time persona adaptation tracking
+  const [personaAdaptationState, setPersonaAdaptationState] = useState<any>(null);
+  const [personaChangeEvents, setPersonaChangeEvents] = useState<any[]>([]);
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const mobileScrollAreaRef = useRef<HTMLDivElement>(null);
@@ -262,6 +267,37 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       onCareerCardsDiscovered(careerCards);
     }
   }, [careerCards, onCareerCardsDiscovered]);
+
+  // Initialize real-time persona adaptation service
+  useEffect(() => {
+    if (!currentUser) {
+      console.log('🧠 Initializing real-time persona adaptation for guest user');
+      
+      // Set up persona change listener
+      const unsubscribe = realTimePersonaAdaptationService.onPersonaChange((event) => {
+        console.log('🔄 Persona change event received:', {
+          type: event.type,
+          previousPersona: event.previousState.currentPersona,
+          newPersona: event.newState.currentPersona,
+          confidence: Math.round(event.newState.confidence * 100) + '%',
+          recommendedActions: event.recommendedActions.length
+        });
+        
+        // Update state with new persona information
+        setPersonaAdaptationState(event.newState);
+        setPersonaChangeEvents(prev => [...prev, event].slice(-5)); // Keep last 5 events
+        
+        // TODO: If we need to inject context into conversation, we could do it here
+        // For now, this is primarily for tracking and debugging
+      });
+      
+      return () => {
+        console.log('🧹 Cleaning up persona adaptation listeners');
+        unsubscribe();
+        realTimePersonaAdaptationService.reset();
+      };
+    }
+  }, [currentUser, isOpen]);
 
   // Determine agent based on user auth state and context
   const getAgentId = (): string => {
@@ -873,6 +909,44 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   stage: personaSummary.stage,
                   onboardingStage: guestSessionService.getCurrentOnboardingStage()
                 });
+                
+                // Trigger real-time persona adaptation
+                if (personaSummary.hasPersona && analysisResult.result) {
+                  console.log('🔄 [REAL-TIME ADAPTATION] Updating persona state for conversation adaptation');
+                  
+                  // Get the persona profile from guest session (has proper PersonaProfile type)
+                  const personaProfile = guestSessionService.getPersonaProfile();
+                  const evidence = analysisResult.evidenceUpdate;
+                  
+                  if (personaProfile) {
+                    // Initialize adaptation if needed
+                    if (!realTimePersonaAdaptationService.getCurrentState()) {
+                      realTimePersonaAdaptationService.initializeAdaptation(personaProfile);
+                    } else {
+                      // Update existing state with new persona profile
+                      const changeEvent = realTimePersonaAdaptationService.updatePersonaState(
+                        personaProfile,
+                        evidence,
+                        'conversation_message'
+                      );
+                      
+                      if (changeEvent) {
+                        console.log('🔄 [REAL-TIME ADAPTATION] Persona change detected:', {
+                          type: changeEvent.type,
+                          from: changeEvent.previousState.currentPersona,
+                          to: changeEvent.newState.currentPersona,
+                          confidence: Math.round(changeEvent.newState.confidence * 100) + '%'
+                        });
+                        
+                        // Get context injection for agent adaptation
+                        const contextInjection = realTimePersonaAdaptationService.getCurrentContextInjection();
+                        if (contextInjection) {
+                          console.log('💬 [CONTEXT INJECTION] Available for next agent interaction:', contextInjection.substring(0, 200) + '...');
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }).catch(error => {
               console.error('❌ [PERSONA ANALYSIS] Failed to process message:', error);
@@ -1355,6 +1429,44 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   stage: personaSummary.stage,
                   onboardingStage: guestSessionService.getCurrentOnboardingStage()
                 });
+                
+                // Trigger real-time persona adaptation for text mode
+                if (personaSummary.hasPersona && analysisResult.result) {
+                  console.log('🔄 [REAL-TIME ADAPTATION] Updating persona state from text conversation');
+                  
+                  // Get the persona profile from guest session (has proper PersonaProfile type)
+                  const personaProfile = guestSessionService.getPersonaProfile();
+                  const evidence = analysisResult.evidenceUpdate;
+                  
+                  if (personaProfile) {
+                    // Initialize adaptation if needed
+                    if (!realTimePersonaAdaptationService.getCurrentState()) {
+                      realTimePersonaAdaptationService.initializeAdaptation(personaProfile);
+                    } else {
+                      // Update existing state with new persona profile
+                      const changeEvent = realTimePersonaAdaptationService.updatePersonaState(
+                        personaProfile,
+                        evidence,
+                        'text_message'
+                      );
+                      
+                      if (changeEvent) {
+                        console.log('🔄 [REAL-TIME ADAPTATION] Persona change detected from text:', {
+                          type: changeEvent.type,
+                          from: changeEvent.previousState.currentPersona,
+                          to: changeEvent.newState.currentPersona,
+                          confidence: Math.round(changeEvent.newState.confidence * 100) + '%'
+                        });
+                        
+                        // Get context injection for agent adaptation
+                        const contextInjection = realTimePersonaAdaptationService.getCurrentContextInjection();
+                        if (contextInjection) {
+                          console.log('💬 [CONTEXT INJECTION] Available from text mode:', contextInjection.substring(0, 200) + '...');
+                        }
+                      }
+                    }
+                  }
+                }
               }
             }).catch(error => {
               console.error('❌ [PERSONA ANALYSIS] Failed to process text message:', error);
@@ -1681,16 +1793,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             </div>
           </DialogHeader>
 
-          {/* Onboarding Progress Bar - Only show for guest users during onboarding */}
-          {!currentUser && currentOnboardingStage !== 'complete' && (
-            <div className="px-4 md:px-6 pt-4 border-b border-gray-200 pb-4">
-              <OnboardingProgress 
-                currentStage={currentOnboardingStage}
-                extractedData={extractedProfileData}
-                className="w-full"
-              />
-            </div>
-          )}
 
           {/* Flexible Content Area */}
           <div className="min-h-0 h-full overflow-hidden px-2 md:px-4 pt-2">
@@ -1853,6 +1955,38 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                               </div>
                             );
                           })}
+                        </div>
+                      )}
+                      
+                      {/* Persona Adaptation Debug Panel (Mobile) */}
+                      {personaAdaptationState && (
+                        <div className="border-t-2 border-gray-200 pt-4">
+                          <h4 className="text-sm font-bold text-black mb-2 flex items-center">
+                            <Zap className="w-4 h-4 mr-2 text-purple-600" />
+                            Real-Time Persona Adaptation
+                          </h4>
+                          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 space-y-2">
+                            <div className="text-xs">
+                              <span className="font-medium text-purple-800">Current: </span>
+                              <Badge variant="outline" className="text-xs bg-purple-100 text-purple-800 border-purple-300">
+                                {personaAdaptationState.currentPersona}
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-purple-700">
+                              <span className="font-medium">Confidence: </span>
+                              {Math.round(personaAdaptationState.confidence * 100)}%
+                            </div>
+                            <div className="text-xs text-purple-700">
+                              <span className="font-medium">Stage: </span>
+                              {personaAdaptationState.conversationStage}
+                            </div>
+                            {personaChangeEvents.length > 0 && (
+                              <div className="text-xs text-purple-600">
+                                <span className="font-medium">Changes: </span>
+                                {personaChangeEvents.length} adaptation events
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                       
@@ -2339,6 +2473,44 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                       </div>
                     )}
                     </div>
+
+                    {/* Persona Adaptation Debug Panel (Desktop) */}
+                    {personaAdaptationState && (
+                      <div className="border-t-2 border-gray-200 pt-4">
+                        <h4 className="text-sm font-bold text-black mb-2 flex items-center">
+                          <Zap className="w-4 h-4 mr-2 text-purple-600" />
+                          Real-Time Persona Adaptation
+                        </h4>
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 space-y-2">
+                          <div className="text-xs">
+                            <span className="font-medium text-purple-800">Current: </span>
+                            <Badge variant="outline" className="text-xs bg-purple-100 text-purple-800 border-purple-300">
+                              {personaAdaptationState.currentPersona}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-purple-700">
+                            <span className="font-medium">Confidence: </span>
+                            {Math.round(personaAdaptationState.confidence * 100)}%
+                          </div>
+                          <div className="text-xs text-purple-700">
+                            <span className="font-medium">Stage: </span>
+                            {personaAdaptationState.conversationStage}
+                          </div>
+                          {personaChangeEvents.length > 0 && (
+                            <div className="text-xs text-purple-600">
+                              <span className="font-medium">Changes: </span>
+                              {personaChangeEvents.length} adaptation events
+                            </div>
+                          )}
+                          {personaAdaptationState.previousPersona && (
+                            <div className="text-xs text-gray-600">
+                              <span className="font-medium">Previous: </span>
+                              {personaAdaptationState.previousPersona}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Smart Placeholder Text */}
                     {!careerContext && careerCards.length === 0 && (discoveredInsights.interests.length === 0 && discoveredInsights.goals.length === 0 && discoveredInsights.skills.length === 0 && discoveredInsights.personalQualities.length === 0) && (

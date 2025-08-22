@@ -42,7 +42,7 @@ const Hero: React.FC = () => {
       console.log('🎯 Hero: Showing post-conversation CTA for guest user (always show strategy)');
       setShowPostConversationCTA(true);
     }
-  }, [currentUser, discoveredCareerCards.length]);
+  }, [currentUser]);
 
   // Handle career cards discovered
   const handleCareerCardsDiscovered = useCallback((cards: any[]) => {
