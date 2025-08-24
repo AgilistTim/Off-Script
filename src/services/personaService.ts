@@ -16,6 +16,7 @@ export interface PersonaClassification {
   timestamp: string;
   reasoning: string;
   stage: 'provisional' | 'confirmed'; // Provisional after 2-3 exchanges, confirmed after 4-5
+  conversationEvidence?: any; // Optional: Evidence from natural language onboarding
 }
 
 export interface ConversationTrigger {

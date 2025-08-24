@@ -16,6 +16,7 @@
 import { personaService, PersonaType, PersonaProfile, PersonaClassification } from './personaService';
 import { guestSessionService } from './guestSessionService';
 import { conversationOverrideService } from './conversationOverrideService';
+import { enhancedPersonaIntegration } from './enhancedPersonaIntegration';
 
 export interface OnboardingProgress {
   currentStage: string;
@@ -117,8 +118,12 @@ export class PersonaOnboardingService {
     console.log('🧠 Starting persona analysis...');
 
     try {
-      // Get conversation history for analysis
-      const conversationHistory = guestSessionService.getConversationForAnalysis();
+      // Get conversation history for analysis and transform to expected format
+      const rawConversationHistory = guestSessionService.getConversationForAnalysis();
+      const conversationHistory = rawConversationHistory.map(msg => ({
+        role: msg.role as 'user' | 'assistant',
+        content: msg.content
+      }));
       const existingProfile = guestSessionService.getPersonaProfile();
 
       console.log('📊 Analyzing conversation:', {
@@ -126,8 +131,8 @@ export class PersonaOnboardingService {
         hasExistingProfile: !!existingProfile
       });
 
-      // Perform persona classification
-      const classification = await personaService.analyzeConversationForPersona(
+      // Perform enhanced evidence-based persona classification (replaces broken LLM approach)
+      const classification = await enhancedPersonaIntegration.analyzeConversationForPersona(
         conversationHistory,
         existingProfile
       );
@@ -141,13 +146,13 @@ export class PersonaOnboardingService {
         stage: classification.stage
       });
 
-      // Generate recommendations
+      // Generate enhanced conversation analysis using evidence data
       const conversationAnalysis = {
         messageCount: conversationHistory.filter(msg => msg.role === 'user').length,
-        uncertaintySignals: 0, // This would be calculated by personaService
-        engagementLevel: 0.5,
-        decisionReadiness: 0.5,
-        goalClarity: 0.5,
+        uncertaintySignals: (classification as any).conversationEvidence?.engagement?.uncertainty || 0,
+        engagementLevel: (classification as any).conversationEvidence?.engagement?.detailSharing || 0.5,
+        decisionReadiness: (classification as any).conversationEvidence?.careerDirection?.confidence || 0.5,
+        goalClarity: ((classification as any).conversationEvidence?.careerDirection?.specifics?.length || 0) > 0 ? 0.8 : 0.3,
         topicEngagement: {},
         responsePatterns: []
       };
@@ -357,7 +362,7 @@ export class PersonaOnboardingService {
   }
 
   /**
-   * Get persona classification summary for debugging/display
+   * Get enhanced persona classification summary with evidence insights
    */
   getPersonaSummary(): { 
     hasPersona: boolean;
@@ -367,11 +372,20 @@ export class PersonaOnboardingService {
     confidence?: string;
     stage?: string;
     recommendations?: string[];
+    evidenceInsights?: any;
   } {
     const personaProfile = guestSessionService.getPersonaProfile();
     
     if (!personaProfile) {
       return { hasPersona: false };
+    }
+
+    // Get enhanced evidence insights if available
+    const evidence = (personaProfile.classification as any)?.conversationEvidence;
+    let evidenceInsights = undefined;
+    
+    if (evidence) {
+      evidenceInsights = enhancedPersonaIntegration.getEvidenceSummary(evidence);
     }
 
     return {
@@ -381,17 +395,36 @@ export class PersonaOnboardingService {
       description: personaService.getPersonaDescription(personaProfile.classification.type),
       confidence: Math.round(personaProfile.classification.confidence * 100) + '%',
       stage: personaProfile.classification.stage,
-      recommendations: personaProfile.recommendations.nextSteps
+      recommendations: personaProfile.recommendations.nextSteps,
+      evidenceInsights
     };
   }
 
   /**
-   * Process conversation message and trigger persona analysis if needed
+   * Get conversation recommendations based on current evidence
+   */
+  getConversationRecommendations(): string[] {
+    const personaProfile = guestSessionService.getPersonaProfile();
+    const evidence = (personaProfile?.classification as any)?.conversationEvidence;
+    
+    if (!evidence) {
+      return [
+        'Continue natural conversation to build user profile',
+        'Ask open-ended questions about interests and goals',
+        'Listen for confidence and motivation signals'
+      ];
+    }
+    
+    return enhancedPersonaIntegration.getConversationRecommendations(evidence);
+  }
+
+  /**
+   * Process conversation message with real-time evidence extraction
    */
   async processConversationMessage(
     role: 'user' | 'assistant',
     content: string
-  ): Promise<{ analysisTriggered: boolean; result?: PersonaAnalysisResult }> {
+  ): Promise<{ analysisTriggered: boolean; result?: PersonaAnalysisResult; evidenceUpdate?: any }> {
     // Add message to conversation history first
     guestSessionService.addConversationMessage(role, content);
     
@@ -400,14 +433,41 @@ export class PersonaOnboardingService {
       return { analysisTriggered: false };
     }
 
-    // Check if we should trigger analysis
-    if (!this.shouldAnalyzePersona()) {
-      return { analysisTriggered: false };
+    // For enhanced persona integration, perform real-time evidence extraction
+    const existingProfile = guestSessionService.getPersonaProfile();
+    const existingEvidence = (existingProfile?.classification as any)?.conversationEvidence;
+    
+    // Real-time single message analysis for immediate insights
+    const realTimeAnalysis = await enhancedPersonaIntegration.analyzeMessage(
+      content,
+      existingEvidence
+    );
+
+    console.log('⚡ Real-time evidence extraction:', {
+      processingTime: Math.round(realTimeAnalysis.processingStats.processingTime) + 'ms',
+      newSignals: realTimeAnalysis.processingStats.signalsExtracted,
+      confidence: Math.round(realTimeAnalysis.processingStats.confidenceFactors.evidenceStrength * 100) + '%'
+    });
+
+    // Check if we should trigger full conversation analysis
+    const shouldFullyAnalyze = this.shouldAnalyzePersona() || 
+      enhancedPersonaIntegration.shouldUpdateClassification(
+        existingProfile?.classification?.type || 'exploring_undecided',
+        realTimeAnalysis.conversationEvidence!,
+        existingProfile?.conversationAnalysis?.messageCount || 0
+      );
+
+    if (!shouldFullyAnalyze) {
+      // Still provide evidence updates even without full analysis
+      return { 
+        analysisTriggered: false,
+        evidenceUpdate: realTimeAnalysis.conversationEvidence 
+      };
     }
 
-    console.log('🎯 User message triggered persona analysis');
+    console.log('🎯 User message triggered full persona analysis');
     
-    // Perform analysis
+    // Perform full conversation analysis
     const result = await this.analyzePersonaFromConversation();
     
     if (result) {
@@ -416,7 +476,8 @@ export class PersonaOnboardingService {
       
       return {
         analysisTriggered: true,
-        result
+        result,
+        evidenceUpdate: realTimeAnalysis.conversationEvidence
       };
     }
 

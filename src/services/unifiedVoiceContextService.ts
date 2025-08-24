@@ -973,7 +973,7 @@ ${contextPrompt}
       console.warn('⚠️ No user data found, falling back to guest prompt');
       // Fallback to a very safe guest-style prompt
       const prompt = await this.buildGuestContext();
-      const firstMessage = "Hi I'm Sarah an AI assistant, what's your name?";
+      const firstMessage = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal.\n\nTo make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind.\n\nFirst up whats your name?";
       return this.buildConversationOverrides(prompt, firstMessage, 'authenticated');
     }
 
@@ -1003,9 +1003,8 @@ ${contextPrompt}
    */
   public async createGuestOverrides(topicTitle?: string): Promise<any> {
     const prompt = await this.buildGuestContext();
-    const firstMessage = topicTitle
-      ? `Let's talk about ${topicTitle}. I can personalize suggestions around this—what would you like to explore first?`
-      : "Hi I'm Sarah an AI assistant, what's your name?";
+    // ALWAYS use the required Sarah introduction message for fresh conversations
+    const firstMessage = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal.\n\nTo make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind.\n\nFirst up whats your name?";
     return this.buildConversationOverrides(prompt, firstMessage, 'guest');
   }
 
@@ -1053,7 +1052,7 @@ PERSONA: Warm, encouraging career guide who helps young adults discover their po
    */
   public async generatePersonalizedFirstMessage(userData: User | null): Promise<string> {
     if (!userData) {
-      return "Hi I'm Sarah an AI assistant, what's your name?";
+      return "Hi I'm Sarah an AI assistant, together we will explore what you enjoy and discover career pathways that might be perfect for you. What name can I use?";
     }
 
     const engagementData = await this.getUserEngagementData(userData.uid);
@@ -1668,7 +1667,7 @@ ${this.getContextAwareInstruction(contextType)}`,
    */
   private async resetAgentToCleanState(agentId: string): Promise<void> {
     try {
-      const cleanFirstMessage = "Hi I'm Sarah an AI assistant, what's your name?";
+      const cleanFirstMessage = "Hi I'm Sarah an AI assistant, together we will explore what you enjoy and discover career pathways that might be perfect for you. What name can I use?";
       
       const cleanSystemPrompt = `You are an expert career counselor specializing in AI-powered career guidance for young adults.
 

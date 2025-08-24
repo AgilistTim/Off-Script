@@ -71,6 +71,20 @@ export interface GuestSession {
     classification: PersonaClassification;
     messageCount: number;
   }>;
+
+  // Structured Q1-Q6 questionnaire onboarding
+  structuredOnboarding?: {
+    currentQuestion: string | null;
+    responses: Array<{
+      questionId: string;
+      response: string | number;
+      timestamp: Date;
+    }>;
+    stage: 'q1' | 'q2' | 'q2_details' | 'q3' | 'q4' | 'q5' | 'q6' | 'complete';
+    tentativePersona: 'uncertain' | 'exploring' | 'decided' | null;
+    hasSpecificCareer: boolean;
+    isComplete: boolean;
+  };
 }
 
 // Guest session actions
@@ -111,6 +125,9 @@ interface GuestSessionActions {
   getPersonaProfile: () => PersonaProfile | null;
   getCurrentOnboardingStage: () => GuestSession['onboardingStage'];
   shouldTriggerPersonaAnalysis: () => boolean;
+  
+  // Structured onboarding actions
+  updateSession: (sessionUpdates: Partial<GuestSession>) => void;
 }
 
 // Create guest session store with persistence
@@ -328,16 +345,19 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
 
       getSessionForMigration: () => {
         const session = get();
-        console.log('📤 [GUEST SESSION] Retrieved session for migration:', {
-          sessionId: session.sessionId,
-          conversationHistoryLength: session.conversationHistory.length,
-          careerCardsCount: session.careerCards.length,
-          hasPersonProfile: !!session.personProfile,
-          sampleMessages: session.conversationHistory.slice(0, 2).map(msg => ({
-            role: msg.role,
-            preview: msg.content.substring(0, 30) + '...'
-          }))
-        });
+        // Reduce logging frequency - only log when significant changes occur
+        if (session.conversationHistory.length % 5 === 0 || session.careerCards.length > 0) {
+          console.log('📤 [GUEST SESSION] Retrieved session for migration:', {
+            sessionId: session.sessionId,
+            conversationHistoryLength: session.conversationHistory.length,
+            careerCardsCount: session.careerCards.length,
+            hasPersonProfile: !!session.personProfile,
+            sampleMessages: session.conversationHistory.slice(0, 2).map(msg => ({
+              role: msg.role,
+              preview: msg.content.substring(0, 30) + '...'
+            }))
+          });
+        }
         return session;
       },
 
@@ -461,6 +481,19 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
         });
         
         return shouldTrigger;
+      },
+
+      // Structured onboarding actions
+      updateSession: (sessionUpdates: Partial<GuestSession>) => {
+        const state = get();
+        set({
+          ...sessionUpdates,
+          lastActive: new Date().toISOString()
+        });
+        console.log('📝 Session updated with structured onboarding data:', {
+          updatedFields: Object.keys(sessionUpdates),
+          structuredOnboarding: sessionUpdates.structuredOnboarding
+        });
       }
     }),
     {
@@ -484,6 +517,8 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
         onboardingStage: state.onboardingStage,
         classificationTriggers: state.classificationTriggers,
         personaAnalysisHistory: state.personaAnalysisHistory,
+        // Persist structured onboarding data
+        structuredOnboarding: state.structuredOnboarding,
         // Skip analysisResults to keep storage light
       }),
       
@@ -587,6 +622,11 @@ export class GuestSessionService {
 
   shouldTriggerPersonaAnalysis(): boolean {
     return this.store.getState().shouldTriggerPersonaAnalysis();
+  }
+
+  // Structured onboarding methods
+  updateSession(sessionUpdates: Partial<GuestSession>): void {
+    this.store.getState().updateSession(sessionUpdates);
   }
 
   // Convenience methods for persona workflow

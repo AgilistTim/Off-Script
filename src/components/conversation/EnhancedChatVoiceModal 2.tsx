@@ -58,15 +58,10 @@ import { progressAwareMCPService, MCPProgressUpdate } from '../../services/progr
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 import { guestSessionService } from '../../services/guestSessionService';
 import { personaOnboardingService } from '../../services/personaOnboardingService';
-import { realTimePersonaAdaptationService } from '../../services/realTimePersonaAdaptationService';
-import { treeProgressService } from '../../services/treeProgressService';
 import { careerPathwayService } from '../../services/careerPathwayService';
 import { lightweightCareerSuggestionService } from '../../services/lightweightCareerSuggestionService';
 import environmentConfig from '../../config/environment';
 import { ChatTextInput } from './ChatTextInput';
-import { CompactProgressIndicator, MiniProgressIndicator } from '../ui/compact-progress-indicator';
-import { structuredOnboardingService } from '../../services/structuredOnboardingService';
-import { conversationFlowManager } from '../../services/conversationFlowManager';
 
 
 
@@ -129,13 +124,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     careerCardsGenerated?: number;
   }>({});
   const [currentOnboardingStage, setCurrentOnboardingStage] = useState<OnboardingStage>('initial');
-  
-  // Real-time persona adaptation tracking
-  const [personaAdaptationState, setPersonaAdaptationState] = useState<any>(null);
-  const [personaChangeEvents, setPersonaChangeEvents] = useState<any[]>([]);
-  
-  // Compact progress visualization
-  const [compactProgressData, setCompactProgressData] = useState<any>(null);
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const mobileScrollAreaRef = useRef<HTMLDivElement>(null);
@@ -275,103 +263,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     }
   }, [careerCards, onCareerCardsDiscovered]);
 
-  // Initialize real-time persona adaptation service
-  useEffect(() => {
-    if (!currentUser) {
-      console.log('🧠 Initializing real-time persona adaptation for guest user');
-      
-      // Set up persona change listener
-      const unsubscribe = realTimePersonaAdaptationService.onPersonaChange((event) => {
-        console.log('🔄 Persona change event received:', {
-          type: event.type,
-          previousPersona: event.previousState.currentPersona,
-          newPersona: event.newState.currentPersona,
-          confidence: Math.round(event.newState.confidence * 100) + '%',
-          recommendedActions: event.recommendedActions.length
-        });
-        
-        // Update state with new persona information
-        setPersonaAdaptationState(event.newState);
-        setPersonaChangeEvents(prev => [...prev, event].slice(-5)); // Keep last 5 events
-        
-        // TODO: If we need to inject context into conversation, we could do it here
-        // For now, this is primarily for tracking and debugging
-      });
-      
-      return () => {
-        console.log('🧹 Cleaning up persona adaptation listeners');
-        unsubscribe();
-        realTimePersonaAdaptationService.reset();
-      };
-    }
-  }, [currentUser, isOpen]);
-
-  // Initialize and update compact progress visualization with real-time updates
-  useEffect(() => {
-    if (!currentUser) {
-      console.log('📊 Initializing compact progress visualization for guest user');
-      
-      // Initialize structured onboarding for guest users
-      const guestSession = guestSessionService.getGuestSession();
-      if (!guestSession.structuredOnboarding) {
-        if (guestSession.conversationHistory.length === 0) {
-          console.log('🎯 Fresh guest user detected - initializing structured onboarding');
-          structuredOnboardingService.initializeStructuredFlow();
-        } else {
-          console.log('🔄 Existing session without structured onboarding - user can continue with legacy flow or restart for questionnaire');
-          // For existing sessions, we could offer them the option to restart with structured flow
-          // For now, let them continue with the legacy flow
-        }
-      }
-      
-      // Get initial compact progress data
-      const updateCompactProgress = () => {
-        try {
-          const progressData = treeProgressService.getCompactProgressData();
-          setCompactProgressData(progressData);
-          console.log('📊 Compact progress updated:', {
-            stage: progressData.stage.customerLabel,
-            progress: Math.round(progressData.stage.progress * 100) + '%',
-            stats: progressData.stats
-          });
-        } catch (error) {
-          console.error('❌ Failed to update compact progress:', error);
-        }
-      };
-
-      // Update initially
-      updateCompactProgress();
-
-      // Set up listener for real-time progress updates
-      const unsubscribe = treeProgressService.onProgressUpdate((update) => {
-        console.log('📊 Real-time progress update received:', update.description);
-        updateCompactProgress();
-      });
-
-      // Backup periodic update (reduced frequency since we have real-time updates)
-      const updateInterval = setInterval(updateCompactProgress, 10000); // Update every 10 seconds as backup
-
-      return () => {
-        console.log('🧹 Cleaning up compact progress listeners');
-        unsubscribe();
-        clearInterval(updateInterval);
-      };
-    }
-  }, [currentUser, isOpen]);
-
-  // Trigger real-time progress updates when conversation changes
-  useEffect(() => {
-    if (!currentUser && conversationHistory.length > 0) {
-      console.log('💬 Conversation length changed, triggering progress update:', conversationHistory.length);
-      treeProgressService.triggerRealTimeUpdate('message_sent');
-      
-      // Check for milestones
-      if (conversationHistory.length === 3 || conversationHistory.length === 5 || conversationHistory.length === 10) {
-        treeProgressService.triggerRealTimeUpdate('engagement_milestone');
-      }
-    }
-  }, [conversationHistory.length, currentUser]);
-
   // Determine agent based on user auth state and context
   const getAgentId = (): string => {
     const agentId = environmentConfig.elevenLabs.agentId;
@@ -482,16 +373,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
         console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - Enhanced modal with progress tracking!');
         console.log('🔍 Tool parameters:', parameters);
-        
-        // **PROGRESSIVE TOOL ENABLEMENT**: Enable career analysis when appropriate
-        if (!conversationFlowManager.shouldEnableSpecificTool('analyze_conversation_for_careers')) {
-          console.log('⏸️ Career analysis tool not yet enabled - need more conversation');
-          return "I'm learning about your interests and goals. Tell me more about what you enjoy or what kind of work appeals to you, and I'll start building career suggestions.";
-        }
-        
-        // Trigger progress update when career analysis starts
-        console.log('🌱 Triggering progress update for career analysis start');
-        treeProgressService.triggerRealTimeUpdate('engagement_milestone');
         
         try {
           // Use ref to get current conversation history (avoids stale closure)
@@ -637,10 +518,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               const hasEnhancement = !!result.enhancedCareerCards?.length;
               
               const completionMessage = `✅ Analysis complete! I've created ${cardCount} personalized career cards: ${cardTitles.join(', ')}${cardCount > 3 ? ' and more' : ''}. Each includes ${hasEnhancement ? 'verified salary data, training pathways, and market insights from my latest research' : 'detailed analysis of skills, progression paths, and market demand'}. Which career would you like to explore first?`;
-              
-              // Trigger progress update for career cards generation
-              console.log('🌱 Triggering progress update for career cards generated');
-              treeProgressService.triggerRealTimeUpdate('career_cards_generated');
               
               // Persist cards for authenticated users so they appear on the dashboard
               if (currentUser && careerCards.length > 0) {
@@ -803,12 +680,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         console.log('👤 Updating person profile based on conversation...');
         console.log('👤 Profile parameters:', parameters);
         
-        // **PROGRESSIVE TOOL ENABLEMENT**: Enable profile updates early for profile building  
-        if (!conversationFlowManager.shouldEnableSpecificTool('update_person_profile')) {
-          console.log('⏸️ Profile tool not yet enabled - need basic information');
-          return "Let me gather a bit more information about you first, then I'll update your profile.";
-        }
-        
         try {
           // Handle both string and array inputs from ElevenLabs agent
           const parseInsights = (value: any): string[] => {
@@ -867,11 +738,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           }
 
           console.log('✅ Profile insights updated:', newInsights);
-          
-          // Trigger progress update when profile is updated
-          console.log('🌱 Triggering progress update for profile update');
-          treeProgressService.triggerRealTimeUpdate('engagement_milestone');
-          
           return "Profile insights updated successfully based on conversation";
 
         } catch (error) {
@@ -1007,44 +873,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   stage: personaSummary.stage,
                   onboardingStage: guestSessionService.getCurrentOnboardingStage()
                 });
-                
-                // Trigger real-time persona adaptation
-                if (personaSummary.hasPersona && analysisResult.result) {
-                  console.log('🔄 [REAL-TIME ADAPTATION] Updating persona state for conversation adaptation');
-                  
-                  // Get the persona profile from guest session (has proper PersonaProfile type)
-                  const personaProfile = guestSessionService.getPersonaProfile();
-                  const evidence = analysisResult.evidenceUpdate;
-                  
-                  if (personaProfile) {
-                    // Initialize adaptation if needed
-                    if (!realTimePersonaAdaptationService.getCurrentState()) {
-                      realTimePersonaAdaptationService.initializeAdaptation(personaProfile);
-                    } else {
-                      // Update existing state with new persona profile
-                      const changeEvent = realTimePersonaAdaptationService.updatePersonaState(
-                        personaProfile,
-                        evidence,
-                        'conversation_message'
-                      );
-                      
-                      if (changeEvent) {
-                        console.log('🔄 [REAL-TIME ADAPTATION] Persona change detected:', {
-                          type: changeEvent.type,
-                          from: changeEvent.previousState.currentPersona,
-                          to: changeEvent.newState.currentPersona,
-                          confidence: Math.round(changeEvent.newState.confidence * 100) + '%'
-                        });
-                        
-                        // Get context injection for agent adaptation
-                        const contextInjection = realTimePersonaAdaptationService.getCurrentContextInjection();
-                        if (contextInjection) {
-                          console.log('💬 [CONTEXT INJECTION] Available for next agent interaction:', contextInjection.substring(0, 200) + '...');
-                        }
-                      }
-                    }
-                  }
-                }
               }
             }).catch(error => {
               console.error('❌ [PERSONA ANALYSIS] Failed to process message:', error);
@@ -1527,44 +1355,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   stage: personaSummary.stage,
                   onboardingStage: guestSessionService.getCurrentOnboardingStage()
                 });
-                
-                // Trigger real-time persona adaptation for text mode
-                if (personaSummary.hasPersona && analysisResult.result) {
-                  console.log('🔄 [REAL-TIME ADAPTATION] Updating persona state from text conversation');
-                  
-                  // Get the persona profile from guest session (has proper PersonaProfile type)
-                  const personaProfile = guestSessionService.getPersonaProfile();
-                  const evidence = analysisResult.evidenceUpdate;
-                  
-                  if (personaProfile) {
-                    // Initialize adaptation if needed
-                    if (!realTimePersonaAdaptationService.getCurrentState()) {
-                      realTimePersonaAdaptationService.initializeAdaptation(personaProfile);
-                    } else {
-                      // Update existing state with new persona profile
-                      const changeEvent = realTimePersonaAdaptationService.updatePersonaState(
-                        personaProfile,
-                        evidence,
-                        'text_message'
-                      );
-                      
-                      if (changeEvent) {
-                        console.log('🔄 [REAL-TIME ADAPTATION] Persona change detected from text:', {
-                          type: changeEvent.type,
-                          from: changeEvent.previousState.currentPersona,
-                          to: changeEvent.newState.currentPersona,
-                          confidence: Math.round(changeEvent.newState.confidence * 100) + '%'
-                        });
-                        
-                        // Get context injection for agent adaptation
-                        const contextInjection = realTimePersonaAdaptationService.getCurrentContextInjection();
-                        if (contextInjection) {
-                          console.log('💬 [CONTEXT INJECTION] Available from text mode:', contextInjection.substring(0, 200) + '...');
-                        }
-                      }
-                    }
-                  }
-                }
               }
             }).catch(error => {
               console.error('❌ [PERSONA ANALYSIS] Failed to process text message:', error);
@@ -1689,133 +1479,53 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     return shouldTrigger;
   };
 
-  // Generate phase-aware AI response using conversation flow manager
+  // Generate immediate AI response for text-only mode
   const generateImmediateResponse = (userMessage: string, messageCount: number): string => {
-    return conversationFlowManager.generatePhaseAwareResponse(userMessage, messageCount);
-  };
-  
-  // LEGACY: Generate immediate AI response using old structured onboarding flow
-  const generateImmediateResponseOld = (userMessage: string, messageCount: number): string => {
     const lowerMessage = userMessage.toLowerCase();
     
-    // First message - Welcome and start structured flow
+    // First message responses
     if (messageCount <= 1) {
-      // ALWAYS use the required Sarah introduction message
-      const welcomeResponse = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal.\n\nTo make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind.\n\nFirst up whats your name?";
-      
-      // Initialize structured onboarding
-      structuredOnboardingService.initializeStructuredFlow();
-      
-      // Return the exact Sarah introduction message
-      return welcomeResponse;
-    }
-    
-    // Check if user is responding to a structured question
-    const currentQuestion = structuredOnboardingService.getCurrentQuestion();
-    if (currentQuestion && structuredOnboardingService.shouldPromptStructuredQuestion()) {
-      
-      // Try to process user response if it matches current question format
-      if (currentQuestion.type === 'multiple_choice' && currentQuestion.options) {
-        // Check if user provided a number response
-        const numberMatch = userMessage.match(/^(\d+)\.?\s*/);
-        if (numberMatch) {
-          const responseIndex = parseInt(numberMatch[1]) - 1;
-          if (responseIndex >= 0 && responseIndex < currentQuestion.options.length) {
-            // Valid response - process it
-            console.log('📝 Processing structured response:', { questionId: currentQuestion.id, responseIndex });
-            
-            try {
-              const newState = structuredOnboardingService.submitResponse(currentQuestion.id, responseIndex);
-              
-              // Generate response based on completion status
-              if (newState.isComplete) {
-                return "Perfect! Thank you for completing the career assessment. Based on your responses, I now have a clear understanding of your situation and can provide personalized guidance. Let me analyze your profile and suggest some career paths that align with your goals and preferences.";
-              } else {
-                // Get next question
-                const nextPrompt = structuredOnboardingService.getStructuredPrompt();
-                if (nextPrompt) {
-                  return `Great choice! ${nextPrompt}`;
-                } else {
-                  return "Thank you for that response. Let me continue gathering information about your career interests.";
-                }
-              }
-            } catch (error) {
-              console.error('❌ Error processing structured response:', error);
-            }
-          }
-        }
-      } else if (currentQuestion.type === 'open_ended') {
-        // Process open-ended response
-        console.log('📝 Processing open-ended response:', { questionId: currentQuestion.id });
-        
-        try {
-          const newState = structuredOnboardingService.submitResponse(currentQuestion.id, userMessage);
-          
-          if (newState.isComplete) {
-            return "Excellent insights! I now have a comprehensive understanding of your career situation. Let me process this information and provide you with personalized career recommendations that match your unique profile.";
-          } else {
-            const nextPrompt = structuredOnboardingService.getStructuredPrompt();
-            if (nextPrompt) {
-              return `Thank you for sharing that. ${nextPrompt}`;
-            }
-          }
-        } catch (error) {
-          console.error('❌ Error processing open-ended response:', error);
-        }
-      }
-      
-      // If we couldn't process the response, prompt for the current question again
-      const structuredPrompt = structuredOnboardingService.getStructuredPrompt();
-      if (structuredPrompt) {
-        return `I want to make sure I understand you correctly. ${structuredPrompt}`;
-      }
-    }
-    
-    // If structured onboarding is complete, use normal conversation flow
-    const currentState = structuredOnboardingService.getCurrentState();
-    if (currentState.isComplete) {
-      
-      // Interest/passion responses
-      if (lowerMessage.includes('interest') || lowerMessage.includes('passionate') || lowerMessage.includes('love') || lowerMessage.includes('enjoy')) {
-        return "That's wonderful! Based on your career assessment, I can see how your interests align with certain career paths. Let me provide some specific recommendations that match both your interests and your career decision stage.";
-      }
-      
-      // Skills responses
-      if (lowerMessage.includes('skill') || lowerMessage.includes('good at') || lowerMessage.includes('talent')) {
-        return "Excellent! Your skills combined with the insights from your assessment give me a clear picture of suitable career directions. Let me suggest some paths that leverage your strengths.";
-      }
-      
-      // Goals/ambition responses  
-      if (lowerMessage.includes('goal') || lowerMessage.includes('want to') || lowerMessage.includes('hope to') || lowerMessage.includes('dream')) {
-        return "Your goals are important! Based on your career assessment profile, I can suggest specific steps to help you achieve these aspirations. Let me provide some tailored recommendations.";
-      }
-      
-      // Default post-assessment responses
-      const postAssessmentResponses = [
-        "Based on your career assessment, I have valuable insights about your situation. I'm analyzing this along with what you've shared to provide personalized career recommendations.",
-        "Great question! Your assessment results help me understand exactly how to guide you. Let me provide some specific suggestions based on your profile.",
-        "That's a thoughtful point. Given your assessment results and career decision stage, I can offer some targeted advice that fits your specific situation."
+      const firstResponses = [
+        "Hello! I'm your AI career advisor. I'm here to help you explore career paths that align with your interests, skills, and goals. What would you like to know about your career options?",
+        "Hi there! Thanks for reaching out. I specialize in helping people discover career paths that suit them. What's on your mind about your career journey?",
+        "Welcome! I'm excited to help you explore your career possibilities. Whether you're just starting out or looking for a change, I can provide personalized guidance. What career topics interest you most?",
+        "Great to meet you! I'm here to provide personalized career guidance based on your unique interests and goals. What would you like to discuss about your career path?"
       ];
       
-      return postAssessmentResponses[Math.floor(Math.random() * postAssessmentResponses.length)];
-    }
-    
-    // If somehow we're not in structured flow and not complete, fall back to encouraging structured completion
-    if (messageCount >= 3) {
-      const structuredPrompt = structuredOnboardingService.getStructuredPrompt();
-      if (structuredPrompt) {
-        return `I'd like to understand your situation better to provide the most helpful guidance. ${structuredPrompt}`;
+      if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey')) {
+        return firstResponses[Math.floor(Math.random() * firstResponses.length)];
       }
     }
     
-    // Ultimate fallback
-    const fallbackResponses = [
-      "I'm here to provide personalized career guidance based on your unique situation. Let me ask you some questions to understand how I can best help you.",
-      "Thanks for sharing that with me. To give you the most relevant advice, I'd like to understand more about your current career situation.",
-      "That's valuable information! Let me learn a bit more about your career goals and decision-making stage so I can provide tailored recommendations."
+    // Interest/passion responses
+    if (lowerMessage.includes('interest') || lowerMessage.includes('passionate') || lowerMessage.includes('love') || lowerMessage.includes('enjoy')) {
+      return "That's wonderful! Your interests and passions are key to finding a fulfilling career. I'm analyzing what you've shared to identify careers that align with what energizes you. Tell me more about what specifically excites you about this area.";
+    }
+    
+    // Skills responses
+    if (lowerMessage.includes('skill') || lowerMessage.includes('good at') || lowerMessage.includes('talent')) {
+      return "Excellent! Understanding your skills is crucial for career planning. I'm processing your strengths to match them with suitable career paths. What other skills do you feel confident about, or what skills would you like to develop?";
+    }
+    
+    // Goals/ambition responses  
+    if (lowerMessage.includes('goal') || lowerMessage.includes('want to') || lowerMessage.includes('hope to') || lowerMessage.includes('dream')) {
+      return "Your goals and aspirations are important guides for your career journey. I'm analyzing how your ambitions can translate into specific career opportunities. What timeline are you thinking about for achieving these goals?";
+    }
+    
+    // Work environment responses
+    if (lowerMessage.includes('environment') || lowerMessage.includes('workplace') || lowerMessage.includes('team') || lowerMessage.includes('remote') || lowerMessage.includes('office')) {
+      return "Work environment preferences are really important for job satisfaction! I'm taking note of your preferences to suggest careers that offer the kind of workplace culture you're looking for. What other aspects of a work environment matter to you?";
+    }
+    
+    // Default encouraging responses
+    const defaultResponses = [
+      "I can see you're thinking about your career path - that's great! I'm analyzing what you've shared to identify opportunities that might be a good fit. What other aspects of your career are you curious about?",
+      "Thanks for sharing that with me. Every detail helps me understand what kind of career environment would suit you best. I'm working on finding some personalized recommendations. What else would you like to explore?",
+      "That's valuable information! I'm processing your preferences to find career matches that align with your interests and goals. Is there anything specific about your ideal career that you'd like to discuss?",
+      "I appreciate you sharing your thoughts. This helps me build a better picture of what you're looking for in a career. I'm analyzing this to provide you with tailored suggestions. What questions do you have about different career paths?"
     ];
     
-    return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+    return defaultResponses[Math.floor(Math.random() * defaultResponses.length)];
   };
 
   // Handle mode selection
@@ -2007,20 +1717,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                         ✨ {newContentAdded}
                       </div>
                     )}
-                    
-                    {/* Compact Progress Indicator (Mobile) */}
-                    {compactProgressData && !currentUser && (
-                      <div className="mb-4">
-                        <MiniProgressIndicator 
-                          data={compactProgressData}
-                          onClick={() => {
-                            console.log('📊 Mobile - Progress indicator clicked');
-                            // Could expand to full tree view or show detailed progress modal
-                          }}
-                        />
-                      </div>
-                    )}
-                    
                     <div className="max-h-80 overflow-y-auto bg-gray-50 rounded-lg border-2 border-black p-4">
                       {/* Progress Indicator - Only show when analyzing, no min-height */}
                       {isAnalyzing && progressUpdate && (
@@ -2150,38 +1846,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                         </div>
                       )}
                       
-                      {/* Persona Adaptation Debug Panel (Mobile) */}
-                      {personaAdaptationState && (
-                        <div className="border-t-2 border-gray-200 pt-4">
-                          <h4 className="text-sm font-bold text-black mb-2 flex items-center">
-                            <Zap className="w-4 h-4 mr-2 text-purple-600" />
-                            Real-Time Persona Adaptation
-                          </h4>
-                          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 space-y-2">
-                            <div className="text-xs">
-                              <span className="font-medium text-purple-800">Current: </span>
-                              <Badge variant="outline" className="text-xs bg-purple-100 text-purple-800 border-purple-300">
-                                {personaAdaptationState.currentPersona}
-                              </Badge>
-                            </div>
-                            <div className="text-xs text-purple-700">
-                              <span className="font-medium">Confidence: </span>
-                              {Math.round(personaAdaptationState.confidence * 100)}%
-                            </div>
-                            <div className="text-xs text-purple-700">
-                              <span className="font-medium">Stage: </span>
-                              {personaAdaptationState.conversationStage}
-                            </div>
-                            {personaChangeEvents.length > 0 && (
-                              <div className="text-xs text-purple-600">
-                                <span className="font-medium">Changes: </span>
-                                {personaChangeEvents.length} adaptation events
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      
                       {/* Smart Placeholder Text */}
                       {!careerContext && careerCards.length === 0 && (discoveredInsights.interests.length === 0 && discoveredInsights.goals.length === 0 && discoveredInsights.skills.length === 0 && discoveredInsights.personalQualities.length === 0) && (
                         <div className="text-center py-8">
@@ -2279,19 +1943,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     {newContentAdded && (
                       <div className="mb-3 p-2 bg-white text-black rounded-lg border-2 border-black text-center text-sm font-medium animate-pulse">
                         ✨ {newContentAdded}
-                      </div>
-                    )}
-                    
-                    {/* Compact Progress Indicator (Desktop) */}
-                    {compactProgressData && !currentUser && (
-                      <div className="mb-4">
-                        <CompactProgressIndicator 
-                          data={compactProgressData}
-                          onClick={() => {
-                            console.log('📊 Desktop - Progress indicator clicked');
-                            // Could expand to detailed tree view or progress dashboard
-                          }}
-                        />
                       </div>
                     )}
                     
@@ -2678,44 +2329,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                       </div>
                     )}
                     </div>
-
-                    {/* Persona Adaptation Debug Panel (Desktop) */}
-                    {personaAdaptationState && (
-                      <div className="border-t-2 border-gray-200 pt-4">
-                        <h4 className="text-sm font-bold text-black mb-2 flex items-center">
-                          <Zap className="w-4 h-4 mr-2 text-purple-600" />
-                          Real-Time Persona Adaptation
-                        </h4>
-                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 space-y-2">
-                          <div className="text-xs">
-                            <span className="font-medium text-purple-800">Current: </span>
-                            <Badge variant="outline" className="text-xs bg-purple-100 text-purple-800 border-purple-300">
-                              {personaAdaptationState.currentPersona}
-                            </Badge>
-                          </div>
-                          <div className="text-xs text-purple-700">
-                            <span className="font-medium">Confidence: </span>
-                            {Math.round(personaAdaptationState.confidence * 100)}%
-                          </div>
-                          <div className="text-xs text-purple-700">
-                            <span className="font-medium">Stage: </span>
-                            {personaAdaptationState.conversationStage}
-                          </div>
-                          {personaChangeEvents.length > 0 && (
-                            <div className="text-xs text-purple-600">
-                              <span className="font-medium">Changes: </span>
-                              {personaChangeEvents.length} adaptation events
-                            </div>
-                          )}
-                          {personaAdaptationState.previousPersona && (
-                            <div className="text-xs text-gray-600">
-                              <span className="font-medium">Previous: </span>
-                              {personaAdaptationState.previousPersona}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
 
                     {/* Smart Placeholder Text */}
                     {!careerContext && careerCards.length === 0 && (discoveredInsights.interests.length === 0 && discoveredInsights.goals.length === 0 && discoveredInsights.skills.length === 0 && discoveredInsights.personalQualities.length === 0) && (

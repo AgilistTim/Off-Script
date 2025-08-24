@@ -483,10 +483,10 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - Enhanced modal with progress tracking!');
         console.log('🔍 Tool parameters:', parameters);
         
-        // **PROGRESSIVE TOOL ENABLEMENT**: Enable career analysis when appropriate
-        if (!conversationFlowManager.shouldEnableSpecificTool('analyze_conversation_for_careers')) {
-          console.log('⏸️ Career analysis tool not yet enabled - need more conversation');
-          return "I'm learning about your interests and goals. Tell me more about what you enjoy or what kind of work appeals to you, and I'll start building career suggestions.";
+        // **PHASE-AWARE TOOL BLOCKING**: Block career tools during onboarding phase
+        if (!conversationFlowManager.shouldEnableCareerTools()) {
+          console.log('⏸️ Career tools blocked during onboarding phase');
+          return "I'm still getting to know you through our assessment. Let's complete the questions first, then I'll provide personalized career insights.";
         }
         
         // Trigger progress update when career analysis starts
@@ -803,10 +803,10 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         console.log('👤 Updating person profile based on conversation...');
         console.log('👤 Profile parameters:', parameters);
         
-        // **PROGRESSIVE TOOL ENABLEMENT**: Enable profile updates early for profile building  
-        if (!conversationFlowManager.shouldEnableSpecificTool('update_person_profile')) {
-          console.log('⏸️ Profile tool not yet enabled - need basic information');
-          return "Let me gather a bit more information about you first, then I'll update your profile.";
+        // **PHASE-AWARE TOOL BLOCKING**: Block profile tools during onboarding phase  
+        if (!conversationFlowManager.shouldEnableCareerTools()) {
+          console.log('⏸️ Profile tools blocked during onboarding phase');
+          return "I'm gathering this information through our structured assessment. Let's complete the questions first for the most accurate profile.";
         }
         
         try {
@@ -1700,14 +1700,19 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     
     // First message - Welcome and start structured flow
     if (messageCount <= 1) {
-      // ALWAYS use the required Sarah introduction message
-      const welcomeResponse = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal.\n\nTo make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind.\n\nFirst up whats your name?";
+      const welcomeResponses = [
+        "Hello! I'm your AI career advisor, and I'm excited to help you discover career paths that truly fit you. I use a proven approach to understand your unique situation and provide personalized guidance.",
+        "Hi there! Welcome to your career exploration journey. I'll guide you through some key questions to understand where you are and where you want to go with your career.",
+        "Great to meet you! I'm here to help you navigate your career path with confidence. I'll ask you some thoughtful questions to provide the most relevant guidance for your situation."
+      ];
       
       // Initialize structured onboarding
       structuredOnboardingService.initializeStructuredFlow();
       
-      // Return the exact Sarah introduction message
-      return welcomeResponse;
+      const welcomeMessage = welcomeResponses[Math.floor(Math.random() * welcomeResponses.length)];
+      const structuredPrompt = structuredOnboardingService.getStructuredPrompt();
+      
+      return welcomeMessage + (structuredPrompt ? structuredPrompt : "\n\nLet's start by understanding your current situation with career decisions.");
     }
     
     // Check if user is responding to a structured question

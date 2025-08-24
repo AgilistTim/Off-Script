@@ -11,6 +11,8 @@ import { PersonaType, PersonaProfile, personaService } from './personaService';
 import { guestSessionService } from './guestSessionService';
 import { userPersonaService } from './userPersonaService';
 import { enhancedPersonaIntegration } from './enhancedPersonaIntegration';
+import { conversationFlowManager } from './conversationFlowManager';
+import { integratedOnboardingService } from './integratedOnboardingService';
 
 interface ConversationOverrides {
   agent: {
@@ -26,6 +28,7 @@ interface ConversationOverrides {
   conversation?: {
     textOnly?: boolean;
   };
+  dynamicVariables?: Record<string, string>;
 }
 
 interface StartSessionOptions {
@@ -126,15 +129,30 @@ export class ConversationOverrideService {
   }
 
   /**
-   * Build guest user conversation overrides
+   * Build guest user conversation overrides with integrated natural language onboarding
    */
   async buildGuestOverrides(topicTitle?: string): Promise<ConversationOverrides> {
-    console.log('🔒 Building guest conversation overrides:', { topicTitle });
+    console.log('🔒 Building guest conversation overrides with integrated onboarding:', { topicTitle });
 
-    const contextPrompt = this.buildGuestOnboardingContextPrompt();
-    const firstMessage = topicTitle
-      ? `Let's explore ${topicTitle} together! I can help you understand this career path. What interests you most about it?`
-      : "Hi I'm Sarah, an AI assistant. By getting to know you I can help you find potential careers and opportunities that might interest you. It works best when you chat to me like a friend and the voice chat is usually much easier. As I learn about you I will share insights about your goals, interests and skills and use this to suggest careers we can explore together. First up, what name can I use?";
+    // Initialize integrated onboarding system
+    const onboardingProgress = await integratedOnboardingService.initializeOnboarding();
+    
+    const contextPrompt = this.buildIntegratedOnboardingContextPrompt(onboardingProgress);
+    
+    // Use dynamic first message based on onboarding stage and progress
+    let firstMessage: string;
+    
+    if (topicTitle) {
+      // Topic-specific entry point
+      firstMessage = `Let's explore ${topicTitle} together! I can help you understand this career path. What interests you most about it?`;
+    } else if (onboardingProgress.evidenceCollected.name) {
+      // Continuing conversation with known name
+      const name = onboardingProgress.evidenceCollected.name;
+      firstMessage = `Hi ${name}! Ready to continue exploring your career possibilities? ${onboardingProgress.nextQuestion || "What's been on your mind lately?"}`;
+    } else {
+      // Fresh onboarding start - using exact specified message
+      firstMessage = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal.\n\nTo make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind.\n\nFirst up whats your name?";
+    }
 
     return {
       agent: {
@@ -437,6 +455,126 @@ CRITICAL: Complete structured evidence collection BEFORE detailed career explora
   }
 
   /**
+   * Build integrated onboarding context prompt with dynamic adaptation
+   */
+  private buildIntegratedOnboardingContextPrompt(onboardingProgress: any): string {
+    const evidence = onboardingProgress.evidenceCollected;
+    const currentStage = onboardingProgress.currentStage;
+    const recommendations = onboardingProgress.conversationRecommendations;
+    
+    let dynamicGuidance = '';
+    
+    // Add persona-specific guidance if available
+    if (onboardingProgress.personaClassification) {
+      const personaName = personaService.getPersonaDisplayName(onboardingProgress.personaClassification.type);
+      dynamicGuidance = `
+🎯 **PERSONA CLASSIFICATION ACTIVE: ${personaName.toUpperCase()}**
+- Confidence: ${Math.round(onboardingProgress.personaClassification.confidence * 100)}%
+- Approach: ${this.getPersonaApproach(onboardingProgress.personaClassification.type)}
+- Conversation Style: ${this.getPersonaSpecificGuidance(onboardingProgress.personaClassification.type)}
+
+⚡ **TRANSITION TO CAREER GUIDANCE:**
+- Evidence collection complete - NOW focus on delivering career value
+- Use persona-tailored conversation style
+- Generate career cards and specific recommendations
+- Build on collected evidence: ${JSON.stringify(evidence)}
+      `;
+    } else {
+      // Pre-classification guidance
+      const nextSteps = [];
+      if (!evidence.name) nextSteps.push('Get their name');
+      if (!evidence.lifeStage) nextSteps.push('Current situation (student/working)');  
+      if (!evidence.careerDirection) nextSteps.push('Career direction clarity (critical!)');
+      if (evidence.careerDirection === 'one_goal' && !evidence.confidenceLevel) nextSteps.push('Confidence assessment');
+      
+      dynamicGuidance = `
+📊 **ONBOARDING STAGE: ${currentStage.toUpperCase()}**
+- Progress: ${Math.round(onboardingProgress.stageProgress * 100)}%
+- Evidence Collected: ${Object.keys(evidence).join(', ') || 'None yet'}
+- Next Priority Steps: ${nextSteps.join(', ') || 'Complete evidence collection'}
+
+🎯 **CURRENT RECOMMENDATIONS:**
+${recommendations.map(rec => `- ${rec}`).join('\n')}
+
+⚠️ **EVIDENCE STILL NEEDED:**
+${nextSteps.length > 0 ? nextSteps.map(step => `- ${step}`).join('\n') : '- Ready for persona classification!'}
+      `;
+    }
+
+    return `You are Sarah, an expert career counselor using integrated natural language onboarding with real-time persona adaptation.
+
+PERSONALITY: Encouraging, authentic, practical, and supportive. Speak like a friend, not formally.
+
+RESPONSE STYLE:
+- Keep responses 30-60 words for voice conversations
+- Be conversational and natural (this is voice, not text)
+- Ask one question at a time and wait for the response
+- Show genuine interest in their answers
+- Use their name once you learn it (${evidence.name ? `Name: ${evidence.name}` : 'Name not collected yet'})
+
+${dynamicGuidance}
+
+INTEGRATED ONBOARDING SYSTEM ACTIVE:
+The system automatically tracks evidence collection and persona classification. Your job is to have natural conversations that feel friendly and helpful while the backend handles the analysis.
+
+NATURAL CONVERSATION FLOW (Evidence Collection):
+1. **RAPPORT & NAME**: Build trust, get their name → use update_person_profile
+2. **LIFE STAGE**: Current situation (student/working/gap) → update_person_profile  
+3. **CAREER DIRECTION**: None/few/one goal → analyze_conversation_for_careers + update_person_profile
+4. **CONFIDENCE**: If career mentioned, gauge confidence → natural follow-up
+5. **MOTIVATION**: What drives them (passion vs practical) → natural conversation
+6. **GOAL CLARIFICATION**: What they want help with → adapt approach
+7. **EXPLORATION HISTORY**: What they've tried (optional) → context
+
+EVIDENCE-BASED ADAPTATION:
+- The system analyzes responses in real-time
+- Persona classification updates dynamically  
+- Conversation style adapts based on emerging patterns
+- Trust the backend analysis and follow the guidance
+
+MCP-ENHANCED TOOLS (USE AGGRESSIVELY):
+1. **update_person_profile** - Use IMMEDIATELY when they share:
+   - Name, education/work status, career interests, skills, goals
+2. **analyze_conversation_for_careers** - Use when they mention:
+   - ANY career interests, activities, subjects they enjoy
+   - CRITICAL after Stage 3 responses
+3. **trigger_instant_insights** - Use for engagement:
+   - After interests shared, for quick value delivery
+4. **generate_career_recommendations** - MANDATORY if no cards by exchange 6
+
+DYNAMIC STAGE MANAGEMENT:
+- Follow natural conversation flow, don't force rigid structure
+- If they go deep on topics, acknowledge but guide back: "That's interesting! Help me understand your overall situation first..."
+- Balance evidence collection with delivering immediate value
+- Generate career insights DURING onboarding, not just at the end
+
+CONVERSATION CONTROL (Natural Steering):
+- "That sounds fascinating! Before we explore that deeply, I'd love to understand [missing stage]..."
+- "I love hearing about that! Quick question first though - [stage question]"
+- "That's valuable insight. Let me make sure I understand your full situation..."
+
+TOOL SUCCESS METRICS:
+- Every guest should leave with 1-3 career cards minimum
+- Use update_person_profile 3-4+ times per conversation
+- Generate career insights by exchange 5-6
+- Complete evidence collection while delivering value
+
+CURRENT SESSION STATE:
+${evidence.name ? `- User Name: ${evidence.name}` : '- Name: Not collected yet'}
+${evidence.lifeStage ? `- Life Stage: ${evidence.lifeStage}` : '- Life Stage: Unknown'}
+${evidence.careerDirection ? `- Career Direction: ${evidence.careerDirection}` : '- Career Direction: Unknown'}
+${evidence.careerSpecifics ? `- Career Mentions: ${evidence.careerSpecifics.join(', ')}` : '- No specific careers mentioned yet'}
+${evidence.confidenceLevel ? `- Confidence: ${evidence.confidenceLevel}` : '- Confidence: Not assessed'}
+
+CRITICAL PRIVACY PROTECTION:
+- This is a fresh session - don't reference previous conversations
+- Build naturally on the evidence collected in THIS conversation
+- Treat each session as completely isolated
+
+Focus on natural, helpful conversation while trusting the integrated onboarding system to handle the analysis and persona classification automatically.`;
+  }
+
+  /**
    * Build legacy guest context prompt (backup)
    */
   private buildGuestContextPrompt(): string {
@@ -545,21 +683,52 @@ CONVERSATION FLOW (ENHANCED FOR CAREER CARDS):
     sessionId: string,
     currentStage: 'discovery' | 'classification' | 'tailored_guidance'
   ): Promise<ConversationOverrides> {
-    console.log('🧠 Building persona onboarding overrides:', {
+    console.log('🧠 Building persona onboarding overrides using ConversationFlowManager:', {
       sessionId: sessionId.substring(0, 15) + '...',
       currentStage
     });
 
-    const personaProfile = guestSessionService.getPersonaProfile();
-    const onboardingStage = guestSessionService.getCurrentOnboardingStage();
+    // **NEW: Use ConversationFlowManager for phase-aware overrides**
+    const currentPhase = conversationFlowManager.getCurrentPhase();
+    const dynamicVariables = conversationFlowManager.getDynamicVariablesForAgent();
+    const systemPrompt = conversationFlowManager.getPhaseSystemPrompt();
+    
+    console.log('🎭 Phase-aware overrides:', {
+      phase: currentPhase.phase,
+      progress: Math.round(currentPhase.progress * 100) + '%',
+      description: currentPhase.description
+    });
 
-    // If we have a classified persona, build tailored overrides
-    if (personaProfile && personaProfile.classification.stage === 'confirmed') {
-      return this.buildPersonaTailoredOverrides(personaProfile);
+    // Build dynamic first message based on phase
+    let firstMessage: string;
+    
+    if (currentPhase.phase === 'onboarding') {
+      // ALWAYS use the required Sarah introduction message
+      firstMessage = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal.\n\nTo make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind.\n\nFirst up whats your name?";
+    } else {
+      // Career conversation phase - persona-specific greeting
+      const guestSession = guestSessionService.getGuestSession();
+      const persona = guestSession.structuredOnboarding?.tentativePersona || 'exploring';
+      
+      const personaGreetings = {
+        'uncertain': "Hi! I understand you're exploring career possibilities. I'm here to help you discover what might spark your interest.",
+        'exploring': "Hello! I can see you're actively considering different career options. Let's dive into what resonates with you.",
+        'decided': "Hi there! I understand you have some career direction already. Let's explore and validate your path together."
+      };
+      
+      firstMessage = personaGreetings[persona] || personaGreetings['exploring'];
     }
 
-    // Otherwise, build stage-appropriate discovery overrides
-    return this.buildOnboardingStageOverrides(currentStage, onboardingStage);
+    return {
+      agent: {
+        prompt: {
+          prompt: systemPrompt
+        },
+        firstMessage,
+        language: "en"
+      },
+      dynamicVariables
+    };
   }
 
   /**
@@ -608,7 +777,7 @@ CONVERSATION FLOW (ENHANCED FOR CAREER CARDS):
       case 'discovery':
         // Use structured onboarding flow instead of generic discovery
         contextPrompt = this.buildGuestOnboardingContextPrompt();
-        firstMessage = "Hi I'm Sarah, an AI assistant. By getting to know you I can help you find potential careers and opportunities that might interest you. It works best when you chat to me like a friend and the voice chat is usually much easier. As I learn about you I will share insights about your goals, interests and skills and use this to suggest careers we can explore together. First up, what name can I use?";
+        firstMessage = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal.\n\nTo make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind.\n\nFirst up whats your name?";
         break;
       case 'classification':
         contextPrompt = this.buildClassificationStagePrompt();
@@ -620,7 +789,7 @@ CONVERSATION FLOW (ENHANCED FOR CAREER CARDS):
         break;
       default:
         contextPrompt = this.buildGuestOnboardingContextPrompt();
-        firstMessage = "Hi I'm Sarah, an AI assistant. By getting to know you I can help you find potential careers and opportunities that might interest you. It works best when you chat to me like a friend and the voice chat is usually much easier. As I learn about you I will share insights about your goals, interests and skills and use this to suggest careers we can explore together. First up, what name can I use?";
+        firstMessage = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal.\n\nTo make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind.\n\nFirst up whats your name?";
     }
 
     return {

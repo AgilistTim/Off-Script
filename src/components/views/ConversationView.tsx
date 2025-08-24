@@ -9,6 +9,8 @@ import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import { DesignProvider } from '../../context/DesignContext';
 import { CareerCard } from '../../types/careerCard';
+import OnboardingProgress, { type OnboardingStage } from '../ui/onboarding-progress';
+import { guestSessionService } from '../../services/guestSessionService';
 
 interface ConversationViewProps {
   className?: string;
@@ -25,6 +27,10 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   // Post-conversation state
   const [showPostConversationCTA, setShowPostConversationCTA] = useState(false);
   const [discoveredCareerCards, setDiscoveredCareerCards] = useState<CareerCard[]>([]);
+
+  // Onboarding progress state
+  const [currentOnboardingStage, setCurrentOnboardingStage] = useState<OnboardingStage>('discovery');
+  const [extractedProfileData, setExtractedProfileData] = useState<any>({});
 
   // Handle conversation end with career insights
   const handleConversationUpdate = useCallback((messages: any[]) => {
@@ -98,6 +104,36 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
   const handleDismissPostCTA = useCallback(() => {
     setShowPostConversationCTA(false);
   }, []);
+
+  // Sync onboarding progress for guest users
+  useEffect(() => {
+    if (!currentUser && showEnhancedModal) {
+      const interval = setInterval(() => {
+        const stage = guestSessionService.getCurrentOnboardingStage() as OnboardingStage;
+        setCurrentOnboardingStage(stage);
+        
+        // Extract basic profile data if available
+        const session = guestSessionService.getGuestSession();
+        if (session) {
+          const newExtractedData = {
+            name: session.personProfile?.name,
+            education: session.personProfile?.careerStage,
+            careerDirection: session.personProfile?.goals?.join(', '),
+            careerCardsGenerated: session.careerCards?.length || 0
+          };
+          setExtractedProfileData(newExtractedData);
+          
+          console.log('🎯 ConversationView: Progress bar state sync:', {
+            stage,
+            extractedData: newExtractedData,
+            showProgressBar: !currentUser && showEnhancedModal && stage !== 'complete'
+          });
+        }
+      }, 1000);
+
+      return () => clearInterval(interval);
+    }
+  }, [currentUser, showEnhancedModal]);
 
   // Handle conversation end from modal
   const handleConversationEnd = useCallback((hasGeneratedData: boolean, careerCardCount: number) => {
@@ -380,6 +416,32 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Floating Onboarding Progress - Only show for guest users during onboarding when modal is open */}
+      {(() => {
+        const shouldShow = !currentUser && showEnhancedModal && currentOnboardingStage !== 'complete';
+        console.log('🎯 ConversationView: Progress bar render decision:', {
+          currentUser: !!currentUser,
+          showEnhancedModal,
+          currentOnboardingStage,
+          shouldShow
+        });
+        return shouldShow;
+      })() && (
+        <motion.div
+          className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[200] max-w-sm w-full px-4"
+          initial={{ y: -20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: -20, opacity: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <OnboardingProgress 
+            currentStage={currentOnboardingStage}
+            extractedData={extractedProfileData}
+            className="shadow-lg bg-red-500"
+          />
+        </motion.div>
+      )}
 
       {/* Enhanced Chat Voice Modal */}
       <EnhancedChatVoiceModal
