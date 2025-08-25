@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useConversation } from '@elevenlabs/react';
 import { 
@@ -89,7 +89,7 @@ interface EnhancedChatVoiceModalProps {
   onConversationEnd?: (hasGeneratedData: boolean, careerCardCount: number) => void;
 }
 
-export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
+const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = ({
   isOpen,
   onClose,
   careerContext,
@@ -136,6 +136,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   
   // Compact progress visualization
   const [compactProgressData, setCompactProgressData] = useState<any>(null);
+  
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const mobileScrollAreaRef = useRef<HTMLDivElement>(null);
@@ -275,28 +276,31 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     }
   }, [careerCards, onCareerCardsDiscovered]);
 
+  // Memoize persona change handler to prevent useEffect from re-creating it
+  const handlePersonaChange = useCallback((event: any) => {
+    console.log('🔄 Persona change event received:', {
+      type: event.type,
+      previousPersona: event.previousState.currentPersona,
+      newPersona: event.newState.currentPersona,
+      confidence: Math.round(event.newState.confidence * 100) + '%',
+      recommendedActions: event.recommendedActions.length
+    });
+    
+    // Update state with new persona information
+    setPersonaAdaptationState(event.newState);
+    setPersonaChangeEvents(prev => [...prev, event].slice(-5)); // Keep last 5 events
+    
+    // TODO: If we need to inject context into conversation, we could do it here
+    // For now, this is primarily for tracking and debugging
+  }, []);
+
   // Initialize real-time persona adaptation service
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUser && isOpen) {
       console.log('🧠 Initializing real-time persona adaptation for guest user');
       
-      // Set up persona change listener
-      const unsubscribe = realTimePersonaAdaptationService.onPersonaChange((event) => {
-        console.log('🔄 Persona change event received:', {
-          type: event.type,
-          previousPersona: event.previousState.currentPersona,
-          newPersona: event.newState.currentPersona,
-          confidence: Math.round(event.newState.confidence * 100) + '%',
-          recommendedActions: event.recommendedActions.length
-        });
-        
-        // Update state with new persona information
-        setPersonaAdaptationState(event.newState);
-        setPersonaChangeEvents(prev => [...prev, event].slice(-5)); // Keep last 5 events
-        
-        // TODO: If we need to inject context into conversation, we could do it here
-        // For now, this is primarily for tracking and debugging
-      });
+      // Set up persona change listener with memoized handler
+      const unsubscribe = realTimePersonaAdaptationService.onPersonaChange(handlePersonaChange);
       
       return () => {
         console.log('🧹 Cleaning up persona adaptation listeners');
@@ -304,14 +308,44 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         realTimePersonaAdaptationService.reset();
       };
     }
-  }, [currentUser, isOpen]);
+  }, [currentUser, isOpen, handlePersonaChange]);
+
+  // Memoize progress update handler to prevent recreation on every render
+  const updateCompactProgress = useCallback(() => {
+    try {
+      const progressData = treeProgressService.getCompactProgressData();
+      
+      // Use ref to avoid stale closure comparisons
+      setCompactProgressData(prevData => {
+        // Skip update if data hasn't actually changed
+        if (prevData) {
+          const progressKey = `${progressData.stage.customerLabel}-${Math.round(progressData.stage.progress * 100)}`;
+          const lastProgressKey = `${prevData.stage.customerLabel}-${Math.round(prevData.stage.progress * 100)}`;
+          
+          if (progressKey === lastProgressKey) {
+            return prevData; // No actual change, skip update
+          }
+        }
+        
+        console.log('📊 Compact progress updated:', {
+          stage: progressData.stage.customerLabel,
+          progress: Math.round(progressData.stage.progress * 100) + '%',
+          stats: progressData.stats
+        });
+        
+        return progressData;
+      });
+    } catch (error) {
+      console.error('❌ Failed to update compact progress:', error);
+    }
+  }, []);
 
   // Initialize and update compact progress visualization with real-time updates
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUser && isOpen) {
       console.log('📊 Initializing compact progress visualization for guest user');
       
-      // Initialize structured onboarding for guest users
+      // Initialize structured onboarding for guest users (only when modal opens)
       const guestSession = guestSessionService.getGuestSession();
       if (!guestSession.structuredOnboarding) {
         if (guestSession.conversationHistory.length === 0) {
@@ -319,45 +353,41 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           structuredOnboardingService.initializeStructuredFlow();
         } else {
           console.log('🔄 Existing session without structured onboarding - user can continue with legacy flow or restart for questionnaire');
-          // For existing sessions, we could offer them the option to restart with structured flow
-          // For now, let them continue with the legacy flow
         }
       }
       
-      // Get initial compact progress data
-      const updateCompactProgress = () => {
-        try {
-          const progressData = treeProgressService.getCompactProgressData();
-          setCompactProgressData(progressData);
-          console.log('📊 Compact progress updated:', {
-            stage: progressData.stage.customerLabel,
-            progress: Math.round(progressData.stage.progress * 100) + '%',
-            stats: progressData.stats
-          });
-        } catch (error) {
-          console.error('❌ Failed to update compact progress:', error);
+      // Batched update mechanism using refs to avoid stale closures
+      let updateTimeout: NodeJS.Timeout | null = null;
+      
+      const updateCompactProgressBatched = () => {
+        if (updateTimeout) {
+          clearTimeout(updateTimeout);
         }
+        updateTimeout = setTimeout(updateCompactProgress, 100); // Batch updates within 100ms
       };
 
       // Update initially
       updateCompactProgress();
 
-      // Set up listener for real-time progress updates
+      // Set up listener for real-time progress updates with memoized handler
       const unsubscribe = treeProgressService.onProgressUpdate((update) => {
         console.log('📊 Real-time progress update received:', update.description);
-        updateCompactProgress();
+        updateCompactProgressBatched();
       });
 
       // Backup periodic update (reduced frequency since we have real-time updates)
-      const updateInterval = setInterval(updateCompactProgress, 10000); // Update every 10 seconds as backup
+      const updateInterval = setInterval(updateCompactProgressBatched, 10000); // Update every 10 seconds as backup
 
       return () => {
         console.log('🧹 Cleaning up compact progress listeners');
         unsubscribe();
         clearInterval(updateInterval);
+        if (updateTimeout) {
+          clearTimeout(updateTimeout);
+        }
       };
     }
-  }, [currentUser, isOpen]);
+  }, [currentUser, isOpen, updateCompactProgress]);
 
   // Trigger real-time progress updates when conversation changes
   useEffect(() => {
@@ -372,29 +402,37 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     }
   }, [conversationHistory.length, currentUser]);
 
-  // Determine agent based on user auth state and context
-  const getAgentId = (): string => {
-    const agentId = environmentConfig.elevenLabs.agentId;
-    if (!agentId) {
+  // Determine agent based on communication mode and user auth state
+  const getAgentId = (mode: CommunicationMode = communicationMode): string => {
+    const voiceAgentId = environmentConfig.elevenLabs.agentId;
+    const textAgentId = environmentConfig.elevenLabs.textAgentId;
+    
+    // For text mode, use dedicated text agent if available
+    if (mode === 'text') {
+      if (!textAgentId) {
+        console.warn('Missing VITE_ELEVENLABS_TEXT_AGENT_ID, falling back to voice agent');
+        if (!voiceAgentId) {
+          console.error('Missing both VITE_ELEVENLABS_TEXT_AGENT_ID and VITE_ELEVENLABS_AGENT_ID');
+          throw new Error('ElevenLabs agent IDs not configured');
+        }
+        return voiceAgentId;
+      }
+      console.log('🔤 Using dedicated text-only agent:', textAgentId);
+      return textAgentId;
+    }
+    
+    // For voice mode, use voice agent
+    if (!voiceAgentId) {
       console.error('Missing VITE_ELEVENLABS_AGENT_ID environment variable');
-      throw new Error('ElevenLabs agent ID not configured');
+      throw new Error('ElevenLabs voice agent ID not configured');
     }
     
-    if (!currentUser) {
-      // Guest user - use unified career-aware agent
-      return agentId;
-    }
-    
-    if (careerContext && careerContext.title) {
-      // Authenticated user with career context - use same agent with career context injection
-      return agentId;
-    }
-    
-    // Authenticated user without specific career context - use same agent with user context injection
-    return agentId;
+    console.log('🎙️ Using voice agent:', voiceAgentId);
+    return voiceAgentId;
   };
 
-  const agentId = getAgentId();
+  // Get current agent based on communication mode
+  const currentAgentId = getAgentId();
   const apiKey = environmentConfig.elevenLabs.apiKey;
 
   // Fallback career card generation when MCP is unavailable
@@ -660,7 +698,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               }
 
               // **FIXED: Update agent context ASYNCHRONOUSLY (non-blocking) to avoid delays**
-              const currentAgentId = getAgentId();
               if (currentAgentId && careerCards.length > 0) {
                 // Fire and forget - don't block the completion message
                 (async () => {
@@ -899,23 +936,40 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           }
 
           // **THIS IS THE ACTUAL FIX**: Call the MCP analysis service with correct parameters
-          const analysisResult = await progressAwareMCPService.analyzeConversationWithProgress(
-            conversationHistory,  // Use conversation history directly (already in correct format)
-            effectiveTriggerReason,
-            currentUser?.uid || 'guest', // userId
-            (update: MCPProgressUpdate) => {
-              console.log('📊 Career analysis progress from tool:', update);
-            }, // onProgress callback
-            false, // enablePerplexityEnhancement
-            (result: any) => {
-              // Inline completion handler to avoid scoping issues
-              console.log('🎉 Career analysis completed from generate_career_recommendations tool:', result);
-              if (onCareerCardsDiscovered && result.success) {
-                const careerCards = result.enhancedCareerCards || result.basicCareerCards || [];
-                onCareerCardsDiscovered(careerCards);
-              }
-            } // onCompletion callback
-          );
+          console.log('🔍 Starting MCP analysis with conversation history:', {
+            historyLength: conversationHistory.length,
+            triggerReason: effectiveTriggerReason,
+            userId: currentUser?.uid || 'guest'
+          });
+          
+          const analysisResult = await Promise.race([
+            progressAwareMCPService.analyzeConversationWithProgress(
+              conversationHistory,  // Use conversation history directly (already in correct format)
+              effectiveTriggerReason,
+              currentUser?.uid || 'guest', // userId
+              (update: MCPProgressUpdate) => {
+                console.log('📊 Career analysis progress from tool:', update);
+              }, // onProgress callback
+              false, // enablePerplexityEnhancement
+              (result: any) => {
+                // Inline completion handler to avoid scoping issues
+                console.log('🎉 Career analysis completed from generate_career_recommendations tool:', result);
+                if (onCareerCardsDiscovered && result.success) {
+                  const careerCards = result.enhancedCareerCards || result.basicCareerCards || [];
+                  console.log('📋 Calling onCareerCardsDiscovered with cards:', careerCards.length);
+                  onCareerCardsDiscovered(careerCards);
+                } else {
+                  console.warn('⚠️ Analysis result missing success or cards:', result);
+                }
+              } // onCompletion callback
+            ),
+            // Add timeout to prevent hanging
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('MCP analysis timeout after 60 seconds')), 60000)
+            )
+          ]);
+          
+          console.log('✅ MCP analysis service call completed:', analysisResult);
           
           // Return acknowledgment that analysis is starting (not fake completion)
           return "Perfect! I'm analyzing our conversation to create personalized career cards for you. This will take about 30-40 seconds...";
@@ -927,28 +981,113 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       },
     };
 
-  // Initialize conversation (only when environment config is ready)
-  const conversation = useConversation({
-    agentId: agentId || '', // Fallback to empty string when config not ready
-    // Remove firstMessage override to prevent WebSocket connection issues
-    clientTools,
-    onConnect: () => {
-      if (conversationInitialized.current) {
-        console.log('⚠️ Conversation already initialized, skipping duplicate connection');
-        return;
+  // Get conversation overrides for text mode
+  const [conversationOverrides, setConversationOverrides] = useState<any>(null);
+  
+  // Set up overrides when communication mode changes to text
+  useEffect(() => {
+    const setupTextOverrides = async () => {
+      if (communicationMode === 'text') {
+        console.log('🔧 Setting up text-only overrides...');
+        
+        try {
+          // Initialize persona onboarding for guest users in text mode
+          if (!currentUser) {
+            console.log('👤 Guest user - initializing persona-aware onboarding for text mode');
+            
+            // Check if we have existing conversation history from mode switch
+            const hasExistingConversation = conversationHistory.length > 0;
+            console.log('🔄 Text mode - checking for existing conversation:', {
+              historyLength: conversationHistory.length,
+              hasExisting: hasExistingConversation
+            });
+            
+            // Initialize persona-based onboarding (preserve existing session if switching modes)
+            personaOnboardingService.initializeOnboarding(undefined, !hasExistingConversation);
+          }
+          
+          // Get persona-aware overrides for text mode
+          const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions(
+            getAgentId('text'), 
+            { textOnly: true }
+          );
+          
+          setConversationOverrides(personaOptions.overrides);
+          console.log('✅ Text-only overrides configured:', {
+            hasOverrides: !!personaOptions.overrides,
+            textOnly: personaOptions.overrides?.conversation?.textOnly,
+            hasFirstMessage: !!personaOptions.overrides?.agent?.firstMessage
+          });
+          
+        } catch (error) {
+          console.error('❌ Failed to setup text overrides:', error);
+          
+          // Fallback overrides
+          const fallbackOverrides = {
+            conversation: { textOnly: true },
+            agent: {
+              prompt: { 
+                prompt: "You are Sarah, an AI career assistant. Help users explore career opportunities through natural conversation." 
+              },
+              firstMessage: "Hi! I'm Sarah, your AI career assistant. What brings you here today?"
+            }
+          };
+          
+          setConversationOverrides(fallbackOverrides);
+          console.log('⚠️ Using fallback text-only overrides');
+        }
+      } else {
+        setConversationOverrides(null);
+        console.log('🎙️ Cleared text overrides for voice mode');
       }
-      
-      console.log(`🎙️ Connected to enhanced chat voice assistant (Agent: ${agentId})`);
-      conversationInitialized.current = true;
-      setIsConnected(true);
-      setConnectionStatus('connected');
-      setIsLoading(false); // Reset loading state on successful connection
-      
-      // Let the agent use its default greeting to avoid connection issues
-      // Custom greetings will be handled by the agent's prompt configuration
-    },
+    };
+    
+    if (communicationMode) {
+      setupTextOverrides();
+    }
+  }, [communicationMode]);
+  
+  // Debug conversation initialization
+  const shouldInitializeConversation = communicationMode && (communicationMode === 'voice' || conversationOverrides);
+  console.log('🔍 Conversation initialization check:', {
+    communicationMode,
+    hasOverrides: !!conversationOverrides,
+    currentAgentId,
+    shouldInitialize: shouldInitializeConversation
+  });
+
+  // Initialize conversation for both voice and text modes
+  const conversation = useConversation(
+    shouldInitializeConversation ? {
+      agentId: currentAgentId,
+      clientTools,
+      overrides: conversationOverrides,
+      onConnect: () => {
+        console.log('🔥 ONCONNECT CALLBACK FIRED!', { 
+          agentId: currentAgentId, 
+          mode: communicationMode,
+          isInitialized: conversationInitialized.current 
+        });
+        
+        if (conversationInitialized.current) {
+          console.log('⚠️ Conversation already initialized, skipping duplicate connection');
+          return;
+        }
+        
+        console.log(`🎙️ Connected to enhanced chat assistant (Agent: ${currentAgentId}, Mode: ${communicationMode})`);
+        conversationInitialized.current = true;
+        setIsConnected(true);
+        setConnectionStatus('connected');
+        setIsLoading(false);
+        
+        // In text mode, don't send first message automatically - wait for user to send first message
+        if (communicationMode === 'text') {
+          console.log('📱 Text mode connected - waiting for user message');
+        }
+      },
     onDisconnect: () => {
-      console.log('📞 Disconnected from enhanced chat voice assistant');
+      console.log('📞 Disconnected from enhanced chat assistant');
+      
       conversationInitialized.current = false;
       setIsConnected(false);
       setConnectionStatus('disconnected');
@@ -1067,68 +1206,80 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       console.log('🎙️ Voice mode changed:', mode);
       setIsSpeaking(mode.mode === 'speaking');
     }
+    } : undefined
+  );
+
+  // Debug conversation object
+  console.log('🔍 Conversation object debug:', {
+    hasConversation: !!conversation,
+    hasStartSession: !!(conversation && conversation.startSession),
+    hasSendUserMessage: !!(conversation && conversation.sendUserMessage),
+    conversationStatus: conversation?.status || 'unknown',
+    isConnected,
+    connectionStatus,
+    conversationMethods: conversation ? Object.keys(conversation) : []
   });
-
-  // Auto-scroll to bottom of conversation - Enhanced reliability for both mobile and desktop
+  
+  // Auto-connect for text mode when overrides are ready and status is disconnected
   useEffect(() => {
-    const scrollToBottom = () => {
-      // Function to scroll a specific container
-      const scrollContainer = (containerRef: React.RefObject<HTMLDivElement>) => {
-        if (containerRef.current) {
-          const scrollElement = containerRef.current.querySelector('[data-radix-scroll-area-viewport]');
-          if (scrollElement) {
-            const scrollHeight = scrollElement.scrollHeight;
-            const clientHeight = scrollElement.clientHeight;
-            const maxScrollTop = scrollHeight - clientHeight;
-            
-            // Force scroll to absolute bottom
-            const forceScroll = () => {
-              scrollElement.scrollTop = maxScrollTop;
-            };
-            
-            // Multiple scroll attempts with different strategies
-            forceScroll(); // Immediate
-            requestAnimationFrame(forceScroll); // After paint
-            setTimeout(forceScroll, 50); // Early fallback
-            setTimeout(forceScroll, 150); // Late fallback
-            
-            // Also try smooth scroll as backup
-            setTimeout(() => {
-              scrollElement.scrollTo({
-                top: scrollElement.scrollHeight,
-                behavior: 'smooth'
-              });
-            }, 200);
-          }
-        }
-      };
+    if (communicationMode === 'text' && conversation && conversationOverrides && conversation.status === 'disconnected') {
+      console.log('🔄 Auto-connecting text conversation...');
+      conversation.startSession()
+        .then(() => {
+          console.log('✅ Text conversation started successfully');
+        })
+        .catch((error) => {
+          console.error('❌ Failed to start text conversation:', error);
+        });
+    }
+  }, [conversation, conversationOverrides, communicationMode]);
 
-      // Scroll both mobile and desktop containers
-      scrollContainer(mobileScrollAreaRef);
-      scrollContainer(scrollAreaRef);
+  // Memoize scroll function to prevent recreation on every render
+  const scrollToBottom = useCallback(() => {
+    // Function to scroll a specific container
+    const scrollContainer = (containerRef: React.RefObject<HTMLDivElement>) => {
+      if (containerRef.current) {
+        const scrollElement = containerRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollElement) {
+          const scrollHeight = scrollElement.scrollHeight;
+          const clientHeight = scrollElement.clientHeight;
+          const maxScrollTop = scrollHeight - clientHeight;
+          
+          // Force scroll to absolute bottom
+          const forceScroll = () => {
+            scrollElement.scrollTop = maxScrollTop;
+          };
+          
+          // Multiple scroll attempts with different strategies
+          forceScroll(); // Immediate
+          requestAnimationFrame(forceScroll); // After paint
+          setTimeout(forceScroll, 50); // Early fallback
+          setTimeout(forceScroll, 150); // Late fallback
+          
+          // Also try smooth scroll as backup
+          setTimeout(() => {
+            scrollElement.scrollTo({
+              top: scrollElement.scrollHeight,
+              behavior: 'smooth'
+            });
+          }, 200);
+        }
+      }
     };
 
-    scrollToBottom();
-  }, [conversationHistory, isSpeaking]);
+    // Scroll both mobile and desktop containers
+    scrollContainer(mobileScrollAreaRef);
+    scrollContainer(scrollAreaRef);
+  }, []);
 
-  // Additional scroll trigger specifically for new messages
+  // Optimized auto-scroll with debouncing to prevent excessive scroll events
   useEffect(() => {
-    if (conversationHistory.length > 0) {
-      const timer = setTimeout(() => {
-        // Scroll both containers
-        [mobileScrollAreaRef, scrollAreaRef].forEach(ref => {
-          if (ref.current) {
-            const scrollContainer = ref.current.querySelector('[data-radix-scroll-area-viewport]');
-            if (scrollContainer) {
-              scrollContainer.scrollTop = scrollContainer.scrollHeight;
-            }
-          }
-        });
-      }, 300);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [conversationHistory.length]);
+    const debounceTimer = setTimeout(() => {
+      scrollToBottom();
+    }, 50); // Small debounce to batch scroll events
+
+    return () => clearTimeout(debounceTimer);
+  }, [conversationHistory.length, isSpeaking, scrollToBottom]); // Only depend on length, not entire array
 
   // Sync with external conversation history
   useEffect(() => {
@@ -1257,7 +1408,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             if (overrides) {
               console.log('🎙️ Using career conversation overrides for privacy-safe session');
               await conversation.startSession({
-                agentId,
+                agentId: currentAgentId,
                 userId: currentUser?.uid,
                 connectionType: 'webrtc',
                 overrides
@@ -1265,7 +1416,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             } else {
               console.log('🎙️ No overrides found, starting basic career session');
               await conversation.startSession({
-                agentId,
+                agentId: currentAgentId,
                 userId: currentUser?.uid,
                 connectionType: 'webrtc'
               });
@@ -1273,7 +1424,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           } else {
             console.log('🎙️ No active career sessions, starting basic session');
             await conversation.startSession({
-              agentId,
+              agentId: currentAgentId,
               userId: currentUser?.uid,
               connectionType: 'webrtc'
             });
@@ -1281,7 +1432,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         } catch (error) {
           console.warn('⚠️ Error getting career overrides, falling back to basic session:', error);
           await conversation.startSession({
-            agentId,
+            agentId: currentAgentId,
             userId: currentUser?.uid,
             connectionType: 'webrtc'
           });
@@ -1305,7 +1456,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           personaOnboardingService.initializeOnboarding(undefined, !hasExistingConversation);
           
           // Get persona-aware conversation options
-          const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions(agentId);
+          const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions(currentAgentId);
           overrides = personaOptions.overrides;
           
           console.log('🧠 Persona-aware guest conversation initialized:', {
@@ -1318,14 +1469,14 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
         console.log('🔍 DEBUG: Conversation overrides structure:', {
           overrides,
-          agentId,
+          agentId: currentAgentId,
           userId: currentUser?.uid,
           firstMessage: overrides?.agent?.firstMessage
         });
 
         // Start session with overrides for general chat
         await conversation.startSession({
-          agentId,
+          agentId: currentAgentId,
           userId: currentUser?.uid,
           connectionType: 'webrtc',
           overrides
@@ -1339,7 +1490,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       if (error instanceof Error && error.message.includes('context')) {
         console.warn('⚠️ Enhanced context injection failed, starting conversation without enhanced context');
         try {
-          await conversation.startSession({ agentId, connectionType: 'webrtc' });
+          await conversation.startSession({ agentId: currentAgentId, connectionType: 'webrtc' });
           console.log('✅ Enhanced chat conversation started without context injection');
         } catch (fallbackError) {
           console.error('❌ Fallback conversation start also failed:', fallbackError);
@@ -1353,113 +1504,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     }
   };
 
-  // Handle text-only conversation start
-  const handleStartTextOnlyConversation = async () => {
-    if (!conversation || !conversation.startSession) {
-      console.error('❌ Conversation object not available for text-only mode');
-      return;
-    }
-
-    setIsLoading(true);
-    setConnectionStatus('connecting');
-
-    try {
-      console.log('🔧 Starting text-only conversation session...');
-      
-      // Use dedicated text-only agent instead of applying overrides
-      const textOnlyAgentId = import.meta.env.VITE_ELEVENLABS_TEXT_AGENT_ID;
-      
-      if (!textOnlyAgentId) {
-        throw new Error('Text-only agent ID not configured. Please set VITE_ELEVENLABS_TEXT_AGENT_ID in .env');
-      }
-      
-      console.log('🎭 Using dedicated text-only agent:', textOnlyAgentId);
-      
-      // Get appropriate overrides based on context (but without textOnly since agent is pre-configured)
-      let overrides: any | undefined;
-      
-      if (careerContext && careerContext.title) {
-        console.log('✅ Career context provided - using career-aware overrides');
-        
-        try {
-          // Import and check for active career session overrides
-          const { careerAwareVoiceService } = await import('../../services/careerAwareVoiceService');
-          const activeSessions = careerAwareVoiceService.getActiveSessions(currentUser?.uid || '');
-          
-          if (activeSessions.length > 0) {
-            const activeSessionId = activeSessions[0].sessionId;
-            overrides = careerAwareVoiceService.getConversationOverrides(activeSessionId);
-            console.log('🎙️ Using existing career conversation overrides');
-          }
-        } catch (error) {
-          console.warn('⚠️ Error getting career overrides:', error);
-        }
-      } else {
-        console.log('🔧 No career context - building general conversation overrides...');
-        const contextService = new UnifiedVoiceContextService();
-
-        if (!currentUser) {
-          console.log('👤 Guest user - initializing persona-aware onboarding for text mode');
-          
-          // Check if we have existing conversation history from mode switch
-          const hasExistingConversation = conversationHistory.length > 0;
-          console.log('🔄 Text mode - checking for existing conversation:', {
-            historyLength: conversationHistory.length,
-            hasExisting: hasExistingConversation
-          });
-          
-          // Initialize persona-based onboarding (preserve existing session if switching modes)
-          personaOnboardingService.initializeOnboarding(undefined, !hasExistingConversation);
-          
-          // Get persona-aware conversation options
-          const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions(textOnlyAgentId);
-          overrides = personaOptions.overrides;
-          
-          console.log('🧠 Text mode persona-aware guest conversation initialized:', {
-            preservedExisting: hasExistingConversation
-          });
-        } else {
-          console.log('👤 Authenticated user - building authenticated overrides');
-          overrides = await contextService.createAuthenticatedOverrides(currentUser.uid);
-        }
-      }
-
-      console.log('🔍 DEBUG: Text-only conversation setup:', {
-        textOnlyAgentId,
-        hasOverrides: !!overrides,
-        userId: currentUser?.uid
-      });
-
-      // Start session with dedicated text-only agent (no textOnly override needed)
-      await conversation.startSession({
-        agentId: textOnlyAgentId,
-        userId: currentUser?.uid,
-        overrides: overrides
-      });
-      
-      console.log('✅ Text-only conversation started successfully with dedicated agent');
-    } catch (error) {
-      console.error('❌ Failed to start text-only conversation:', error);
-      
-      // Fallback to basic text-only session
-      try {
-        console.log('🔄 Attempting fallback text-only session...');
-        await conversation.startSession({ 
-          agentId, 
-          overrides: {
-            conversation: {
-              textOnly: true
-            }
-          }
-        });
-        console.log('✅ Fallback text-only conversation started');
-      } catch (fallbackError) {
-        console.error('❌ Fallback text-only conversation start also failed:', fallbackError);
-        setConnectionStatus('disconnected');
-        setIsLoading(false);
-      }
-    }
-  };
 
   // Handle conversation end
   const handleEndConversation = async () => {
@@ -1578,71 +1622,24 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         return updated;
       });
       
-      // Handle text-only mode using dedicated ElevenLabs text-only agent
+      // Handle both text and voice modes using the unified conversation
       if (communicationMode === 'text') {
-        console.log('📱 Text-only mode: Using dedicated ElevenLabs text-only agent');
+        console.log('📱 Text-only mode: Sending via text agent');
         
-        // Start text-only conversation session if not already connected
-        if (conversation && connectionStatus !== 'connected') {
+        // Send message using conversation (will use text agent based on currentAgentId)
+        if (conversation && conversation.sendUserMessage) {
           try {
-            console.log('🔧 Starting text-only conversation session...');
-            await handleStartTextOnlyConversation();
-          } catch (error) {
-            console.error('❌ Failed to start text-only conversation session:', error);
-          }
-        }
-        
-        // Send message using ElevenLabs conversation hook (text-only mode)
-        if (conversation && conversation.sendUserMessage && connectionStatus === 'connected') {
-          try {
-            console.log('📤 Sending message via ElevenLabs text-only conversation:', messageText);
+            console.log('📤 Sending user message via text-only mode:', messageText);
             await conversation.sendUserMessage(messageText);
-            console.log('✅ Text message sent successfully via ElevenLabs text-only mode');
+            console.log('✅ Text message sent successfully via text agent');
           } catch (error) {
-            console.error('❌ Failed to send text message via ElevenLabs:', error);
-            
-            // Fallback: Add a basic response
-            const fallbackMessage: ConversationMessage = {
-              role: 'assistant',
-              content: "I'm here to help you explore your career options. Could you tell me more about your interests?",
-              timestamp: new Date()
-            };
-            
-            setConversationHistory(prev => [...prev, fallbackMessage]);
+            console.error('❌ Failed to send text message:', error);
           }
         } else {
-          console.warn('⚠️ Text-only conversation not ready. Status:', {
-            hasConversation: !!conversation,
-            hasSendUserMessage: !!(conversation && conversation.sendUserMessage),
-            connectionStatus,
-            isConnected
-          });
-          
-          // Fallback: Add a basic response  
-          const fallbackMessage: ConversationMessage = {
-            role: 'assistant',
-            content: "Let me help you discover career opportunities. What interests you most about your future career?",
-            timestamp: new Date()
-          };
-            
-          setConversationHistory(prev => {
-            const updated = [...prev, fallbackMessage];
-            conversationHistoryRef.current = updated;
-            
-            // Save AI message to guest session
-            if (!currentUser) {
-              try {
-                guestSessionService.addConversationMessage(fallbackMessage.role, fallbackMessage.content);
-              } catch (error) {
-                console.error('❌ Failed to save AI message to guest session:', error);
-              }
-            }
-            
-            return updated;
-          });
+          console.warn('⚠️ Text conversation not ready for message sending');
         }
       } else {
-        // Voice mode - just log that message was added
+        // Voice mode - message already added to history, voice agent will see and respond
         console.log('✅ Text message added to conversation history via enhanced modal - voice agent will see and respond');
       }
     } catch (error) {
@@ -1830,32 +1827,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     // Text mode doesn't need connection setup
   };
 
-  // Reset mode selection while preserving conversation history
-  const handleResetMode = () => {
-    console.log('🔄 Switching communication mode while preserving context');
-    
-    // Preserve current conversation history before switching
-    const currentHistory = [...conversationHistory];
-    console.log('💾 Preserving conversation history:', {
-      messageCount: currentHistory.length,
-      hasMessages: currentHistory.length > 0
-    });
-    
-    setCommunicationMode(null);
-    
-    // End voice session if active, but keep the conversation history
-    if (isConnected || connectionStatus === 'connecting') {
-      console.log('🔄 Ending voice session but preserving context');
-      handleEndConversation();
-      
-      // Restore conversation history after a brief delay to allow cleanup
-      setTimeout(() => {
-        console.log('🔄 Restoring conversation history after mode switch');
-        setConversationHistory(currentHistory);
-        conversationHistoryRef.current = currentHistory;
-      }, 100);
-    }
-  };
 
   // Format timestamp for display
   const formatTime = (timestamp: Date) => {
@@ -1864,10 +1835,10 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
   // Get agent display info
   const getAgentInfo = () => {
-    // Dynamic agent info based on current configuration
-    const currentAgentId = environmentConfig.elevenLabs.agentId;
+    // Dynamic agent info based on current configuration and communication mode
+    const activeAgentId = getAgentId(communicationMode);
     
-    switch (agentId) {
+    switch (activeAgentId) {
       case 'agent_01k0fkhhx0e8k8e6nwtz8ptkwb':
         return {
           name: 'Career Guide',
@@ -1889,7 +1860,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     }
   };
 
-  const agentInfo = getAgentInfo();
 
 
   // Format salary display
@@ -1906,12 +1876,25 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     return { color: 'bg-gradient-to-r from-primary-white to-primary-mint/50 text-primary-black', icon: Briefcase };
   };
 
+  // Memoize expensive career cards rendering to prevent unnecessary re-computation
+  const memoizedCareerCards = useMemo(() => {
+    return careerCards.map((card, index) => {
+      const matchBadge = getMatchBadge(card.matchScore || 85);
+      const MatchIcon = matchBadge.icon;
+      
+      return { ...card, matchBadge, MatchIcon, key: `${card.title}-${index}` };
+    });
+  }, [careerCards]);
+
+  // Memoize agent info to prevent recreation on every render
+  const agentInfo = useMemo(() => getAgentInfo(), [currentAgentId, currentUser, communicationMode]);
+
   if (!isOpen) return null;
 
 
 
   // Handle missing environment config
-      if (!apiKey || !agentId) {
+      if (!apiKey || !currentAgentId) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="w-[95vw] max-w-5xl h-[80dvh] bg-white p-6 border-2 border-black shadow-card">
@@ -2872,14 +2855,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                         )}
                       </Button>
                     )}
-                    <Button
-                      onClick={handleResetMode}
-                      variant="outline"
-                      size="sm"
-                      className="border-black text-black hover:bg-gray-100"
-                    >
-                      Switch Mode
-                    </Button>
                   </div>
 
                 <div className="flex items-center space-x-2">
@@ -2921,14 +2896,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                       <MessageSquare className="w-4 h-4" />
                       <span className="font-medium">Text Chat Mode</span>
                     </div>
-                    <Button
-                      onClick={handleResetMode}
-                      variant="outline"
-                      size="sm"
-                      className="border-black text-black hover:bg-gray-100"
-                    >
-                      Switch Mode
-                    </Button>
                   </div>
                   
                   <ChatTextInput
@@ -2974,3 +2941,17 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     </Dialog>
   );
 };
+
+// Export with React.memo for performance optimization
+export const EnhancedChatVoiceModal = React.memo(EnhancedChatVoiceModalComponent, (prevProps, nextProps) => {
+  // Custom comparison function to prevent unnecessary re-renders
+  return (
+    prevProps.isOpen === nextProps.isOpen &&
+    prevProps.careerContext?.title === nextProps.careerContext?.title &&
+    prevProps.currentConversationHistory.length === nextProps.currentConversationHistory.length &&
+    prevProps.onClose === nextProps.onClose &&
+    prevProps.onConversationUpdate === nextProps.onConversationUpdate &&
+    prevProps.onCareerCardsDiscovered === nextProps.onCareerCardsDiscovered &&
+    prevProps.onConversationEnd === nextProps.onConversationEnd
+  );
+});
