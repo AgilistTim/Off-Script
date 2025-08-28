@@ -345,8 +345,14 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
 
       getSessionForMigration: () => {
         const session = get();
-        // Reduce logging frequency - only log when significant changes occur
-        if (session.conversationHistory.length % 5 === 0 || session.careerCards.length > 0) {
+        // Only log on first call and major milestones to reduce spam
+        const shouldLog = (
+          session.conversationHistory.length === 1 || // First message
+          session.conversationHistory.length % 10 === 0 || // Every 10 messages
+          (session.careerCards.length > 0 && session.conversationHistory.length % 20 === 0) // Less frequent when cards exist
+        );
+        
+        if (shouldLog) {
           console.log('📤 [GUEST SESSION] Retrieved session for migration:', {
             sessionId: session.sessionId,
             conversationHistoryLength: session.conversationHistory.length,

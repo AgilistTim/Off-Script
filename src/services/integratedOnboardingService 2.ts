@@ -183,7 +183,9 @@ export class IntegratedOnboardingService {
         confidence: deterministicResult.confidence,
         stage: 'confirmed',
         reasoning: deterministicResult.reasoning,
-        conversationEvidence: evidence
+        conversationEvidence: evidence,
+        triggers: [],
+        timestamp: new Date().toISOString()
       };
     }
 

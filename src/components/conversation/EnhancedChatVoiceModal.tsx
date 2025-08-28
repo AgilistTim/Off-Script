@@ -117,6 +117,10 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
   const [newContentAdded, setNewContentAdded] = useState<string | null>(null);
   const [ctaBottomOffsetPx, setCtaBottomOffsetPx] = useState<number>(0);
   
+  // Connection monitoring
+  const [connectionMonitor, setConnectionMonitor] = useState<NodeJS.Timeout | null>(null);
+  const [lastActivity, setLastActivity] = useState<number>(Date.now());
+  
   // Progress tracking for career analysis
   const [progressUpdate, setProgressUpdate] = useState<MCPProgressUpdate | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -1008,8 +1012,7 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
           
           // Get persona-aware overrides for text mode
           const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions(
-            getAgentId('text'), 
-            { textOnly: true }
+            getAgentId('text')
           );
           
           setConversationOverrides(personaOptions.overrides);
@@ -1094,8 +1097,28 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
       setIsSpeaking(false);
       setIsLoading(false);
       
-      // Call onConversationEnd callback with career cards data
-      if (onConversationEnd) {
+      // Check if this is an onboarding completion scenario where conversation should continue
+      const onboardingStage = guestSessionService.getCurrentOnboardingStage();
+      const guestSessionHistory = guestSessionService.getConversationForAnalysis();
+      const hasOngoingConversation = guestSessionHistory.length >= 4; // At least 2 exchanges
+      const hasPersonProfile = !!guestSessionService.getGuestSession().personProfile;
+      const isOnboardingTransition = (
+        (onboardingStage === 'tailored_guidance' || onboardingStage === 'journey_active') && 
+        hasOngoingConversation && 
+        hasPersonProfile
+      );
+      
+      console.log('🔍 Disconnect analysis:', {
+        onboardingStage,
+        hasOngoingConversation,
+        hasPersonProfile,
+        isOnboardingTransition,
+        conversationLength: conversationHistory.length,
+        guestSessionHistoryLength: guestSessionHistory.length
+      });
+      
+      // Only call onConversationEnd for intentional endings, not for onboarding transitions
+      if (!isOnboardingTransition && onConversationEnd) {
         const currentCards = careerCardsRef.current;
         const hasGeneratedData = currentCards.length > 0;
         console.log('🎯 Calling onConversationEnd:', { hasGeneratedData, careerCardCount: currentCards.length });
@@ -1104,7 +1127,11 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
         console.log('🔍 onConversationEnd function name:', onConversationEnd.name);
         onConversationEnd(hasGeneratedData, currentCards.length);
         console.log('✅ onConversationEnd called successfully');
-      } else {
+      } else if (isOnboardingTransition) {
+        console.log('🔄 Onboarding transition detected - preparing for continued conversation without ending session');
+        // Update onboarding stage to journey_active to indicate ongoing conversation
+        guestSessionService.updateOnboardingStage('journey_active');
+      } else if (!onConversationEnd) {
         console.warn('⚠️ onConversationEnd callback not provided to EnhancedChatVoiceModal');
       }
     },
@@ -1330,7 +1357,16 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
       if (conversation && conversationInitialized.current) {
         console.log('🧹 Cleaning up conversation on unmount');
         conversationInitialized.current = false;
-        conversation.endSession().catch(console.error);
+        
+        // Only attempt to end session if connection is active
+        if (conversation.status === 'connected' || conversation.status === 'connecting') {
+          conversation.endSession().catch((error) => {
+            console.error('❌ Error cleaning up conversation on unmount:', error);
+            // Suppress WebSocket errors during cleanup
+          });
+        } else {
+          console.log('📞 Conversation already disconnected, skipping cleanup endSession');
+        }
       }
     };
   }, []); // Empty dependency array - only run cleanup on actual unmount
@@ -1509,10 +1545,17 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
   const handleEndConversation = async () => {
     try {
       setIsLoading(true);
-      await conversation.endSession();
-      console.log('📞 Enhanced chat conversation ended');
+      
+      // Only attempt to end session if conversation exists and is connected
+      if (conversation && (conversation.status === 'connected' || conversation.status === 'connecting')) {
+        await conversation.endSession();
+        console.log('📞 Enhanced chat conversation ended');
+      } else {
+        console.log('📞 Conversation already disconnected or not available, skipping endSession');
+      }
     } catch (error) {
       console.error('❌ Failed to end enhanced chat conversation:', error);
+      // Don't throw the error, just log it to prevent UI issues
     } finally {
       setIsLoading(false);
     }
@@ -1629,11 +1672,28 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
         // Send message using conversation (will use text agent based on currentAgentId)
         if (conversation && conversation.sendUserMessage) {
           try {
-            console.log('📤 Sending user message via text-only mode:', messageText);
-            await conversation.sendUserMessage(messageText);
-            console.log('✅ Text message sent successfully via text agent');
+            // Check connection status before sending to avoid WebSocket errors
+            if (conversation.status === 'connected' && isConnected) {
+              console.log('📤 Sending user message via text-only mode:', messageText);
+              await conversation.sendUserMessage(messageText);
+              console.log('✅ Text message sent successfully via text agent');
+            } else {
+              console.warn('⚠️ Text conversation not connected, skipping message send. Status:', conversation.status, 'Connected:', isConnected);
+            }
           } catch (error) {
             console.error('❌ Failed to send text message:', error);
+            // If WebSocket is closed, try to reconnect
+            if (error.message?.includes('WebSocket') || error.message?.includes('CLOSED')) {
+              console.log('🔄 WebSocket error detected, attempting to reconnect...');
+              try {
+                await conversation.startSession();
+                // Retry sending the message after reconnect
+                await conversation.sendUserMessage(messageText);
+                console.log('✅ Message sent successfully after reconnection');
+              } catch (retryError) {
+                console.error('❌ Failed to reconnect and send message:', retryError);
+              }
+            }
           }
         } else {
           console.warn('⚠️ Text conversation not ready for message sending');

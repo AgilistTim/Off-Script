@@ -31,6 +31,7 @@ export interface EnvironmentConfig {
   elevenLabs: {
     apiKey?: string;
     agentId?: string;
+    textAgentId?: string;
   };
   
   // Perplexity configuration
@@ -111,6 +112,7 @@ export const environmentConfig: EnvironmentConfig = {
   elevenLabs: {
     apiKey: import.meta.env.VITE_ELEVENLABS_API_KEY,
     agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID,
+    textAgentId: import.meta.env.VITE_ELEVENLABS_TEXT_AGENT_ID,
   },
   
   perplexity: {
