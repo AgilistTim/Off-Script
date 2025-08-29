@@ -572,13 +572,36 @@ const Dashboard: React.FC = () => {
     try {
       console.log('🤖 Starting AI discussion about primary pathway:', structuredGuidance.primaryPathway.title);
       
+      // CRITICAL FIX: Find the enhanced career card instead of using basic structuredGuidance
+      let enhancedCareerCard = null;
+      
+      // Look for the enhanced version in groupedCareers
+      Object.values(groupedCareers).forEach(careers => {
+        careers.forEach(career => {
+          if (career.title === structuredGuidance.primaryPathway.title && career.isEnhanced) {
+            enhancedCareerCard = career;
+          }
+        });
+      });
+      
+      // Use enhanced card if available, fallback to basic card
+      const careerCardToUse = enhancedCareerCard || structuredGuidance.primaryPathway;
+      
+      console.log('🔍 Using career card for AI discussion:', {
+        title: careerCardToUse.title,
+        isEnhanced: !!careerCardToUse.isEnhanced,
+        hasPerplexityData: !!careerCardToUse.perplexityData,
+        hasEnhancedData: !!careerCardToUse.perplexityData?.enhancedData,
+        trainingPathwaysCount: careerCardToUse.perplexityData?.enhancedData?.currentEducationPathways?.length || 0
+      });
+      
       // Import the career-aware voice service
       const { careerAwareVoiceService } = await import('../services/careerAwareVoiceService');
       
-      // Create rich context for the primary pathway discussion
+      // Create rich context for the primary pathway discussion using ENHANCED data
       const context = await careerAwareVoiceService.createContextFromFirebaseData(
         currentUser.uid,
-        structuredGuidance.primaryPathway,
+        careerCardToUse, // Use enhanced card with full Perplexity data
         true // isPrimary
       );
       
@@ -590,7 +613,7 @@ const Dashboard: React.FC = () => {
       // Open voice discussion modal
       setVoiceDiscussionModal({
         isOpen: true,
-        careerData: structuredGuidance.primaryPathway,
+        careerData: careerCardToUse, // Pass enhanced data to modal
         sessionId: result.sessionId,
         isPrimary: true
       });
@@ -610,13 +633,36 @@ const Dashboard: React.FC = () => {
     try {
       console.log('🤖 Starting AI discussion about alternative pathway:', pathway.title);
       
+      // CRITICAL FIX: Find the enhanced career card instead of using basic pathway data
+      let enhancedCareerCard = null;
+      
+      // Look for the enhanced version in groupedCareers
+      Object.values(groupedCareers).forEach(careers => {
+        careers.forEach(career => {
+          if (career.title === pathway.title && career.isEnhanced) {
+            enhancedCareerCard = career;
+          }
+        });
+      });
+      
+      // Use enhanced card if available, fallback to basic pathway
+      const careerCardToUse = enhancedCareerCard || pathway;
+      
+      console.log('🔍 Using career card for alternative AI discussion:', {
+        title: careerCardToUse.title,
+        isEnhanced: !!careerCardToUse.isEnhanced,
+        hasPerplexityData: !!careerCardToUse.perplexityData,
+        hasEnhancedData: !!careerCardToUse.perplexityData?.enhancedData,
+        trainingPathwaysCount: careerCardToUse.perplexityData?.enhancedData?.currentEducationPathways?.length || 0
+      });
+      
       // Import the career-aware voice service
       const { careerAwareVoiceService } = await import('../services/careerAwareVoiceService');
       
-      // Create rich context for the alternative pathway discussion
+      // Create rich context for the alternative pathway discussion using ENHANCED data
       const context = await careerAwareVoiceService.createContextFromFirebaseData(
         currentUser.uid,
-        pathway,
+        careerCardToUse, // Use enhanced card with full Perplexity data
         false // isPrimary
       );
       
@@ -628,7 +674,7 @@ const Dashboard: React.FC = () => {
       // Open voice discussion modal
       setVoiceDiscussionModal({
         isOpen: true,
-        careerData: pathway,
+        careerData: careerCardToUse, // Pass enhanced data to modal
         sessionId: result.sessionId,
         isPrimary: false
       });
