@@ -891,7 +891,7 @@ const Dashboard: React.FC = () => {
           // Add alternative pathways, but skip duplicates
           guidanceData.alternativePathways.forEach(pathway => {
             if (!addedTitles.has(pathway.title)) {
-              allCareers.push(pathway);
+              allCareers.push({ ...pathway, isPrimary: false });
               addedTitles.add(pathway.title);
             } else {
               console.log(`🔍 Skipping duplicate career: ${pathway.title} (already added as primary)`);
@@ -1717,6 +1717,11 @@ const Dashboard: React.FC = () => {
                                     <UnifiedCareerCard
                                       career={career}
                                       onAskAI={() => {
+                                        console.log('🔍 DEBUG onAskAI clicked:', {
+                                          careerTitle: career.title,
+                                          isPrimary: career.isPrimary,
+                                          careerData: career
+                                        });
                                         if (career.isPrimary) {
                                           handleAskAIAboutPrimary();
                                         } else {
