@@ -68,6 +68,7 @@ export class PersonaOnboardingService {
       }
       
       // Initialize fresh session and onboarding
+      guestSessionService.ensureSession();
       guestSessionService.updateOnboardingStage('discovery');
       console.log('✅ Fresh onboarding stage set to discovery');
     } else {

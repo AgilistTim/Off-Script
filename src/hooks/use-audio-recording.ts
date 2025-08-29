@@ -23,6 +23,7 @@ export function useAudioRecording({
       const hasMediaDevices = !!(
         navigator.mediaDevices && navigator.mediaDevices.getUserMedia
       )
+      console.debug(`[useAudioRecording] checkSpeechSupport: hasMediaDevices=${hasMediaDevices} transcribeAudio=${!!transcribeAudio} ts=${new Date().toISOString()}`)
       setIsSpeechSupported(hasMediaDevices && !!transcribeAudio)
     }
 
@@ -55,15 +56,26 @@ export function useAudioRecording({
   }
 
   const toggleListening = async () => {
+    // Respect global guard to avoid requesting mic unless audio init is explicitly allowed
+    const allowAudioInit = typeof window !== 'undefined' && (window as any).__ALLOW_AUDIO_INIT === true;
+    if (!allowAudioInit) {
+      console.debug('[useAudioRecording] toggleListening blocked: audio init not allowed (global guard) ts=' + new Date().toISOString());
+      return;
+    }
+
     if (!isListening) {
       try {
+        console.debug(`[useAudioRecording] toggleListening -> requesting permission ts=${new Date().toISOString()}`)
         setIsListening(true)
         setIsRecording(true)
         // Get audio stream first
+        console.debug(`[useAudioRecording] calling navigator.mediaDevices.getUserMedia ts=${new Date().toISOString()}`)
         const stream = await navigator.mediaDevices.getUserMedia({
           audio: true,
         })
+        console.debug(`[useAudioRecording] getUserMedia resolved ts=${new Date().toISOString()}`)
         setAudioStream(stream)
+        console.debug(`[useAudioRecording] audioStream set ts=${new Date().toISOString()}`, stream)
 
         // Start recording with the stream
         activeRecordingRef.current = recordAudio(stream)

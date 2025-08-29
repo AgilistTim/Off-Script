@@ -259,7 +259,7 @@ export function MessageInput({
             <Paperclip className="h-4 w-4" />
           </Button>
         )}
-        {isSpeechSupported && (
+        {isSpeechSupported && (typeof window !== 'undefined' ? (window as any).__ALLOW_AUDIO_INIT === true : false) && (
           <Button
             type="button"
             variant="outline"

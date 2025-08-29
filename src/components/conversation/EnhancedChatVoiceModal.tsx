@@ -63,6 +63,9 @@ import { treeProgressService } from '../../services/treeProgressService';
 import { careerPathwayService } from '../../services/careerPathwayService';
 import { lightweightCareerSuggestionService } from '../../services/lightweightCareerSuggestionService';
 import environmentConfig from '../../config/environment';
+import { TextConversationClient } from '../../services/textConversationClient';
+import { EnhancedTextConversationClient } from '../../services/enhancedTextConversationClient';
+import { TextPromptService } from '../../services/textPromptService';
 import { ChatTextInput } from './ChatTextInput';
 import { CompactProgressIndicator, MiniProgressIndicator } from '../ui/compact-progress-indicator';
 import { structuredOnboardingService } from '../../services/structuredOnboardingService';
@@ -99,6 +102,12 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
   onConversationEnd
 }) => {
   const { currentUser, userData } = useAuth();
+
+  // Global guard to prevent audio initialization before explicit user action.
+  // Audio hooks check this flag to decide whether to request microphone access.
+  if (typeof window !== 'undefined' && (window as any).__ALLOW_AUDIO_INIT === undefined) {
+    (window as any).__ALLOW_AUDIO_INIT = false;
+  }
 
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>(currentConversationHistory);
   const [isConnected, setIsConnected] = useState(false);
@@ -224,6 +233,11 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
   
   // Ref to always access current career cards (avoids stale closure)
   const careerCardsRef = useRef<any[]>([]);
+  
+  // Refs for debug logging memoization (to reduce log spam)
+  const lastDebugKey = useRef<string>('');
+  const lastConversationDebugKey = useRef<string>('');
+  const renderCount = useRef(0);
 
   // Debug: Log component mount/unmount
   useEffect(() => {
@@ -396,47 +410,46 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
   // Trigger real-time progress updates when conversation changes
   useEffect(() => {
     if (!currentUser && conversationHistory.length > 0) {
-      console.log('💬 Conversation length changed, triggering progress update:', conversationHistory.length);
-      treeProgressService.triggerRealTimeUpdate('message_sent');
+      // Verify against guest session to prevent counter inflation
+      const guestSession = guestSessionService.getGuestSession();
+      const actualMessageCount = guestSession.conversationHistory.length;
+      const stateMessageCount = conversationHistory.length;
       
-      // Check for milestones
-      if (conversationHistory.length === 3 || conversationHistory.length === 5 || conversationHistory.length === 10) {
-        treeProgressService.triggerRealTimeUpdate('engagement_milestone');
+      console.log('💬 Conversation length changed, triggering progress update:', {
+        stateCount: stateMessageCount,
+        sessionCount: actualMessageCount,
+        isInflated: stateMessageCount > actualMessageCount
+      });
+      
+      // Only trigger progress updates based on actual session message count to prevent inflation
+      const effectiveLength = Math.min(stateMessageCount, actualMessageCount);
+      if (effectiveLength > 0) {
+        treeProgressService.triggerRealTimeUpdate('message_sent');
+        
+        // Check for milestones based on actual conversation length
+        if (effectiveLength === 3 || effectiveLength === 5 || effectiveLength === 10) {
+          treeProgressService.triggerRealTimeUpdate('engagement_milestone');
+        }
       }
     }
   }, [conversationHistory.length, currentUser]);
 
-  // Determine agent based on communication mode and user auth state
+  // Determine agent based on communication mode (ElevenLabs is VOICE-ONLY)
   const getAgentId = (mode: CommunicationMode = communicationMode): string => {
     const voiceAgentId = environmentConfig.elevenLabs.agentId;
-    const textAgentId = environmentConfig.elevenLabs.textAgentId;
-    
-    // For text mode, use dedicated text agent if available
-    if (mode === 'text') {
-      if (!textAgentId) {
-        console.warn('Missing VITE_ELEVENLABS_TEXT_AGENT_ID, falling back to voice agent');
-        if (!voiceAgentId) {
-          console.error('Missing both VITE_ELEVENLABS_TEXT_AGENT_ID and VITE_ELEVENLABS_AGENT_ID');
-          throw new Error('ElevenLabs agent IDs not configured');
-        }
-        return voiceAgentId;
-      }
-      console.log('🔤 Using dedicated text-only agent:', textAgentId);
-      return textAgentId;
+    if (mode !== 'voice') {
+      return '';
     }
-    
-    // For voice mode, use voice agent
     if (!voiceAgentId) {
       console.error('Missing VITE_ELEVENLABS_AGENT_ID environment variable');
       throw new Error('ElevenLabs voice agent ID not configured');
     }
-    
     console.log('🎙️ Using voice agent:', voiceAgentId);
     return voiceAgentId;
   };
 
-  // Get current agent based on communication mode
-  const currentAgentId = getAgentId();
+  // Get current agent ONLY for voice mode
+  const currentAgentId = communicationMode === 'voice' ? getAgentId('voice') : '';
   const apiKey = environmentConfig.elevenLabs.apiKey;
 
   // Fallback career card generation when MCP is unavailable
@@ -520,15 +533,29 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
 
 
   // Define client tools that can be used by both voice and text modes
-  const clientTools = {
+  // Memoize to prevent infinite useEffect loops in text mode
+  const clientTools = useMemo(() => ({
       analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
         console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - Enhanced modal with progress tracking!');
         console.log('🔍 Tool parameters:', parameters);
         
         // **PROGRESSIVE TOOL ENABLEMENT**: Enable career analysis when appropriate
-        if (!conversationFlowManager.shouldEnableSpecificTool('analyze_conversation_for_careers')) {
+        const shouldEnable = conversationFlowManager.shouldEnableSpecificTool('analyze_conversation_for_careers');
+        console.log('🔍 [DEBUG] Tool enablement check:', {
+          toolName: 'analyze_conversation_for_careers',
+          shouldEnable,
+          conversationHistoryLength: conversationHistory.length,
+          guestSessionLength: guestSessionService.getGuestSession().conversationHistory.length
+        });
+        
+        if (!shouldEnable) {
           console.log('⏸️ Career analysis tool not yet enabled - need more conversation');
-          return "I'm learning about your interests and goals. Tell me more about what you enjoy or what kind of work appeals to you, and I'll start building career suggestions.";
+          // TEMPORARY FIX: Allow tool to proceed if we have sufficient conversation in ANY context
+          if (conversationHistory.length >= 6) {
+            console.log('🔄 [OVERRIDE] Allowing tool to proceed based on conversation history length');
+          } else {
+            return "I'm learning about your interests and goals. Tell me more about what you enjoy or what kind of work appeals to you, and I'll start building career suggestions.";
+          }
         }
         
         // Trigger progress update when career analysis starts
@@ -938,6 +965,17 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
           if (conversationHistory.length === 0) {
             return "I need a bit more conversation to analyze your interests. Could you tell me more about what you enjoy doing?";
           }
+          
+          // Enhanced conversation content validation
+          const userMessages = conversationHistory.filter(msg => msg.role === 'user');
+          const allContent = userMessages.map(msg => msg.content.toLowerCase()).join(' ');
+          
+          console.log('🔍 [CAREER GENERATION] Content analysis:', {
+            totalMessages: conversationHistory.length,
+            userMessages: userMessages.length,
+            hasCareerKeywords: /work|job|career|skill|interest|enjoy|goal|consultancy|ai|build/.test(allContent),
+            contentPreview: allContent.substring(0, 200) + '...'
+          });
 
           // **THIS IS THE ACTUAL FIX**: Call the MCP analysis service with correct parameters
           console.log('🔍 Starting MCP analysis with conversation history:', {
@@ -946,6 +984,7 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
             userId: currentUser?.uid || 'guest'
           });
           
+          console.log('🚀 [CAREER GENERATION] Starting MCP analysis...');
           const analysisResult = await Promise.race([
             progressAwareMCPService.analyzeConversationWithProgress(
               conversationHistory,  // Use conversation history directly (already in correct format)
@@ -957,13 +996,22 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
               false, // enablePerplexityEnhancement
               (result: any) => {
                 // Inline completion handler to avoid scoping issues
-                console.log('🎉 Career analysis completed from generate_career_recommendations tool:', result);
+                console.log('🎉 [CAREER GENERATION] Analysis completed:', {
+                  success: result.success,
+                  careerCardsCount: (result.enhancedCareerCards || result.basicCareerCards || []).length,
+                  hasOnCareerCardsDiscovered: !!onCareerCardsDiscovered
+                });
+                
                 if (onCareerCardsDiscovered && result.success) {
                   const careerCards = result.enhancedCareerCards || result.basicCareerCards || [];
-                  console.log('📋 Calling onCareerCardsDiscovered with cards:', careerCards.length);
+                  console.log('📋 [CAREER GENERATION] Calling onCareerCardsDiscovered with cards:', careerCards.length);
                   onCareerCardsDiscovered(careerCards);
+                  
+                  // Also update the career cards ref for immediate access
+                  careerCardsRef.current = careerCards;
+                  setCareerCards(careerCards);
                 } else {
-                  console.warn('⚠️ Analysis result missing success or cards:', result);
+                  console.warn('⚠️ [CAREER GENERATION] Analysis result missing success or cards:', result);
                 }
               } // onCompletion callback
             ),
@@ -972,6 +1020,11 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
               setTimeout(() => reject(new Error('MCP analysis timeout after 60 seconds')), 60000)
             )
           ]);
+          
+          console.log('🏁 [CAREER GENERATION] MCP analysis completed:', {
+            success: (analysisResult as any)?.success,
+            hasCareerCards: !!((analysisResult as any)?.enhancedCareerCards || (analysisResult as any)?.basicCareerCards)
+          });
           
           console.log('✅ MCP analysis service call completed:', analysisResult);
           
@@ -983,7 +1036,53 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
           return "I'm having trouble accessing the career analysis system right now. Could you tell me more about your interests while I try again?";
         }
       },
-    };
+
+      trigger_instant_insights: async (parameters: { trigger_reason: string }) => {
+        console.log('🚨 TOOL CALLED: trigger_instant_insights - Instant career analysis!');
+        console.log('🔍 Tool parameters:', parameters);
+        
+        try {
+          // Provide immediate career insights based on current conversation context
+          const guestSession = guestSessionService.getGuestSession();
+          const conversationText = guestSession.conversationHistory
+            .map(msg => msg.content)
+            .join(' ')
+            .toLowerCase();
+
+          // Quick pattern matching for instant insights
+          const insights = [];
+          
+          if (/tech|software|coding|programming|developer|engineer/.test(conversationText)) {
+            insights.push("🚀 Strong technical interests detected - consider software engineering, web development, or data science paths");
+          }
+          
+          if (/creative|design|art|visual|ui|ux/.test(conversationText)) {
+            insights.push("🎨 Creative talents showing - UX/UI design, graphic design, or digital marketing could be great fits");
+          }
+          
+          if (/help|people|teach|support|care/.test(conversationText)) {
+            insights.push("🤝 People-focused mindset - careers in education, healthcare, consulting, or HR might align well");
+          }
+          
+          if (/business|management|lead|strategy/.test(conversationText)) {
+            insights.push("📈 Leadership potential - consider business analysis, project management, or entrepreneurship");
+          }
+
+          // Trigger progress update
+          treeProgressService.triggerRealTimeUpdate('engagement_milestone');
+          
+          const insightText = insights.length > 0 
+            ? insights.join('. ') + '.'
+            : "Based on our conversation, I can see you have diverse interests that could lead to several exciting career paths!";
+            
+          return `Instant insight: ${insightText} Let's explore these directions further!`;
+          
+        } catch (error) {
+          console.error('❌ Error in trigger_instant_insights tool:', error);
+          return "I'm excited about what you've shared! Let me gather more details to provide better career insights.";
+        }
+      },
+    }), [currentUser, setConversationHistory, setCareerCards, setDiscoveredInsights, setIsAnalyzing, setProgressUpdate]);
 
   // Get conversation overrides for text mode
   const [conversationOverrides, setConversationOverrides] = useState<any>(null);
@@ -1010,16 +1109,23 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
             personaOnboardingService.initializeOnboarding(undefined, !hasExistingConversation);
           }
           
-          // Get persona-aware overrides for text mode
-          const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions(
-            getAgentId('text')
-          );
-          
-          setConversationOverrides(personaOptions.overrides);
+          // Use persona-aware onboarding overrides to mirror the structured flow used in voice
+          const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions('');
+
+          // Ensure explicit textOnly flag for text-mode sessions
+          const safeOverrides = {
+            ...personaOptions.overrides,
+            conversation: {
+              ...(personaOptions.overrides?.conversation || {}),
+              textOnly: true,
+            },
+          };
+
+          setConversationOverrides(safeOverrides);
           console.log('✅ Text-only overrides configured:', {
-            hasOverrides: !!personaOptions.overrides,
-            textOnly: personaOptions.overrides?.conversation?.textOnly,
-            hasFirstMessage: !!personaOptions.overrides?.agent?.firstMessage
+            hasOverrides: !!safeOverrides,
+            textOnly: safeOverrides?.conversation?.textOnly,
+            hasFirstMessage: !!safeOverrides?.agent?.firstMessage
           });
           
         } catch (error) {
@@ -1051,13 +1157,24 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
   }, [communicationMode]);
   
   // Debug conversation initialization
-  const shouldInitializeConversation = communicationMode && (communicationMode === 'voice' || conversationOverrides);
-  console.log('🔍 Conversation initialization check:', {
-    communicationMode,
-    hasOverrides: !!conversationOverrides,
-    currentAgentId,
-    shouldInitialize: shouldInitializeConversation
-  });
+  // Only initialize the ElevenLabs conversation for text mode when the app is explicitly configured
+  // to use ElevenLabs for text (provider === 'elevenlabs'). Otherwise Text mode should use OpenAI.
+  const shouldInitializeConversation = communicationMode && (
+    communicationMode === 'voice' ||
+    (communicationMode === 'text' && environmentConfig.providers?.text === 'elevenlabs' && conversationOverrides)
+  );
+  // Memoized debug logging to reduce spam
+  const debugKey = `${communicationMode}-${!!conversationOverrides}-${currentAgentId}-${shouldInitializeConversation}`;
+  
+  if (lastDebugKey.current !== debugKey) {
+    console.log('🔍 Conversation initialization check:', {
+      communicationMode,
+      hasOverrides: !!conversationOverrides,
+      currentAgentId,
+      shouldInitialize: shouldInitializeConversation
+    });
+    lastDebugKey.current = debugKey;
+  }
 
   // Initialize conversation for both voice and text modes
   const conversation = useConversation(
@@ -1236,30 +1353,114 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
     } : undefined
   );
 
-  // Debug conversation object
-  console.log('🔍 Conversation object debug:', {
-    hasConversation: !!conversation,
-    hasStartSession: !!(conversation && conversation.startSession),
-    hasSendUserMessage: !!(conversation && conversation.sendUserMessage),
-    conversationStatus: conversation?.status || 'unknown',
-    isConnected,
-    connectionStatus,
-    conversationMethods: conversation ? Object.keys(conversation) : []
-  });
+  // Memoized debug conversation object to reduce spam
+  const conversationDebugKey = `${!!conversation}-${conversation?.status}-${isConnected}-${connectionStatus}`;
   
-  // Auto-connect for text mode when overrides are ready and status is disconnected
+  if (lastConversationDebugKey.current !== conversationDebugKey) {
+    console.log('🔍 Conversation object debug:', {
+      hasConversation: !!conversation,
+      hasStartSession: !!(conversation && conversation.startSession),
+      hasSendUserMessage: !!(conversation && conversation.sendUserMessage),
+      conversationStatus: conversation?.status || 'unknown',
+      isConnected,
+      connectionStatus,
+      conversationMethods: conversation ? Object.keys(conversation) : []
+    });
+    lastConversationDebugKey.current = conversationDebugKey;
+  }
+  
+  // Auto-connect for text mode using Enhanced OpenAI client when provider is openai
   useEffect(() => {
-    if (communicationMode === 'text' && conversation && conversationOverrides && conversation.status === 'disconnected') {
-      console.log('🔄 Auto-connecting text conversation...');
-      conversation.startSession()
-        .then(() => {
-          console.log('✅ Text conversation started successfully');
-        })
-        .catch((error) => {
-          console.error('❌ Failed to start text conversation:', error);
+    if (
+      communicationMode === 'text' &&
+      environmentConfig.providers?.text === 'openai' &&
+      conversationOverrides?.conversation?.textOnly === true
+    ) {
+      console.log('🔄 Auto-connecting enhanced text conversation via OpenAI client');
+
+      try {
+        // Create enhanced text client with same clientTools as voice mode
+        const enhancedTextClient = new EnhancedTextConversationClient(clientTools);
+
+        enhancedTextClient.onMessage((msg) => {
+          const newMessage: any = { role: 'assistant', content: msg, timestamp: new Date() };
+          setConversationHistory(prev => {
+            const updated = [...prev, newMessage];
+            conversationHistoryRef.current = updated;
+            return updated;
+          });
+          
+          // Trigger same UI updates as voice mode
+          if (!currentUser) {
+            guestSessionService.addConversationMessage('assistant', msg);
+          }
         });
+
+        // Build enhanced persona context using TextPromptService
+        const basePersonaContext = conversationOverrides?.agent?.prompt?.prompt || '';
+        const contextType = currentUser ? 'authenticated' : 'guest';
+        
+        // Create text-optimized system prompt
+        const enhancedPersonaContext = TextPromptService.createTextSystemPrompt({
+          contextPrompt: basePersonaContext,
+          contextType: contextType as 'guest' | 'authenticated' | 'career_deep_dive'
+        });
+
+        const baseFirstMessage = conversationOverrides?.agent?.firstMessage;
+        
+        // Only send first message if conversation is truly empty
+        const currentConversationLength = conversationHistoryRef.current.length;
+        const isNewConversation = currentConversationLength === 0;
+        const firstMessage = isNewConversation ? baseFirstMessage : undefined;
+        
+        console.log('🟢 [ENHANCED TEXT START] Initializing enhanced OpenAI text client with:', {
+          sessionId: guestSessionService.getGuestSession().sessionId,
+          personaContextPreview: enhancedPersonaContext.substring(0, 160) + '...',
+          personaContextLength: enhancedPersonaContext.length,
+          hasFirstMessage: !!firstMessage,
+          hasClientTools: Object.keys(clientTools).length,
+          isNewConversation,
+          currentConversationLength
+        });
+
+        // Use the explicit sessionId getter to ensure a valid sessionId is provided
+        void enhancedTextClient.start({ 
+          personaContext: enhancedPersonaContext, 
+          firstMessage, 
+          sessionId: guestSessionService.getSessionId() 
+        });
+
+        // Replace send in text mode to use the enhanced client
+        (window as any).__TEXT_CLIENT__ = enhancedTextClient;
+
+        return () => { void enhancedTextClient.end(); };
+        
+      } catch (error) {
+        console.error('❌ Failed to initialize enhanced text client, falling back to basic client:', error);
+        
+        // Fallback to basic text client if enhanced client fails
+        const proxyBase = environmentConfig.apiEndpoints.openaiAssistant || '/api/openai-assistant';
+        const textClient = new TextConversationClient(proxyBase);
+
+        textClient.onMessage((msg) => {
+          const newMessage: any = { role: 'assistant', content: msg, timestamp: new Date() };
+          setConversationHistory(prev => {
+            const updated = [...prev, newMessage];
+            conversationHistoryRef.current = updated;
+            return updated;
+          });
+        });
+
+        const personaContext = conversationOverrides?.agent?.prompt?.prompt;
+        const firstMessage = conversationOverrides?.agent?.firstMessage;
+        
+        void textClient.start({ personaContext, firstMessage, sessionId: guestSessionService.getSessionId() });
+        (window as any).__TEXT_CLIENT__ = textClient;
+
+        return () => { void textClient.end(); };
+      }
     }
-  }, [conversation, conversationOverrides, communicationMode]);
+  }, [communicationMode, conversationOverrides, clientTools, currentUser]);
 
   // Memoize scroll function to prevent recreation on every render
   const scrollToBottom = useCallback(() => {
@@ -1665,40 +1866,19 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
         return updated;
       });
       
-      // Handle both text and voice modes using the unified conversation
-      if (communicationMode === 'text') {
-        console.log('📱 Text-only mode: Sending via text agent');
-        
-        // Send message using conversation (will use text agent based on currentAgentId)
-        if (conversation && conversation.sendUserMessage) {
-          try {
-            // Check connection status before sending to avoid WebSocket errors
-            if (conversation.status === 'connected' && isConnected) {
-              console.log('📤 Sending user message via text-only mode:', messageText);
-              await conversation.sendUserMessage(messageText);
-              console.log('✅ Text message sent successfully via text agent');
-            } else {
-              console.warn('⚠️ Text conversation not connected, skipping message send. Status:', conversation.status, 'Connected:', isConnected);
-            }
-          } catch (error) {
-            console.error('❌ Failed to send text message:', error);
-            // If WebSocket is closed, try to reconnect
-            if (error.message?.includes('WebSocket') || error.message?.includes('CLOSED')) {
-              console.log('🔄 WebSocket error detected, attempting to reconnect...');
-              try {
-                await conversation.startSession();
-                // Retry sending the message after reconnect
-                await conversation.sendUserMessage(messageText);
-                console.log('✅ Message sent successfully after reconnection');
-              } catch (retryError) {
-                console.error('❌ Failed to reconnect and send message:', retryError);
-              }
-            }
-          }
+      // Handle provider-specific send
+      if (communicationMode === 'text' && environmentConfig.providers?.text === 'openai') {
+        const client = (window as any).__TEXT_CLIENT__ as { sendUserMessage: (t: string, h?: Array<{role:'user'|'assistant'; content:string}>) => Promise<void> } | undefined;
+        if (client) {
+          console.log('💬 [TEXT MSG] Sending to OpenAI proxy:', {
+            messagePreview: messageText.substring(0, 120) + '...'
+          });
+          const minimalHistory = (conversationHistoryRef.current || []).map((m: any) => ({ role: m.role, content: m.content }));
+          await client.sendUserMessage(messageText, minimalHistory);
         } else {
-          console.warn('⚠️ Text conversation not ready for message sending');
+          console.warn('⚠️ Text client not initialized');
         }
-      } else {
+      } else if (communicationMode === 'voice') {
         // Voice mode - message already added to history, voice agent will see and respond
         console.log('✅ Text message added to conversation history via enhanced modal - voice agent will see and respond');
       }
@@ -1878,8 +2058,13 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
   // Handle mode selection
   const handleModeSelection = (mode: CommunicationMode) => {
     console.log(`🎯 Communication mode selected: ${mode}`);
+    // Set global flag before updating mode so audio hooks can react accordingly
+    if (typeof window !== 'undefined') {
+      (window as any).__ALLOW_AUDIO_INIT = mode === 'voice';
+    }
+
     setCommunicationMode(mode);
-    
+
     if (mode === 'voice') {
       // Start voice conversation automatically
       handleStartConversation();
@@ -1953,30 +2138,15 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
 
 
 
-  // Handle missing environment config
-      if (!apiKey || !currentAgentId) {
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-[95vw] max-w-5xl h-[80dvh] bg-white p-6 border-2 border-black shadow-card">
-          <DialogHeader>
-            <DialogTitle className="sr-only">Configuration Error</DialogTitle>
-          </DialogHeader>
-          <div className="flex items-center justify-center h-full">
-            <div className="flex flex-col items-center space-y-4 text-center">
-              <AlertTriangle className="h-8 w-8 text-black" />
-              <h3 className="text-lg font-bold text-black">Configuration Missing</h3>
-              <p className="text-black">ElevenLabs configuration is not available. Please check your environment setup.</p>
-              <Button onClick={onClose} variant="outline" className="border-black text-black hover:bg-template-primary hover:text-white min-h-[44px]">
-                Close
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
+  // Do not block the modal when voice configuration is missing.
+  // Voice controls are already disabled when !apiKey, and Text Chat remains available.
 
-  console.log('🎭 EnhancedChatVoiceModal: Rendering modal (isOpen=true)');
+  // Memoized render logging to reduce spam
+  renderCount.current++;
+  
+  if (renderCount.current % 20 === 1) { // Log every 20th render
+    console.log('🎭 EnhancedChatVoiceModal: Rendering modal (isOpen=true)', { renderCount: renderCount.current });
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

@@ -352,7 +352,8 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
           (session.careerCards.length > 0 && session.conversationHistory.length % 20 === 0) // Less frequent when cards exist
         );
         
-        if (shouldLog) {
+        // Temporarily disabled to reduce log spam - TODO: implement proper rate limiting
+        if (false && shouldLog) {
           console.log('📤 [GUEST SESSION] Retrieved session for migration:', {
             sessionId: session.sessionId,
             conversationHistoryLength: session.conversationHistory.length,
@@ -546,6 +547,15 @@ export class GuestSessionService {
   constructor() {
     // Auto-initialize session on service creation
     this.store.getState().initializeSession();
+  }
+
+  // Ensure a non-empty sessionId exists; create one if missing
+  ensureSession(): void {
+    if (!this.store.getState().sessionId) {
+      this.store.getState().initializeSession();
+    } else {
+      this.store.getState().updateLastActive();
+    }
   }
 
   // Session management

@@ -42,7 +42,7 @@ const Hero: React.FC = () => {
       console.log('🎯 Hero: Showing post-conversation CTA for guest user (always show strategy)');
       setShowPostConversationCTA(true);
     }
-  }, [currentUser]);
+  }, [currentUser, discoveredCareerCards.length]);
 
   // Handle career cards discovered
   const handleCareerCardsDiscovered = useCallback((cards: any[]) => {
@@ -223,7 +223,7 @@ const Hero: React.FC = () => {
                     className="font-semibold text-lg px-8 py-4 min-h-[48px] group"
                   >
                     <Volume2 className="h-5 w-5 mr-3 group-hover:animate-pulse" />
-                    Start Voice Chat
+                    Start your journey
                     <ArrowRight className="h-5 w-5 ml-3 group-hover:translate-x-1 transition-transform duration-300" />
                   </Button>
                 </motion.div>

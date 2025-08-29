@@ -26,7 +26,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.searchCareerData = exports.generateCareerPathways = exports.debugVideoDatabase = exports.getEnhancedCareerRecommendations = exports.generateTranscriptSummary = exports.processVideoWithTranscript = exports.extractTranscript = exports.getPersonalizedVideoRecommendations = exports.searchVideos = exports.generateEmbedding = exports.getVideoRecommendations = exports.generateDetailedChatSummary = exports.generateChatSummary = exports.sendChatMessage = exports.createChatThread = exports.healthCheck = exports.bumpupsProxy = exports.enrichVideoMetadata = void 0;
+exports.textChatEnd = exports.textChatMessage = exports.textChatStart = exports.searchCareerData = exports.generateCareerPathways = exports.debugVideoDatabase = exports.getEnhancedCareerRecommendations = exports.generateTranscriptSummary = exports.processVideoWithTranscript = exports.extractTranscript = exports.getPersonalizedVideoRecommendations = exports.searchVideos = exports.generateEmbedding = exports.getVideoRecommendations = exports.generateDetailedChatSummary = exports.generateChatSummary = exports.sendChatMessage = exports.createChatThread = exports.healthCheck = exports.bumpupsProxy = exports.enrichVideoMetadata = void 0;
 const admin = __importStar(require("firebase-admin"));
 const https = __importStar(require("https"));
 const https_1 = require("firebase-functions/v2/https");
@@ -3219,6 +3219,89 @@ exports.searchCareerData = (0, https_1.onRequest)({
             error: 'Failed to search career data',
             message: error.message
         });
+    }
+});
+/**
+ * Text chat (OpenAI Responses) - START (no-op placeholder)
+ */
+exports.textChatStart = (0, https_1.onRequest)({
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret]
+}, async (request, response) => {
+    try {
+        if (request.method !== 'POST') {
+            response.status(405).json({ error: 'Method not allowed. Use POST only.' });
+            return;
+        }
+        const origin = request.headers.origin;
+        if (!origin || !isOriginAllowed(origin)) {
+            response.status(403).json({ error: 'Origin not allowed' });
+            return;
+        }
+        response.status(200).json({ ok: true });
+    }
+    catch (error) {
+        response.status(500).json({ error: 'Internal server error' });
+    }
+});
+/**
+ * Text chat (OpenAI Responses) - MESSAGE
+ * Body: { sessionId?: string, text: string, personaContext?: string }
+ * Returns: { reply: string }
+ */
+exports.textChatMessage = (0, https_1.onRequest)({
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret]
+}, async (request, response) => {
+    try {
+        if (request.method !== 'POST') {
+            response.status(405).json({ error: 'Method not allowed. Use POST only.' });
+            return;
+        }
+        const origin = request.headers.origin;
+        if (!origin || !isOriginAllowed(origin)) {
+            response.status(403).json({ error: 'Origin not allowed' });
+            return;
+        }
+        const { text, personaContext } = request.body || {};
+        if (!text || typeof text !== 'string') {
+            response.status(400).json({ error: 'Missing text' });
+            return;
+        }
+        const apiKey = openaiApiKeySecret.value();
+        if (!apiKey) {
+            response.status(500).json({ error: 'API configuration error' });
+            return;
+        }
+        const openai = new openai_1.default({ apiKey });
+        const systemBlock = personaContext
+            ? [{ role: 'system', content: personaContext }]
+            : [];
+        const completion = await openai.responses.create({
+            model: 'gpt-5',
+            input: [
+                ...systemBlock,
+                { role: 'user', content: text }
+            ],
+        });
+        const reply = completion.output_text || '';
+        response.status(200).json({ reply });
+    }
+    catch (error) {
+        response.status(500).json({ error: 'Internal server error', details: error.message });
+    }
+});
+/**
+ * Text chat (OpenAI Responses) - END (no-op)
+ */
+exports.textChatEnd = (0, https_1.onRequest)({
+    cors: corsConfig
+}, async (request, response) => {
+    try {
+        response.status(200).json({ ok: true });
+    }
+    catch (error) {
+        response.status(500).json({ error: 'Internal server error' });
     }
 });
 /**

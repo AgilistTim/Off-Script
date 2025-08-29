@@ -48,6 +48,10 @@ export interface EnvironmentConfig {
   
   // Environment and features
   environment: string;
+  providers?: {
+    text?: 'openai' | 'elevenlabs';
+    voice?: 'elevenlabs' | 'openai';
+  };
   features: {
     voiceChat: boolean;
     careerGuidance: boolean;
@@ -126,6 +130,10 @@ export const environmentConfig: EnvironmentConfig = {
   },
   
   environment: import.meta.env.MODE || 'development',
+  providers: {
+    text: (import.meta.env.VITE_TEXT_PROVIDER as any) || 'openai',
+    voice: (import.meta.env.VITE_VOICE_PROVIDER as any) || 'elevenlabs',
+  },
   
   features: {
     voiceChat: true,
