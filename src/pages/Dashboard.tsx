@@ -471,7 +471,7 @@ const Dashboard: React.FC = () => {
           ] : undefined
         };
         
-        dashboardCareerEnhancer.enhanceDashboardCards([cachedCardForEnhancement])
+        dashboardCareerEnhancer.enhanceDashboardCards([cachedCardForEnhancement], currentUser.uid)
           .then(enhancedCards => {
             if (enhancedCards[0] && enhancedCards[0].enhancement?.status === 'completed') {
               console.log('✅ Enhanced cached card with real-time data');
@@ -515,7 +515,7 @@ const Dashboard: React.FC = () => {
           ] : undefined
         };
         
-        dashboardCareerEnhancer.enhanceDashboardCards([careerCardForEnhancement])
+        dashboardCareerEnhancer.enhanceDashboardCards([careerCardForEnhancement], currentUser.uid)
           .then(enhancedCards => {
             if (enhancedCards[0] && enhancedCards[0].enhancement?.status === 'completed') {
               console.log('✅ Successfully enhanced career card with real-time UK market data');
@@ -880,15 +880,28 @@ const Dashboard: React.FC = () => {
           
           // Group careers for accordion display and apply enhancements
           const allCareers = [];
+          const addedTitles = new Set<string>();
+          
+          // Add primary pathway first
           if (guidanceData.primaryPathway) {
             allCareers.push({ ...guidanceData.primaryPathway, isPrimary: true });
+            addedTitles.add(guidanceData.primaryPathway.title);
           }
-          allCareers.push(...guidanceData.alternativePathways);
+          
+          // Add alternative pathways, but skip duplicates
+          guidanceData.alternativePathways.forEach(pathway => {
+            if (!addedTitles.has(pathway.title)) {
+              allCareers.push(pathway);
+              addedTitles.add(pathway.title);
+            } else {
+              console.log(`🔍 Skipping duplicate career: ${pathway.title} (already added as primary)`);
+            }
+          });
           
           // CRITICAL FIX: Apply Perplexity enhancements to all career cards
           try {
             console.log('🔍 Applying Perplexity enhancements to', allCareers.length, 'career cards');
-            const enhancedCareers = await dashboardCareerEnhancer.enhanceDashboardCards(allCareers);
+            const enhancedCareers = await dashboardCareerEnhancer.enhanceDashboardCards(allCareers, currentUser.uid);
             console.log('✅ Enhanced career cards:', enhancedCareers.length);
             
             const grouped = groupCareersByTheme(enhancedCareers);
@@ -1700,7 +1713,7 @@ const Dashboard: React.FC = () => {
                             >
                               <div className="px-6 pb-6 space-y-4">
                                 {careers.map((career, index) => (
-                                  <div key={career.title || index} className="relative">
+                                  <div key={`${career.title}-${career.isPrimary ? 'primary' : 'alt'}-${index}`} className="relative">
                                     <UnifiedCareerCard
                                       career={career}
                                       onAskAI={() => {

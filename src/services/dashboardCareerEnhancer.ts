@@ -49,7 +49,7 @@ export class DashboardCareerEnhancer {
    * Main enhancement method - progressive enhancement pattern
    * Shows basic cards immediately, enhances asynchronously
    */
-  async enhanceDashboardCards(userCareerCards: CareerCard[]): Promise<EnhancedCareerCard[]> {
+  async enhanceDashboardCards(userCareerCards: CareerCard[], userId?: string): Promise<EnhancedCareerCard[]> {
     console.log('🔍 DashboardCareerEnhancer: Starting enhancement for', userCareerCards.length, 'cards');
 
     // 1. Filter cards needing enhancement (check cache first, including Firestore)
@@ -71,7 +71,7 @@ export class DashboardCareerEnhancer {
     try {
       // 3. Batch enhance with Promise.allSettled for parallel processing
       const enhancementPromises = uncachedCards.map(card => 
-        this.enhanceCardWithPerplexity(card.title)
+        this.enhanceCardWithPerplexity(card.title, userId)
       );
       
       const results = await Promise.allSettled(enhancementPromises);
@@ -127,7 +127,7 @@ export class DashboardCareerEnhancer {
   /**
    * Single comprehensive Perplexity call for career enhancement (JSON structured response)
    */
-  private async enhanceCardWithPerplexity(careerTitle: string): Promise<{
+  private async enhanceCardWithPerplexity(careerTitle: string, userId?: string): Promise<{
     title: string;
     data: EnhancedCareerData;
     confidence: number;
@@ -152,7 +152,7 @@ export class DashboardCareerEnhancer {
       const confidence = this.calculateStructuredConfidence(result.data);
 
       // Cache the result
-      await this.setCachedEnhancement(careerTitle, enhancedData, confidence);
+      await this.setCachedEnhancement(careerTitle, enhancedData, confidence, userId);
 
       console.log('✅ Successfully enhanced with structured data:', careerTitle, { 
         confidence,
@@ -616,11 +616,6 @@ export class DashboardCareerEnhancer {
     return educationData
       .map(pathway => {
         const cost = this.parseEducationCost(pathway.cost);
-        // Only include pathways where we can parse valid cost data
-        if (!cost) {
-          console.warn('⚠️ Skipping education pathway due to unparseable cost:', pathway.title);
-          return null;
-        }
         
         return {
           type: pathway.type as 'University' | 'Apprenticeship' | 'Professional' | 'Online',
@@ -632,8 +627,7 @@ export class DashboardCareerEnhancer {
           url: '',
           verified: pathway.verified || false
         };
-      })
-      .filter((pathway): pathway is NonNullable<typeof pathway> => pathway !== null);
+      });
   }
 
   /**
@@ -647,14 +641,16 @@ export class DashboardCareerEnhancer {
       // "Free" or similar
       /(free|no cost|£0)/i,
       // Employer funded patterns
-      /(employer.{0,20}fund|apprentice.{0,20}levy|no tuition)/i
+      /(employer.{0,20}fund|apprentice.{0,20}levy|no tuition)/i,
+      // Generic "funded" patterns
+      /(^funded$|government.{0,20}fund|publicly.{0,20}fund|state.{0,20}fund)/i
     ];
     
     for (const pattern of patterns) {
       const matches = costStr.match(pattern);
       if (matches) {
         // Handle free/employer funded courses
-        if (pattern === patterns[1] || pattern === patterns[2]) {
+        if (pattern === patterns[1] || pattern === patterns[2] || pattern === patterns[3]) {
           return { min: 0, max: 0, currency: 'GBP' };
         }
         
@@ -667,8 +663,9 @@ export class DashboardCareerEnhancer {
       }
     }
     
-    console.warn('⚠️ Could not parse education cost from:', costStr.substring(0, 100), '- skipping this pathway but continuing with others');
-    return null; // Return null to skip this pathway but don't fail the entire process
+    console.warn('⚠️ Could not parse education cost from:', costStr.substring(0, 100), '- using generic cost range');
+    // Instead of skipping completely, provide a generic cost range for unparseable strings
+    return { min: 0, max: 50000, currency: 'GBP' }; // £0-£50k covers most UK education costs
   }
 
   /**
@@ -995,7 +992,7 @@ export class DashboardCareerEnhancer {
   /**
    * Save enhanced data to Firestore
    */
-  private async saveToFirestore(careerTitle: string, data: EnhancedCareerData, confidence: number): Promise<void> {
+  private async saveToFirestore(careerTitle: string, data: EnhancedCareerData, confidence: number, userId?: string): Promise<void> {
     try {
       const docKey = careerTitle.toLowerCase().replace(/[^a-z0-9]/g, '_');
       const docRef = doc(firestore, this.FIRESTORE_COLLECTION, docKey);
@@ -1014,7 +1011,7 @@ export class DashboardCareerEnhancer {
       console.log('💾 Saved to Firestore:', careerTitle, { confidence });
       
       // Also merge enhanced data back to threadCareerGuidance for user-facing display
-      await this.mergeEnhancedDataToThreadGuidance(careerTitle, data);
+      await this.mergeEnhancedDataToThreadGuidance(careerTitle, data, userId);
       
     } catch (error) {
       console.warn('⚠️ Firestore write error for', careerTitle, ':', error);
@@ -1025,13 +1022,26 @@ export class DashboardCareerEnhancer {
   /**
    * Merge enhanced data from enhancedCareerCards back to threadCareerGuidance for user-facing display
    */
-  private async mergeEnhancedDataToThreadGuidance(careerTitle: string, enhancedData: EnhancedCareerData): Promise<void> {
+  private async mergeEnhancedDataToThreadGuidance(careerTitle: string, enhancedData: EnhancedCareerData, userId?: string): Promise<void> {
     try {
       console.log(`🔄 Merging enhanced data for "${careerTitle}" back to threadCareerGuidance`);
       
       // Find threadCareerGuidance documents that contain this career title
+      // CRITICAL FIX: Filter by userId to avoid permission errors
       const threadGuidanceRef = collection(firestore, 'threadCareerGuidance');
-      const guidanceSnapshot = await getDocs(threadGuidanceRef);
+      let guidanceQuery;
+      
+      if (userId) {
+        // Only query current user's documents to avoid permission errors
+        guidanceQuery = query(threadGuidanceRef, where('userId', '==', userId));
+        console.log(`🔍 Filtering threadCareerGuidance by userId: ${userId}`);
+      } else {
+        // If no userId provided, skip merge to avoid permission errors
+        console.log('⚠️ No userId provided, skipping merge to avoid permission errors');
+        return;
+      }
+      
+      const guidanceSnapshot = await getDocs(guidanceQuery);
       
       let mergedCount = 0;
       
@@ -1155,7 +1165,7 @@ export class DashboardCareerEnhancer {
   /**
    * Set cached enhancement data for a career title (saves to both memory cache and Firestore)
    */
-  private async setCachedEnhancement(careerTitle: string, data: EnhancedCareerData, confidence: number = 0.9): Promise<void> {
+  private async setCachedEnhancement(careerTitle: string, data: EnhancedCareerData, confidence: number = 0.9, userId?: string): Promise<void> {
     const now = Date.now();
     const cacheData = {
       data,
@@ -1168,7 +1178,7 @@ export class DashboardCareerEnhancer {
     this.cache.set(careerTitle.toLowerCase(), cacheData);
 
     // Store in Firestore asynchronously (don't await to avoid blocking)
-    this.saveToFirestore(careerTitle, data, confidence).catch(error => {
+    this.saveToFirestore(careerTitle, data, confidence, userId).catch(error => {
       console.warn('⚠️ Failed to save to Firestore:', error);
     });
 
