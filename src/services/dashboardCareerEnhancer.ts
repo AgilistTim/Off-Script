@@ -79,10 +79,11 @@ export class DashboardCareerEnhancer {
       // 4. Process results and update cache
       const enhancedCards = await this.processEnhancementResults(results, uncachedCards, userCareerCards);
 
-      // 5. Show success toast
+      // 5. Show success toast with shorter duration
       const successCount = results.filter(r => r.status === 'fulfilled').length;
       toast.success(`Career data updated! Enhanced ${successCount}/${uncachedCards.length} cards`, { 
-        id: 'enhancement' 
+        id: 'enhancement',
+        duration: 2500 // Auto-dismiss after 2.5 seconds
       });
 
       console.log('✅ Enhancement completed:', { 

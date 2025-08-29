@@ -81,7 +81,7 @@ const Notification: React.FC<NotificationProps> = ({ message, type, onDismiss })
       initial={{ opacity: 0, y: -20, scale: 0.9 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.9 }}
-      className={`fixed top-4 right-4 z-50 p-6 rounded-2xl shadow-2xl border-2 ${bgGradient} max-w-md backdrop-blur-lg`}
+      className={`fixed top-32 right-4 z-30 p-6 rounded-2xl shadow-2xl border-2 ${bgGradient} max-w-md backdrop-blur-lg`}
     >
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center">
