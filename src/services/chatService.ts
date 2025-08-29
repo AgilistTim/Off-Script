@@ -18,8 +18,9 @@ import {
 import axios from 'axios';
 import { environmentConfig } from '../config/environment';
 
-// Get environment configuration
-const apiBaseUrl = environmentConfig.apiEndpoints.openaiAssistant || '/api/openai';
+// Get Firebase Function URL for chat services
+import { getFirebaseFunctionUrl } from './firebase';
+const apiBaseUrl = getFirebaseFunctionUrl('textChatMessage');
 
 // OpenAI Assistant ID
 const ASSISTANT_ID = 'asst_b6kBes7rHBC9gA4yJ9I5r5zm';

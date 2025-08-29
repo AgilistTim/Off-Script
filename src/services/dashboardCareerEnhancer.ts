@@ -567,7 +567,7 @@ export class DashboardCareerEnhancer {
   }
 
   /**
-   * Convert structured market data to our format
+   * Convert structured market data to our format with comprehensive validation
    */
   private convertStructuredMarketData(data: PerplexityStructuredCareerData): EnhancedCareerData['realTimeMarketDemand'] {
     const marketData = data.enhancedData?.realTimeMarketDemand;
@@ -599,12 +599,99 @@ export class DashboardCareerEnhancer {
       return 5.0;
     };
 
+    // CRITICAL: Data quality validation for market intelligence
+    const rawGrowthRate = parseGrowthRate(marketData?.growthRate);
+    const rawJobPostings = marketData?.jobPostingVolume || 1500;
+    
+    const validatedGrowthRate = this.validateGrowthRate(rawGrowthRate, data.roleFundamentals.title);
+    const validatedJobPostings = this.validateJobPostings(rawJobPostings, data.roleFundamentals.title);
+
     return {
-      jobPostingVolume: marketData?.jobPostingVolume || 1500,
-      growthRate: parseGrowthRate(marketData?.growthRate),
+      jobPostingVolume: validatedJobPostings,
+      growthRate: validatedGrowthRate,
       competitionLevel: (marketData?.competitionLevel as 'Low' | 'Medium' | 'High') || 'Medium',
       sources
     };
+  }
+
+  /**
+   * CRITICAL: Validate growth rate data for accuracy and reasonableness
+   */
+  private validateGrowthRate(growthRate: number, careerTitle: string): number {
+    // UK career growth rate validation rules based on ONS data patterns
+    const validationRules = {
+      // Extremely negative growth rates are usually data errors
+      minAcceptableGrowth: -15, // Very few careers decline more than 15% YoY
+      maxAcceptableGrowth: 50,   // Very few careers grow more than 50% YoY except emerging tech
+      
+      // Suspicious ranges that warrant defaulting to safe values
+      suspiciouslyLow: -5,       // Below -5% is often parsing errors like "-0.04"
+      suspiciouslyHigh: 25,      // Above 25% is often parsing errors or hype
+      
+      // Default values for different career categories
+      techDefault: 8,            // Technology careers
+      healthcareDefault: 6,      // Healthcare careers  
+      traditionalDefault: 3,     // Traditional industries
+      emergingDefault: 12        // Emerging industries
+    };
+
+    // Flag suspicious data
+    const isSuspicious = 
+      growthRate < validationRules.suspiciouslyLow || 
+      growthRate > validationRules.suspiciouslyHigh ||
+      Math.abs(growthRate) < 0.1; // Tiny values like -0.04% are often parsing errors
+
+    if (isSuspicious) {
+      console.warn(`⚠️ [DATA QUALITY] Suspicious growth rate for "${careerTitle}": ${growthRate}% - applying validation`);
+      
+      // Apply intelligent defaults based on career type
+      const lowerTitle = careerTitle.toLowerCase();
+      
+      if (lowerTitle.includes('ai') || lowerTitle.includes('data') || lowerTitle.includes('software')) {
+        return validationRules.techDefault;
+      } else if (lowerTitle.includes('health') || lowerTitle.includes('care') || lowerTitle.includes('medical')) {
+        return validationRules.healthcareDefault;
+      } else if (lowerTitle.includes('renewable') || lowerTitle.includes('sustainability') || lowerTitle.includes('creator')) {
+        return validationRules.emergingDefault;
+      } else {
+        return validationRules.traditionalDefault;
+      }
+    }
+
+    // Clamp to acceptable ranges even if not flagged as suspicious
+    return Math.max(validationRules.minAcceptableGrowth, 
+                   Math.min(validationRules.maxAcceptableGrowth, growthRate));
+  }
+
+  /**
+   * CRITICAL: Validate job posting volume for reasonableness
+   */
+  private validateJobPostings(jobPostings: number, careerTitle: string): number {
+    const validationRules = {
+      minReasonable: 50,        // Very niche roles
+      maxReasonable: 50000,     // Very common roles like "Manager"
+      defaultLow: 500,          // Specialized roles default
+      defaultMed: 2000,         // Common roles default
+      defaultHigh: 8000         // Very common roles default
+    };
+
+    // Validate range
+    if (jobPostings < validationRules.minReasonable || jobPostings > validationRules.maxReasonable) {
+      console.warn(`⚠️ [DATA QUALITY] Suspicious job posting volume for "${careerTitle}": ${jobPostings} - applying validation`);
+      
+      const lowerTitle = careerTitle.toLowerCase();
+      
+      // Apply intelligent defaults based on role commonality
+      if (lowerTitle.includes('manager') || lowerTitle.includes('specialist') || lowerTitle.includes('analyst')) {
+        return validationRules.defaultHigh;
+      } else if (lowerTitle.includes('developer') || lowerTitle.includes('consultant') || lowerTitle.includes('coordinator')) {
+        return validationRules.defaultMed;
+      } else {
+        return validationRules.defaultLow;
+      }
+    }
+
+    return jobPostings;
   }
 
   /**
@@ -1050,9 +1137,27 @@ export class DashboardCareerEnhancer {
         let hasUpdates = false;
         const updates: any = {};
         
-        // Check and update primary pathway
-        if (data.guidance?.primaryPathway?.title?.toLowerCase() === careerTitle.toLowerCase()) {
-          console.log(`🎯 Found matching primary pathway in doc ${docSnap.id}`);
+        // Improved flexible title matching function
+        const normalizeTitle = (title: string) => {
+          return title.toLowerCase()
+            .replace(/[^\w\s]/g, '') // Remove special chars like /
+            .replace(/\s+/g, ' ')    // Normalize whitespace
+            .trim();
+        };
+
+        const normalizedCareerTitle = normalizeTitle(careerTitle);
+        
+        // Check and update primary pathway with flexible matching
+        if (data.guidance?.primaryPathway?.title) {
+          const normalizedPrimaryTitle = normalizeTitle(data.guidance.primaryPathway.title);
+          
+          // Exact match or partial match (for cases like "Content Creator" vs "Content Creator/Streamer")
+          const isMatch = normalizedPrimaryTitle === normalizedCareerTitle || 
+                         normalizedPrimaryTitle.includes(normalizedCareerTitle) ||
+                         normalizedCareerTitle.includes(normalizedPrimaryTitle);
+          
+          if (isMatch) {
+            console.log(`🎯 Found matching primary pathway in doc ${docSnap.id}: "${data.guidance.primaryPathway.title}" matches "${careerTitle}"`);
           
           updates['guidance.primaryPathway'] = {
             ...data.guidance.primaryPathway,
@@ -1076,29 +1181,35 @@ export class DashboardCareerEnhancer {
           hasUpdates = true;
         }
         
-        // Check and update alternative pathways
+        // Check and update alternative pathways with flexible matching
         if (data.guidance?.alternativePathways?.length > 0) {
           const updatedAlternatives = data.guidance.alternativePathways.map((pathway: any) => {
-            if (pathway.title?.toLowerCase() === careerTitle.toLowerCase()) {
-              console.log(`🎯 Found matching alternative pathway in doc ${docSnap.id}`);
-              return {
-                ...pathway,
-                // Map enhanced data to the fields expected by user-facing components
-                enhancedSalary: enhancedData.verifiedSalaryRanges,
-                careerProgression: enhancedData.currentEducationPathways,
-                dayInTheLife: enhancedData.workEnvironmentDetails,
-                industryTrends: enhancedData.industryGrowthProjection,
-                topUKEmployers: enhancedData.realTimeMarketDemand,
-                professionalTestimonials: enhancedData.competencyRequirements,
-                additionalQualifications: enhancedData.competencyRequirements?.qualificationPathway,
-                workLifeBalance: enhancedData.workEnvironmentDetails,
-                inDemandSkills: enhancedData.competencyRequirements?.technicalSkills,
-                professionalAssociations: enhancedData.competencyRequirements?.softSkills,
-                enhancedSources: enhancedData.realTimeMarketDemand?.sources || enhancedData.verifiedSalaryRanges?.entry?.sources || [],
-                isEnhanced: true,
-                enhancedAt: new Date(),
-                enhancementSource: 'perplexity',
-                enhancementStatus: 'enhanced'
+            if (pathway.title) {
+              const normalizedPathwayTitle = normalizeTitle(pathway.title);
+              const isAltMatch = normalizedPathwayTitle === normalizedCareerTitle || 
+                               normalizedPathwayTitle.includes(normalizedCareerTitle) ||
+                               normalizedCareerTitle.includes(normalizedPathwayTitle);
+              
+              if (isAltMatch) {
+                console.log(`🎯 Found matching alternative pathway in doc ${docSnap.id}: "${pathway.title}" matches "${careerTitle}"`);
+                return {
+                  ...pathway,
+                  // Map enhanced data to the fields expected by user-facing components
+                  enhancedSalary: enhancedData.verifiedSalaryRanges,
+                  careerProgression: enhancedData.currentEducationPathways,
+                  dayInTheLife: enhancedData.workEnvironmentDetails,
+                  industryTrends: enhancedData.industryGrowthProjection,
+                  topUKEmployers: enhancedData.realTimeMarketDemand,
+                  professionalTestimonials: enhancedData.competencyRequirements,
+                  additionalQualifications: enhancedData.competencyRequirements?.qualificationPathway,
+                  workLifeBalance: enhancedData.workEnvironmentDetails,
+                  inDemandSkills: enhancedData.competencyRequirements?.technicalSkills,
+                  professionalAssociations: enhancedData.competencyRequirements?.softSkills,
+                  enhancedSources: enhancedData.realTimeMarketDemand?.sources || enhancedData.verifiedSalaryRanges?.entry?.sources || [],
+                  isEnhanced: true,
+                  enhancedAt: new Date(),
+                  enhancementSource: 'perplexity',
+                  enhancementStatus: 'enhanced'
               };
             }
             return pathway;
