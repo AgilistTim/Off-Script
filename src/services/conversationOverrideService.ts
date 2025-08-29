@@ -172,6 +172,18 @@ export class ConversationOverrideService {
    * Build comprehensive career context from ALL enhanced Perplexity data
    */
   private buildDetailedCareerContext(careerCard: any): string {
+    // Debug log to understand the full structure of what we're receiving
+    console.log('🔍 TRAINING DEBUG - Full career card structure:', {
+      title: careerCard.title,
+      hasPerplexityData: !!careerCard.perplexityData,
+      hasEnhancedData: !!careerCard.perplexityData?.enhancedData,
+      hasCurrentEducationPathways: !!careerCard.perplexityData?.enhancedData?.currentEducationPathways,
+      pathwaysCount: careerCard.perplexityData?.enhancedData?.currentEducationPathways?.length || 0,
+      hasTrainingPathways: !!careerCard.trainingPathways,
+      legacyTrainingCount: careerCard.trainingPathways?.length || 0,
+      allKeys: Object.keys(careerCard)
+    });
+    
     let context = '';
     
     // ===== ROLE FUNDAMENTALS =====
@@ -378,6 +390,19 @@ export class ConversationOverrideService {
           }
           if (pathway.verified) context += `  Status: VERIFIED\n`;
         });
+        
+        // Debug log to verify training data
+        console.log('🔍 TRAINING DEBUG - Current education pathways found:', {
+          pathwaysCount: enhanced.currentEducationPathways.length,
+          pathways: enhanced.currentEducationPathways.map(p => ({
+            title: p.title,
+            provider: p.provider,
+            duration: p.duration,
+            verified: p.verified
+          }))
+        });
+      } else {
+        console.log('⚠️ TRAINING DEBUG - No currentEducationPathways found in enhanced data');
       }
     }
     
