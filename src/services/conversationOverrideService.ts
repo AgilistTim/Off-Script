@@ -487,7 +487,168 @@ export class ConversationOverrideService {
     else {
       console.log('⚠️ TRAINING DEBUG - No training pathways found in currentEducationPathways OR careerProgression');
     }
+
+    // ===== COMPREHENSIVE PERPLEXITY DATA INCLUSION =====
+    // Add ALL available Perplexity data fields to ensure complete context
     
+    if (careerCard.careerProgression?.length > 0 && !context.includes('TRAINING PROGRAMS:')) {
+      context += '\nTRAINING PROGRAMS:\n';
+      careerCard.careerProgression.forEach(program => {
+        if (program.title && program.provider) {
+          context += `- ${program.title}\n`;
+          context += `  Provider: ${program.provider}\n`;
+          if (program.type) context += `  Type: ${program.type}\n`;
+          if (program.duration) context += `  Duration: ${program.duration}\n`;
+          if (program.cost && typeof program.cost === 'object') {
+            const costDisplay = program.cost.min === program.cost.max 
+              ? `£${program.cost.min?.toLocaleString()}`
+              : `£${program.cost.min?.toLocaleString()} - £${program.cost.max?.toLocaleString()}`;
+            context += `  Cost: ${costDisplay}\n`;
+          }
+          if (program.entryRequirements?.length > 0) {
+            context += `  Requirements: ${program.entryRequirements.join(', ')}\n`;
+          }
+          if (program.verified) context += `  Status: VERIFIED\n`;
+        }
+      });
+    }
+
+    // Additional Qualifications
+    if (careerCard.additionalQualifications && typeof careerCard.additionalQualifications === 'object') {
+      context += '\nADDITIONAL QUALIFICATIONS:\n';
+      Object.entries(careerCard.additionalQualifications).forEach(([category, qualifications]) => {
+        if (Array.isArray(qualifications) && qualifications.length > 0) {
+          context += `${category.toUpperCase()}:\n`;
+          qualifications.forEach(qual => {
+            context += `- ${qual}\n`;
+          });
+        }
+      });
+    }
+
+    // Professional Associations
+    if (careerCard.professionalAssociations?.length > 0) {
+      context += '\nPROFESSIONAL ASSOCIATIONS:\n';
+      careerCard.professionalAssociations.forEach(assoc => {
+        context += `- ${assoc}\n`;
+      });
+    }
+
+    // Top UK Employers with market data
+    if (careerCard.topUKEmployers && typeof careerCard.topUKEmployers === 'object') {
+      context += '\nTOP UK EMPLOYERS & MARKET DATA:\n';
+      if (careerCard.topUKEmployers.competitionLevel) {
+        context += `Competition Level: ${careerCard.topUKEmployers.competitionLevel}\n`;
+      }
+      if (careerCard.topUKEmployers.growthRate) {
+        context += `Growth Rate: ${careerCard.topUKEmployers.growthRate}%\n`;
+      }
+      if (careerCard.topUKEmployers.jobPostingVolume) {
+        context += `Job Posting Volume: ${careerCard.topUKEmployers.jobPostingVolume}\n`;
+      }
+    }
+
+    // Enhanced Salary Data
+    if (careerCard.enhancedSalary && typeof careerCard.enhancedSalary === 'object') {
+      context += '\nDETAILED SALARY DATA:\n';
+      if (careerCard.enhancedSalary.entry) {
+        context += `Entry Level: £${careerCard.enhancedSalary.entry.min?.toLocaleString()} - £${careerCard.enhancedSalary.entry.max?.toLocaleString()}\n`;
+      }
+      if (careerCard.enhancedSalary.mid) {
+        context += `Mid Level: £${careerCard.enhancedSalary.mid.min?.toLocaleString()} - £${careerCard.enhancedSalary.mid.max?.toLocaleString()}\n`;
+      }
+      if (careerCard.enhancedSalary.senior) {
+        context += `Senior Level: £${careerCard.enhancedSalary.senior.min?.toLocaleString()} - £${careerCard.enhancedSalary.senior.max?.toLocaleString()}\n`;
+      }
+      if (careerCard.enhancedSalary.byRegion) {
+        context += 'Regional Variations:\n';
+        Object.entries(careerCard.enhancedSalary.byRegion).forEach(([region, salary]) => {
+          if (typeof salary === 'object' && salary && 'min' in salary && 'max' in salary) {
+            const salaryObj = salary as { min: number; max: number };
+            context += `- ${region}: £${salaryObj.min?.toLocaleString()} - £${salaryObj.max?.toLocaleString()}\n`;
+          }
+        });
+      }
+    }
+
+    // Day in the Life
+    if (careerCard.dayInTheLife && typeof careerCard.dayInTheLife === 'object') {
+      context += '\nDAY IN THE LIFE:\n';
+      if (careerCard.dayInTheLife.typicalHours) {
+        context += `Typical Hours: ${careerCard.dayInTheLife.typicalHours}\n`;
+      }
+      if (careerCard.dayInTheLife.workLifeBalance) {
+        context += `Work-Life Balance: ${careerCard.dayInTheLife.workLifeBalance}\n`;
+      }
+      if (careerCard.dayInTheLife.stressLevel) {
+        context += `Stress Level: ${careerCard.dayInTheLife.stressLevel}\n`;
+      }
+      if (careerCard.dayInTheLife.flexibilityLevel) {
+        context += `Flexibility: ${careerCard.dayInTheLife.flexibilityLevel}\n`;
+      }
+    }
+
+    // Industry Trends
+    if (careerCard.industryTrends && typeof careerCard.industryTrends === 'object') {
+      context += '\nINDUSTRY TRENDS:\n';
+      if (careerCard.industryTrends.outlook) {
+        context += `Outlook: ${careerCard.industryTrends.outlook}\n`;
+      }
+      if (careerCard.industryTrends.nextYear) {
+        context += `Next Year Growth: ${careerCard.industryTrends.nextYear}%\n`;
+      }
+      if (careerCard.industryTrends.fiveYear) {
+        context += `Five Year Growth: ${careerCard.industryTrends.fiveYear}%\n`;
+      }
+      if (careerCard.industryTrends.factors?.length > 0) {
+        context += `Key Factors: ${careerCard.industryTrends.factors.join(', ')}\n`;
+      }
+    }
+
+    // Cost Risk Entry Analysis
+    if (careerCard.costRiskEntry && typeof careerCard.costRiskEntry === 'object') {
+      context += '\nCOST & RISK ANALYSIS:\n';
+      if (careerCard.costRiskEntry.upfrontInvestment) {
+        const investment = careerCard.costRiskEntry.upfrontInvestment;
+        if (investment.totalEstimate) {
+          context += `Total Investment: ${investment.totalEstimate}\n`;
+        }
+        if (investment.trainingCosts) {
+          context += `Training Costs: ${investment.trainingCosts}\n`;
+        }
+        if (investment.timeToFirstRole) {
+          context += `Time to First Role: ${investment.timeToFirstRole}\n`;
+        }
+      }
+      if (careerCard.costRiskEntry.employmentCertainty) {
+        const employment = careerCard.costRiskEntry.employmentCertainty;
+        if (employment.placementRates) {
+          context += `Placement Rates: ${employment.placementRates}\n`;
+        }
+      }
+    }
+
+    // Transferability & Future Proofing
+    if (careerCard.transferabilityFutureProofing && typeof careerCard.transferabilityFutureProofing === 'object') {
+      context += '\nFUTURE PROOFING:\n';
+      const tfp = careerCard.transferabilityFutureProofing;
+      if (tfp.automationExposure) {
+        const auto = tfp.automationExposure;
+        if (auto.vulnerabilityLevel) {
+          context += `Automation Risk: ${auto.vulnerabilityLevel}\n`;
+        }
+        if (auto.timeHorizon) {
+          context += `Timeline: ${auto.timeHorizon}\n`;
+        }
+        if (auto.protectiveFactors?.length > 0) {
+          context += `Protective Factors: ${auto.protectiveFactors.join(', ')}\n`;
+        }
+      }
+      if (tfp.portableSkills?.length > 0) {
+        context += `Portable Skills: ${tfp.portableSkills.join(', ')}\n`;
+      }
+    }
+
     const finalContext = context.trim();
     console.log('🔍 FINAL DETAILED CAREER CONTEXT:', {
       length: finalContext.length,
