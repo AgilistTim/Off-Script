@@ -288,24 +288,24 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogOverlay className="fixed inset-0 z-50 bg-white/90 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
               <DialogContent 
-          className="!bg-template-white !border-4 !border-black !rounded-2xl !shadow-[8px_8px_0px_0px_#000000] max-w-4xl h-[80vh] text-black overflow-hidden [&>button]:hidden !p-0"
+          className="!bg-white !border-2 !border-black max-w-4xl h-[80vh] text-black overflow-hidden [&>button]:hidden !p-0"
           aria-describedby="career-voice-discussion-description"
         >
-        <DialogHeader className="border-b-4 border-black bg-template-yellow p-6">
+        <DialogHeader className="border-b-2 border-black pb-4 px-4 pt-4 md:px-6 flex-shrink-0">
           <div id="career-voice-discussion-description" className="sr-only">
             AI career discussion interface for deep career exploration and guidance
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-template-primary rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_#000000] flex items-center justify-center">
-                <MessageSquare className="w-8 h-8 text-white" />
+              <div className="w-12 h-12 bg-template-primary rounded-button flex items-center justify-center">
+                <MessageSquare className="w-6 h-6 text-white" />
               </div>
               <div>
-                <DialogTitle className="text-2xl font-black text-black">
-                  AI Career Discussion
+                <DialogTitle className="text-xl font-bold text-black">
+                  Career Specialist
                 </DialogTitle>
-                <p className="text-black/80 text-base font-semibold">
-                  Voice conversation with career-aware assistant
+                <p className="text-gray-600 text-sm">
+                  Expert in career guidance
                 </p>
               </div>
             </div>
@@ -337,9 +337,9 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                 onClick={onClose}
                 variant="ghost"
                 size="sm"
-                className="w-12 h-12 text-black hover:text-black/70 bg-white/50 hover:bg-white/80 border-2 border-black rounded-xl shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000] transition-all duration-200"
+                className="text-gray-600 hover:text-black"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </Button>
             </div>
           </div>
@@ -348,114 +348,29 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
         <div className="flex gap-6 overflow-hidden min-h-0 flex-1">
           {/* Career Quick Reference Panel */}
           <div className="w-80 flex-shrink-0 flex flex-col">
-            <div className="bg-template-mint/20 border-2 border-black rounded-xl p-4 overflow-y-auto flex-1">
+            <div className="bg-gray-50 border-2 border-black rounded-card p-6 overflow-y-auto flex-1">
               {/* Header */}
-              <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-black">
-                <h3 className="text-lg font-black text-black">
-                  {isPrimary ? '🎯 YOUR TOP MATCH' : '⭐ ALTERNATIVE OPTION'}
+              <div className="flex items-center justify-between mb-4 pb-3">
+                <h3 className="text-lg font-bold text-black">
+                  CAREER INSIGHTS
                 </h3>
-                <div className="bg-template-lavender border-2 border-black px-2 py-1 rounded-lg text-xs font-black text-black">
-                  <MatchIcon className="w-3 h-3 mr-1 inline" />
-                  {careerData?.matchScore || (isPrimary ? 95 : 75)}%
-                </div>
               </div>
               
-              {/* Content */}
-              <div className="space-y-4">
-                {/* Career Overview */}
-                <div className="bg-template-yellow/20 border border-black rounded-lg p-3">
-                  <h4 className="text-lg font-black text-black mb-2">
-                    {careerData?.title || 'Career Path'}
-                  </h4>
-                  <p className="text-black text-sm leading-relaxed">
-                    {careerData?.description?.substring(0, 150)}...
+              <div className="text-center py-8">
+                <div className="max-w-sm mx-auto">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <User className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h4 className="text-base font-bold text-black mb-3">Building Your Career Profile</h4>
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    As we chat, I'll build out your profile and discover career ideas tailored specifically for you. Start the conversation to see your insights appear here!
                   </p>
                 </div>
-
-                {/* What You Can Ask */}
-                <div className="bg-template-peach/20 border border-black rounded-lg p-3">
-                  <h4 className="text-sm font-black text-black mb-2">
-                    💬 What you can ask about:
-                  </h4>
-                  <div className="space-y-0.5 text-xs text-black">
-                    <p>• Day-to-day work</p>
-                    <p>• Career progression</p>
-                    <p>• Skills & training</p>
-                    <p>• Industry trends</p>
-                    <p>• Work-life balance</p>
-                    <p>• Compare careers</p>
-                  </div>
-                </div>
-
-                {/* Financial Overview */}
-                <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
-                  <h4 className="text-sm font-bold text-black mb-2">💷 Financial Overview</h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-white border border-black rounded p-2">
-                      <div className="flex items-center mb-1">
-                        <PoundSterling className="w-3 h-3 text-black mr-1" />
-                        <span className="text-xs font-bold text-black">SALARY</span>
-                      </div>
-                      <p className="text-xs font-bold text-black">
-                        {formatSalary(careerData?.averageSalary)}
-                      </p>
-                    </div>
-                    
-                    <div className="bg-white border border-black rounded p-2">
-                      <div className="flex items-center mb-1">
-                        <TrendingUp className="w-3 h-3 text-black mr-1" />
-                        <span className="text-xs font-bold text-black">GROWTH</span>
-                      </div>
-                      <p className="text-xs font-bold text-black">
-                        {careerData?.growthOutlook || 'Excellent'}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-
-
-                {/* Discovered Insights */}
-                {(discoveredInsights.interests.length > 0 || 
-                  discoveredInsights.goals.length > 0 || 
-                  discoveredInsights.skills.length > 0) && (
-                  <div className="bg-template-lavender/20 border border-black rounded-lg p-3">
-                    <h4 className="text-sm font-black text-black mb-2">✨ Insights from Discussion:</h4>
-                    <div className="space-y-2 text-xs">
-                      {discoveredInsights.interests.length > 0 && (
-                        <div>
-                          <span className="font-bold text-black">New Interests:</span>
-                          <div className="ml-2 text-black/80">
-                            {discoveredInsights.interests.map((interest, idx) => (
-                              <p key={idx}>• {interest}</p>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {discoveredInsights.goals.length > 0 && (
-                        <div>
-                          <span className="font-bold text-black">Career Goals:</span>
-                          <div className="ml-2 text-black/80">
-                            {discoveredInsights.goals.map((goal, idx) => (
-                              <p key={idx}>• {goal}</p>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {discoveredInsights.skills.length > 0 && (
-                        <div>
-                          <span className="font-bold text-black">Skills Mentioned:</span>
-                          <div className="ml-2 text-black/80">
-                            {discoveredInsights.skills.map((skill, idx) => (
-                              <p key={idx}>• {skill}</p>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
               </div>
+
+
+
+
             </div>
           </div>
 
@@ -513,77 +428,37 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
               </ScrollArea>
             </div>
 
-            {/* Voice Controls - fixed on mobile, sticky on desktop */}
-            <div className="md:sticky md:bottom-0">
-              <div
-                className="fixed left-0 right-0 bottom-0 z-[130] px-4 md:static md:z-auto md:px-0"
-                style={{ bottom: `calc(${ctaBottomOffsetPx}px + env(safe-area-inset-bottom, 0px))` }}
-              >
-                <div className="bg-template-white rounded-t-2xl md:rounded-2xl p-6 border-4 border-black shadow-[4px_4px_0px_0px_#000000] overflow-hidden">
-                  <div className="flex items-center justify-between min-h-[56px]">
-                <div className="flex items-center space-x-3">
-                  {!isConnected ? (
-                    <Button
-                      onClick={handleStartConversation}
-                      disabled={connectionStatus === 'connecting' || !apiKey}
-                      className="bg-template-primary text-white font-black px-6 py-3 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] hover:scale-105 transition-all duration-200 text-base whitespace-nowrap disabled:opacity-60"
-                    >
-                      {connectionStatus === 'connecting' ? (
-                        <>
-                          <Loader2 className="w-6 h-6 mr-3 animate-spin" />
-                          Connecting...
-                        </>
-                      ) : (
-                        <>
-                          <PhoneCall className="w-6 h-6 mr-3" />
-                          Start Voice Discussion
-                        </>
-                      )}
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleEndConversation}
-                      className="bg-template-secondary text-black font-black px-6 py-3 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] hover:scale-105 transition-all duration-200 text-base whitespace-nowrap"
-                    >
-                      <PhoneOff className="w-6 h-6 mr-3" />
-                      End Discussion
-                    </Button>
-                  )}
-                </div>
-                
-                <div className="flex items-center space-x-2">
-                  {isConnected && (
-                    <div className="flex items-center space-x-2 text-sm text-primary-black/70">
-                      <Radio className="w-4 h-4" />
-                      <span>Voice conversation active</span>
-                    </div>
-                  )}
-                  
-                  {/* Discovered Insights */}
-                  {(discoveredInsights.interests.length > 0 || 
-                    discoveredInsights.goals.length > 0 || 
-                    discoveredInsights.skills.length > 0) && (
-                    <div className="flex items-center space-x-3">
-                      <div className="text-xs text-primary-green">
-                        <span className="font-medium">Insights discovered:</span>
-                        <span className="ml-2">
-                          {discoveredInsights.interests.length + discoveredInsights.goals.length + discoveredInsights.skills.length} items
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {!apiKey && (
-                    <div className="text-xs text-sunset-orange">
-                      Configure ElevenLabs API key to enable voice discussions
-                    </div>
-                  )}
-                  </div>
-                </div>
+
+          </div>
+        </div>
+        
+        {/* Footer with Communication Mode Selection */}
+        <div className="flex-shrink-0 border-t-2 border-gray-200 p-4">
+          <div className="bg-gray-50 rounded-xl p-4 border-2 border-black space-y-4">
+            <div className="text-center space-y-4">
+              <div>
+                <h3 className="text-lg font-bold text-black mb-2">Choose Communication Mode</h3>
+                <p className="text-sm text-gray-600">Select how you'd like to interact with your career assistant</p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button
+                  onClick={handleStartConversation}
+                  disabled={connectionStatus === 'connecting' || !apiKey}
+                  className="bg-template-primary text-white font-bold px-6 py-3 rounded-xl hover:scale-105 transition-transform duration-200 min-h-[48px] shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black"
+                >
+                  <PhoneCall className="w-5 h-5 mr-2" />
+                  Voice Chat
+                </Button>
+                <Button
+                  onClick={() => {/* Handle text chat */}}
+                  className="bg-template-secondary text-black font-bold px-6 py-3 rounded-xl hover:scale-105 transition-transform duration-200 min-h-[48px] shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black"
+                >
+                  <MessageSquare className="w-5 h-5 mr-2" />
+                  Text Chat
+                </Button>
               </div>
             </div>
           </div>
-        </div>
         </div>
       </DialogContent>
     </Dialog>
