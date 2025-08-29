@@ -421,6 +421,31 @@ export class ConversationOverrideService {
       }
     }
     
+    // CRITICAL FIX: Check for training pathways at ROOT LEVEL (where they actually are!)
+    if (careerCard.currentEducationPathways?.length > 0 && !context.includes('CURRENT EDUCATION PATHWAYS:')) {
+      context += '\nCURRENT EDUCATION PATHWAYS:\n';
+      careerCard.currentEducationPathways.forEach(pathway => {
+        context += `- ${pathway.title} (${pathway.provider})\n`;
+        if (pathway.duration) context += `  Duration: ${pathway.duration}\n`;
+        if (pathway.cost) {
+          const costDisplay = pathway.cost.min === pathway.cost.max 
+            ? `£${pathway.cost.min?.toLocaleString()}`
+            : `£${pathway.cost.min?.toLocaleString()} - £${pathway.cost.max?.toLocaleString()}`;
+          context += `  Cost: ${costDisplay}\n`;
+        }
+        if (pathway.entryRequirements?.length > 0) {
+          context += `  Requirements: ${pathway.entryRequirements.join(', ')}\n`;
+        }
+        if (pathway.verified) context += `  Status: VERIFIED\n`;
+      });
+      console.log('🔍 TRAINING DEBUG - Found ROOT LEVEL education pathways:', {
+        count: careerCard.currentEducationPathways.length,
+        pathways: careerCard.currentEducationPathways.map(p => ({ title: p.title, provider: p.provider }))
+      });
+    } else if (!careerCard.currentEducationPathways?.length) {
+      console.log('⚠️ TRAINING DEBUG - No currentEducationPathways found at root level');
+    }
+    
     const finalContext = context.trim();
     console.log('🔍 FINAL DETAILED CAREER CONTEXT:', {
       length: finalContext.length,
