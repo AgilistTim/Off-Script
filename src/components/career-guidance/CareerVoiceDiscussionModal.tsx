@@ -138,6 +138,10 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
       console.log('🔍 MODAL DEBUG - Has compensation rewards:', !!careerData.compensationRewards);
       console.log('🔍 MODAL DEBUG - Formatted salary:', formatSalary(careerData));
       console.log('🔍 MODAL DEBUG - Growth outlook:', getGrowthOutlook(careerData));
+      console.log('🔍 MODAL DEBUG - Career trajectory data:', careerData.careerTrajectory);
+      console.log('🔍 MODAL DEBUG - Progression steps:', careerData.careerTrajectory?.progressionSteps);
+      console.log('🔍 MODAL DEBUG - Horizontal moves:', careerData.careerTrajectory?.horizontalMoves);
+      console.log('🔍 MODAL DEBUG - Alternative progression path:', careerData.progressionPath);
     }
   }, [careerData, isOpen]);
 
@@ -497,6 +501,50 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                     </div>
                   </div>
                 </div>
+
+                {/* Career Progression */}
+                {(careerData?.careerTrajectory?.progressionSteps || careerData?.progressionPath) && (
+                  <div className="bg-template-mint/30 border border-black rounded-lg p-3">
+                    <h4 className="text-sm font-bold text-black mb-2">
+                      🚀 Career Progression
+                    </h4>
+                    <div className="space-y-2">
+                      {(careerData.careerTrajectory?.progressionSteps || careerData.progressionPath || []).map((stage, index) => (
+                        <div key={index} className="bg-white border border-black rounded p-2">
+                          <div className="text-xs font-bold text-black">
+                            {stage.title || stage.role || `Step ${index + 1}`}
+                          </div>
+                          {stage.timeframe && (
+                            <div className="text-xs text-gray-600">
+                              {stage.timeframe}
+                            </div>
+                          )}
+                          {stage.requirements && (
+                            <div className="text-xs text-black mt-1">
+                              {stage.requirements}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Horizontal Career Moves */}
+                {careerData?.careerTrajectory?.horizontalMoves && careerData.careerTrajectory.horizontalMoves.length > 0 && (
+                  <div className="bg-template-lavender/30 border border-black rounded-lg p-3">
+                    <h4 className="text-sm font-bold text-black mb-2">
+                      🔄 Alternative Paths
+                    </h4>
+                    <div className="space-y-1">
+                      {careerData.careerTrajectory.horizontalMoves.map((move, index) => (
+                        <div key={index} className="text-xs text-black">
+                          • {move.title || move}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* Discovered Insights */}
                 {(discoveredInsights.interests.length > 0 || 
