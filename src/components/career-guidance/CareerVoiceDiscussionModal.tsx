@@ -345,38 +345,39 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
           </div>
         </DialogHeader>
 
-        <div className="grid grid-cols-[auto_1fr] gap-6 overflow-hidden min-h-0 h-full">
+        <div className="flex gap-6 overflow-hidden min-h-0 flex-1">
           {/* Career Quick Reference Panel */}
-          <div className="w-80 flex-shrink-0">
-            <Card className="bg-template-white border-4 border-black rounded-2xl shadow-[4px_4px_0px_0px_#000000] h-full overflow-hidden flex flex-col">
-              <CardHeader className="pb-4 flex-shrink-0 bg-template-mint border-b-4 border-black">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-xl font-black text-black">
-                    {isPrimary ? '🎯 YOUR TOP MATCH' : '⭐ ALTERNATIVE OPTION'}
-                  </CardTitle>
-                  <Badge className="bg-template-lavender border-2 border-black text-black font-black shadow-[2px_2px_0px_0px_#000000]">
-                    <MatchIcon className="w-4 h-4 mr-1" />
-                    {careerData?.matchScore || (isPrimary ? 95 : 75)}% MATCH
-                  </Badge>
+          <div className="w-80 flex-shrink-0 flex flex-col">
+            <div className="bg-template-mint/20 border-2 border-black rounded-xl p-4 overflow-y-auto flex-1">
+              {/* Header */}
+              <div className="flex items-center justify-between mb-4 pb-3 border-b-2 border-black">
+                <h3 className="text-lg font-black text-black">
+                  {isPrimary ? '🎯 YOUR TOP MATCH' : '⭐ ALTERNATIVE OPTION'}
+                </h3>
+                <div className="bg-template-lavender border-2 border-black px-2 py-1 rounded-lg text-xs font-black text-black">
+                  <MatchIcon className="w-3 h-3 mr-1 inline" />
+                  {careerData?.matchScore || (isPrimary ? 95 : 75)}%
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-3 overflow-y-auto flex-1 min-h-0 p-4">
-                {/* PRIORITY: Career Overview */}
-                <div className="bg-template-yellow/30 border-2 border-black rounded-xl p-4">
-                  <h3 className="text-2xl font-black text-black mb-3">
+              </div>
+              
+              {/* Content */}
+              <div className="space-y-4">
+                {/* Career Overview */}
+                <div className="bg-template-yellow/20 border border-black rounded-lg p-3">
+                  <h4 className="text-lg font-black text-black mb-2">
                     {careerData?.title || 'Career Path'}
-                  </h3>
-                  <p className="text-black font-semibold text-base leading-relaxed">
-                    {careerData?.description?.substring(0, 200)}...
+                  </h4>
+                  <p className="text-black text-sm leading-relaxed">
+                    {careerData?.description?.substring(0, 150)}...
                   </p>
                 </div>
 
-                {/* What You Can Ask Section */}
-                <div className="bg-template-peach/30 border-2 border-black rounded-xl p-4">
-                  <h4 className="text-base font-black text-black mb-3">
+                {/* What You Can Ask */}
+                <div className="bg-template-peach/20 border border-black rounded-lg p-3">
+                  <h4 className="text-sm font-black text-black mb-2">
                     💬 What you can ask about:
                   </h4>
-                  <div className="space-y-1 text-sm font-semibold text-black leading-tight">
+                  <div className="space-y-0.5 text-xs text-black">
                     <p>• Day-to-day work</p>
                     <p>• Career progression</p>
                     <p>• Skills & training</p>
@@ -386,26 +387,26 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                   </div>
                 </div>
 
-                {/* SECONDARY: Financial Overview */}
-                <div className="bg-gray-100 border-2 border-gray-400 rounded-xl p-4">
-                  <h4 className="text-base font-bold text-black mb-3">💷 Financial Overview</h4>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="bg-template-white border-2 border-black rounded-lg p-3 shadow-[2px_2px_0px_0px_#000000]">
+                {/* Financial Overview */}
+                <div className="bg-gray-50 border border-gray-300 rounded-lg p-3">
+                  <h4 className="text-sm font-bold text-black mb-2">💷 Financial Overview</h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="bg-white border border-black rounded p-2">
                       <div className="flex items-center mb-1">
-                        <PoundSterling className="w-4 h-4 text-black mr-1" />
+                        <PoundSterling className="w-3 h-3 text-black mr-1" />
                         <span className="text-xs font-bold text-black">SALARY</span>
                       </div>
-                      <p className="text-sm font-bold text-black">
+                      <p className="text-xs font-bold text-black">
                         {formatSalary(careerData?.averageSalary)}
                       </p>
                     </div>
                     
-                    <div className="bg-template-white border-2 border-black rounded-lg p-3 shadow-[2px_2px_0px_0px_#000000]">
+                    <div className="bg-white border border-black rounded p-2">
                       <div className="flex items-center mb-1">
-                        <TrendingUp className="w-4 h-4 text-black mr-1" />
+                        <TrendingUp className="w-3 h-3 text-black mr-1" />
                         <span className="text-xs font-bold text-black">GROWTH</span>
                       </div>
-                      <p className="text-sm font-bold text-black">
+                      <p className="text-xs font-bold text-black">
                         {careerData?.growthOutlook || 'Excellent'}
                       </p>
                     </div>
@@ -414,17 +415,17 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
 
 
 
-                {/* Discovered Insights Panel */}
+                {/* Discovered Insights */}
                 {(discoveredInsights.interests.length > 0 || 
                   discoveredInsights.goals.length > 0 || 
                   discoveredInsights.skills.length > 0) && (
-                  <div className="bg-template-lavender/30 border-2 border-black rounded-xl p-4">
-                    <h4 className="text-lg font-black text-black mb-3">✨ Insights from Discussion:</h4>
-                    <div className="space-y-3 text-sm">
+                  <div className="bg-template-lavender/20 border border-black rounded-lg p-3">
+                    <h4 className="text-sm font-black text-black mb-2">✨ Insights from Discussion:</h4>
+                    <div className="space-y-2 text-xs">
                       {discoveredInsights.interests.length > 0 && (
                         <div>
                           <span className="font-bold text-black">New Interests:</span>
-                          <div className="ml-2 text-black/80 font-medium">
+                          <div className="ml-2 text-black/80">
                             {discoveredInsights.interests.map((interest, idx) => (
                               <p key={idx}>• {interest}</p>
                             ))}
@@ -434,7 +435,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                       {discoveredInsights.goals.length > 0 && (
                         <div>
                           <span className="font-bold text-black">Career Goals:</span>
-                          <div className="ml-2 text-black/80 font-medium">
+                          <div className="ml-2 text-black/80">
                             {discoveredInsights.goals.map((goal, idx) => (
                               <p key={idx}>• {goal}</p>
                             ))}
@@ -444,7 +445,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                       {discoveredInsights.skills.length > 0 && (
                         <div>
                           <span className="font-bold text-black">Skills Mentioned:</span>
-                          <div className="ml-2 text-black/80 font-medium">
+                          <div className="ml-2 text-black/80">
                             {discoveredInsights.skills.map((skill, idx) => (
                               <p key={idx}>• {skill}</p>
                             ))}
@@ -454,8 +455,8 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                     </div>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
 
           {/* Voice Conversation Panel */}
