@@ -9,6 +9,11 @@ import './services/firebase';
 
 console.log('🚀 Firebase initialized, starting React app...');
 
+// Enable audio initialization for voice features
+if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+  (window as any).__ALLOW_AUDIO_INIT = true;
+}
+
 // Development-time instrumentation: detect any code that requests microphone
 // permissions or constructs MediaRecorder so we can trace the exact call site.
 if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
