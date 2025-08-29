@@ -196,7 +196,22 @@ export class ConversationOverrideService {
       pathwaysCount: careerCard.perplexityData?.enhancedData?.currentEducationPathways?.length || 0,
       hasTrainingPathways: !!careerCard.trainingPathways,
       legacyTrainingCount: careerCard.trainingPathways?.length || 0,
-      allKeys: Object.keys(careerCard)
+      
+      // NEW: Check ALL possible locations where training data might be stored
+      hasDirectCurrentEducationPathways: !!careerCard.currentEducationPathways,
+      directPathwaysCount: careerCard.currentEducationPathways?.length || 0,
+      hasCareerProgression: !!careerCard.careerProgression,
+      careerProgressionCount: careerCard.careerProgression?.length || 0,
+      hasAdditionalQualifications: !!careerCard.additionalQualifications,
+      
+      allKeys: Object.keys(careerCard),
+      trainingRelatedKeys: Object.keys(careerCard).filter(key => 
+        key.toLowerCase().includes('train') || 
+        key.toLowerCase().includes('education') || 
+        key.toLowerCase().includes('pathway') ||
+        key.toLowerCase().includes('course') ||
+        key.toLowerCase().includes('qualification')
+      )
     });
     
     let context = '';
@@ -442,8 +457,35 @@ export class ConversationOverrideService {
         count: careerCard.currentEducationPathways.length,
         pathways: careerCard.currentEducationPathways.map(p => ({ title: p.title, provider: p.provider }))
       });
-    } else if (!careerCard.currentEducationPathways?.length) {
-      console.log('⚠️ TRAINING DEBUG - No currentEducationPathways found at root level');
+    }
+    
+    // ALTERNATIVE: Check careerProgression field (where training data was actually seen in debug dump)
+    else if (careerCard.careerProgression?.length > 0 && !context.includes('CURRENT EDUCATION PATHWAYS:')) {
+      context += '\nCURRENT EDUCATION PATHWAYS:\n';
+      careerCard.careerProgression.forEach(pathway => {
+        if (pathway.title && pathway.provider) {
+          context += `- ${pathway.title} (${pathway.provider})\n`;
+          if (pathway.duration) context += `  Duration: ${pathway.duration}\n`;
+          if (pathway.cost) {
+            const costDisplay = pathway.cost.min === pathway.cost.max 
+              ? `£${pathway.cost.min?.toLocaleString()}`
+              : `£${pathway.cost.min?.toLocaleString()} - £${pathway.cost.max?.toLocaleString()}`;
+            context += `  Cost: ${costDisplay}\n`;
+          }
+          if (pathway.entryRequirements?.length > 0) {
+            context += `  Requirements: ${pathway.entryRequirements.join(', ')}\n`;
+          }
+          if (pathway.verified) context += `  Status: VERIFIED\n`;
+        }
+      });
+      console.log('🔍 TRAINING DEBUG - Found training pathways in careerProgression field:', {
+        count: careerCard.careerProgression.length,
+        pathways: careerCard.careerProgression.map(p => ({ title: p.title, provider: p.provider, type: p.type }))
+      });
+    }
+    
+    else {
+      console.log('⚠️ TRAINING DEBUG - No training pathways found in currentEducationPathways OR careerProgression');
     }
     
     const finalContext = context.trim();
