@@ -288,7 +288,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogOverlay className="fixed inset-0 z-50 bg-white/90 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
               <DialogContent 
-          className="max-w-4xl h-[80vh] bg-template-white border-4 border-black rounded-2xl shadow-[8px_8px_0px_0px_#000000] text-black overflow-hidden [&>button]:hidden"
+          className="!bg-template-white !border-4 !border-black !rounded-2xl !shadow-[8px_8px_0px_0px_#000000] max-w-4xl h-[80vh] text-black overflow-hidden [&>button]:hidden !p-0"
           aria-describedby="career-voice-discussion-description"
         >
         <DialogHeader className="border-b-4 border-black bg-template-yellow p-6">
