@@ -318,6 +318,8 @@ export type VerifiedEnhancedCareerCard = CareerCard & {
 // Person Profile interface
 export interface PersonProfile {
   name?: string; // Optional field for user names (guest capture + authenticated display)
+  lifeStage?: string; // Life stage information (e.g., "student", "career changer", etc.)
+  careerDirection?: string; // Career direction preference (e.g., "unsure", "focused", etc.)
   interests: string[];
   skills: string[];
   goals: string[];

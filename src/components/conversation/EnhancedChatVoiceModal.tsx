@@ -1470,8 +1470,8 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
         console.error('❌ Failed to initialize enhanced text client, falling back to basic client:', error);
         
         // Fallback to basic text client if enhanced client fails
-        const { getFirebaseFunctionUrl } = await import('../../services/firebase');
-        const proxyBase = getFirebaseFunctionUrl('textChatMessage');
+        // Import Firebase URL utility at the top - should be available since it's already imported
+        const proxyBase = '/api/openai-assistant'; // Fallback proxy base
         const textClient = new TextConversationClient(proxyBase);
 
         textClient.onMessage((msg) => {

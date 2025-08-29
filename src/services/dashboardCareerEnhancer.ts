@@ -143,7 +143,7 @@ export class DashboardCareerEnhancer {
       }
 
       // Convert structured Perplexity data to our EnhancedCareerData format
-      const enhancedData = this.convertStructuredToEnhancedData(result.data);
+      const enhancedData = this.convertStructuredToEnhancedData(result.data, careerTitle);
       
       if (!enhancedData) {
         throw new Error('Unable to convert Perplexity data - critical salary information missing. Refusing to display potentially misleading career data.');
@@ -464,7 +464,7 @@ export class DashboardCareerEnhancer {
   /**
    * Convert structured Perplexity data to our EnhancedCareerData format
    */
-  private convertStructuredToEnhancedData(data: PerplexityStructuredCareerData): EnhancedCareerData | null {
+  private convertStructuredToEnhancedData(data: PerplexityStructuredCareerData, careerTitle: string): EnhancedCareerData | null {
     console.log('🔄 Converting structured Perplexity data to enhanced format');
 
     const salaryData = this.convertStructuredSalaryData(data);
@@ -479,7 +479,7 @@ export class DashboardCareerEnhancer {
     // The comprehensive career data will be handled separately in the career card structure
     return {
       verifiedSalaryRanges: salaryData,
-      realTimeMarketDemand: this.convertStructuredMarketData(data),
+      realTimeMarketDemand: this.convertStructuredMarketData(data, careerTitle),
       currentEducationPathways: this.convertStructuredEducationData(data),
       workEnvironmentDetails: this.convertStructuredWorkEnvironmentData(data),
       automationRiskAssessment: this.convertStructuredAutomationData(data),
@@ -569,7 +569,7 @@ export class DashboardCareerEnhancer {
   /**
    * Convert structured market data to our format with comprehensive validation
    */
-  private convertStructuredMarketData(data: PerplexityStructuredCareerData): EnhancedCareerData['realTimeMarketDemand'] {
+  private convertStructuredMarketData(data: PerplexityStructuredCareerData, careerTitle: string): EnhancedCareerData['realTimeMarketDemand'] {
     const marketData = data.enhancedData?.realTimeMarketDemand;
     const sources = data.sources?.map(s => s.url) || [];
 
@@ -603,8 +603,8 @@ export class DashboardCareerEnhancer {
     const rawGrowthRate = parseGrowthRate(marketData?.growthRate);
     const rawJobPostings = marketData?.jobPostingVolume || 1500;
     
-    const validatedGrowthRate = this.validateGrowthRate(rawGrowthRate, data.roleFundamentals.title);
-    const validatedJobPostings = this.validateJobPostings(rawJobPostings, data.roleFundamentals.title);
+    const validatedGrowthRate = this.validateGrowthRate(rawGrowthRate, careerTitle);
+    const validatedJobPostings = this.validateJobPostings(rawJobPostings, careerTitle);
 
     return {
       jobPostingVolume: validatedJobPostings,
@@ -1133,7 +1133,7 @@ export class DashboardCareerEnhancer {
       let mergedCount = 0;
       
       for (const docSnap of guidanceSnapshot.docs) {
-        const data = docSnap.data();
+        const data = docSnap.data() as any; // Type assertion for Firestore document data
         let hasUpdates = false;
         const updates: any = {};
         
@@ -1159,26 +1159,27 @@ export class DashboardCareerEnhancer {
           if (isMatch) {
             console.log(`🎯 Found matching primary pathway in doc ${docSnap.id}: "${data.guidance.primaryPathway.title}" matches "${careerTitle}"`);
           
-          updates['guidance.primaryPathway'] = {
-            ...data.guidance.primaryPathway,
-            // Map enhanced data to the fields expected by user-facing components
-            enhancedSalary: enhancedData.verifiedSalaryRanges,
-            careerProgression: enhancedData.currentEducationPathways,
-            dayInTheLife: enhancedData.workEnvironmentDetails,
-            industryTrends: enhancedData.industryGrowthProjection,
-            topUKEmployers: enhancedData.realTimeMarketDemand,
-            professionalTestimonials: enhancedData.competencyRequirements,
-            additionalQualifications: enhancedData.competencyRequirements?.qualificationPathway,
-            workLifeBalance: enhancedData.workEnvironmentDetails,
-            inDemandSkills: enhancedData.competencyRequirements?.technicalSkills,
-            professionalAssociations: enhancedData.competencyRequirements?.softSkills,
-            enhancedSources: enhancedData.realTimeMarketDemand?.sources || enhancedData.verifiedSalaryRanges?.entry?.sources || [],
-            isEnhanced: true,
-            enhancedAt: new Date(),
-            enhancementSource: 'perplexity',
-            enhancementStatus: 'enhanced'
-          };
-          hasUpdates = true;
+            updates['guidance.primaryPathway'] = {
+              ...data.guidance.primaryPathway,
+              // Map enhanced data to the fields expected by user-facing components
+              enhancedSalary: enhancedData.verifiedSalaryRanges,
+              careerProgression: enhancedData.currentEducationPathways,
+              dayInTheLife: enhancedData.workEnvironmentDetails,
+              industryTrends: enhancedData.industryGrowthProjection,
+              topUKEmployers: enhancedData.realTimeMarketDemand,
+              professionalTestimonials: enhancedData.competencyRequirements,
+              additionalQualifications: enhancedData.competencyRequirements?.qualificationPathway,
+              workLifeBalance: enhancedData.workEnvironmentDetails,
+              inDemandSkills: enhancedData.competencyRequirements?.technicalSkills,
+              professionalAssociations: enhancedData.competencyRequirements?.softSkills,
+              enhancedSources: enhancedData.realTimeMarketDemand?.sources || enhancedData.verifiedSalaryRanges?.entry?.sources || [],
+              isEnhanced: true,
+              enhancedAt: new Date(),
+              enhancementSource: 'perplexity',
+              enhancementStatus: 'enhanced'
+            };
+            hasUpdates = true;
+          }
         }
         
         // Check and update alternative pathways with flexible matching
@@ -1210,7 +1211,8 @@ export class DashboardCareerEnhancer {
                   enhancedAt: new Date(),
                   enhancementSource: 'perplexity',
                   enhancementStatus: 'enhanced'
-              };
+                };
+              }
             }
             return pathway;
           });
