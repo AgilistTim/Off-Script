@@ -294,7 +294,7 @@ const UKPathwaysSection: React.FC = () => {
                           className="text-sm w-full"
                         >
                           <Users className="h-4 w-4 mr-2" />
-                          Ask AI about this
+                          Start your journey
                         </Button>
                       </div>
                     </CardFooter>
