@@ -1396,15 +1396,15 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
           }
         });
 
-        // Build enhanced persona context using TextPromptService
+        // Build enhanced persona context using TextPromptService with conversational improvements
         const basePersonaContext = conversationOverrides?.agent?.prompt?.prompt || '';
         const contextType = currentUser ? 'authenticated' : 'guest';
         
-        // Create text-optimized system prompt
-        const enhancedPersonaContext = TextPromptService.createTextSystemPrompt({
-          contextPrompt: basePersonaContext,
-          contextType: contextType as 'guest' | 'authenticated' | 'career_deep_dive'
-        });
+        // Create enhanced conversational text prompt for better onboarding experience
+        const enhancedPersonaContext = TextPromptService.createEnhancedTextSystemPrompt(
+          basePersonaContext,
+          conversationOverrides
+        );
 
         const baseFirstMessage = conversationOverrides?.agent?.firstMessage;
         
