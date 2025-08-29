@@ -32,6 +32,7 @@ export class EnhancedTextConversationClient implements ITextConversationClient {
   private personaContext: string | undefined;
   private clientTools: ClientTools;
   private conversationHistory: ConversationHistoryItem[] = [];
+  private generatedCareerCards: any[] = []; // Track career cards for context updates
 
 
   constructor(clientTools: ClientTools) {
@@ -171,6 +172,11 @@ export class EnhancedTextConversationClient implements ITextConversationClient {
         const result = await this.clientTools[functionName](functionArgs);
         console.log('✅ [ENHANCED TEXT] Tool executed successfully:', functionName);
         
+        // CRITICAL FIX: Track career cards for context injection
+        if (functionName === 'analyze_conversation_for_careers') {
+          await this.updateCareerCardContext();
+        }
+        
         // Add tool result to conversation history (ensure content is a string)
         this.conversationHistory.push({
           role: 'tool',
@@ -197,6 +203,27 @@ export class EnhancedTextConversationClient implements ITextConversationClient {
   }
 
   /**
+   * Update career card context after career generation tool execution
+   */
+  private async updateCareerCardContext(): Promise<void> {
+    try {
+      // Get latest career cards from guest session service
+      const { guestSessionService } = await import('./guestSessionService');
+      const guestSession = guestSessionService.getGuestSession();
+      
+      if (guestSession.careerCards && guestSession.careerCards.length > 0) {
+        this.generatedCareerCards = [...guestSession.careerCards];
+        console.log('🔍 [ENHANCED TEXT] Updated career card context:', {
+          careerCount: this.generatedCareerCards.length,
+          careerTitles: this.generatedCareerCards.map(c => c.title)
+        });
+      }
+    } catch (error) {
+      console.error('❌ [ENHANCED TEXT] Failed to update career card context:', error);
+    }
+  }
+
+  /**
    * Build messages array including system prompt and conversation history
    */
   private buildMessagesArray(): any[] {
@@ -204,17 +231,26 @@ export class EnhancedTextConversationClient implements ITextConversationClient {
 
     // Add system prompt if persona context exists
     if (this.personaContext) {
+      let systemPrompt = this.personaContext;
+      
+      // CRITICAL FIX: Inject career card context for AI awareness
+      if (this.generatedCareerCards.length > 0) {
+        const careerCardContext = this.buildCareerCardContext();
+        systemPrompt += `\n\n${careerCardContext}`;
+      }
+      
       console.log('🔧 [ENHANCED TEXT CLIENT] Using system prompt:', {
-        promptLength: this.personaContext.length,
+        promptLength: systemPrompt.length,
         sessionId: this.sessionId,
-        promptPreview: this.personaContext.substring(0, 300) + '...',
-        containsMandatoryAction: this.personaContext.includes('MANDATORY NEXT ACTION'),
-        containsStageProgression: this.personaContext.includes('STAGE PROGRESSION CONTROL')
+        promptPreview: systemPrompt.substring(0, 300) + '...',
+        containsMandatoryAction: systemPrompt.includes('MANDATORY NEXT ACTION'),
+        containsStageProgression: systemPrompt.includes('STAGE PROGRESSION CONTROL'),
+        hasCareerCardContext: this.generatedCareerCards.length > 0
       });
       
       messages.push({
         role: 'system',
-        content: this.personaContext
+        content: systemPrompt
       });
     }
 
@@ -222,6 +258,37 @@ export class EnhancedTextConversationClient implements ITextConversationClient {
     messages.push(...this.conversationHistory);
 
     return messages;
+  }
+
+  /**
+   * Build career card context for AI awareness
+   */
+  private buildCareerCardContext(): string {
+    if (this.generatedCareerCards.length === 0) {
+      return '';
+    }
+
+    const careerTitles = this.generatedCareerCards.map(card => card.title).join(', ');
+    
+    return `
+🎯 **CAREER CARDS CONTEXT - REFERENCE THESE IN YOUR RESPONSES:**
+
+You have just successfully generated ${this.generatedCareerCards.length} personalized career recommendations for this user:
+
+**Generated Career Pathways:**
+${this.generatedCareerCards.map((card, index) => 
+  `${index + 1}. **${card.title}** - ${card.description || 'Personalized career recommendation'}`
+).join('\n')}
+
+**CRITICAL INSTRUCTIONS:**
+- ALWAYS reference these specific career titles in your responses
+- These are the actual career cards that were generated for this user
+- Use these exact titles, not different or made-up careers
+- Explain why each career matches their interests and skills
+- Ask follow-up questions about these specific careers
+- DO NOT suggest different careers that weren't generated
+
+Your next response should reference and discuss these ${this.generatedCareerCards.length} career pathways: ${careerTitles}`;
   }
 
   /**
