@@ -31,6 +31,80 @@ import { ScrollArea } from '../ui/scroll-area';
 import { useAuth } from '../../context/AuthContext';
 import { environmentConfig } from '../../config/environment';
 
+// Helper function to format salary data from enhanced career data
+const formatSalary = (careerData: any): string => {
+  // Check for enhanced salary data first
+  if (careerData?.perplexityData?.enhancedData?.verifiedSalary?.entry) {
+    const entry = careerData.perplexityData.enhancedData.verifiedSalary.entry;
+    if (typeof entry === 'string') {
+      return entry;
+    }
+    if (entry.min && entry.max) {
+      return `£${entry.min.toLocaleString()} - £${entry.max.toLocaleString()}`;
+    }
+  }
+  
+  // Check for compensation rewards data
+  if (careerData?.compensationRewards?.salaryRange) {
+    const range = careerData.compensationRewards.salaryRange;
+    if (range.entry?.min && range.entry?.max) {
+      return `£${range.entry.min.toLocaleString()} - £${range.entry.max.toLocaleString()}`;
+    }
+  }
+  
+  // Check for basic averageSalary
+  if (careerData?.averageSalary) {
+    if (typeof careerData.averageSalary === 'number') {
+      return `£${careerData.averageSalary.toLocaleString()}`;
+    }
+    if (careerData.averageSalary.min && careerData.averageSalary.max) {
+      return `£${careerData.averageSalary.min.toLocaleString()} - £${careerData.averageSalary.max.toLocaleString()}`;
+    }
+  }
+  
+  return 'Salary data available';
+};
+
+// Helper function to get growth outlook
+const getGrowthOutlook = (careerData: any): string => {
+  // Check for enhanced growth data
+  if (careerData?.perplexityData?.enhancedData?.industryGrowthProjection?.outlook) {
+    return careerData.perplexityData.enhancedData.industryGrowthProjection.outlook;
+  }
+  
+  // Check for basic growth outlook
+  if (careerData?.growthOutlook) {
+    return careerData.growthOutlook;
+  }
+  
+  // Check for labour market dynamics
+  if (careerData?.labourMarketDynamics?.growthProjection) {
+    return careerData.labourMarketDynamics.growthProjection;
+  }
+  
+  return 'Steady';
+};
+
+// Helper function to get enhanced description
+const getEnhancedDescription = (careerData: any): string => {
+  // Use role fundamentals if available (more detailed)
+  if (careerData?.roleFundamentals?.overview) {
+    return careerData.roleFundamentals.overview;
+  }
+  
+  // Use perplexity data if available
+  if (careerData?.perplexityData?.roleFundamentals?.overview) {
+    return careerData.perplexityData.roleFundamentals.overview;
+  }
+  
+  // Fallback to basic description
+  if (careerData?.description) {
+    return careerData.description;
+  }
+  
+  return 'Career information available in discussion.';
+};
+
 
 
 interface ConversationMessage {
@@ -55,6 +129,17 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
   isPrimary = true
 }) => {
   const { currentUser } = useAuth();
+
+  // Debug logging to understand career data structure
+  useEffect(() => {
+    if (careerData && isOpen) {
+      console.log('🔍 MODAL DEBUG - Career data structure:', careerData);
+      console.log('🔍 MODAL DEBUG - Has Perplexity data:', !!careerData.perplexityData);
+      console.log('🔍 MODAL DEBUG - Has compensation rewards:', !!careerData.compensationRewards);
+      console.log('🔍 MODAL DEBUG - Formatted salary:', formatSalary(careerData));
+      console.log('🔍 MODAL DEBUG - Growth outlook:', getGrowthOutlook(careerData));
+    }
+  }, [careerData, isOpen]);
 
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -368,7 +453,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                     {careerData?.title || 'Career Path'}
                   </h4>
                   <p className="text-black text-sm leading-relaxed">
-                    {careerData?.description?.substring(0, 150)}...
+                    {getEnhancedDescription(careerData).substring(0, 200)}...
                   </p>
                 </div>
 
@@ -397,7 +482,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                         <span className="text-xs font-bold text-black">SALARY</span>
                       </div>
                       <p className="text-xs font-bold text-black">
-                        {formatSalary(careerData?.averageSalary)}
+                        {formatSalary(careerData)}
                       </p>
                     </div>
                     
@@ -407,7 +492,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                         <span className="text-xs font-bold text-black">GROWTH</span>
                       </div>
                       <p className="text-xs font-bold text-black">
-                        {careerData?.growthOutlook || 'Excellent'}
+                        {getGrowthOutlook(careerData)}
                       </p>
                     </div>
                   </div>
