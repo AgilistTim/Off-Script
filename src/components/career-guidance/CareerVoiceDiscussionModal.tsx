@@ -286,23 +286,23 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
               <DialogContent 
-          className="max-w-4xl h-[80vh] bg-gradient-to-br from-primary-white to-primary-mint/10 border border-primary-green/30 text-primary-black overflow-hidden [&>button]:hidden"
+          className="max-w-4xl h-[80vh] bg-template-white border-4 border-black rounded-2xl shadow-[8px_8px_0px_0px_#000000] text-black overflow-hidden [&>button]:hidden"
           aria-describedby="career-voice-discussion-description"
         >
-        <DialogHeader className="border-b border-primary-green/20 pb-4">
+        <DialogHeader className="border-b-4 border-black bg-template-yellow p-6">
           <div id="career-voice-discussion-description" className="sr-only">
             AI career discussion interface for deep career exploration and guidance
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-primary-green to-primary-peach rounded-xl flex items-center justify-center">
-                <MessageSquare className="w-6 h-6 text-primary-black" />
+              <div className="w-16 h-16 bg-template-primary rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_#000000] flex items-center justify-center">
+                <MessageSquare className="w-8 h-8 text-white" />
               </div>
               <div>
-                <DialogTitle className="text-xl font-black text-primary-black">
+                <DialogTitle className="text-2xl font-black text-black">
                   AI Career Discussion
                 </DialogTitle>
-                <p className="text-primary-black/70 text-sm">
+                <p className="text-black/80 text-base font-semibold">
                   Voice conversation with career-aware assistant
                 </p>
               </div>
@@ -312,21 +312,21 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
               {/* Connection Status */}
               <div className="flex items-center space-x-2">
                 {connectionStatus === 'connected' && (
-                  <div className="flex items-center space-x-2 text-primary-green">
-                    <div className="w-2 h-2 bg-primary-green rounded-full animate-pulse" />
-                    <span className="text-xs font-medium">Connected</span>
+                  <div className="flex items-center space-x-2 bg-template-mint border-2 border-black px-3 py-1 rounded-xl shadow-[2px_2px_0px_0px_#000000]">
+                    <div className="w-3 h-3 bg-template-primary rounded-full animate-pulse" />
+                    <span className="text-sm font-bold text-black">Connected</span>
                   </div>
                 )}
                 {connectionStatus === 'connecting' && (
-                  <div className="flex items-center space-x-2 text-primary-lavender">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    <span className="text-xs font-medium">Connecting...</span>
+                  <div className="flex items-center space-x-2 bg-template-lavender border-2 border-black px-3 py-1 rounded-xl shadow-[2px_2px_0px_0px_#000000]">
+                    <Loader2 className="w-4 h-4 animate-spin text-black" />
+                    <span className="text-sm font-bold text-black">Connecting...</span>
                   </div>
                 )}
                 {connectionStatus === 'disconnected' && (
-                  <div className="flex items-center space-x-2 text-primary-black/50">
-                    <div className="w-2 h-2 bg-primary-white/50 rounded-full" />
-                    <span className="text-xs font-medium">Ready</span>
+                  <div className="flex items-center space-x-2 bg-template-white border-2 border-black px-3 py-1 rounded-xl shadow-[2px_2px_0px_0px_#000000]">
+                    <div className="w-3 h-3 bg-gray-400 rounded-full" />
+                    <span className="text-sm font-bold text-black">Ready</span>
                   </div>
                 )}
               </div>
@@ -335,9 +335,9 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                 onClick={onClose}
                 variant="ghost"
                 size="sm"
-                className="text-primary-black/70 hover:text-primary-black"
+                className="w-12 h-12 text-black hover:text-black/70 bg-white/50 hover:bg-white/80 border-2 border-black rounded-xl shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000] transition-all duration-200"
               >
-                <X className="w-5 h-5" />
+                <X className="w-6 h-6" />
               </Button>
             </div>
           </div>
@@ -346,56 +346,35 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
         <div className="grid grid-cols-[auto_1fr] gap-6 overflow-hidden min-h-0 h-full">
           {/* Career Quick Reference Panel */}
           <div className="w-80 flex-shrink-0">
-            <Card className="bg-gradient-to-br from-primary-white/50 to-primary-mint/10 border border-primary-green/20 h-full overflow-hidden flex flex-col">
-              <CardHeader className="pb-3 flex-shrink-0">
+            <Card className="bg-template-white border-4 border-black rounded-2xl shadow-[4px_4px_0px_0px_#000000] h-full overflow-hidden flex flex-col">
+              <CardHeader className="pb-4 flex-shrink-0 bg-template-mint border-b-4 border-black">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg font-black text-primary-black">
-                    {isPrimary ? 'YOUR TOP MATCH' : 'ALTERNATIVE OPTION'}
+                  <CardTitle className="text-xl font-black text-black">
+                    {isPrimary ? '🎯 YOUR TOP MATCH' : '⭐ ALTERNATIVE OPTION'}
                   </CardTitle>
-                  <Badge className={`font-bold ${matchBadge.color}`}>
-                    <MatchIcon className="w-3 h-3 mr-1" />
+                  <Badge className="bg-template-lavender border-2 border-black text-black font-black shadow-[2px_2px_0px_0px_#000000]">
+                    <MatchIcon className="w-4 h-4 mr-1" />
                     {careerData?.matchScore || (isPrimary ? 95 : 75)}% MATCH
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4 overflow-y-auto flex-1 min-h-0">
-                {/* Career Title */}
-                <div>
-                  <h3 className="text-xl font-black text-primary-green mb-2">
+              <CardContent className="space-y-4 overflow-y-auto flex-1 min-h-0 p-6">
+                {/* PRIORITY: Career Overview */}
+                <div className="bg-template-yellow/30 border-2 border-black rounded-xl p-4">
+                  <h3 className="text-2xl font-black text-black mb-3">
                     {careerData?.title || 'Career Path'}
                   </h3>
-                  <p className="text-primary-black/80 text-sm leading-relaxed">
-                    {careerData?.description?.substring(0, 150)}...
+                  <p className="text-black font-semibold text-base leading-relaxed">
+                    {careerData?.description?.substring(0, 200)}...
                   </p>
                 </div>
 
-                {/* Key Metrics */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="bg-gradient-to-br from-primary-green/20 to-primary-yellow/20 rounded-lg p-3 border border-primary-green/20">
-                    <div className="flex items-center mb-1">
-                      <PoundSterling className="w-4 h-4 text-primary-green mr-1" />
-                      <span className="text-xs font-bold text-primary-black">SALARY</span>
-                    </div>
-                    <p className="text-sm font-bold text-primary-black">
-                      {formatSalary(careerData?.averageSalary)}
-                    </p>
-                  </div>
-                  
-                  <div className="bg-gradient-to-br from-primary-lavender/20 to-primary-peach/20 rounded-lg p-3 border border-primary-lavender/20">
-                    <div className="flex items-center mb-1">
-                      <TrendingUp className="w-4 h-4 text-primary-lavender mr-1" />
-                      <span className="text-xs font-bold text-primary-lavender">GROWTH</span>
-                    </div>
-                    <p className="text-sm font-bold text-primary-black">
-                      {careerData?.growthOutlook || 'Excellent'}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Discussion Topics */}
-                <div>
-                  <h4 className="text-sm font-bold text-primary-peach mb-2">What you can ask about:</h4>
-                  <div className="space-y-1 text-xs text-primary-black/70">
+                {/* What You Can Ask Section */}
+                <div className="bg-template-peach/30 border-2 border-black rounded-xl p-4">
+                  <h4 className="text-lg font-black text-black mb-3 flex items-center">
+                    💬 What you can ask about:
+                  </h4>
+                  <div className="space-y-2 text-sm font-semibold text-black">
                     <p>• Day-to-day work and responsibilities</p>
                     <p>• Career progression and opportunities</p>
                     <p>• Skills needed and training paths</p>
@@ -405,17 +384,45 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                   </div>
                 </div>
 
+                {/* SECONDARY: Financial Overview */}
+                <div className="bg-gray-100 border-2 border-gray-400 rounded-xl p-4">
+                  <h4 className="text-base font-bold text-black mb-3">💷 Financial Overview</h4>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-template-white border-2 border-black rounded-lg p-3 shadow-[2px_2px_0px_0px_#000000]">
+                      <div className="flex items-center mb-1">
+                        <PoundSterling className="w-4 h-4 text-black mr-1" />
+                        <span className="text-xs font-bold text-black">SALARY</span>
+                      </div>
+                      <p className="text-sm font-bold text-black">
+                        {formatSalary(careerData?.averageSalary)}
+                      </p>
+                    </div>
+                    
+                    <div className="bg-template-white border-2 border-black rounded-lg p-3 shadow-[2px_2px_0px_0px_#000000]">
+                      <div className="flex items-center mb-1">
+                        <TrendingUp className="w-4 h-4 text-black mr-1" />
+                        <span className="text-xs font-bold text-black">GROWTH</span>
+                      </div>
+                      <p className="text-sm font-bold text-black">
+                        {careerData?.growthOutlook || 'Excellent'}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+
+
                 {/* Discovered Insights Panel */}
                 {(discoveredInsights.interests.length > 0 || 
                   discoveredInsights.goals.length > 0 || 
                   discoveredInsights.skills.length > 0) && (
-                  <div className="border-t border-primary-green/20 pt-4">
-                    <h4 className="text-sm font-bold text-primary-green mb-2">Insights from Discussion:</h4>
-                    <div className="space-y-2 text-xs">
+                  <div className="bg-template-lavender/30 border-2 border-black rounded-xl p-4">
+                    <h4 className="text-lg font-black text-black mb-3">✨ Insights from Discussion:</h4>
+                    <div className="space-y-3 text-sm">
                       {discoveredInsights.interests.length > 0 && (
                         <div>
-                          <span className="font-medium text-primary-green">New Interests:</span>
-                          <div className="ml-2 text-primary-black/80">
+                          <span className="font-bold text-black">New Interests:</span>
+                          <div className="ml-2 text-black/80 font-medium">
                             {discoveredInsights.interests.map((interest, idx) => (
                               <p key={idx}>• {interest}</p>
                             ))}
@@ -424,8 +431,8 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                       )}
                       {discoveredInsights.goals.length > 0 && (
                         <div>
-                          <span className="font-medium text-primary-peach">Career Goals:</span>
-                          <div className="ml-2 text-primary-black/80">
+                          <span className="font-bold text-black">Career Goals:</span>
+                          <div className="ml-2 text-black/80 font-medium">
                             {discoveredInsights.goals.map((goal, idx) => (
                               <p key={idx}>• {goal}</p>
                             ))}
@@ -434,8 +441,8 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                       )}
                       {discoveredInsights.skills.length > 0 && (
                         <div>
-                          <span className="font-medium text-primary-yellow">Skills Mentioned:</span>
-                          <div className="ml-2 text-primary-black/80">
+                          <span className="font-bold text-black">Skills Mentioned:</span>
+                          <div className="ml-2 text-black/80 font-medium">
                             {discoveredInsights.skills.map((skill, idx) => (
                               <p key={idx}>• {skill}</p>
                             ))}
@@ -509,23 +516,23 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                 className="fixed left-0 right-0 bottom-0 z-[130] px-4 md:static md:z-auto md:px-0"
                 style={{ bottom: `calc(${ctaBottomOffsetPx}px + env(safe-area-inset-bottom, 0px))` }}
               >
-                <div className="bg-gradient-to-r from-primary-white/50 to-primary-mint/10 rounded-t-xl md:rounded-xl p-4 border border-primary-green/20 backdrop-blur overflow-hidden">
+                <div className="bg-template-white rounded-t-2xl md:rounded-2xl p-6 border-4 border-black shadow-[4px_4px_0px_0px_#000000] overflow-hidden">
                   <div className="flex items-center justify-between min-h-[56px]">
                 <div className="flex items-center space-x-3">
                   {!isConnected ? (
                     <Button
                       onClick={handleStartConversation}
                       disabled={connectionStatus === 'connecting' || !apiKey}
-                      className="bg-gradient-to-r from-primary-green to-primary-yellow text-primary-black font-bold px-4 py-2 rounded-xl hover:scale-105 transition-transform duration-200 text-sm whitespace-nowrap"
+                      className="bg-template-primary text-white font-black px-6 py-3 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] hover:scale-105 transition-all duration-200 text-base whitespace-nowrap disabled:opacity-60"
                     >
                       {connectionStatus === 'connecting' ? (
                         <>
-                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                          <Loader2 className="w-6 h-6 mr-3 animate-spin" />
                           Connecting...
                         </>
                       ) : (
                         <>
-                          <PhoneCall className="w-5 h-5 mr-2" />
+                          <PhoneCall className="w-6 h-6 mr-3" />
                           Start Voice Discussion
                         </>
                       )}
@@ -533,9 +540,9 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                   ) : (
                     <Button
                       onClick={handleEndConversation}
-                      className="bg-gradient-to-r from-primary-peach to-primary-yellow text-primary-black font-bold px-4 py-2 rounded-xl hover:scale-105 transition-transform duration-200 text-sm whitespace-nowrap"
+                      className="bg-template-secondary text-black font-black px-6 py-3 rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] hover:scale-105 transition-all duration-200 text-base whitespace-nowrap"
                     >
-                      <PhoneOff className="w-5 h-5 mr-2" />
+                      <PhoneOff className="w-6 h-6 mr-3" />
                       End Discussion
                     </Button>
                   )}
