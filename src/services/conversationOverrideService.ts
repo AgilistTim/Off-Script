@@ -74,6 +74,14 @@ export class ConversationOverrideService {
       fullPrompt: contextPrompt
     });
     
+    // DEBUG: Log the full career card structure to understand missing data
+    console.log('🔍 FULL CAREER CARD STRUCTURE BEING PROCESSED:', {
+      careerTitle: careerCard.title,
+      fullCareerCard: careerCard,
+      hasPerplexityData: !!careerCard.perplexityData,
+      perplexityDataStructure: careerCard.perplexityData
+    });
+    
     // Build personalized first message
     const userName = (userData.careerProfile?.name || userData.displayName || 'there').trim();
     const firstMessage = `Hi ${userName}! I have all the details about your career path in ${careerCard.title}. What would you like to explore first about this career?`;
