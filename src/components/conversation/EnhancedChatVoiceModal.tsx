@@ -866,7 +866,16 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
         }
       },
 
-      update_person_profile: async (parameters: { interests?: string[] | string; goals?: string[] | string; skills?: string[] | string; personalQualities?: string[] | string; [key: string]: any }) => {
+      update_person_profile: async (parameters: { 
+        name?: string; 
+        interests?: string[] | string; 
+        goals?: string[] | string; 
+        skills?: string[] | string; 
+        personalQualities?: string[] | string; 
+        lifeStage?: string;
+        careerDirection?: string;
+        [key: string]: any 
+      }) => {
         console.log('🚨 TOOL CALLED: update_person_profile - Enhanced modal agent calling tools!');
         console.log('👤 Updating person profile based on conversation...');
         console.log('👤 Profile parameters:', parameters);
@@ -896,6 +905,11 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
             personalQualities: parseInsights(parameters.personalQualities)
           };
 
+          // Handle individual fields that don't go into insights display
+          const name = parameters.name?.trim();
+          const lifeStage = parameters.lifeStage?.trim();
+          const careerDirection = parameters.careerDirection?.trim();
+
           // Update local state for immediate UI feedback
           setDiscoveredInsights(prev => {
             const updated = {
@@ -920,13 +934,13 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
             const { guestSessionService } = await import('../../services/guestSessionService');
             
             const profileData = {
-              name: parameters.name || null,
+              name: name || null,
               interests: newInsights.interests,
               goals: newInsights.goals,
               skills: newInsights.skills,
               values: newInsights.personalQualities, // Map personalQualities to values
               workStyle: parseInsights(parameters.workStyle),
-              careerStage: parameters.careerStage || 'exploring',
+              careerStage: lifeStage || parameters.careerStage || 'exploring',
               lastUpdated: new Date().toISOString()
             };
 
@@ -934,13 +948,27 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
             console.log('💾 Profile saved to guest session for migration:', profileData);
           }
 
-          console.log('✅ Profile insights updated:', newInsights);
+          console.log('✅ Profile insights updated:', {
+            ...newInsights,
+            name,
+            lifeStage,
+            careerDirection
+          });
           
           // Trigger progress update when profile is updated
           console.log('🌱 Triggering progress update for profile update');
           treeProgressService.triggerRealTimeUpdate('engagement_milestone');
           
-          return "Profile insights updated successfully based on conversation";
+          const updateSummary = [];
+          if (name) updateSummary.push(`name: ${name}`);
+          if (lifeStage) updateSummary.push(`life stage: ${lifeStage}`);
+          if (careerDirection) updateSummary.push(`career direction: ${careerDirection}`);
+          if (newInsights.interests.length) updateSummary.push(`${newInsights.interests.length} interests`);
+          if (newInsights.goals.length) updateSummary.push(`${newInsights.goals.length} goals`);
+          if (newInsights.skills.length) updateSummary.push(`${newInsights.skills.length} skills`);
+          if (newInsights.personalQualities.length) updateSummary.push(`${newInsights.personalQualities.length} strengths`);
+          
+          return `Profile updated: ${updateSummary.join(', ') || 'no new information'}`;
 
         } catch (error) {
           console.error('❌ Error updating profile:', error);
