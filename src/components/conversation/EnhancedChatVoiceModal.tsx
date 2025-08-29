@@ -2183,24 +2183,24 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
-        className="md:max-w-7xl md:w-[95vw] md:h-[85vh] w-screen max-w-none h-[100dvh] p-0 bg-template-white border-4 border-black rounded-2xl shadow-[8px_8px_0px_0px_#000000] [&>button]:hidden z-[120] grid grid-rows-[auto_1fr_auto]"
+        className="md:max-w-7xl md:w-[95vw] md:h-[85vh] w-screen max-w-none h-[100dvh] p-0 bg-white border-2 border-black [&>button]:hidden z-[120] grid grid-rows-[auto_1fr_auto]"
         aria-describedby="enhanced-chat-description"
       >
           {/* Fixed Header */}
-          <DialogHeader className="border-b-4 border-black pb-6 px-6 pt-6 md:px-8 flex-shrink-0 bg-template-yellow rounded-t-xl">
+          <DialogHeader className="border-b-2 border-black pb-4 px-4 pt-4 md:px-6 flex-shrink-0">
             <div id="enhanced-chat-description" className="sr-only">
               Enhanced voice chat interface for career guidance and conversation analysis
             </div>
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="w-16 h-16 bg-template-primary rounded-2xl border-4 border-black shadow-[4px_4px_0px_0px_#000000] flex items-center justify-center">
-                  <MessageSquare className="w-8 h-8 text-white" />
+                <div className="w-12 h-12 bg-template-primary rounded-button flex items-center justify-center">
+                  <MessageSquare className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <DialogTitle className="text-2xl font-black text-black mb-1">
+                  <DialogTitle className="text-xl font-bold text-black">
                     {agentInfo.name}
                   </DialogTitle>
-                  <p className="text-black/80 text-base font-semibold">
+                  <p className="text-gray-600 text-sm">
                     {agentInfo.description}
                   </p>
                 </div>
@@ -2209,9 +2209,9 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
                 onClick={onClose}
                 variant="ghost"
                 size="sm"
-                className="text-black hover:text-black/70 bg-white/50 hover:bg-white/80 border-2 border-black rounded-xl w-12 h-12 shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000] transition-all duration-200"
+                className="text-gray-600 hover:text-black"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </Button>
             </div>
           </DialogHeader>
@@ -2224,26 +2224,26 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
               {/* Mobile: Collapsible Career Insights */}
               <div className="flex-shrink-0 border-b-2 border-gray-200">
                 <Collapsible defaultOpen={careerCards.length > 0 || discoveredInsights.interests.length > 0 || discoveredInsights.goals.length > 0 || discoveredInsights.skills.length > 0 || discoveredInsights.personalQualities.length > 0}>
-                  <CollapsibleTrigger className="w-full p-4 flex justify-between items-center hover:bg-template-peach/20 rounded-xl border-2 border-black bg-template-white shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 m-2">
+                  <CollapsibleTrigger className="w-full p-4 flex justify-between items-center hover:bg-gray-50 rounded-lg transition-colors">
                     <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-template-primary rounded-xl border-2 border-black shadow-[2px_2px_0px_0px_#000000] flex items-center justify-center relative">
-                        <Briefcase className="w-6 h-6 text-white" />
+                      <div className="w-8 h-8 bg-template-primary rounded-lg flex items-center justify-center relative">
+                        <Briefcase className="w-4 h-4 text-white" />
                         {(careerCards.length > 0 || discoveredInsights.interests.length > 0 || discoveredInsights.goals.length > 0 || discoveredInsights.skills.length > 0 || discoveredInsights.personalQualities.length > 0) && (
-                          <div className="absolute -top-1 -right-1 w-4 h-4 bg-template-accent rounded-full animate-pulse border-2 border-white" />
+                          <div className="absolute -top-1 -right-1 w-3 h-3 bg-template-accent rounded-full animate-pulse border border-white" />
                         )}
                       </div>
                       <div className="flex flex-col items-start">
-                        <span className="text-lg font-black text-black">
+                        <span className="text-lg font-bold text-black">
                           Career Insights
                         </span>
                         {(careerCards.length > 0 || discoveredInsights.interests.length > 0 || discoveredInsights.goals.length > 0 || discoveredInsights.skills.length > 0 || discoveredInsights.personalQualities.length > 0) && (
-                          <span className="text-sm text-black font-semibold">
+                          <span className="text-xs text-black font-medium">
                             {careerCards.length} careers • {discoveredInsights.interests.length + discoveredInsights.goals.length + discoveredInsights.skills.length + discoveredInsights.personalQualities.length} profile details
                           </span>
                         )}
                       </div>
                     </div>
-                    <ChevronDown className="h-5 w-5 text-black transition-transform ui-open:rotate-180" />
+                    <ChevronDown className="h-5 w-5 text-gray-600 transition-transform ui-open:rotate-180" />
                   </CollapsibleTrigger>
                   <CollapsibleContent className="px-4 pb-4">
                     {/* New Content Notification */}
@@ -2357,54 +2357,34 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
                             const MatchIcon = matchBadge.icon;
                             
                             return (
-                              <div key={index} className="border-4 border-black rounded-2xl bg-template-white p-4 shadow-[4px_4px_0px_0px_#000000] mb-3">
-                                <div className="flex items-center justify-between mb-3">
-                                  <div className="flex items-center space-x-3">
-                                    <div className="w-10 h-10 bg-template-primary rounded-xl border-2 border-black flex items-center justify-center">
-                                      <Briefcase className="w-5 h-5 text-white" />
-                                    </div>
-                                    <h4 className="text-base font-black text-black">{card.title}</h4>
+                              <div key={index} className="border-2 border-black rounded-lg bg-white p-3">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center space-x-2">
+                                    <Briefcase className="w-4 h-4 text-black" />
+                                    <h4 className="text-sm font-bold text-black">{card.title}</h4>
                                   </div>
-                                  <Badge className="text-sm bg-template-lavender border-2 border-black text-black font-bold shadow-[2px_2px_0px_0px_#000000]">
-                                    <MatchIcon className="w-4 h-4 mr-1" />
+                                  <Badge className="text-xs bg-gray-100 text-black border border-black">
+                                    <MatchIcon className="w-3 h-3 mr-1" />
                                     {card.matchScore || 85}%
                                   </Badge>
                                 </div>
-                                
-                                {/* Priority: Role overview */}
-                                <div className="mb-3">
-                                  <p className="text-sm text-black font-semibold leading-relaxed">
-                                    {card.roleFundamentals?.corePurpose || card.description || 'Career pathway discovered from our conversation'}
-                                  </p>
-                                </div>
-
-                                {/* Skills preview */}
-                                {card.competencyRequirements?.technicalSkills && card.competencyRequirements.technicalSkills.length > 0 && (
-                                  <div className="mb-3">
-                                    <p className="text-sm font-bold text-black mb-2">Key Skills:</p>
-                                    <div className="flex flex-wrap gap-1">
-                                      {card.competencyRequirements.technicalSkills.slice(0, 3).map((skill, i) => (
-                                        <Badge key={i} className="text-xs bg-template-mint border border-black text-black font-medium">
-                                          {skill}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Secondary: Financial info in small text */}
+                                <p className="text-xs text-gray-600 mb-2">
+                                  {card.description || 'Career pathway discovered from our conversation'}
+                                </p>
                                 {(card.salaryRange || card.averageSalary || card.growthOutlook) && (
-                                  <div className="flex items-center space-x-4 text-xs text-black/70">
+                                  <div className="flex items-center space-x-4 text-xs">
                                     {(card.salaryRange || card.averageSalary) && (
                                       <div className="flex items-center space-x-1">
-                                        <PoundSterling className="w-3 h-3" />
-                                        <span>{card.salaryRange || formatSalary(card.averageSalary)}</span>
+                                        <PoundSterling className="w-3 h-3 text-black" />
+                                        <span className="text-black">
+                                          {card.salaryRange || formatSalary(card.averageSalary)}
+                                        </span>
                                       </div>
                                     )}
                                     {card.growthOutlook && (
                                       <div className="flex items-center space-x-1">
-                                        <TrendingUp className="w-3 h-3" />
-                                        <span>{card.growthOutlook}</span>
+                                        <TrendingUp className="w-3 h-3 text-black" />
+                                        <span className="text-black">{card.growthOutlook}</span>
                                       </div>
                                     )}
                                   </div>
@@ -2676,85 +2656,26 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
                               
                               <AccordionContent className="pb-3">
                                 <div className="space-y-4 mt-2">
-                                  {/* PRIORITY: Role Overview Section */}
-                                  {card.roleFundamentals && (
-                                    <div className="p-4 bg-template-mint/20 border-2 border-black rounded-xl mb-3">
-                                      <div className="flex items-center space-x-2 mb-3">
-                                        <Target className="w-4 h-4 text-black" />
-                                        <h5 className="text-sm font-black text-black">What You'll Do</h5>
+                                  {/* Basic Info Section */}
+                                  <div className="grid grid-cols-2 gap-3 text-xs">
+                                    {(card.salaryRange || card.averageSalary) && (
+                                      <div className="flex items-center space-x-1">
+                                        <PoundSterling className="w-3 h-3 text-black" />
+                                        <span className="text-black">
+                                          {card.salaryRange || formatSalary(card.averageSalary)}
+                                        </span>
                                       </div>
-                                      <p className="text-sm text-black font-medium mb-3 leading-relaxed">{card.roleFundamentals.corePurpose}</p>
-                                      {card.roleFundamentals.typicalResponsibilities && (
-                                        <div>
-                                          <p className="text-sm font-bold text-black mb-2">Daily Responsibilities:</p>
-                                          <ul className="text-sm text-black/80 space-y-1 font-medium">
-                                            {card.roleFundamentals.typicalResponsibilities.slice(0, 4).map((resp, i) => (
-                                              <li key={i} className="flex items-start space-x-2">
-                                                <span className="text-template-primary mt-1 font-bold">•</span>
-                                                <span>{resp}</span>
-                                              </li>
-                                            ))}
-                                          </ul>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {/* Skills & Requirements Section */}
-                                  {card.competencyRequirements && (
-                                    <div className="p-4 bg-template-lavender/20 border-2 border-black rounded-xl mb-3">
-                                      <div className="flex items-center space-x-2 mb-3">
-                                        <Wrench className="w-4 h-4 text-black" />
-                                        <h5 className="text-sm font-black text-black">Skills You'll Need</h5>
+                                    )}
+                                    {card.growthOutlook && (
+                                      <div className="flex items-center space-x-1">
+                                        <TrendingUp className="w-3 h-3 text-black" />
+                                        <span className="text-black">{card.growthOutlook}</span>
                                       </div>
-                                      {card.competencyRequirements.technicalSkills && card.competencyRequirements.technicalSkills.length > 0 && (
-                                        <div className="mb-3">
-                                          <p className="text-sm font-bold text-black mb-2">Key Skills:</p>
-                                          <div className="flex flex-wrap gap-2">
-                                            {card.competencyRequirements.technicalSkills.slice(0, 6).map((skill, i) => (
-                                              <Badge key={i} className="bg-template-white border-2 border-black text-black font-semibold shadow-[2px_2px_0px_0px_#000000]">
-                                                {skill}
-                                              </Badge>
-                                            ))}
-                                          </div>
-                                        </div>
-                                      )}
-                                      {card.competencyRequirements.qualificationPathway && (
-                                        <div>
-                                          <p className="text-sm font-bold text-black mb-1">Education Path:</p>
-                                          <p className="text-sm text-black/80 font-medium">
-                                            {card.competencyRequirements.qualificationPathway.degrees?.[0] || 
-                                             card.competencyRequirements.qualificationPathway.alternativeRoutes?.[0] ||
-                                             "Multiple pathways available"}
-                                          </p>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
-
-                                  {/* Secondary: Financial Info Section (moved to bottom) */}
-                                  <div className="p-3 bg-gray-50 border-2 border-gray-300 rounded-xl">
-                                    <h5 className="text-sm font-bold text-black mb-2">Financial Overview</h5>
-                                    <div className="grid grid-cols-1 gap-2 text-sm">
-                                      {(card.salaryRange || card.averageSalary) && (
-                                        <div className="flex items-center space-x-2">
-                                          <PoundSterling className="w-4 h-4 text-black" />
-                                          <span className="text-black font-medium">
-                                            {card.salaryRange || formatSalary(card.averageSalary)}
-                                          </span>
-                                        </div>
-                                      )}
-                                      {card.growthOutlook && (
-                                        <div className="flex items-center space-x-2">
-                                          <TrendingUp className="w-4 h-4 text-black" />
-                                          <span className="text-black font-medium">{card.growthOutlook}</span>
-                                        </div>
-                                      )}
-                                    </div>
+                                    )}
                                   </div>
 
-                                  {/* Additional Role Data Sections */}
-                                  {card.roleFundamentals && false && (
+                                  {/* Comprehensive Career Data Sections */}
+                                  {card.roleFundamentals && (
                                     <div className="border-t-2 border-gray-200 pt-3">
                                       <div className="flex items-center space-x-2 mb-2">
                                         <Target className="w-3 h-3 text-black" />
@@ -3132,16 +3053,16 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
                     <Button
                       onClick={() => handleModeSelection('voice')}
                       disabled={!apiKey}
-                      className="bg-template-primary text-white font-black px-8 py-4 rounded-2xl hover:scale-105 transition-all duration-200 min-h-[56px] focus:outline-none focus:ring-4 focus:ring-template-primary/30 shadow-[6px_6px_0px_0px_#000000] hover:shadow-[8px_8px_0px_0px_#000000] border-4 border-black text-lg disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="bg-template-primary text-white font-bold px-6 py-3 rounded-xl hover:scale-105 transition-transform duration-200 min-h-[48px] focus:outline-none focus:ring-2 focus:ring-template-primary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black"
                     >
-                      <PhoneCall className="w-6 h-6 mr-3" />
+                      <PhoneCall className="w-5 h-5 mr-2" />
                       Voice Chat
                     </Button>
                     <Button
                       onClick={() => handleModeSelection('text')}
-                      className="bg-template-secondary text-black font-black px-8 py-4 rounded-2xl hover:scale-105 transition-all duration-200 min-h-[56px] focus:outline-none focus:ring-4 focus:ring-template-secondary/30 shadow-[6px_6px_0px_0px_#000000] hover:shadow-[8px_8px_0px_0px_#000000] border-4 border-black text-lg"
+                      className="bg-template-secondary text-black font-bold px-6 py-3 rounded-xl hover:scale-105 transition-transform duration-200 min-h-[48px] focus:outline-none focus:ring-2 focus:ring-template-secondary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black"
                     >
-                      <MessageSquare className="w-6 h-6 mr-3" />
+                      <MessageSquare className="w-5 h-5 mr-2" />
                       Text Chat
                     </Button>
                   </div>
