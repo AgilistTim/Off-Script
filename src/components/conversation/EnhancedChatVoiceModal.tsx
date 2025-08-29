@@ -1396,15 +1396,18 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
           }
         });
 
-        // Build enhanced persona context using TextPromptService with conversational improvements
+        // Use the updated ConversationFlowManager prompt which has mandatory evidence collection
         const basePersonaContext = conversationOverrides?.agent?.prompt?.prompt || '';
         const contextType = currentUser ? 'authenticated' : 'guest';
         
-        // Create enhanced conversational text prompt for better onboarding experience
-        const enhancedPersonaContext = TextPromptService.createEnhancedTextSystemPrompt(
-          basePersonaContext,
-          conversationOverrides
-        );
+        console.log('🔧 [ENHANCED TEXT MODAL] Using ConversationFlowManager prompt instead of TextPromptService:', {
+          basePromptLength: basePersonaContext.length,
+          basePromptPreview: basePersonaContext.substring(0, 200) + '...',
+          contextType
+        });
+        
+        // Use the basePersonaContext directly from ConversationFlowManager (which has the mandatory evidence collection)
+        const enhancedPersonaContext = basePersonaContext;
 
         const baseFirstMessage = conversationOverrides?.agent?.firstMessage;
         

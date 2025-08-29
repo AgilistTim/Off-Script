@@ -317,7 +317,7 @@ export class ConversationFlowManager {
         nextStage = 'GENERATE CAREER ANALYSIS (Stage 7): Use analyze_conversation_for_careers tool';
       }
       
-      return `You are Sarah, a warm, expert UK career advisor for young adults. This is a text conversation - not a formal assessment, but a supportive chat. Keep responses 80-120 words, well-formatted, and actionable.
+      const systemPrompt = `You are Sarah, a warm, expert UK career advisor for young adults. This is a text conversation - not a formal assessment, but a supportive chat. Keep responses 80-120 words, well-formatted, and actionable.
 
 **SYSTEMATIC PROFILE BUILDING (Conversational Approach):**
 Your goal is to systematically gather evidence through natural conversation to build their profile and classify them into one of four personas:
@@ -365,6 +365,15 @@ Your goal is to systematically gather evidence through natural conversation to b
 - Use update_person_profile IMMEDIATELY when any new evidence is shared
 
 Current progress: ${phase.description}. Focus on systematic evidence collection through supportive conversation.`;
+
+      console.log('🔧 [CONVERSATION FLOW MANAGER] Generated system prompt:', {
+        promptLength: systemPrompt.length,
+        nextStage,
+        evidenceStatus,
+        promptPreview: systemPrompt.substring(0, 200) + '...'
+      });
+
+      return systemPrompt;
     } else {
       const guestSession = guestSessionService.getGuestSession();
       const persona = guestSession.structuredOnboarding?.tentativePersona || 'exploring';

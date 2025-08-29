@@ -204,6 +204,14 @@ export class EnhancedTextConversationClient implements ITextConversationClient {
 
     // Add system prompt if persona context exists
     if (this.personaContext) {
+      console.log('🔧 [ENHANCED TEXT CLIENT] Using system prompt:', {
+        promptLength: this.personaContext.length,
+        sessionId: this.sessionId,
+        promptPreview: this.personaContext.substring(0, 300) + '...',
+        containsMandatoryAction: this.personaContext.includes('MANDATORY NEXT ACTION'),
+        containsStageProgression: this.personaContext.includes('STAGE PROGRESSION CONTROL')
+      });
+      
       messages.push({
         role: 'system',
         content: this.personaContext
