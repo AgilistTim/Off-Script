@@ -22,6 +22,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogOverlay,
 } from '../ui/dialog';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -285,6 +286,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogOverlay className="fixed inset-0 z-50 bg-white/90 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
               <DialogContent 
           className="max-w-4xl h-[80vh] bg-template-white border-4 border-black rounded-2xl shadow-[8px_8px_0px_0px_#000000] text-black overflow-hidden [&>button]:hidden"
           aria-describedby="career-voice-discussion-description"
@@ -358,7 +360,7 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
                   </Badge>
                 </div>
               </CardHeader>
-              <CardContent className="space-y-4 overflow-y-auto flex-1 min-h-0 p-6">
+              <CardContent className="space-y-3 overflow-y-auto flex-1 min-h-0 p-4">
                 {/* PRIORITY: Career Overview */}
                 <div className="bg-template-yellow/30 border-2 border-black rounded-xl p-4">
                   <h3 className="text-2xl font-black text-black mb-3">
@@ -371,16 +373,16 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
 
                 {/* What You Can Ask Section */}
                 <div className="bg-template-peach/30 border-2 border-black rounded-xl p-4">
-                  <h4 className="text-lg font-black text-black mb-3 flex items-center">
+                  <h4 className="text-base font-black text-black mb-3">
                     💬 What you can ask about:
                   </h4>
-                  <div className="space-y-2 text-sm font-semibold text-black">
-                    <p>• Day-to-day work and responsibilities</p>
-                    <p>• Career progression and opportunities</p>
-                    <p>• Skills needed and training paths</p>
-                    <p>• Industry trends and outlook</p>
-                    <p>• Work-life balance expectations</p>
-                    <p>• Compare with other careers</p>
+                  <div className="space-y-1 text-sm font-semibold text-black leading-tight">
+                    <p>• Day-to-day work</p>
+                    <p>• Career progression</p>
+                    <p>• Skills & training</p>
+                    <p>• Industry trends</p>
+                    <p>• Work-life balance</p>
+                    <p>• Compare careers</p>
                   </div>
                 </div>
 
