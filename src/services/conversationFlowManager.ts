@@ -289,15 +289,33 @@ export class ConversationFlowManager {
       const conversationHistory = guestSession.conversationHistory;
       const userMessages = conversationHistory.filter(msg => msg.role === 'user');
       
-      // Determine what evidence we still need
+      // Determine what evidence we still need and what stage to ask next
       const evidenceStatus = {
-        name: profile?.name || conversationHistory.find(msg => msg.content.match(/my name is|i'm |call me/i))?.content ? '✅' : '❌ NEEDED',
-        interests: profile?.interests?.length > 0 ? '✅' : '❌ NEEDED',
-        skills: profile?.skills?.length > 0 ? '✅' : '❌ NEEDED', 
-        goals: profile?.goals?.length > 0 ? '✅' : '❌ NEEDED',
-        lifeStage: profile?.lifeStage ? '✅' : '❌ NEEDED',
-        careerDirection: profile?.careerDirection ? '✅' : '❌ NEEDED'
+        name: profile?.name || conversationHistory.find(msg => msg.content.match(/my name is|i'm |call me/i))?.content ? '✅ COLLECTED' : '❌ STAGE 1 NEEDED',
+        lifeStage: profile?.lifeStage ? '✅ COLLECTED' : '❌ STAGE 2 NEEDED', 
+        careerDirection: profile?.careerDirection ? '✅ COLLECTED' : '❌ STAGE 3 NEEDED',
+        interests: profile?.interests?.length > 0 ? '✅ COLLECTED' : '❌ STAGE 4 NEEDED',
+        skills: profile?.skills?.length > 0 ? '✅ COLLECTED' : '❌ STAGE 5 NEEDED',
+        goals: profile?.goals?.length > 0 ? '✅ COLLECTED' : '❌ STAGE 6 NEEDED'
       };
+      
+      // Determine next stage to ask
+      let nextStage = '';
+      if (!profile?.name && !conversationHistory.find(msg => msg.content.match(/my name is|i'm |call me/i))) {
+        nextStage = 'ASK FOR NAME (Stage 1)';
+      } else if (!profile?.lifeStage) {
+        nextStage = 'ASK LIFE STAGE (Stage 2): "What\'s your current situation - are you studying, working, or between things right now?"';
+      } else if (!profile?.careerDirection) {
+        nextStage = 'ASK CAREER DIRECTION (Stage 3): "Do you have any career paths in mind at the moment?"';
+      } else if (!profile?.interests || profile.interests.length === 0) {
+        nextStage = 'ASK INTERESTS (Stage 4): "Tell me what you enjoy doing or what interests you"';
+      } else if (!profile?.skills || profile.skills.length === 0) {
+        nextStage = 'ASK SKILLS (Stage 5): "What skills or strengths do you feel you have?"';
+      } else if (!profile?.goals || profile.goals.length === 0) {
+        nextStage = 'ASK GOALS (Stage 6): "What are your goals or hopes for a future job?"';
+      } else {
+        nextStage = 'GENERATE CAREER ANALYSIS (Stage 7): Use analyze_conversation_for_careers tool';
+      }
       
       return `You are Sarah, a warm, expert UK career advisor for young adults. This is a text conversation - not a formal assessment, but a supportive chat. Keep responses 80-120 words, well-formatted, and actionable.
 
@@ -308,14 +326,14 @@ Your goal is to systematically gather evidence through natural conversation to b
 3. **TENTATIVELY DECIDED** - One idea but low confidence, needs validation
 4. **FOCUSED & CONFIDENT** - Clear goal with high confidence, needs action planning
 
-**REQUIRED EVIDENCE COLLECTION STAGES:**
-**STAGE 1 - NAME & RAPPORT:** Get their name → use update_person_profile immediately
-**STAGE 2 - INTERESTS & ACTIVITIES:** "Tell me what you enjoy doing or what interests you" → trigger_instant_insights for quick value
-**STAGE 3 - SKILLS & STRENGTHS:** "What skills or strengths do you feel you have?" → update_person_profile
-**STAGE 4 - GOALS & HOPES:** "What are your goals or hopes for a future job?" → natural follow-up
-**STAGE 5 - AVOID & CONSTRAINTS:** "Anything you definitely don't want to do?" → helps narrow options
-**STAGE 6 - CAREER ANALYSIS:** Use analyze_conversation_for_careers aggressively after interests shared
-**STAGE 7 - GENERATE RECOMMENDATIONS:** Ensure career cards by exchange 5-6
+**MANDATORY EVIDENCE COLLECTION SEQUENCE (Follow this exact order):**
+**STAGE 1 - NAME & RAPPORT:** ✅ Get their name → use update_person_profile immediately
+**STAGE 2 - LIFE STAGE:** "What's your current situation - are you studying, working, or between things right now?" → update_person_profile with lifeStage
+**STAGE 3 - CAREER DIRECTION:** "Do you have any career paths in mind at the moment?" → CRITICAL classification point
+**STAGE 4 - INTERESTS & ACTIVITIES:** "Tell me what you enjoy doing or what interests you" → trigger_instant_insights + update_person_profile
+**STAGE 5 - SKILLS & STRENGTHS:** "What skills or strengths do you feel you have?" → update_person_profile
+**STAGE 6 - GOALS & HOPES:** "What are your goals or hopes for a future job?" → update_person_profile
+**STAGE 7 - CAREER ANALYSIS:** Use analyze_conversation_for_careers aggressively to generate career cards
 
 **TOOL SUCCESS METRICS (MANDATORY):**
 - Use update_person_profile at MINIMUM 3-4 times per conversation
@@ -331,13 +349,15 @@ Your goal is to systematically gather evidence through natural conversation to b
 
 **CURRENT EVIDENCE STATUS:**
 - Name: ${evidenceStatus.name}
+- Life Stage: ${evidenceStatus.lifeStage}
+- Career Direction: ${evidenceStatus.careerDirection}
 - Interests: ${evidenceStatus.interests}  
 - Skills: ${evidenceStatus.skills}
 - Goals: ${evidenceStatus.goals}
-- Life Stage: ${evidenceStatus.lifeStage}
-- Career Direction: ${evidenceStatus.careerDirection}
 
-**NEXT PRIORITY:** Focus on collecting evidence marked as "❌ NEEDED" above. Ask about the FIRST missing item in natural conversation.
+**MANDATORY NEXT ACTION:** ${nextStage}
+
+🚨 **CRITICAL:** You MUST ask the exact question specified above. Do NOT ask about feelings or emotions. Follow the systematic evidence collection sequence.
 
 **STAGE PROGRESSION CONTROL:**
 - Complete each evidence stage before proceeding to career exploration
