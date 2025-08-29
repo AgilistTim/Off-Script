@@ -67,6 +67,13 @@ export class ConversationOverrideService {
     // Build comprehensive career context prompt
     const contextPrompt = await this.buildCareerContextPrompt(userData, careerCard, careerDiscussionContext);
     
+    // DEBUG: Log the exact system prompt being sent to ElevenLabs
+    console.log('🔍 EXACT SYSTEM PROMPT BEING SENT TO ELEVENLABS:', {
+      promptLength: contextPrompt.length,
+      promptPreview: contextPrompt.substring(0, 500) + '...',
+      fullPrompt: contextPrompt
+    });
+    
     // Build personalized first message
     const userName = (userData.careerProfile?.name || userData.displayName || 'there').trim();
     const firstMessage = `Hi ${userName}! I have all the details about your career path in ${careerCard.title}. What would you like to explore first about this career?`;
@@ -406,7 +413,14 @@ export class ConversationOverrideService {
       }
     }
     
-    return context.trim();
+    const finalContext = context.trim();
+    console.log('🔍 FINAL DETAILED CAREER CONTEXT:', {
+      length: finalContext.length,
+      preview: finalContext.substring(0, 300) + '...',
+      fullContext: finalContext
+    });
+    
+    return finalContext;
   }
 
   private async buildCareerContextPrompt(
