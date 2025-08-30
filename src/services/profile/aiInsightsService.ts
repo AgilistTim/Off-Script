@@ -64,7 +64,7 @@ const ProgressPatternSchema = z.object({
 const EnhancedReportContentSchema = z.object({
   executive_summary: z.string().min(100).max(500),
   key_achievements: z.array(z.string().max(150)).min(2).max(5),
-  growth_narrative: z.string().min(150).max(600),
+  growth_narrative: z.string().min(150).max(1000),
   future_outlook: z.string().min(100).max(400),
   personalized_recommendations: z.array(z.string().max(200)).min(3).max(6),
   parent_guidance: z.string().min(100).max(400).nullable()
@@ -583,7 +583,7 @@ Return as JSON only.`
             {
               "executive_summary": "string (100-500 chars)",
               "key_achievements": ["string (max 150 chars)", "string (max 150 chars)"],
-              "growth_narrative": "string (150-600 chars)",
+              "growth_narrative": "string (150-1000 chars)",
               "future_outlook": "string (100-400 chars)",
               "personalized_recommendations": ["string (max 200 chars)"],
               "parent_guidance": "string (100-400 chars)" or null

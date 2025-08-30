@@ -28,6 +28,7 @@ const AdminSettings = lazy(() => import('./pages/admin/Settings'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const StyleGuide = lazy(() => import('./components/StyleGuide'));
 const Profile = lazy(() => import('./pages/Profile'));
+const Reports = lazy(() => import('./pages/Reports'));
 
 // Loading fallback
 const LoadingFallback = () => (
@@ -136,6 +137,24 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <Profile />
+          </ProtectedRoute>
+        )
+      }
+    ]
+  },
+  {
+    path: '/reports',
+    element: (
+      <Suspense fallback={<LoadingFallback />}>
+        <MainLayout />
+      </Suspense>
+    ),
+    children: [
+      {
+        index: true,
+        element: (
+          <ProtectedRoute>
+            <Reports />
           </ProtectedRoute>
         )
       }

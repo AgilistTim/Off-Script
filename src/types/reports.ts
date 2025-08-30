@@ -201,6 +201,7 @@ export interface EngagementMetrics {
     averageSessionDuration: number;
     longestSession: number;
     lastActiveDate: Date;
+    totalEngagementHours: number; // Total hours of platform engagement
   };
   interactionMetrics: {
     messagesPerSession: number;

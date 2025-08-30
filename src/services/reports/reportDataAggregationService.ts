@@ -331,12 +331,26 @@ export class ReportDataAggregationService {
         total + (summary.messageCount || 0), 0
       );
       
-      // Extract topics from all conversations (parse JSON strings)
+      // Extract topics from all conversations (parse JSON strings and objects)
       const allTopics = chatSummaries.flatMap(summary => {
         const parseField = (field: any) => {
           try {
             if (typeof field === 'string') {
-              return JSON.parse(field);
+              // Handle JSON string format like "[\"item1\", \"item2\"]"
+              const parsed = JSON.parse(field);
+              return Array.isArray(parsed) ? parsed : [];
+            } else if (typeof field === 'object' && field !== null) {
+              // Handle object format like {0: 'item1', 1: 'item2'}
+              if (Array.isArray(field)) {
+                return field;
+              } else {
+                // Convert object with numeric keys to array
+                const keys = Object.keys(field);
+                if (keys.length > 0 && keys.every(key => /^\d+$/.test(key))) {
+                  return keys.sort((a, b) => parseInt(a) - parseInt(b)).map(key => field[key]);
+                }
+                return [];
+              }
             }
             return Array.isArray(field) ? field : [];
           } catch (error) {
@@ -506,12 +520,36 @@ export class ReportDataAggregationService {
       const chatSummariesSnapshot = await getDocs(chatSummariesQuery);
       const chatSummaries = chatSummariesSnapshot.docs.map(doc => convertTimestamps(doc.data()));
 
+      // Calculate real engagement metrics from conversation data
+      const sessionDurations = chatSummaries.map(summary => {
+        const createdAt = summary.createdAt;
+        const updatedAt = summary.updatedAt;
+        const messageCount = summary.messageCount || 0;
+        
+        // If we have both timestamps, calculate actual duration
+        if (createdAt && updatedAt) {
+          const startTime = createdAt instanceof Date ? createdAt : new Date(createdAt);
+          const endTime = updatedAt instanceof Date ? updatedAt : new Date(updatedAt);
+          const durationMinutes = Math.max((endTime.getTime() - startTime.getTime()) / (1000 * 60), 1);
+          return Math.min(durationMinutes, messageCount * 3); // Cap at 3min per message to avoid outliers
+        }
+        
+        // Fallback: estimate from message count (2 minutes per message average)
+        return Math.max(messageCount * 2, 5); // Minimum 5 minutes per session
+      });
+
+      const totalEngagementMinutes = sessionDurations.reduce((sum, duration) => sum + duration, 0);
+      const averageSessionDuration = sessionDurations.length > 0 
+        ? totalEngagementMinutes / sessionDurations.length 
+        : 0;
+
       const metrics = {
         sessionMetrics: {
           totalSessions: chatSummaries.length,
-          averageSessionDuration: 15, // Placeholder - would calculate from actual session data
-          longestSession: 45, // Placeholder
-          lastActiveDate: chatSummaries[0]?.createdAt || new Date()
+          averageSessionDuration: Math.round(averageSessionDuration),
+          longestSession: Math.max(...sessionDurations, 0),
+          lastActiveDate: chatSummaries[0]?.createdAt || new Date(),
+          totalEngagementHours: Math.round((totalEngagementMinutes / 60) * 10) / 10 // Round to 1 decimal
         },
         interactionMetrics: {
           messagesPerSession: chatSummaries.reduce((total, summary) => 

@@ -62,7 +62,7 @@ const ParentReportTemplate: React.FC<ParentReportTemplateProps> = ({
   const totalCareerCards = userData.careerCards.length;
   const topInterest = userData.careerCards[0]?.title || 'Exploring';
   const skillsImproved = userData.skillsProgression.identifiedSkills?.length || 0;
-  const timeOnPlatform = Math.round(((userData.engagementMetrics.sessionMetrics?.averageSessionDuration || 1800) * totalSessions) / 3600); // Convert to hours
+  const timeOnPlatform = userData.engagementMetrics.sessionMetrics?.totalEngagementHours || 0; // Use real calculated hours
 
   return (
     <Document>

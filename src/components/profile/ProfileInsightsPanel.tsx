@@ -8,7 +8,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  Brain, 
   Lightbulb, 
   Target, 
   TrendingUp, 
@@ -20,7 +19,6 @@ import {
   Award,
   Zap,
   ChevronRight,
-  Calendar,
   CheckCircle2,
   AlertCircle,
   Loader2
@@ -121,8 +119,8 @@ const ProfileInsightsPanel: React.FC<ProfileInsightsPanelProps> = ({
       <Card className={`${className} bg-gradient-to-br from-purple-50 to-blue-50 border-purple-200`}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5 text-purple-600" />
-            AI Career Insights
+            <Lightbulb className="h-5 w-5 text-purple-600" />
+            Career Insights
           </CardTitle>
           <CardDescription>
             Generating your personalized career intelligence...
@@ -173,7 +171,7 @@ const ProfileInsightsPanel: React.FC<ProfileInsightsPanelProps> = ({
       <Card className={`${className} bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200`}>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Brain className="h-5 w-5 text-gray-600" />
+            <Lightbulb className="h-5 w-5 text-gray-600" />
             Career Insights
           </CardTitle>
         </CardHeader>
@@ -194,33 +192,13 @@ const ProfileInsightsPanel: React.FC<ProfileInsightsPanelProps> = ({
           <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200/30 to-blue-200/30 rounded-full -translate-y-8 translate-x-8" />
           <CardTitle className="flex items-center gap-2 relative">
             <Sparkles className="h-5 w-5 text-purple-600" />
-            Your AI Career Intelligence
+            Your Career Intelligence
           </CardTitle>
           <CardDescription>
-            Personalized insights powered by {insights.insights.length} AI-generated findings
+            Personalized insights based on your exploration journey
           </CardDescription>
         </CardHeader>
         <CardContent className="relative">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-            <div className="flex items-center gap-3 p-4 bg-white/60 rounded-lg">
-              <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
-                <Brain className="h-6 w-6 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">Processing Time</p>
-                <p className="text-xs text-gray-600">{insights.processingTime}ms</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3 p-4 bg-white/60 rounded-lg">
-              <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                <Calendar className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-medium text-gray-900">Generated</p>
-                <p className="text-xs text-gray-600">{insights.generatedAt.toLocaleTimeString()}</p>
-              </div>
-            </div>
-          </div>
 
           <Button 
             onClick={() => loadInsights(true)} 

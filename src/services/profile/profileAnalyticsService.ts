@@ -314,24 +314,10 @@ export class ProfileAnalyticsService {
     const milestones: ProfileAnalytics['careerMilestones'] = [];
 
     conversations.forEach(conversation => {
-      console.log('🗓️ MILESTONE DATE DEBUG:', {
-        createdAt: conversation.createdAt,
-        createdAtType: typeof conversation.createdAt,
-        isDate: conversation.createdAt instanceof Date,
-        hasToDate: conversation.createdAt?.toDate ? 'YES' : 'NO',
-        constructor: conversation.createdAt?.constructor?.name
-      });
-      
       // Convert Firestore Timestamp to Date if needed
       const date = conversation.createdAt?.toDate ? conversation.createdAt.toDate() : 
                    conversation.createdAt instanceof Date ? conversation.createdAt : 
                    new Date();
-      
-      console.log('🗓️ CONVERTED DATE:', {
-        finalDate: date,
-        finalDateType: typeof date,
-        isDate: date instanceof Date
-      });
       
       const goals = this.parseJSONField(conversation.careerGoals);
       const skills = this.parseJSONField(conversation.skills);
