@@ -28,7 +28,8 @@ import {
   Building,
   BarChart3,
   Shield,
-  MapPin
+  MapPin,
+  FileDown
 } from 'lucide-react';
 import { getVideoById } from '../services/videoService';
 import VideoCard from '../components/video/VideoCard';
@@ -46,6 +47,7 @@ import { dashboardCareerEnhancer } from '../services/dashboardCareerEnhancer';
 import type { CareerCard } from '../types/careerCard';
 import UnifiedCareerCard from '../components/dashboard/UnifiedCareerCard';
 import { CareerVoiceDiscussionModal } from '../components/career-guidance/CareerVoiceDiscussionModal';
+import ReportGenerationInterface from '../components/reports/ReportGenerationInterface';
 
 // Notification component with street-art styling
 interface NotificationProps {
@@ -200,6 +202,9 @@ const Dashboard: React.FC = () => {
     alternative: null,
     primary: null
   });
+
+  // Report generation interface state
+  const [showReportInterface, setShowReportInterface] = useState(false);
   
   // Career card grouping and management functions
   const groupCareersByTheme = useCallback((careers: any[]) => {
@@ -1608,13 +1613,12 @@ const Dashboard: React.FC = () => {
             </div>
             <div className="flex flex-col xs:flex-row gap-3 sm:flex-row sm:space-x-4 w-full sm:w-auto">
               <Button 
-                onClick={refreshDashboard}
+                onClick={() => setShowReportInterface(true)}
                 variant="outline"
                 className="w-full sm:w-auto whitespace-nowrap"
-                disabled={loading}
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                REFRESH
+                <FileDown className="h-4 w-4 mr-2" />
+                GENERATE REPORT
               </Button>
               <Button 
                 onClick={() => window.location.href = '/profile'}
@@ -1903,6 +1907,31 @@ const Dashboard: React.FC = () => {
             >
               Close Comparison
             </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Report Generation Interface Modal */}
+    {showReportInterface && (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+          <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-4 flex justify-between items-center">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              Generate Career Report
+            </h2>
+            <Button
+              onClick={() => setShowReportInterface(false)}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <X className="h-4 w-4" />
+              Close
+            </Button>
+          </div>
+          <div className="p-6">
+            <ReportGenerationInterface />
           </div>
         </div>
       </div>
