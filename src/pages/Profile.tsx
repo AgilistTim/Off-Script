@@ -21,12 +21,23 @@ import {
   BookOpen,
   PoundSterling,
   Lightbulb,
-  Smile
+  Smile,
+  Clock,
+  Activity,
+  BarChart3,
+  Download,
+  RefreshCw,
+  Calendar,
+  Users,
+  MessageSquare,
+  Award
 } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
 import { Button } from '../components/ui/button';
 import careerPathwayService from '../services/careerPathwayService';
+import { ProfileAnalyticsService, ProfileAnalytics } from '../services/profile/profileAnalyticsService';
+import ProfileInsightsPanel from '../components/profile/ProfileInsightsPanel';
 
 const Profile: React.FC = () => {
   const { currentUser, userData, refreshUserData } = useAuth();
@@ -38,6 +49,11 @@ const Profile: React.FC = () => {
   // Migrated career insights state
   const [migratedProfile, setMigratedProfile] = useState<any | null>(null);
   const [combinedProfile, setCombinedProfile] = useState<any | null>(null);
+  
+  // Analytics dashboard state
+  const [analytics, setAnalytics] = useState<ProfileAnalytics | null>(null);
+  const [analyticsLoading, setAnalyticsLoading] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   
   // Profile form state
   const [profile, setProfile] = useState<Partial<UserProfile>>({
@@ -68,6 +84,26 @@ const Profile: React.FC = () => {
     }
     
     return [];
+  };
+
+  // Load analytics data
+  const loadAnalytics = async () => {
+    if (!currentUser) return;
+    
+    setAnalyticsLoading(true);
+    try {
+      console.log('🔍 PROFILE DASHBOARD - Loading analytics for user:', currentUser.uid);
+      const analyticsData = await ProfileAnalyticsService.processCareerMetrics(currentUser.uid);
+      setAnalytics(analyticsData);
+      setLastRefresh(new Date());
+      console.log('✅ PROFILE DASHBOARD - Analytics loaded successfully:', analyticsData);
+    } catch (error) {
+      console.error('❌ PROFILE DASHBOARD - Error loading analytics:', error);
+      // Set empty analytics to prevent endless loading
+      setAnalytics(ProfileAnalyticsService.getDefaultAnalytics());
+    } finally {
+      setAnalyticsLoading(false);
+    }
   };
   
   // Load user data when component mounts
@@ -202,6 +238,12 @@ const Profile: React.FC = () => {
     const timer = setTimeout(fetchCareerInsights, 500);
     return () => clearTimeout(timer);
   }, [currentUser, userData]); // Add userData as dependency
+
+  // Load analytics when user is available
+  useEffect(() => {
+    const timer = setTimeout(loadAnalytics, 1000); // Load after profile data
+    return () => clearTimeout(timer);
+  }, [currentUser]);
   
   // Handle profile form submission
   const handleProfileSubmit = async (e: React.FormEvent) => {
@@ -366,12 +408,29 @@ const Profile: React.FC = () => {
           transition={{ duration: 0.6 }}
           className="text-center mb-12"
         >
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-street font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-gray-600 via-gray-700 to-gray-800 mb-4 animate-glow-pulse">
-            YOUR PROFILE
-          </h1>
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <h1 className="text-4xl sm:text-5xl lg:text-6xl font-street font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-gray-600 via-gray-700 to-gray-800 animate-glow-pulse">
+              CAREER DASHBOARD
+            </h1>
+            <Button 
+              onClick={loadAnalytics}
+              disabled={analyticsLoading}
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${analyticsLoading ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
           <p className="text-lg sm:text-xl text-black/80 font-medium">
-            Your career journey insights and preferences
+            Real-time insights into your career development journey
           </p>
+          {lastRefresh && (
+            <p className="text-sm text-black/60 mt-2">
+              Last updated: {lastRefresh.toLocaleTimeString()}
+            </p>
+          )}
         </motion.div>
 
         {/* Message Display */}
@@ -391,6 +450,263 @@ const Profile: React.FC = () => {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Analytics Dashboard */}
+        {analytics && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="mb-8"
+          >
+            {/* Engagement Summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+              <Card className="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-blue-600">Total Hours</p>
+                      <p className="text-2xl font-bold text-blue-900">{analytics.engagementSummary.totalHours}h</p>
+                    </div>
+                    <Clock className="h-8 w-8 text-blue-500" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-green-50 to-green-100 border-green-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-green-600">Sessions</p>
+                      <p className="text-2xl font-bold text-green-900">{analytics.engagementSummary.totalSessions}</p>
+                    </div>
+                    <Activity className="h-8 w-8 text-green-500" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-purple-50 to-purple-100 border-purple-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-purple-600">Avg Session</p>
+                      <p className="text-2xl font-bold text-purple-900">{analytics.engagementSummary.averageSessionLength}m</p>
+                    </div>
+                    <BarChart3 className="h-8 w-8 text-purple-500" />
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-gradient-to-br from-orange-50 to-orange-100 border-orange-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-orange-600">Messages</p>
+                      <p className="text-2xl font-bold text-orange-900">{analytics.conversationInsights.totalMessages}</p>
+                    </div>
+                    <MessageSquare className="h-8 w-8 text-orange-500" />
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Skills & Interests Dashboard */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              {/* Skills Progression */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Award className="h-5 w-5" />
+                    Skills Development
+                  </CardTitle>
+                  <CardDescription>
+                    Your emerging skills and growth areas
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div>
+                      <p className="text-sm font-medium mb-2">Top Skills</p>
+                      <div className="space-y-2">
+                        {analytics.skillsProgression.identifiedSkills.slice(0, 5).map((skill, index) => (
+                          <div key={index} className="flex items-center justify-between">
+                            <span className="text-sm">{skill.skill}</span>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 bg-gray-200 rounded-full h-2">
+                                <div 
+                                  className="bg-blue-600 h-2 rounded-full" 
+                                  style={{ width: `${skill.proficiency}%` }}
+                                />
+                              </div>
+                              <span className="text-xs text-gray-500">{skill.proficiency}%</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    {analytics.skillsProgression.growthAreas.length > 0 && (
+                      <div>
+                        <p className="text-sm font-medium mb-2">Growth Areas</p>
+                        <div className="flex flex-wrap gap-2">
+                          {analytics.skillsProgression.growthAreas.slice(0, 4).map((area, index) => (
+                            <Badge key={index} variant="outline" className="text-xs">
+                              {area}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Interest Evolution */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Interest Evolution
+                  </CardTitle>
+                  <CardDescription>
+                    How your career interests are developing
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <p className="text-2xl font-bold text-blue-600">{analytics.interestEvolution.interestDiversity}</p>
+                        <p className="text-xs text-gray-500">Areas Explored</p>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-green-600">{analytics.interestEvolution.focusShift}%</p>
+                        <p className="text-xs text-gray-500">Focus Change</p>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-purple-600">{analytics.skillsProgression.topSkillCategory}</p>
+                        <p className="text-xs text-gray-500">Top Category</p>
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <p className="text-sm font-medium mb-2">Current Interests</p>
+                      <div className="space-y-2">
+                        {analytics.interestEvolution.currentInterests.slice(0, 5).map((interest, index) => (
+                          <div key={index} className="flex items-center justify-between">
+                            <span className="text-sm">{interest.interest}</span>
+                            <div className="flex items-center gap-2">
+                              <Badge 
+                                variant={interest.trend === 'growing' ? 'default' : 
+                                         interest.trend === 'declining' ? 'destructive' : 'secondary'}
+                                className="text-xs"
+                              >
+                                {interest.trend}
+                              </Badge>
+                              <span className="text-xs text-gray-500">{interest.strength}%</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Career Milestones */}
+            {analytics.careerMilestones.length > 0 && (
+              <Card className="mb-8">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Calendar className="h-5 w-5" />
+                    Recent Career Milestones
+                  </CardTitle>
+                  <CardDescription>
+                    Key moments in your career development journey
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    {analytics.careerMilestones.slice(0, 6).map((milestone, index) => {
+                      console.log(`🗓️ MILESTONE ${index} DEBUG:`, {
+                        date: milestone.date,
+                        dateType: typeof milestone.date,
+                        isDate: milestone.date instanceof Date,
+                        dateConstructor: milestone.date?.constructor?.name,
+                        rawValue: milestone.date
+                      });
+                      return (
+                        <div key={index} className="flex items-start gap-4 p-3 bg-gray-50 rounded-lg">
+                          <div className={`w-3 h-3 rounded-full mt-1 ${
+                            milestone.significance === 'major' ? 'bg-red-500' :
+                            milestone.significance === 'moderate' ? 'bg-yellow-500' : 'bg-blue-500'
+                          }`} />
+                          <div className="flex-1">
+                            <p className="text-sm font-medium">{milestone.description}</p>
+                            <p className="text-xs text-gray-500">
+                              {milestone.date.toLocaleDateString()} • {milestone.type.replace('_', ' ')}
+                            </p>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Top Discussion Topics */}
+            {analytics.conversationInsights.topDiscussionTopics.length > 0 && (
+              <Card className="mb-8">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Users className="h-5 w-5" />
+                    Most Discussed Topics
+                  </CardTitle>
+                  <CardDescription>
+                    What you've been exploring in conversations
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {analytics.conversationInsights.topDiscussionTopics.slice(0, 8).map((topic, index) => (
+                      <div key={index} className="text-center p-3 bg-gray-50 rounded-lg">
+                        <p className="text-sm font-medium">{topic.topic}</p>
+                        <p className="text-xs text-gray-500">{topic.frequency} times</p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </motion.div>
+        )}
+
+        {/* Loading state for analytics */}
+        {analyticsLoading && (
+          <div className="text-center py-8 mb-8">
+            <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-gray-500" />
+            <p className="text-gray-600">Loading your career analytics...</p>
+          </div>
+        )}
+
+        {/* AI-Powered Insights Panel */}
+        {analytics && currentUser && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+            className="mb-8"
+          >
+            <ProfileInsightsPanel
+              userId={currentUser.uid}
+              analytics={analytics}
+              userProfile={profile}
+              className="w-full"
+            />
+          </motion.div>
+        )}
 
         {/* AI Career Insights - Full width section when available */}
         {(migratedProfile || (combinedProfile && combinedProfile.hasCurrentData && (
@@ -563,6 +879,58 @@ const Profile: React.FC = () => {
                 )}
               </div>
             </ProfileSection>
+          </motion.div>
+        )}
+
+        {/* Report Generation Section */}
+        {analytics && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.2 }}
+            className="mb-8"
+          >
+            <Card className="bg-gradient-to-br from-gray-50 to-gray-100 border-gray-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Download className="h-5 w-5" />
+                  Career Development Reports
+                </CardTitle>
+                <CardDescription>
+                  Generate detailed PDF reports to share with parents, teachers, or career counselors
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Button 
+                    className="flex items-center gap-2"
+                    onClick={() => window.location.href = '/reports'}
+                  >
+                    <Download className="h-4 w-4" />
+                    Parent Report
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="flex items-center gap-2"
+                    onClick={() => window.location.href = '/reports'}
+                  >
+                    <Download className="h-4 w-4" />
+                    Progress Summary
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    className="flex items-center gap-2"
+                    onClick={() => window.location.href = '/reports'}
+                  >
+                    <Download className="h-4 w-4" />
+                    Skills Portfolio
+                  </Button>
+                </div>
+                <p className="text-sm text-gray-600 mt-4">
+                  Reports include your engagement metrics, skills development, career exploration, and personalized recommendations.
+                </p>
+              </CardContent>
+            </Card>
           </motion.div>
         )}
 
