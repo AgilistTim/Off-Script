@@ -433,21 +433,30 @@ export const ChartContainer: React.FC<ChartContainerProps> = ({
   caption,
   width,
   height
-}) => (
-  <View style={styles.chartContainer}>
-    <Image
-      src={`data:image/png;base64,${imageBase64}`}
-      style={[
-        styles.chartImage,
-        width && { width },
-        height && { height }
-      ]}
-    />
-    {caption && (
-      <Text style={styles.chartCaption}>{caption}</Text>
-    )}
-  </View>
-);
+}) => {
+  // Debug chart rendering
+  console.log('🖼️ ChartContainer rendering:', {
+    hasBase64: !!imageBase64,
+    base64Length: imageBase64?.length || 0,
+    caption: caption
+  });
+
+  return (
+    <View style={styles.chartContainer}>
+      <Image
+        src={`data:image/svg+xml;base64,${imageBase64}`}
+        style={[
+          styles.chartImage,
+          width && { width },
+          height && { height }
+        ]}
+      />
+      {caption && (
+        <Text style={styles.chartCaption}>{caption}</Text>
+      )}
+    </View>
+  );
+};
 
 // List Component
 interface ListProps {

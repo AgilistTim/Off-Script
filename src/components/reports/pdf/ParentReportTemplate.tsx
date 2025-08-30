@@ -57,6 +57,20 @@ const ParentReportTemplate: React.FC<ParentReportTemplateProps> = ({
   const engagementChart = chartImages.find(chart => chart.title.includes('Engagement'));
   const skillsChart = chartImages.find(chart => chart.title.includes('Skills'));
 
+  // Debug chart matching
+  console.log('🎯 Chart matching in template:', {
+    totalCharts: chartImages.length,
+    chartTitles: chartImages.map(c => c.title),
+    careerFound: !!careerInterestChart,
+    engagementFound: !!engagementChart,
+    skillsFound: !!skillsChart,
+    base64Checks: {
+      career: careerInterestChart?.imageBase64?.length || 0,
+      engagement: engagementChart?.imageBase64?.length || 0,
+      skills: skillsChart?.imageBase64?.length || 0
+    }
+  });
+
   // Calculate key statistics for parents
   const totalSessions = userData.engagementMetrics.sessionMetrics?.totalSessions || 0;
   const totalCareerCards = userData.careerCards.length;

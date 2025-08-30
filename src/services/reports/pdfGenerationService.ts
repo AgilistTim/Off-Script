@@ -98,6 +98,18 @@ export class PDFGenerationService {
         onProgress
       );
 
+      // Debug chart generation
+      console.log('📊 Generated charts for PDF:', {
+        chartCount: chartImages.length,
+        chartTitles: chartImages.map(c => c.title),
+        chartBase64Lengths: chartImages.map(c => c.imageBase64?.length || 0),
+        sampleChart: chartImages[0] ? {
+          title: chartImages[0].title,
+          hasBase64: !!chartImages[0].imageBase64,
+          base64Length: chartImages[0].imageBase64?.length || 0
+        } : 'No charts'
+      });
+
       // Step 3: PDF Generation
       onProgress?.({
         status: 'generating_pdf',
