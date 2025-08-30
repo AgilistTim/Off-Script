@@ -402,6 +402,7 @@ export class PDFGenerationService {
       // 2. Use ChartExportService to capture them as images
       // 3. Return the base64 image data
 
+      // Generate career interest chart (PNG format)
       onProgress?.({
         status: 'generating_charts',
         progress: 40,
@@ -409,13 +410,12 @@ export class PDFGenerationService {
         estimatedTimeRemaining: 15
       });
 
-      // Placeholder career interest chart data
       const careerInterestChart: ChartImageData = {
         id: `career_interest_${Date.now()}`,
         chartType: 'pie',
         title: 'Career Interest Distribution',
         description: 'Distribution of career areas explored',
-        imageBase64: this.generatePlaceholderChartBase64('pie'),
+        imageBase64: await this.generatePlaceholderChartBase64('pie'),
         dimensions: { width: 400, height: 300 },
         generatedAt: new Date(),
         dataSource: 'career_journey'
@@ -429,13 +429,13 @@ export class PDFGenerationService {
         estimatedTimeRemaining: 10
       });
 
-      // Placeholder engagement timeline chart
+      // Generate engagement timeline chart (PNG format)
       const engagementChart: ChartImageData = {
         id: `engagement_timeline_${Date.now()}`,
         chartType: 'line',
         title: 'Engagement Timeline',
         description: 'Platform activity over time',
-        imageBase64: this.generatePlaceholderChartBase64('line'),
+        imageBase64: await this.generatePlaceholderChartBase64('line'),
         dimensions: { width: 500, height: 250 },
         generatedAt: new Date(),
         dataSource: 'engagement_metrics'
@@ -449,13 +449,13 @@ export class PDFGenerationService {
         estimatedTimeRemaining: 5
       });
 
-      // Placeholder skills radar chart
+      // Generate skills radar chart (PNG format)
       const skillsChart: ChartImageData = {
         id: `skills_radar_${Date.now()}`,
         chartType: 'radar',
         title: 'Skills Assessment',
         description: 'Current skill levels across competencies',
-        imageBase64: this.generatePlaceholderChartBase64('radar'),
+        imageBase64: await this.generatePlaceholderChartBase64('radar'),
         dimensions: { width: 400, height: 400 },
         generatedAt: new Date(),
         dataSource: 'skills_data'
@@ -562,12 +562,46 @@ export class PDFGenerationService {
    * @param chartType - Type of chart to generate placeholder for
    * @returns Base64 encoded placeholder image
    */
-  private static generatePlaceholderChartBase64(chartType: 'pie' | 'line' | 'radar'): string {
-    // Generate simple SVG charts as base64 for better UX than empty charts
+  private static async svgToPng(svgString: string, width: number, height: number): Promise<string> {
+    // Create a canvas element
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = width * 2; // High DPI
+    canvas.height = height * 2;
+    
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      
+      img.onload = () => {
+        ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
+        URL.revokeObjectURL(url);
+        
+        // Convert to PNG base64 (remove data:image/png;base64, prefix)
+        const pngBase64 = canvas.toDataURL('image/png').split(',')[1];
+        resolve(pngBase64);
+      };
+      
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Failed to convert SVG to PNG'));
+      };
+      
+      img.src = url;
+    });
+  }
+
+  private static async generatePlaceholderChartBase64(chartType: 'pie' | 'line' | 'radar'): Promise<string> {
+    // Generate simple SVG charts and convert to PNG for PDF compatibility
     let svg = '';
+    let width = 400;
+    let height = 300;
     
     switch (chartType) {
       case 'pie':
+        width = 400;
+        height = 300;
         svg = `
           <svg width="400" height="300" xmlns="http://www.w3.org/2000/svg">
             <defs>
@@ -590,6 +624,8 @@ export class PDFGenerationService {
         break;
       
       case 'line':
+        width = 500;
+        height = 250;
         svg = `
           <svg width="500" height="250" xmlns="http://www.w3.org/2000/svg">
             <defs>
@@ -627,6 +663,8 @@ export class PDFGenerationService {
         break;
       
       case 'radar':
+        width = 400;
+        height = 400;
         svg = `
           <svg width="400" height="400" xmlns="http://www.w3.org/2000/svg">
             <defs>
@@ -660,9 +698,14 @@ export class PDFGenerationService {
         break;
     }
     
-    // Convert SVG to base64
-    const base64 = btoa(unescape(encodeURIComponent(svg)));
-    return base64;
+    try {
+      // Convert SVG to PNG base64 for PDF compatibility
+      const pngBase64 = await this.svgToPng(svg, width, height);
+      return pngBase64;
+    } catch (error) {
+      console.error('Failed to convert SVG to PNG:', error);
+      return ''; // Return empty string if conversion fails
+    }
   }
 
   /**

@@ -435,7 +435,7 @@ export const ChartContainer: React.FC<ChartContainerProps> = ({
   height
 }) => {
   // Debug chart rendering
-  console.log('🖼️ ChartContainer rendering:', {
+  console.log('🖼️ ChartContainer rendering PNG:', {
     hasBase64: !!imageBase64,
     base64Length: imageBase64?.length || 0,
     caption: caption
@@ -444,7 +444,7 @@ export const ChartContainer: React.FC<ChartContainerProps> = ({
   return (
     <View style={styles.chartContainer}>
       <Image
-        src={`data:image/svg+xml;base64,${imageBase64}`}
+        src={`data:image/png;base64,${imageBase64}`}
         style={[
           styles.chartImage,
           width && { width },
