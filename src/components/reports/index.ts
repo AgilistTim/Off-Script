@@ -18,7 +18,7 @@ export * from './pdf';
 // Service Exports
 export { ReportQueueService } from '../../services/reports/reportQueueService';
 export { PDFGenerationService } from '../../services/reports/pdfGenerationService';
-export { ReportDataAggregationService } from '../../services/reports/reportDataAggregationService';
+// export { ReportDataAggregationService } from '../../services/reports/reportDataAggregationService'; // Disabled - replaced by ProfileAnalyticsService
 export { ChartExportService } from '../../services/reports/chartExportService';
 
 // Type Exports

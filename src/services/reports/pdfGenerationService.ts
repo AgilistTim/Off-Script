@@ -15,7 +15,7 @@
 import React from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { ChartExportService } from './chartExportService';
-import { ReportDataAggregationService } from './reportDataAggregationService';
+// import { ReportDataAggregationService } from './reportDataAggregationService'; // Disabled - replaced by ProfileAnalyticsService
 import { ProfileAnalyticsService, ProfileAnalytics } from '../profile/profileAnalyticsService';
 import ParentReportTemplate from '../../components/reports/pdf/ParentReportTemplate';
 // Import other report templates as they are created
@@ -172,8 +172,6 @@ export class PDFGenerationService {
    */
   private static convertAnalyticsToUserData(analytics: ProfileAnalytics, userId: string): AggregatedUserData {
     return {
-      userId,
-      userName: 'Tim', // Would get from user profile
       profile: {
         uid: userId,
         name: 'Tim',
@@ -184,32 +182,26 @@ export class PDFGenerationService {
         lastLogin: new Date()
       },
       careerJourney: {
-        totalExplorationTime: analytics.engagementSummary.totalHours,
-        milestonesAchieved: analytics.careerMilestones.length,
-        pathwaysExplored: analytics.engagementSummary.totalSessions,
-        currentDirection: 'Exploring',
-        confidenceLevel: 75,
-        explorationFocus: analytics.interestEvolution.currentInterests.slice(0, 3).map(i => i.interest),
-        nextSteps: ['Continue exploration', 'Develop skills', 'Set goals'],
+        explorationTimeline: analytics.careerMilestones.map(milestone => ({
+          date: milestone.date,
+          event: milestone.type,
+          type: 'milestone' as const,
+          confidence: 80,
+          details: milestone.description
+        })),
         progressMetrics: {
           totalConversations: analytics.engagementSummary.totalSessions,
           careerCardsGenerated: analytics.careerMilestones.length,
           skillsIdentified: analytics.skillsProgression.identifiedSkills.length,
           confidenceProgression: []
-        }
-      },
-      conversationAnalytics: {
-        totalSessions: analytics.engagementSummary.totalSessions,
-        totalMessages: analytics.conversationInsights.totalMessages,
-        averageSessionLength: analytics.engagementSummary.averageSessionLength,
-        topicsDiscussed: analytics.conversationInsights.topDiscussionTopics,
-        engagementTrends: {
-          weeklyTrend: analytics.engagementSummary.weeklyTrend,
-          monthlyTrend: 0,
-          peakEngagementPeriods: []
         },
-        communicationStyle: 'Mixed text and voice',
-        preferredTimeSlots: []
+        milestones: analytics.careerMilestones.map(milestone => ({
+          id: `milestone_${Date.now()}_${Math.random()}`,
+          title: milestone.type,
+          description: milestone.description,
+          achievedAt: milestone.date,
+          type: 'exploration' as const
+        }))
       },
       conversationInsights: {
         totalSessions: analytics.engagementSummary.totalSessions,
@@ -224,7 +216,19 @@ export class PDFGenerationService {
             { topic: 'Career exploration', frequency: 5, lastDiscussed: new Date() },
             { topic: 'Skills development', frequency: 3, lastDiscussed: new Date() },
             { topic: 'Future planning', frequency: 2, lastDiscussed: new Date() }
+          ],
+        sentimentAnalysis: {
+          overall: 'positive' as const,
+          progression: [
+            { date: new Date(), sentiment: 0.7 }
           ]
+        },
+        keyInsights: [
+          'Shows consistent engagement with career exploration',
+          'Demonstrates growing self-awareness',
+          'Active in skill development discussions'
+        ],
+        conversationSummaries: []
       },
       careerCards: analytics.interestEvolution.currentInterests.slice(0, 5).map((interest, index) => ({
         id: `card_${index}`,
@@ -239,46 +243,35 @@ export class PDFGenerationService {
         createdAt: new Date(),
         updatedAt: new Date(),
         generationContext: {
-          sourceConversation: '',
-          triggeredBy: 'interest_analysis',
-          confidence: 0.8,
-          methodUsed: 'analytics_mapping'
+          conversationId: '',
+          triggerReason: 'interest_analysis',
+          userIntent: 'career_exploration',
+          confidenceFactors: ['high_interest_frequency', 'consistent_mentions']
         },
         userInteraction: {
           viewed: false,
-          saved: false,
+          viewedAt: undefined,
+          liked: false,
           shared: false,
-          dismissed: false,
-          rating: null
+          notes: ''
         },
         reportInclusion: {
           includedInReports: [],
-          exclusionReason: null,
-          lastIncluded: new Date()
+          exclusionReason: undefined
         }
       })),
       personaEvolution: {
-        initialPersona: 'Explorer',
-        currentPersona: 'exploring', 
-        personaHistory: [],
-        personalityTraits: [],
-        communicationPreferences: {
-          preferredStyle: 'mixed',
-          responseStyle: 'detailed',
-          learningStyle: 'visual'
-        },
-        motivationFactors: [],
-        developmentAreas: analytics.skillsProgression.growthAreas
+        currentPersona: 'exploring' as const,
+        progressionHistory: [],
+        classificationTriggers: []
       },
       engagementMetrics: {
         sessionMetrics: {
           totalSessions: analytics.engagementSummary.totalSessions,
-          totalEngagementHours: analytics.engagementSummary.totalHours,
           averageSessionDuration: analytics.engagementSummary.averageSessionLength * 60, // Convert to seconds
           longestSession: Math.max(30, analytics.engagementSummary.averageSessionLength * 2),
-          shortestSession: Math.max(5, analytics.engagementSummary.averageSessionLength / 2),
-          sessionsThisWeek: Math.min(analytics.engagementSummary.totalSessions, 3),
-          sessionsThisMonth: analytics.engagementSummary.totalSessions
+          lastActiveDate: analytics.engagementSummary.lastActiveDate || new Date(),
+          totalEngagementHours: analytics.engagementSummary.totalHours
         },
         interactionMetrics: {
           messagesPerSession: Math.round(analytics.conversationInsights.totalMessages / Math.max(1, analytics.engagementSummary.totalSessions)),
@@ -290,10 +283,7 @@ export class PDFGenerationService {
           engagementScore: Math.min(100, analytics.engagementSummary.totalHours * 20),
           consistencyScore: 75,
           growthRate: analytics.skillsProgression.identifiedSkills.length / Math.max(1, analytics.engagementSummary.totalSessions)
-        },
-        timeOnPlatform: analytics.engagementSummary.totalHours,
-        lastActiveDate: analytics.engagementSummary.lastActiveDate,
-        consistencyScore: 75
+        }
       },
       skillsProgression: {
         identifiedSkills: analytics.skillsProgression.identifiedSkills.length > 0 ? 
@@ -309,59 +299,16 @@ export class PDFGenerationService {
             { skill: 'Problem solving', proficiency: 68, category: 'soft' as const, identifiedAt: new Date(), source: 'conversation' as const },
             { skill: 'Critical thinking', proficiency: 72, category: 'soft' as const, identifiedAt: new Date(), source: 'conversation' as const }
           ],
-        skillCategories: [
-          { category: analytics.skillsProgression.topSkillCategory || 'soft', count: Math.max(analytics.skillsProgression.identifiedSkills.length, 3) }
-        ],
-        competencyLevels: (analytics.skillsProgression.identifiedSkills.length > 0 ? analytics.skillsProgression.identifiedSkills : [
-          { skill: 'Communication', proficiency: 75, category: 'soft', frequency: 3 },
-          { skill: 'Problem solving', proficiency: 68, category: 'soft', frequency: 2 }
-        ]).map(skill => ({
-          skill: skill.skill,
-          level: skill.proficiency,
-          evidence: [`Mentioned ${skill.frequency} times`],
-          improvementAreas: []
-        })),
-        skillGaps: analytics.skillsProgression.growthAreas.length > 0 ? analytics.skillsProgression.growthAreas : ['Leadership', 'Time management'],
-        recommendedDevelopmentAreas: analytics.skillsProgression.growthAreas.length > 0 ? analytics.skillsProgression.growthAreas : ['Leadership', 'Time management'],
-        transferableSkills: analytics.skillsProgression.identifiedSkills.filter(s => s.category === 'soft').map(s => s.skill)
-      },
-      skillsData: {
-        identifiedSkills: analytics.skillsProgression.identifiedSkills,
-        skillCategories: [
-          { category: analytics.skillsProgression.topSkillCategory, count: analytics.skillsProgression.identifiedSkills.length }
-        ],
-        competencyLevels: analytics.skillsProgression.identifiedSkills.map(skill => ({
-          skill: skill.skill,
-          level: skill.proficiency,
-          evidence: [`Mentioned ${skill.frequency} times`],
-          improvementAreas: []
-        })),
-        skillGaps: analytics.skillsProgression.growthAreas,
-        recommendedDevelopmentAreas: analytics.skillsProgression.growthAreas,
-        transferableSkills: analytics.skillsProgression.identifiedSkills.filter(s => s.category === 'soft').map(s => s.skill)
-      },
-      recommendations: {
-        careerPathways: [],
-        skillDevelopment: analytics.skillsProgression.growthAreas.map(area => ({
-          area,
-          priority: 'medium' as const,
-          timeline: '3-6 months',
-          resources: [],
-          successMetrics: [`Improve ${area} proficiency`]
-        })),
-        educationalOpportunities: [],
-        experientialLearning: [],
-        networkingOpportunities: [],
-        personalDevelopment: []
+        skillProgression: [],
+        recommendedSkills: analytics.skillsProgression.growthAreas.map(area => ({
+          skill: area,
+          relevance: 85,
+          careerAlignment: ['General professional development'],
+          learningResources: [`Online courses for ${area}`, `Workshops on ${area}`]
+        }))
       },
       recommendationsTracking: {
         careerRecommendations: [],
-        skillDevelopment: analytics.skillsProgression.growthAreas.map(area => ({
-          recommendedAt: new Date(),
-          relevanceScore: 85,
-          userResponse: 'interested' as const,
-          followUpActions: [`Practice ${area}`, `Seek feedback on ${area}`]
-        })),
         learningRecommendations: [
           {
             type: 'course' as const,

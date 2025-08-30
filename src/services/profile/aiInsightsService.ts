@@ -527,16 +527,23 @@ Return as JSON only.`
         return pattern;
       };
       
-      if (parsed.overall_pattern) {
-        parsed.overall_pattern = cleanPattern(parsed.overall_pattern);
-      }
-      parsed.skill_patterns = parsed.skill_patterns.map(cleanPattern);
-      parsed.interest_patterns = parsed.interest_patterns.map(cleanPattern);
+      // Ensure all required fields are present with defaults and proper structure
+      const processedData = {
+        overall_pattern: parsed.overall_pattern ? cleanPattern(parsed.overall_pattern) : {
+          pattern_type: 'steady' as const,
+          confidence: 75,
+          description: 'Consistent engagement pattern',
+          recommendations: ['Continue current exploration approach'],
+          contributing_factors: ['Regular platform usage'],
+          predictions: ['Continued steady progress expected']
+        },
+        skill_patterns: (parsed.skill_patterns || []).map(cleanPattern),
+        interest_patterns: (parsed.interest_patterns || []).map(cleanPattern)
+      };
       
-      const result = ProgressAnalysisResponseSchema.parse(parsed);
+      const result = ProgressAnalysisResponseSchema.parse(processedData) as typeof processedData;
 
       this.setCachedData(cacheKey, result, 30); // Cache for 30 minutes
-      // @ts-ignore - Temporary bypass for deployment
       return result;
 
     } catch (error) {
