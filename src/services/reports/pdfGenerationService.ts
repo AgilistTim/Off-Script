@@ -175,30 +175,27 @@ export class PDFGenerationService {
       userId,
       userName: 'Tim', // Would get from user profile
       profile: {
+        uid: userId,
+        name: 'Tim',
+        email: '',
         displayName: 'Tim',
-        bio: '',
-        school: '',
-        grade: '',
-        interests: analytics.interestEvolution.currentInterests.map(i => i.interest),
-        careerGoals: [], // Would map from analytics if available
-        skills: analytics.skillsProgression.identifiedSkills.map(s => s.skill),
-        preferences: {},
+        role: 'user' as const,
         createdAt: new Date(),
-        updatedAt: new Date()
+        lastLogin: new Date()
       },
       careerJourney: {
         totalExplorationTime: analytics.engagementSummary.totalHours,
         milestonesAchieved: analytics.careerMilestones.length,
-        pathwaysExplored: analytics.conversationInsights.totalSessions,
+        pathwaysExplored: analytics.engagementSummary.totalSessions,
         currentDirection: 'Exploring',
         confidenceLevel: 75,
         explorationFocus: analytics.interestEvolution.currentInterests.slice(0, 3).map(i => i.interest),
         nextSteps: ['Continue exploration', 'Develop skills', 'Set goals'],
         progressMetrics: {
-          weeklyEngagement: analytics.engagementSummary.weeklyTrend,
-          skillGrowthRate: analytics.skillsProgression.identifiedSkills.length / Math.max(1, analytics.engagementSummary.totalSessions),
-          interestStability: 80,
-          explorationDepth: Math.min(100, analytics.engagementSummary.totalHours * 10)
+          totalConversations: analytics.engagementSummary.totalSessions,
+          careerCardsGenerated: analytics.careerMilestones.length,
+          skillsIdentified: analytics.skillsProgression.identifiedSkills.length,
+          confidenceProgression: []
         }
       },
       conversationAnalytics: {
@@ -219,13 +216,15 @@ export class PDFGenerationService {
         totalMessages: analytics.conversationInsights.totalMessages,
         averageSessionLength: analytics.engagementSummary.averageSessionLength,
         topicsDiscussed: analytics.conversationInsights.topDiscussionTopics.length > 0 ? 
-          analytics.conversationInsights.topDiscussionTopics : 
+          analytics.conversationInsights.topDiscussionTopics.map(topic => ({
+            ...topic,
+            lastDiscussed: new Date()
+          })) : 
           [
-            { topic: 'Career exploration', frequency: 5 },
-            { topic: 'Skills development', frequency: 3 },
-            { topic: 'Future planning', frequency: 2 }
-          ],
-        communicationStyle: 'Mixed text and voice'
+            { topic: 'Career exploration', frequency: 5, lastDiscussed: new Date() },
+            { topic: 'Skills development', frequency: 3, lastDiscussed: new Date() },
+            { topic: 'Future planning', frequency: 2, lastDiscussed: new Date() }
+          ]
       },
       careerCards: analytics.interestEvolution.currentInterests.slice(0, 5).map((interest, index) => ({
         id: `card_${index}`,
@@ -238,11 +237,29 @@ export class PDFGenerationService {
         skills: [],
         pathways: [],
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
+        generationContext: {
+          sourceConversation: '',
+          triggeredBy: 'interest_analysis',
+          confidence: 0.8,
+          methodUsed: 'analytics_mapping'
+        },
+        userInteraction: {
+          viewed: false,
+          saved: false,
+          shared: false,
+          dismissed: false,
+          rating: null
+        },
+        reportInclusion: {
+          includedInReports: [],
+          exclusionReason: null,
+          lastIncluded: new Date()
+        }
       })),
       personaEvolution: {
         initialPersona: 'Explorer',
-        currentPersona: 'Explorer', 
+        currentPersona: 'exploring', 
         personaHistory: [],
         personalityTraits: [],
         communicationPreferences: {
@@ -257,7 +274,6 @@ export class PDFGenerationService {
         sessionMetrics: {
           totalSessions: analytics.engagementSummary.totalSessions,
           totalEngagementHours: analytics.engagementSummary.totalHours,
-          averageSessionLength: analytics.engagementSummary.averageSessionLength,
           averageSessionDuration: analytics.engagementSummary.averageSessionLength * 60, // Convert to seconds
           longestSession: Math.max(30, analytics.engagementSummary.averageSessionLength * 2),
           shortestSession: Math.max(5, analytics.engagementSummary.averageSessionLength / 2),
@@ -265,21 +281,15 @@ export class PDFGenerationService {
           sessionsThisMonth: analytics.engagementSummary.totalSessions
         },
         interactionMetrics: {
-          totalMessages: analytics.conversationInsights.totalMessages,
-          averageMessagesPerSession: Math.round(analytics.conversationInsights.totalMessages / Math.max(1, analytics.engagementSummary.totalSessions)),
+          messagesPerSession: Math.round(analytics.conversationInsights.totalMessages / Math.max(1, analytics.engagementSummary.totalSessions)),
           questionsAsked: Math.round(analytics.conversationInsights.totalMessages * 0.3),
-          responsesReceived: analytics.conversationInsights.totalMessages,
-          followUpQuestions: Math.round(analytics.conversationInsights.totalMessages * 0.2),
-          feedbackGiven: Math.round(analytics.conversationInsights.totalMessages * 0.1)
+          deepDiveRequests: Math.round(analytics.conversationInsights.totalMessages * 0.2),
+          careerExplorationRate: 0.8
         },
         progressMetrics: {
-          totalConversations: analytics.engagementSummary.totalSessions,
-          careerCardsGenerated: analytics.careerMilestones.length,
-          skillsIdentified: analytics.skillsProgression.identifiedSkills.length,
-          confidenceProgression: [],
-          goalCompletionRate: 0,
           engagementScore: Math.min(100, analytics.engagementSummary.totalHours * 20),
-          consistencyScore: 75
+          consistencyScore: 75,
+          growthRate: analytics.skillsProgression.identifiedSkills.length / Math.max(1, analytics.engagementSummary.totalSessions)
         },
         timeOnPlatform: analytics.engagementSummary.totalHours,
         lastActiveDate: analytics.engagementSummary.lastActiveDate,
@@ -287,11 +297,17 @@ export class PDFGenerationService {
       },
       skillsProgression: {
         identifiedSkills: analytics.skillsProgression.identifiedSkills.length > 0 ? 
-          analytics.skillsProgression.identifiedSkills : 
+          analytics.skillsProgression.identifiedSkills.map(skill => ({
+            skill: skill.skill,
+            category: skill.category,
+            proficiency: skill.proficiency,
+            identifiedAt: skill.firstMentioned || new Date(),
+            source: 'conversation' as const
+          })) : 
           [
-            { skill: 'Communication', proficiency: 75, category: 'soft', frequency: 3 },
-            { skill: 'Problem solving', proficiency: 68, category: 'soft', frequency: 2 },
-            { skill: 'Critical thinking', proficiency: 72, category: 'soft', frequency: 2 }
+            { skill: 'Communication', proficiency: 75, category: 'soft' as const, identifiedAt: new Date(), source: 'conversation' as const },
+            { skill: 'Problem solving', proficiency: 68, category: 'soft' as const, identifiedAt: new Date(), source: 'conversation' as const },
+            { skill: 'Critical thinking', proficiency: 72, category: 'soft' as const, identifiedAt: new Date(), source: 'conversation' as const }
           ],
         skillCategories: [
           { category: analytics.skillsProgression.topSkillCategory || 'soft', count: Math.max(analytics.skillsProgression.identifiedSkills.length, 3) }
@@ -339,7 +355,7 @@ export class PDFGenerationService {
         personalDevelopment: []
       },
       recommendationsTracking: {
-        careerPathways: [],
+        careerRecommendations: [],
         skillDevelopment: analytics.skillsProgression.growthAreas.map(area => ({
           recommendedAt: new Date(),
           relevanceScore: 85,

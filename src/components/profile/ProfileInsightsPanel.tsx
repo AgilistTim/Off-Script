@@ -152,7 +152,7 @@ const ProfileInsightsPanel: React.FC<ProfileInsightsPanelProps> = ({
           <div className="text-center py-6 space-y-4">
             <p className="text-sm text-red-700">{error}</p>
             <Button 
-              onClick={loadInsights} 
+              onClick={() => loadInsights()} 
               variant="outline" 
               size="sm"
               className="flex items-center gap-2"
