@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import {
   FileText,
   Download,
@@ -41,6 +42,7 @@ import { ReportConfiguration, PrivacyConfiguration } from '../types/reports';
 
 const Reports: React.FC = () => {
   const { currentUser, userData } = useAuth();
+  const navigate = useNavigate();
   const [analytics, setAnalytics] = useState<ProfileAnalytics | null>(null);
   const [analyticsLoading, setAnalyticsLoading] = useState(false);
   const [enhancedContent, setEnhancedContent] = useState<{
@@ -507,7 +509,7 @@ const Reports: React.FC = () => {
               Begin exploring careers and building your profile to unlock personalized reports and insights.
             </p>
             <Button
-              onClick={() => window.location.href = '/chat'}
+              onClick={() => navigate('/chat')}
               className="inline-flex items-center gap-2 px-6 py-3"
             >
               Start Exploring

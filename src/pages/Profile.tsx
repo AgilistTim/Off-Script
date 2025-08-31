@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebase';
@@ -41,6 +42,7 @@ import ProfileInsightsPanel from '../components/profile/ProfileInsightsPanel';
 
 const Profile: React.FC = () => {
   const { currentUser, userData, refreshUserData } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingPreferences, setIsEditingPreferences] = useState(false);
@@ -904,7 +906,7 @@ const Profile: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Button 
                     className="flex items-center gap-2"
-                    onClick={() => window.location.href = '/reports'}
+                    onClick={() => navigate('/reports')}
                   >
                     <Download className="h-4 w-4" />
                     Parent Report
@@ -912,7 +914,7 @@ const Profile: React.FC = () => {
                   <Button 
                     variant="outline"
                     className="flex items-center gap-2"
-                    onClick={() => window.location.href = '/reports'}
+                    onClick={() => navigate('/reports')}
                   >
                     <Download className="h-4 w-4" />
                     Progress Summary
@@ -920,7 +922,7 @@ const Profile: React.FC = () => {
                   <Button 
                     variant="outline"
                     className="flex items-center gap-2"
-                    onClick={() => window.location.href = '/reports'}
+                    onClick={() => navigate('/reports')}
                   >
                     <Download className="h-4 w-4" />
                     Skills Portfolio
@@ -1166,7 +1168,7 @@ const Profile: React.FC = () => {
               Begin a conversation with our AI to unlock personalized career insights and build your profile
             </p>
             <button
-              onClick={() => window.location.href = '/chat'}
+              onClick={() => navigate('/chat')}
               className="inline-flex items-center space-x-3 px-8 py-4 bg-gradient-to-r from-green-500 via-orange-400 to-yellow-500 rounded-xl text-black font-bold text-lg hover:scale-105 transition-transform duration-200 shadow-glow-blue"
             >
               <Zap className="w-6 h-6" />

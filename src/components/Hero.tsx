@@ -64,14 +64,14 @@ const Hero: React.FC = () => {
   // Handle signup CTA
   const handleSignUp = useCallback(() => {
     console.log('🎯 Hero: Sign up button clicked');
-    window.location.href = '/auth/register';
-  }, []);
+    navigate('/auth/register');
+  }, [navigate]);
 
   // Handle login CTA  
   const handleLogin = useCallback(() => {
     console.log('🎯 Hero: Login button clicked');
-    window.location.href = '/auth/login';
-  }, []);
+    navigate('/auth/login');
+  }, [navigate]);
 
   // Handle dismiss post-conversation CTA
   const handleDismissPostCTA = useCallback(() => {

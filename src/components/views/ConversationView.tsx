@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { EnhancedChatVoiceModal } from '../conversation/EnhancedChatVoiceModal';
 import { cn } from '../../lib/utils';
@@ -18,6 +19,7 @@ interface ConversationViewProps {
 
 export const ConversationView: React.FC<ConversationViewProps> = ({ className }) => {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   
   // Enhanced chat modal state
   const [showEnhancedModal, setShowEnhancedModal] = useState(false);
@@ -92,13 +94,13 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
 
   // Handle signup CTA
   const handleSignUp = useCallback(() => {
-    window.location.href = '/auth/register';
-  }, []);
+    navigate('/auth/register');
+  }, [navigate]);
 
   // Handle login CTA  
   const handleLogin = useCallback(() => {
-    window.location.href = '/auth/login';
-  }, []);
+    navigate('/auth/login');
+  }, [navigate]);
 
   // Handle dismiss post-conversation CTA
   const handleDismissPostCTA = useCallback(() => {

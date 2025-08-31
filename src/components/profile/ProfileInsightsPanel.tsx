@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
 import { 
   Lightbulb, 
   Target, 
@@ -43,6 +44,7 @@ const ProfileInsightsPanel: React.FC<ProfileInsightsPanelProps> = ({
   userProfile,
   className = ""
 }) => {
+  const navigate = useNavigate();
   const [insights, setInsights] = useState<AIInsightsResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -470,7 +472,7 @@ const ProfileInsightsPanel: React.FC<ProfileInsightsPanelProps> = ({
               <Button 
                 size="sm" 
                 className="bg-indigo-600 hover:bg-indigo-700"
-                onClick={() => window.location.href = '/chat'}
+                onClick={() => navigate('/chat')}
               >
                 Continue Exploring
                 <ArrowRight className="h-4 w-4 ml-2" />

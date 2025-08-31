@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Link, useSearchParams, useLocation } from 'react-router-dom';
+import { Link, useSearchParams, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useAppStore } from '../stores/useAppStore';
 import { useChatContext } from '../context/ChatContext';
@@ -143,6 +143,7 @@ const DashboardVideoCard: React.FC<DashboardVideoCardProps> = ({ videoId }) => {
 const Dashboard: React.FC = () => {
   const { currentUser, userData } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const { 
     currentThread, 
     currentSummary, 
@@ -1621,7 +1622,7 @@ const Dashboard: React.FC = () => {
                 GENERATE REPORT
               </Button>
               <Button 
-                onClick={() => window.location.href = '/profile'}
+                onClick={() => navigate('/profile')}
                 variant="primary"
                 className="w-full sm:w-auto whitespace-nowrap"
               >
@@ -1836,7 +1837,7 @@ const Dashboard: React.FC = () => {
               Continue your career conversation to discover more opportunities and get personalized guidance
             </p>
             <Button 
-              onClick={() => window.location.href = '/chat'}
+              onClick={() => navigate('/chat')}
               variant="primary"
               className="inline-flex items-center space-x-3 px-8 py-4 text-lg"
             >

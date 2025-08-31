@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../services/firebase';
 
@@ -7,6 +8,7 @@ const TEST_EMAIL = 'admin@offscript.com';
 const TEST_PASSWORD = 'admin123';
 
 const TestLoginButton: React.FC = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
 
   const handleTestLogin = async () => {
@@ -14,7 +16,7 @@ const TestLoginButton: React.FC = () => {
       setLoading(true);
       await signInWithEmailAndPassword(auth, TEST_EMAIL, TEST_PASSWORD);
       // Navigate to admin videos page
-      window.location.href = '/admin';
+      navigate('/admin');
     } catch (error) {
       console.error('Login error:', error);
       alert('Failed to log in with test account. See console for details.');
