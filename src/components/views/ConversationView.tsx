@@ -92,12 +92,12 @@ export const ConversationView: React.FC<ConversationViewProps> = ({ className })
 
   // Handle signup CTA
   const handleSignUp = useCallback(() => {
-    window.location.href = '/register';
+    window.location.href = '/auth/register';
   }, []);
 
   // Handle login CTA  
   const handleLogin = useCallback(() => {
-    window.location.href = '/login';
+    window.location.href = '/auth/login';
   }, []);
 
   // Handle dismiss post-conversation CTA
