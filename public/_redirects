@@ -1,0 +1,6 @@
+# Redirect legacy paths to proper React Router routes
+/login /auth/login 302
+/register /auth/register 302
+
+# Handle React Router client-side routing
+/* /index.html 200

@@ -17,6 +17,7 @@ interface ImportMetaEnv {
   // ElevenLabs configuration (safe for client-side)
   readonly VITE_ELEVENLABS_API_KEY: string;
   readonly VITE_ELEVENLABS_AGENT_ID: string;
+  readonly VITE_ELEVENLABS_TEXT_AGENT_ID: string;
   
   // API endpoints (safe for client-side)
   readonly VITE_BUMPUPS_PROXY_URL: string;
@@ -28,10 +29,22 @@ interface ImportMetaEnv {
   // Perplexity configuration
   readonly VITE_PERPLEXITY_API_KEY: string;
   
+  // Provider configuration
+  readonly VITE_TEXT_PROVIDER: string;
+  readonly VITE_VOICE_PROVIDER: string;
+  
+  // MCP configuration
+  readonly VITE_ENABLE_MCP_ENHANCEMENT: string;
+  readonly VITE_ENABLE_MCP_SERVER: string;
+  
   // Development flags
   readonly VITE_DISABLE_EMULATORS: string;
   readonly VITE_APP_ENV: string;
   readonly VITE_DEBUG: string;
+  readonly MODE: string;
+  
+  // Legacy ElevenLabs key (for backward compatibility)
+  readonly eleven_labs_key: string;
   
   // SECURITY NOTE: Sensitive API keys removed
   // VITE_OPENAI_API_KEY - handled server-side only
