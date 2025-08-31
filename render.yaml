@@ -1,12 +1,11 @@
 # Render deployment configuration for Off-Script
-# Uses standard Node.js build-time environment variable injection
+# Static site configuration for SPA routing
 services:
-  - type: web
-    name: off-script-elevenlabs-preview
-    env: node
+  - type: static_site
+    name: off-script-onboarding
     buildCommand: npm install && npm run build
-    startCommand: node server.js
-    healthCheckPath: /
+    publishDir: ./dist
+    pullRequestPreviewsEnabled: true
     autoDeploy: true
     envVars:
       - key: VITE_FIREBASE_API_KEY
