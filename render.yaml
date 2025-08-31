@@ -5,7 +5,7 @@ services:
     name: off-script-elevenlabs-preview
     env: node
     buildCommand: npm install && npm run build
-    staticPublishPath: ./dist
+    startCommand: node server.js
     healthCheckPath: /
     autoDeploy: true
     envVars:
