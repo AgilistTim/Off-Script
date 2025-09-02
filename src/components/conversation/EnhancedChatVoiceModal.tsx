@@ -2473,7 +2473,7 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
                               {message.role === 'user' ? (currentUser ? (userData?.profile?.displayName || 'You') : 'You') : agentInfo.name}
                             </span>
                           </div>
-                          <p className="text-sm leading-relaxed break-words overflow-wrap-anywhere">{message.content}</p>
+                          <div className="text-sm leading-relaxed break-words overflow-wrap-anywhere whitespace-pre-line">{message.content}</div>
                           <p className="text-xs opacity-50 mt-2">
                             {formatTime(message.timestamp)}
                           </p>

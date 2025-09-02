@@ -158,28 +158,6 @@ const Hero: React.FC = () => {
               animate={controls}
               className="max-w-4xl mx-auto space-y-8 lg:space-y-12"
             >
-              {/* Event Badge */}
-              <motion.a
-                href="https://offscriptgen.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                variants={itemVariants}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center space-x-3 bg-white/80 backdrop-blur-sm px-6 py-3 rounded-full border border-gray-200/50 shadow-sm group transition-all duration-300 hover:bg-white/90 hover:shadow-md"
-              >
-                <motion.div
-                  animate={{ rotate: [0, 5, -5, 0] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <Sparkles className="h-4 w-4 text-blue-500" />
-                </motion.div>
-                <span className="text-gray-700 font-medium text-sm">
-                  LDN / 24-25 JAN 2026
-                </span>
-                <ArrowRight className="h-4 w-4 text-gray-500 group-hover:translate-x-1 transition-transform duration-300" />
-              </motion.a>
-              
               {/* Main Headlines */}
               <div className="space-y-6">
                 <motion.div variants={itemVariants} className="space-y-4">
@@ -246,94 +224,8 @@ const Hero: React.FC = () => {
               </motion.div>
             </motion.div>
 
-            {/* Floating visual element */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1, delay: 0.5 }}
-              className="relative mt-12 lg:mt-20"
-            >
-              <motion.div
-                   className="relative w-64 h-64 sm:w-80 sm:h-80 bg-gradient-to-br from-gray-200/20 via-gray-300/20 to-gray-400/20 rounded-3xl p-8 shadow-glow-calm border border-gray-600/30 backdrop-blur-sm"
-                animate={{ 
-                  rotate: [0, 2, -2, 0],
-                  scale: [1, 1.02, 1]
-                }}
-                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-              >
-                {/* Content inside */}
-                <div className="h-full flex flex-col justify-between text-black">
-                  <div>
-                    <motion.h3
-                      animate={{ x: [-1, 1, -1] }}
-                      transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 3 }}
-                       className="font-bold text-2xl sm:text-3xl leading-tight text-black"
-                    >
-                      Your Goals
-                      <span className="block text-gray-600">Your Path</span>
-                      <span className="block text-sm font-normal text-black/60 mt-2">Self-Made Futures</span>
-                    </motion.h3>
-                  </div>
-                  
-                  <div className="text-right">
-                     <div className="font-bold text-sm text-black/90">OFF SCRIPT</div>
-                     <div className="text-xs text-black/60">SUMMIT26</div>
-                  </div>
-                </div>
-
-                {/* Animated corner elements */}
-                <motion.div
-                  animate={{ rotate: [0, 360] }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                  className="absolute top-4 right-4 w-6 h-6 border-2 border-gray-600 rounded-full"
-                />
-                <motion.div
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute bottom-4 left-4 w-4 h-4 bg-gray-300 rounded-full"
-                />
-              </motion.div>
-
-              {/* Floating elements around the main visual */}
-              <motion.div
-                animate={{ 
-                  y: [0, -15, 0],
-                  rotate: [0, 10, 0]
-                }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -top-6 -left-6 w-12 h-12 bg-gradient-to-br from-gray-200 to-gray-300 rounded-xl shadow-glow-calm"
-              />
-              <motion.div
-                animate={{ 
-                  y: [0, 12, 0],
-                  rotate: [0, -15, 0]
-                }}
-                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                className="absolute -bottom-4 -right-4 w-10 h-10 bg-gradient-to-br from-gray-400 to-gray-500 rounded-full shadow-glow-warm"
-              />
-            </motion.div>
           </div>
         </div>
-
-        {/* Bottom scroll indicator */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 2 }}
-          className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
-        >
-          <motion.div
-            animate={{ y: [0, 8, 0] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            className="w-6 h-10 border-2 border-gray-400/50 rounded-full flex justify-center"
-          >
-            <motion.div
-              animate={{ y: [0, 10, 0] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              className="w-1 h-3 bg-gray-400/70 rounded-full mt-2"
-            />
-          </motion.div>
-        </motion.div>
       </section>
 
       {/* Enhanced Chat Voice Modal */}

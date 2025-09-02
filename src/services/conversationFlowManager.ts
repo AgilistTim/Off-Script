@@ -108,7 +108,7 @@ export class ConversationFlowManager {
     // First message - Initialize and welcome
     if (messageCount <= 1) {
       // ALWAYS use the required Sarah introduction message
-      const welcomeMessage = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal.\n\nTo make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind.\n\nFirst up whats your name?";
+      const welcomeMessage = "Hi, I'm Sarah, your AI guide. I'll help you explore careers and next steps.\n\nEveryone's in a different place - some just starting, some deciding, some already set. I'll ask a few quick questions so I know where you're at. No right or wrong answers.\n\nFirst up: what's your name?";
       
       // Initialize structured onboarding for fresh users
       const guestSession = guestSessionService.getGuestSession();

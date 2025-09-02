@@ -1052,7 +1052,7 @@ PERSONA: Warm, encouraging career guide who helps young adults discover their po
    */
   public async generatePersonalizedFirstMessage(userData: User | null): Promise<string> {
     if (!userData) {
-      return "Hi I'm Sarah an AI assistant, together we will explore what you enjoy and discover career pathways that might be perfect for you. What name can I use?";
+      return "Hi, I'm Sarah, your AI guide. What name can I use?";
     }
 
     const engagementData = await this.getUserEngagementData(userData.uid);

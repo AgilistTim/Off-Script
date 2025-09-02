@@ -416,7 +416,7 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       return {
         overrides: {
           agent: {
-            firstMessage: "Hi I'm Sarah an AI assistant, what's your name?"
+            firstMessage: "Hi, I'm Sarah, your AI guide. What's your name?"
           }
         }
       };

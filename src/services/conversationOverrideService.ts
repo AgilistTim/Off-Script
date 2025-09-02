@@ -1226,7 +1226,7 @@ CONVERSATION FLOW (ENHANCED FOR CAREER CARDS):
     
     if (currentPhase.phase === 'onboarding') {
       // Use conversational approach like successful voice mode
-      firstMessage = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal. To make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind. First up whats your name?";
+      firstMessage = "Hi, I'm Sarah, your AI guide. I'll help you explore careers and next steps.\n\nEveryone's in a different place - some just starting, some deciding, some already set. I'll ask a few quick questions so I know where you're at. No right or wrong answers.\n\nFirst up: what's your name?";
     } else {
       // Career conversation phase - persona-specific greeting
       const guestSession = guestSessionService.getGuestSession();
@@ -1299,7 +1299,7 @@ CONVERSATION FLOW (ENHANCED FOR CAREER CARDS):
       case 'discovery':
         // Use structured onboarding flow instead of generic discovery
         contextPrompt = this.buildGuestOnboardingContextPrompt();
-        firstMessage = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal.\n\nTo make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind.\n\nFirst up whats your name?";
+        firstMessage = "Hi, I'm Sarah, your AI guide. I'll help you explore careers and next steps.\n\nEveryone's in a different place - some just starting, some deciding, some already set. I'll ask a few quick questions so I know where you're at. No right or wrong answers.\n\nFirst up: what's your name?";
         break;
       case 'classification':
         contextPrompt = this.buildClassificationStagePrompt();
@@ -1311,7 +1311,7 @@ CONVERSATION FLOW (ENHANCED FOR CAREER CARDS):
         break;
       default:
         contextPrompt = this.buildGuestOnboardingContextPrompt();
-        firstMessage = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal.\n\nTo make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind.\n\nFirst up whats your name?";
+        firstMessage = "Hi, I'm Sarah, your AI guide. I'll help you explore careers and next steps.\n\nEveryone's in a different place - some just starting, some deciding, some already set. I'll ask a few quick questions so I know where you're at. No right or wrong answers.\n\nFirst up: what's your name?";
     }
 
     return {
