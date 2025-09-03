@@ -67,6 +67,7 @@ import { TextConversationClient } from '../../services/textConversationClient';
 import { EnhancedTextConversationClient } from '../../services/enhancedTextConversationClient';
 import { TextPromptService } from '../../services/textPromptService';
 import { ChatTextInput } from './ChatTextInput';
+import { useIsMobile } from '../../hooks/useIsMobile';
 import { CompactProgressIndicator, MiniProgressIndicator } from '../ui/compact-progress-indicator';
 import { structuredOnboardingService } from '../../services/structuredOnboardingService';
 import { conversationFlowManager } from '../../services/conversationFlowManager';
@@ -81,6 +82,141 @@ interface ConversationMessage {
 }
 
 type CommunicationMode = 'voice' | 'text' | null;
+
+// Helper functions for career relevance validation and fallback generation
+const validateCareerRelevance = (careerCards: any[], conversationContent: string): boolean => {
+  if (!careerCards || careerCards.length === 0) return false;
+  
+  // Extract key interest words from conversation
+  const interestKeywords = extractInterestKeywords(conversationContent);
+  console.log('🔍 [VALIDATION] Extracted interest keywords:', interestKeywords);
+  
+  // Check if any career card is relevant to the interests
+  const relevantCards = careerCards.filter(card => {
+    const cardText = (card.title + ' ' + (card.description || '')).toLowerCase();
+    return interestKeywords.some(keyword => cardText.includes(keyword.toLowerCase()));
+  });
+  
+  const isRelevant = relevantCards.length > 0;
+  console.log('🔍 [VALIDATION] Career relevance check:', {
+    totalCards: careerCards.length,
+    relevantCards: relevantCards.length,
+    cardTitles: careerCards.map(c => c.title),
+    isRelevant
+  });
+  
+  return isRelevant;
+};
+
+const extractInterestKeywords = (content: string): string[] => {
+  const keywords: string[] = [];
+  const lowercaseContent = content.toLowerCase();
+  
+  // Beauty and fashion
+  if (/makeup|cosmetic|beauty|skincare|facial/.test(lowercaseContent)) {
+    keywords.push('makeup', 'beauty', 'cosmetics');
+  }
+  
+  // Hair styling
+  if (/hair|styling|hairdress|barber|salon/.test(lowercaseContent)) {
+    keywords.push('hair', 'styling', 'salon');
+  }
+  
+  // Film and TV
+  if (/tv|film|movie|cinema|entertainment|special effects/.test(lowercaseContent)) {
+    keywords.push('film', 'television', 'entertainment', 'media');
+  }
+  
+  // Art and creativity
+  if (/art|creative|design|artistic|visual/.test(lowercaseContent)) {
+    keywords.push('art', 'creative', 'design');
+  }
+  
+  // Social interaction
+  if (/talking|people|social|communication|interact/.test(lowercaseContent)) {
+    keywords.push('social', 'communication', 'people');
+  }
+  
+  return keywords;
+};
+
+const generateFallbackCareerCards = (conversationContent: string, userMessages: any[]): any[] => {
+  const keywords = extractInterestKeywords(conversationContent);
+  const cards: any[] = [];
+  
+  // Generate relevant career cards based on detected interests
+  if (keywords.includes('makeup') || keywords.includes('beauty')) {
+    cards.push({
+      id: 'makeup-artist',
+      title: 'Makeup Artist',
+      description: 'Create stunning makeup looks for clients in various settings',
+      matchScore: 85,
+      sector: 'Beauty & Fashion',
+      salaryRange: '£18,000 - £35,000',
+      educationLevel: 'Vocational Training',
+      skills: ['Makeup application', 'Color theory', 'Client consultation', 'Artistic skills'],
+      pathways: ['Beauty college courses', 'Apprenticeships', 'Portfolio building'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+  }
+  
+  if (keywords.includes('hair') || keywords.includes('styling')) {
+    cards.push({
+      id: 'hair-stylist',
+      title: 'Hair Stylist',
+      description: 'Cut, color, and style hair to create beautiful looks for clients',
+      matchScore: 80,
+      sector: 'Beauty & Fashion',
+      salaryRange: '£16,000 - £30,000',
+      educationLevel: 'Vocational Training',
+      skills: ['Hair cutting', 'Coloring techniques', 'Customer service', 'Trend awareness'],
+      pathways: ['Hairdressing apprenticeship', 'Beauty college', 'NVQ Level 2 & 3'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+  }
+  
+  if ((keywords.includes('makeup') || keywords.includes('hair')) && (keywords.includes('film') || keywords.includes('television'))) {
+    cards.push({
+      id: 'special-effects-makeup',
+      title: 'Special Effects Makeup Artist',
+      description: 'Create dramatic makeup and prosthetics for film, TV, and theater',
+      matchScore: 90,
+      sector: 'Entertainment & Media',
+      salaryRange: '£20,000 - £45,000',
+      educationLevel: 'Specialized Training',
+      skills: ['Special effects techniques', 'Prosthetics', 'Character design', 'Film industry knowledge'],
+      pathways: ['Specialized SFX courses', 'Film school', 'Industry apprenticeships'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+  }
+  
+  if (keywords.includes('art') || keywords.includes('creative')) {
+    cards.push({
+      id: 'creative-director',
+      title: 'Creative Director',
+      description: 'Lead creative teams and develop visual concepts for brands and campaigns',
+      matchScore: 75,
+      sector: 'Creative & Media',
+      salaryRange: '£25,000 - £50,000',
+      educationLevel: 'Bachelor\'s Degree',
+      skills: ['Creative vision', 'Team leadership', 'Brand development', 'Visual communication'],
+      pathways: ['Art/Design degree', 'Marketing background', 'Portfolio development'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+  }
+  
+  console.log('🔄 [FALLBACK] Generated career cards:', {
+    keywordsFound: keywords,
+    cardsGenerated: cards.length,
+    cardTitles: cards.map(c => c.title)
+  });
+  
+  return cards;
+};
 
 interface EnhancedChatVoiceModalProps {
   isOpen: boolean;
@@ -102,6 +238,9 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
   onConversationEnd
 }) => {
   const { currentUser, userData } = useAuth();
+
+  // Mobile detection hook
+  const isMobile = useIsMobile();
 
   // Global guard to prevent audio initialization before explicit user action.
   // Audio hooks check this flag to decide whether to request microphone access.
@@ -125,6 +264,7 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
   const [careerCards, setCareerCards] = useState<any[]>([]);
   const [newContentAdded, setNewContentAdded] = useState<string | null>(null);
   const [ctaBottomOffsetPx, setCtaBottomOffsetPx] = useState<number>(0);
+  const [isViewingCareerInsights, setIsViewingCareerInsights] = useState<boolean>(false);
   
   // Connection monitoring
   const [connectionMonitor, setConnectionMonitor] = useState<NodeJS.Timeout | null>(null);
@@ -310,6 +450,11 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
     
     // TODO: If we need to inject context into conversation, we could do it here
     // For now, this is primarily for tracking and debugging
+  }, []);
+
+  // Career insights view toggle function
+  const toggleCareerInsightsView = useCallback((isViewing: boolean) => {
+    setIsViewingCareerInsights(isViewing);
   }, []);
 
   // Initialize real-time persona adaptation service
@@ -544,19 +689,16 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
         console.log('🔍 [DEBUG] Tool enablement check:', {
           toolName: 'analyze_conversation_for_careers',
           shouldEnable,
-          conversationHistoryLength: conversationHistory.length,
+          conversationHistoryLength: conversationHistoryRef.current.length,
           guestSessionLength: guestSessionService.getGuestSession().conversationHistory.length
         });
         
-        if (!shouldEnable) {
+        if (!shouldEnable && conversationHistoryRef.current.length < 4) {
           console.log('⏸️ Career analysis tool not yet enabled - need more conversation');
-          // TEMPORARY FIX: Allow tool to proceed if we have sufficient conversation in ANY context
-          if (conversationHistory.length >= 6) {
-            console.log('🔄 [OVERRIDE] Allowing tool to proceed based on conversation history length');
-          } else {
-            return "I'm learning about your interests and goals. Tell me more about what you enjoy or what kind of work appeals to you, and I'll start building career suggestions.";
-          }
+          return "I'm learning about your interests and goals. Tell me more about what you enjoy or what kind of work appeals to you, and I'll start building career suggestions.";
         }
+        
+        console.log('✅ Career analysis tool enabled - proceeding with analysis');
         
         // Trigger progress update when career analysis starts
         console.log('🌱 Triggering progress update for career analysis start');
@@ -881,10 +1023,20 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
         console.log('👤 Profile parameters:', parameters);
         
         // **PROGRESSIVE TOOL ENABLEMENT**: Enable profile updates early for profile building  
-        if (!conversationFlowManager.shouldEnableSpecificTool('update_person_profile')) {
+        const shouldEnable = conversationFlowManager.shouldEnableSpecificTool('update_person_profile');
+        console.log('🔍 [DEBUG] Profile tool enablement check:', {
+          toolName: 'update_person_profile',
+          shouldEnable,
+          conversationHistoryLength: conversationHistoryRef.current.length,
+          guestSessionLength: guestSessionService.getGuestSession().conversationHistory.length
+        });
+        
+        if (!shouldEnable && conversationHistoryRef.current.length < 2) {
           console.log('⏸️ Profile tool not yet enabled - need basic information');
           return "Let me gather a bit more information about you first, then I'll update your profile.";
         }
+        
+        console.log('✅ Profile tool enabled - proceeding with update');
         
         try {
           // Handle both string and array inputs from ElevenLabs agent
@@ -990,16 +1142,17 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
           console.log('🚀 EXECUTING ACTUAL MCP ANALYSIS (was previously just fake response)');
           
           // Check if we have enough conversation history for analysis
-          if (conversationHistory.length === 0) {
+          if (conversationHistoryRef.current.length === 0) {
             return "I need a bit more conversation to analyze your interests. Could you tell me more about what you enjoy doing?";
           }
           
-          // Enhanced conversation content validation
-          const userMessages = conversationHistory.filter(msg => msg.role === 'user');
+          // Enhanced conversation content validation - use ref to avoid stale closure
+          const currentHistory = conversationHistoryRef.current;
+          const userMessages = currentHistory.filter(msg => msg.role === 'user');
           const allContent = userMessages.map(msg => msg.content.toLowerCase()).join(' ');
           
           console.log('🔍 [CAREER GENERATION] Content analysis:', {
-            totalMessages: conversationHistory.length,
+            totalMessages: currentHistory.length,
             userMessages: userMessages.length,
             hasCareerKeywords: /work|job|career|skill|interest|enjoy|goal|consultancy|ai|build/.test(allContent),
             contentPreview: allContent.substring(0, 200) + '...'
@@ -1007,15 +1160,23 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
 
           // **THIS IS THE ACTUAL FIX**: Call the MCP analysis service with correct parameters
           console.log('🔍 Starting MCP analysis with conversation history:', {
-            historyLength: conversationHistory.length,
+            historyLength: currentHistory.length,
             triggerReason: effectiveTriggerReason,
             userId: currentUser?.uid || 'guest'
           });
           
           console.log('🚀 [CAREER GENERATION] Starting MCP analysis...');
+          
+          // **DEBUGGING FIX**: Log the actual conversation content being analyzed
+          console.log('🔍 [DEBUG] Full conversation content being sent to MCP:', {
+            conversationContent: currentHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n'),
+            totalLength: currentHistory.length,
+            userMessagesContent: userMessages.map(msg => msg.content)
+          });
+          
           const analysisResult = await Promise.race([
             progressAwareMCPService.analyzeConversationWithProgress(
-              conversationHistory,  // Use conversation history directly (already in correct format)
+              currentHistory,  // Use current history ref to avoid stale closure
               effectiveTriggerReason,
               currentUser?.uid || 'guest', // userId
               (update: MCPProgressUpdate) => {
@@ -1033,11 +1194,21 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
                 if (onCareerCardsDiscovered && result.success) {
                   const careerCards = result.enhancedCareerCards || result.basicCareerCards || [];
                   console.log('📋 [CAREER GENERATION] Calling onCareerCardsDiscovered with cards:', careerCards.length);
-                  onCareerCardsDiscovered(careerCards);
                   
-                  // Also update the career cards ref for immediate access
-                  careerCardsRef.current = careerCards;
-                  setCareerCards(careerCards);
+                  // **TEMPORARY FIX**: Validate if career cards are relevant to user's interests
+                  const isRelevant = validateCareerRelevance(careerCards, allContent);
+                  if (!isRelevant) {
+                    console.log('⚠️ [CAREER GENERATION] MCP returned irrelevant cards, generating fallback...');
+                    const fallbackCards = generateFallbackCareerCards(allContent, userMessages);
+                    console.log('🔄 [CAREER GENERATION] Using fallback cards:', fallbackCards.length);
+                    onCareerCardsDiscovered(fallbackCards);
+                    careerCardsRef.current = fallbackCards;
+                    setCareerCards(fallbackCards);
+                  } else {
+                    onCareerCardsDiscovered(careerCards);
+                    careerCardsRef.current = careerCards;
+                    setCareerCards(careerCards);
+                  }
                 } else {
                   console.warn('⚠️ [CAREER GENERATION] Analysis result missing success or cards:', result);
                 }
@@ -2180,10 +2351,253 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
     console.log('🎭 EnhancedChatVoiceModal: Rendering modal (isOpen=true)', { renderCount: renderCount.current });
   }
 
+  // Render fullscreen career insights for mobile
+  const renderMobileCareerInsights = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3 }}
+      className="fixed inset-0 bg-white z-50 overflow-y-auto pb-16"
+    >
+      {/* Header with back button */}
+      <div className="sticky top-0 bg-white p-4 border-b-2 border-black flex justify-between items-center z-10">
+        <h2 className="font-bold text-lg text-black">Career Insights</h2>
+        <button
+          onClick={() => toggleCareerInsightsView(false)}
+          className="min-h-[44px] min-w-[44px] md:min-h-[36px] md:min-w-[36px] p-2 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation active:scale-95"
+          aria-label="Back to chat"
+        >
+          <X className="w-5 h-5 text-black" />
+        </button>
+      </div>
+
+      {/* Career insights content */}
+      <div className="p-4">
+        {/* New Content Notification */}
+        {newContentAdded && (
+          <div className="mb-3 p-2 bg-white text-black rounded-lg border-2 border-black text-center text-sm font-medium animate-pulse">
+            ✨ {newContentAdded}
+          </div>
+        )}
+        
+        {/* Compact Progress Indicator (Mobile) */}
+        {compactProgressData && !currentUser && (
+          <div className="mb-4">
+            <MiniProgressIndicator 
+              data={compactProgressData}
+              onClick={() => {
+                console.log('📊 Mobile Fullscreen - Progress indicator clicked');
+              }}
+            />
+          </div>
+        )}
+        
+        <div className="bg-gray-50 rounded-lg border-2 border-black p-4">
+          {/* Progress Indicator - Only show when analyzing */}
+          {isAnalyzing && progressUpdate && (
+            <div className="bg-white rounded-lg p-3 border-2 border-black mb-4">
+              <div className="flex items-center space-x-2 mb-2">
+                <Loader2 className="w-4 h-4 animate-spin text-black" />
+                <span className="text-sm font-medium text-black">Analyzing Career Path</span>
+              </div>
+              <div className="text-xs text-gray-800 mb-2">
+                {progressUpdate.message || 'Processing your conversation...'}
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-black h-2 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${progressUpdate.progress || 0}%` }}
+                />
+              </div>
+              <div className="text-xs text-gray-600 mt-1 text-center">
+                {progressUpdate.progress || 0}% complete
+              </div>
+            </div>
+          )}
+          
+          {/* Profile Details - Show First */}
+          {(discoveredInsights.interests.length > 0 || 
+            discoveredInsights.goals.length > 0 || 
+            discoveredInsights.skills.length > 0 ||
+            discoveredInsights.personalQualities.length > 0) && (
+            <div className="mb-4 p-3 bg-white rounded-lg border-2 border-black">
+              <h4 className="text-sm font-bold text-black mb-3">Profile Details from Conversation:</h4>
+              <div className="space-y-3 text-xs">
+                {/* Personal Qualities */}
+                {discoveredInsights.personalQualities.length > 0 && (
+                  <div className="bg-gray-50 border border-gray-300 rounded-lg p-2">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Star className="w-4 h-4 text-black" />
+                      <span className="font-bold text-black text-sm">Your Strengths:</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1">
+                      {discoveredInsights.personalQualities.map((quality, idx) => (
+                        <div key={idx} className="flex items-center space-x-2 bg-white rounded px-2 py-1">
+                          <Award className="w-3 h-3 text-black" />
+                          <span className="text-black font-medium text-xs">{quality}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Interests */}
+                {discoveredInsights.interests.length > 0 && (
+                  <div className="bg-gray-50 border border-gray-300 rounded-lg p-2">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Heart className="w-4 h-4 text-black" />
+                      <span className="font-bold text-black text-sm">What You Enjoy:</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1">
+                      {discoveredInsights.interests.map((interest, idx) => (
+                        <div key={idx} className="bg-white rounded px-2 py-1 text-black font-medium text-xs">
+                          {interest}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Goals */}
+                {discoveredInsights.goals.length > 0 && (
+                  <div className="bg-gray-50 border border-gray-300 rounded-lg p-2">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Target className="w-4 h-4 text-black" />
+                      <span className="font-bold text-black text-sm">Your Goals:</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1">
+                      {discoveredInsights.goals.map((goal, idx) => (
+                        <div key={idx} className="bg-white rounded px-2 py-1 text-black font-medium text-xs">
+                          {goal}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Skills */}
+                {discoveredInsights.skills.length > 0 && (
+                  <div className="bg-gray-50 border border-gray-300 rounded-lg p-2">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Wrench className="w-4 h-4 text-black" />
+                      <span className="font-bold text-black text-sm">Your Skills:</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1">
+                      {discoveredInsights.skills.map((skill, idx) => (
+                        <div key={idx} className="bg-white rounded px-2 py-1 text-black font-medium text-xs">
+                          {skill}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Career Cards for Mobile Fullscreen */}
+          {careerCards.length > 0 && (
+            <div className="space-y-3">
+              {careerCards.map((card, index) => {
+                const MatchIcon = card.matchPercentage >= 80 ? CheckCircle2 : Target;
+                return (
+                  <div key={index} className="bg-white border-2 border-black rounded-xl p-3">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <Briefcase className="w-4 h-4 text-black" />
+                            <h3 className="font-bold text-black text-sm">{card.title}</h3>
+                          </div>
+                          <div className="flex items-center space-x-2 mb-2">
+                            <MatchIcon className="w-3 h-3 mr-1" />
+                            <span className="text-xs font-medium text-black">
+                              {card.matchPercentage || 75}% match
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Salary and Growth */}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex items-center space-x-1">
+                          <PoundSterling className="w-3 h-3 text-black" />
+                          <span className="text-black font-medium">
+                            {card.salaryRange || 'Competitive'}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <TrendingUp className="w-3 h-3 text-black" />
+                          <span className="text-black font-medium">
+                            {card.growthPotential || 'High Growth'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Description */}
+                      <p className="text-xs text-gray-700 leading-relaxed">
+                        {card.description}
+                      </p>
+
+                      {/* Skills & Requirements */}
+                      {card.requiredSkills && card.requiredSkills.length > 0 && (
+                        <div>
+                          <div className="flex items-center space-x-1 mb-2">
+                            <Wrench className="w-3 h-3 text-black" />
+                            <span className="text-xs font-medium text-black">Key Skills:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {card.requiredSkills.slice(0, 4).map((skill, idx) => (
+                              <span key={idx} className="text-xs bg-gray-100 text-black px-2 py-1 rounded border">
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!careerContext && careerCards.length === 0 && (discoveredInsights.interests.length === 0 && discoveredInsights.goals.length === 0 && discoveredInsights.skills.length === 0 && discoveredInsights.personalQualities.length === 0) && (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <User className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-600 text-sm mb-2">No career insights yet</p>
+              <p className="text-gray-500 text-xs">Start a conversation to discover career opportunities</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Back to Chat Button - Fixed at bottom */}
+      <div className="fixed bottom-4 right-4">
+        <button
+          onClick={() => toggleCareerInsightsView(false)}
+          className="bg-template-primary text-white font-bold px-4 py-2 rounded-full shadow-lg border-2 border-black flex items-center space-x-2 hover:scale-105 transition-transform min-h-[44px] min-w-[44px] md:min-h-[36px] md:min-w-[36px] touch-manipulation active:scale-95"
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>Back to Chat</span>
+        </button>
+      </div>
+    </motion.div>
+  );
+
+  // Show fullscreen career insights on mobile when viewing
+  if (isViewingCareerInsights && isMobile) {
+    return renderMobileCareerInsights();
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
-        className="md:max-w-7xl md:w-[95vw] md:h-[85vh] w-screen max-w-none h-[100dvh] p-0 bg-white border-2 border-black [&>button]:hidden z-[120] grid grid-rows-[auto_1fr_auto]"
+        className="w-full max-w-none h-[100dvh] p-0 overflow-hidden bg-white border-2 border-black [&>button]:hidden z-[120] grid grid-rows-[auto_1fr_auto] md:max-w-7xl md:w-[95vw] md:h-[85vh]"
         aria-describedby="enhanced-chat-description"
       >
           {/* Fixed Header */}
@@ -2223,7 +2637,10 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
             <div className="flex flex-col h-full md:hidden">
               {/* Mobile: Collapsible Career Insights */}
               <div className="flex-shrink-0 border-b-2 border-gray-200">
-                <Collapsible defaultOpen={careerCards.length > 0 || discoveredInsights.interests.length > 0 || discoveredInsights.goals.length > 0 || discoveredInsights.skills.length > 0 || discoveredInsights.personalQualities.length > 0}>
+                <Collapsible 
+                  defaultOpen={careerCards.length > 0 || discoveredInsights.interests.length > 0 || discoveredInsights.goals.length > 0 || discoveredInsights.skills.length > 0 || discoveredInsights.personalQualities.length > 0}
+                  onOpenChange={toggleCareerInsightsView}
+                >
                   <CollapsibleTrigger className="w-full p-4 flex justify-between items-center hover:bg-gray-50 rounded-lg transition-colors">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-template-primary rounded-lg flex items-center justify-center relative">
@@ -3053,14 +3470,14 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
                     <Button
                       onClick={() => handleModeSelection('voice')}
                       disabled={!apiKey}
-                      className="bg-template-primary text-white font-bold px-6 py-3 rounded-xl hover:scale-105 transition-transform duration-200 min-h-[48px] focus:outline-none focus:ring-2 focus:ring-template-primary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black"
+                      className="bg-template-primary text-white font-bold px-6 py-3 rounded-xl hover:scale-105 transition-transform duration-200 min-h-[48px] min-w-[44px] md:min-h-[36px] md:min-w-[36px] focus:outline-none focus:ring-2 focus:ring-template-primary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black touch-manipulation active:scale-95"
                     >
                       <PhoneCall className="w-5 h-5 mr-2" />
                       Voice Chat
                     </Button>
                     <Button
                       onClick={() => handleModeSelection('text')}
-                      className="bg-template-secondary text-black font-bold px-6 py-3 rounded-xl hover:scale-105 transition-transform duration-200 min-h-[48px] focus:outline-none focus:ring-2 focus:ring-template-secondary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black"
+                      className="bg-template-secondary text-black font-bold px-6 py-3 rounded-xl hover:scale-105 transition-transform duration-200 min-h-[48px] min-w-[44px] md:min-h-[36px] md:min-w-[36px] focus:outline-none focus:ring-2 focus:ring-template-secondary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black touch-manipulation active:scale-95"
                     >
                       <MessageSquare className="w-5 h-5 mr-2" />
                       Text Chat
@@ -3083,7 +3500,7 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
                         onClick={handleStartConversation}
                         disabled={connectionStatus === 'connecting' || !apiKey}
                         aria-label="Start voice chat"
-                        className="bg-template-primary text-white font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-template-primary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black"
+                        className="bg-template-primary text-white font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] min-w-[44px] pointer-coarse:min-h-[56px] md:min-h-[36px] md:min-w-[36px] focus:outline-none focus:ring-2 focus:ring-template-primary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black touch-manipulation active:scale-95"
                       >
                         {connectionStatus === 'connecting' ? (
                           <>
@@ -3102,7 +3519,7 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
                         onClick={handleEndConversation}
                         disabled={isLoading}
                         aria-label="End voice call"
-                        className="bg-template-secondary text-black font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-template-secondary border-2 border-black"
+                        className="bg-template-secondary text-black font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] min-w-[44px] pointer-coarse:min-h-[56px] md:min-h-[36px] md:min-w-[36px] focus:outline-none focus:ring-2 focus:ring-template-secondary border-2 border-black touch-manipulation active:scale-95"
                       >
                         {isLoading ? (
                           <>
@@ -3150,15 +3567,17 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
               </div>
               )}
 
-              {/* Text Mode Controls */}
-              {communicationMode === 'text' && (
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2 text-sm text-black">
-                      <MessageSquare className="w-4 h-4" />
-                      <span className="font-medium">Text Chat Mode</span>
+              {/* Text Mode Controls - Hidden when viewing career insights on mobile */}
+              {communicationMode === 'text' && (!isViewingCareerInsights || !isMobile) && (
+                <div className={`${isMobile ? 'space-y-2' : 'space-y-3'}`}>
+                  {!isMobile && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 text-sm text-black">
+                        <MessageSquare className="w-4 h-4" />
+                        <span className="font-medium">Text Chat Mode</span>
+                      </div>
                     </div>
-                  </div>
+                  )}
                   
                   <ChatTextInput
                     onSendMessage={sendTextMessage}
@@ -3166,18 +3585,23 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
                     placeholder="Type your message..."
                     className="w-full"
                     isLoading={isLoading}
+                    maxHeight={isMobile ? 48 : 120}
+                    isMobile={isMobile}
+                    showHelperText={!isMobile}
                   />
                   
-                  <div className="text-center">
-                    <p className="text-xs text-gray-600">
-                      💬 Text-only conversation - no voice connection needed
-                    </p>
-                  </div>
+                  {!isMobile && (
+                    <div className="text-center">
+                      <p className="text-xs text-gray-600">
+                        💬 Text-only conversation - no voice connection needed
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 
-              {/* Voice + Text Input for Voice Mode */}
-              {communicationMode === 'voice' && (connectionStatus === 'connected' || connectionStatus === 'disconnected') && (
+              {/* Voice + Text Input for Voice Mode - Hidden when viewing career insights on mobile */}
+              {communicationMode === 'voice' && (connectionStatus === 'connected' || connectionStatus === 'disconnected') && (!isViewingCareerInsights || !isMobile) && (
                 <div className="w-full">
                   <ChatTextInput
                     onSendMessage={sendTextMessage}
@@ -3185,12 +3609,15 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
                     placeholder={isConnected ? "Type a message or use voice..." : "Start voice chat to enable messaging"}
                     className="w-full"
                     isLoading={isLoading}
+                    maxHeight={isMobile ? 48 : 120}
+                    isMobile={isMobile}
+                    showHelperText={!isMobile}
                   />
                 </div>
               )}
 
-              {/* Helper Text for Voice Mode */}
-              {communicationMode === 'voice' && isConnected && (
+              {/* Helper Text for Voice Mode - Hidden when viewing career insights on mobile */}
+              {communicationMode === 'voice' && isConnected && (!isViewingCareerInsights || !isMobile) && (
                 <div className="text-center">
                   <p className="text-xs text-gray-600">
                     🎙️ Voice chat active - speak or type your messages

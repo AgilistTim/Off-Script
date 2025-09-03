@@ -8,6 +8,9 @@ interface ChatTextInputProps {
   placeholder?: string;
   className?: string;
   isLoading?: boolean;
+  maxHeight?: number;
+  isMobile?: boolean;
+  showHelperText?: boolean;
 }
 
 export const ChatTextInput: React.FC<ChatTextInputProps> = ({
@@ -15,7 +18,10 @@ export const ChatTextInput: React.FC<ChatTextInputProps> = ({
   disabled = false,
   placeholder = "Type your message...",
   className = "",
-  isLoading = false
+  isLoading = false,
+  maxHeight = 120,
+  isMobile = false,
+  showHelperText = true
 }) => {
   const [message, setMessage] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -24,9 +30,9 @@ export const ChatTextInput: React.FC<ChatTextInputProps> = ({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, maxHeight)}px`;
     }
-  }, [message]);
+  }, [message, maxHeight]);
 
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -58,9 +64,18 @@ export const ChatTextInput: React.FC<ChatTextInputProps> = ({
     }
   };
 
+  // Dynamic classes based on mobile state
+  const containerPadding = isMobile ? "p-2" : "p-3";
+  const containerBorder = isMobile ? "border border-gray-300" : "border-2 border-black";
+  const containerRounding = isMobile ? "rounded-lg" : "rounded-xl";
+  const buttonStyling = isMobile 
+    ? "bg-template-primary text-white font-bold px-3 py-2 rounded-lg hover:scale-105 active:scale-95 transition-transform duration-200 min-h-[40px] min-w-[40px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-template-primary focus:ring-offset-1 shadow-sm border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
+    : "bg-template-primary text-white font-bold px-3 py-2 rounded-lg hover:scale-105 active:scale-95 transition-transform duration-200 min-h-[40px] min-w-[40px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-template-primary focus:ring-offset-2 shadow-[2px_2px_0px_0px_#000000] hover:shadow-[3px_3px_0px_0px_#000000] border-2 border-black disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100";
+  const textareaMaxHeight = `max-h-[${maxHeight}px]`;
+
   return (
     <form onSubmit={handleSubmit} className={`${className}`}>
-      <div className="relative flex items-end space-x-2 p-3 bg-white border-2 border-black rounded-xl">
+      <div className={`relative flex items-end space-x-2 ${containerPadding} bg-white ${containerBorder} ${containerRounding}`}>
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
@@ -72,7 +87,7 @@ export const ChatTextInput: React.FC<ChatTextInputProps> = ({
             rows={1}
             aria-label="Type your message"
             aria-describedby="char-counter helper-text"
-            className="w-full resize-none border-none outline-none bg-transparent text-black placeholder-gray-500 text-sm sm:text-base leading-relaxed min-h-[24px] max-h-[120px] overflow-y-auto touch-manipulation"
+            className={`w-full resize-none border-none outline-none bg-transparent text-black placeholder-gray-500 text-sm sm:text-base leading-relaxed min-h-[24px] ${textareaMaxHeight} overflow-y-auto touch-manipulation`}
             style={{ 
               scrollbarWidth: 'thin',
               scrollbarColor: '#000 transparent',
@@ -95,7 +110,7 @@ export const ChatTextInput: React.FC<ChatTextInputProps> = ({
           size="sm"
           disabled={!message.trim() || disabled || isLoading}
           aria-label={isLoading ? "Sending message" : "Send message"}
-          className="bg-template-primary text-white font-bold px-3 py-2 rounded-lg hover:scale-105 active:scale-95 transition-transform duration-200 min-h-[40px] min-w-[40px] touch-manipulation focus:outline-none focus:ring-2 focus:ring-template-primary focus:ring-offset-2 shadow-[2px_2px_0px_0px_#000000] hover:shadow-[3px_3px_0px_0px_#000000] border-2 border-black disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:active:scale-100"
+          className={buttonStyling}
         >
           {isLoading ? (
             <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
@@ -105,18 +120,20 @@ export const ChatTextInput: React.FC<ChatTextInputProps> = ({
         </Button>
       </div>
       
-      {/* Helper text */}
-      <div 
-        id="helper-text" 
-        className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-2 px-1 text-xs text-gray-500 space-y-1 sm:space-y-0"
-      >
-        <span>Press Enter to send, Shift+Enter for new line</span>
-        {message.length > 900 && (
-          <span className="text-orange-600 font-medium" role="status" aria-live="polite">
-            {1000 - message.length} characters remaining
-          </span>
-        )}
-      </div>
+      {/* Helper text - conditionally rendered */}
+      {showHelperText && (
+        <div 
+          id="helper-text" 
+          className="flex flex-col sm:flex-row sm:justify-between sm:items-center mt-2 px-1 text-xs text-gray-500 space-y-1 sm:space-y-0"
+        >
+          <span>Press Enter to send, Shift+Enter for new line</span>
+          {message.length > 900 && (
+            <span className="text-orange-600 font-medium" role="status" aria-live="polite">
+              {1000 - message.length} characters remaining
+            </span>
+          )}
+        </div>
+      )}
     </form>
   );
 };
