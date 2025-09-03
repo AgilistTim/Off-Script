@@ -656,7 +656,7 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
   const apiKey = environmentConfig.elevenLabs.apiKey;
 
   // Fallback career card generation when MCP is unavailable
-  const generateFallbackCareerCards = async (messages: any[], triggerReason: string) => {
+  const generateAsyncFallbackCareerCards = async (messages: any[], triggerReason: string) => {
     console.log('🎯 Generating fallback career cards from conversation');
     
     // Extract career-related keywords from conversation and trigger
@@ -1047,7 +1047,7 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
             
             // Try fallback analysis
             console.log('🔄 Attempting fallback analysis...');
-            const fallbackResult = await generateFallbackCareerCards(validMessages, parameters.trigger_reason);
+            const fallbackResult = await generateAsyncFallbackCareerCards(validMessages, parameters.trigger_reason);
             
             if (fallbackResult && typeof fallbackResult === 'object' && fallbackResult.careerCards) {
               const fallbackCards = fallbackResult.careerCards;
