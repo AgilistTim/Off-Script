@@ -265,6 +265,8 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
   const [newContentAdded, setNewContentAdded] = useState<string | null>(null);
   const [ctaBottomOffsetPx, setCtaBottomOffsetPx] = useState<number>(0);
   const [isViewingCareerInsights, setIsViewingCareerInsights] = useState<boolean>(false);
+  const [careerInsightsExpanded, setCareerInsightsExpanded] = useState<boolean>(false);
+  const [scrollPosition, setScrollPosition] = useState<number>(0);
   
   // Connection monitoring
   const [connectionMonitor, setConnectionMonitor] = useState<NodeJS.Timeout | null>(null);
@@ -454,8 +456,37 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
 
   // Career insights view toggle function
   const toggleCareerInsightsView = useCallback((isViewing: boolean) => {
+    if (isViewing) {
+      // Save scroll position before going to fullscreen
+      if (scrollAreaRef.current) {
+        setScrollPosition(scrollAreaRef.current.scrollTop || 0);
+      }
+    } else {
+      // Returning from fullscreen - collapse insights and restore scroll position
+      setCareerInsightsExpanded(false);
+      setTimeout(() => {
+        // Restore scroll position after a brief delay to allow for layout changes
+        if (scrollAreaRef.current) {
+          scrollAreaRef.current.scrollTop = scrollPosition;
+        }
+      }, 100);
+    }
     setIsViewingCareerInsights(isViewing);
-  }, []);
+  }, [scrollPosition]);
+
+  // Initialize career insights expansion based on content
+  useEffect(() => {
+    const hasContent = careerCards.length > 0 || 
+                      discoveredInsights.interests.length > 0 || 
+                      discoveredInsights.goals.length > 0 || 
+                      discoveredInsights.skills.length > 0 || 
+                      discoveredInsights.personalQualities.length > 0;
+    
+    // Only auto-expand if not returning from fullscreen and there's content
+    if (hasContent && !isViewingCareerInsights) {
+      setCareerInsightsExpanded(true);
+    }
+  }, [careerCards.length, discoveredInsights.interests.length, discoveredInsights.goals.length, discoveredInsights.skills.length, discoveredInsights.personalQualities.length, isViewingCareerInsights]);
 
   // Initialize real-time persona adaptation service
   useEffect(() => {
@@ -2638,8 +2669,11 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
               {/* Mobile: Collapsible Career Insights */}
               <div className="flex-shrink-0 border-b-2 border-gray-200">
                 <Collapsible 
-                  defaultOpen={careerCards.length > 0 || discoveredInsights.interests.length > 0 || discoveredInsights.goals.length > 0 || discoveredInsights.skills.length > 0 || discoveredInsights.personalQualities.length > 0}
-                  onOpenChange={toggleCareerInsightsView}
+                  open={careerInsightsExpanded}
+                  onOpenChange={(open) => {
+                    setCareerInsightsExpanded(open);
+                    toggleCareerInsightsView(open);
+                  }}
                 >
                   <CollapsibleTrigger className="w-full p-4 flex justify-between items-center hover:bg-gray-50 rounded-lg transition-colors">
                     <div className="flex items-center space-x-3">
@@ -3433,6 +3467,34 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
                           </div>
                         </motion.div>
                       ))}
+                      
+                      {/* Career Analysis Progress Indicator - Show in conversation flow */}
+                      {isAnalyzing && progressUpdate && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          className="flex justify-center"
+                        >
+                          <div className="max-w-[80%] bg-blue-50 border-2 border-blue-300 rounded-xl p-4">
+                            <div className="flex items-center space-x-2 mb-3">
+                              <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                              <span className="text-sm font-medium text-blue-800">Analyzing Career Options</span>
+                            </div>
+                            <div className="text-sm text-gray-700 mb-3">
+                              {progressUpdate.message || 'Processing your conversation...'}
+                            </div>
+                            <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
+                              <div 
+                                className="bg-blue-600 h-3 rounded-full transition-all duration-500 ease-out"
+                                style={{ width: `${progressUpdate.progress || 0}%` }}
+                              />
+                            </div>
+                            <div className="text-xs text-gray-600 text-center">
+                              {progressUpdate.progress || 0}% complete - This might take a few minutes
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
                       
                       {isSpeaking && (
                         <motion.div
