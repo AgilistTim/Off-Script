@@ -462,17 +462,23 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
         setScrollPosition(scrollAreaRef.current.scrollTop || 0);
       }
     } else {
-      // Returning from fullscreen - collapse insights and restore scroll position
+      // Returning from fullscreen - collapse insights and scroll to bottom (latest messages)
       setCareerInsightsExpanded(false);
+      
+      // On mobile, ensure insights stay collapsed (mobile uses separate view paradigm)
+      if (isMobile) {
+        console.log('📱 [MOBILE NAVIGATION] Returning from fullscreen - keeping insights collapsed for mobile');
+      }
+      
       setTimeout(() => {
-        // Restore scroll position after a brief delay to allow for layout changes
+        // Scroll to bottom to show latest messages after a brief delay to allow for layout changes
         if (scrollAreaRef.current) {
-          scrollAreaRef.current.scrollTop = scrollPosition;
+          scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
         }
       }, 100);
     }
     setIsViewingCareerInsights(isViewing);
-  }, [scrollPosition]);
+  }, [scrollPosition, isMobile]);
 
   // Initialize career insights expansion based on content
   useEffect(() => {
@@ -486,24 +492,28 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
     // 1. Not returning from fullscreen 
     // 2. There's content
     // 3. NOT currently analyzing (to avoid covering the progress bar)
-    if (hasContent && !isViewingCareerInsights && !isAnalyzing) {
-      console.log('🔍 [INSIGHTS EXPANSION] Auto-expanding insights:', {
+    // 4. NOT on mobile (mobile uses separate fullscreen view)
+    if (hasContent && !isViewingCareerInsights && !isAnalyzing && !isMobile) {
+      console.log('🔍 [INSIGHTS EXPANSION] Auto-expanding insights (desktop only):', {
         hasContent,
         isViewingCareerInsights,
         isAnalyzing,
+        isMobile,
         careerCards: careerCards.length,
         interests: discoveredInsights.interests.length
       });
       setCareerInsightsExpanded(true);
-    } else if (hasContent && isAnalyzing) {
-      console.log('🚫 [INSIGHTS EXPANSION] Preventing expansion during analysis:', {
+    } else if (hasContent && (isAnalyzing || isMobile)) {
+      console.log('🚫 [INSIGHTS EXPANSION] Preventing expansion:', {
         hasContent,
         isAnalyzing,
+        isMobile,
+        reason: isAnalyzing ? 'during analysis' : 'mobile uses separate view',
         careerCards: careerCards.length,
         interests: discoveredInsights.interests.length
       });
     }
-  }, [careerCards.length, discoveredInsights.interests.length, discoveredInsights.goals.length, discoveredInsights.skills.length, discoveredInsights.personalQualities.length, isViewingCareerInsights, isAnalyzing]);
+  }, [careerCards.length, discoveredInsights.interests.length, discoveredInsights.goals.length, discoveredInsights.skills.length, discoveredInsights.personalQualities.length, isViewingCareerInsights, isAnalyzing, isMobile]);
 
   // Initialize real-time persona adaptation service
   useEffect(() => {
