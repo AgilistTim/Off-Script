@@ -482,11 +482,14 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
                       discoveredInsights.skills.length > 0 || 
                       discoveredInsights.personalQualities.length > 0;
     
-    // Only auto-expand if not returning from fullscreen and there's content
-    if (hasContent && !isViewingCareerInsights) {
+    // Only auto-expand if:
+    // 1. Not returning from fullscreen 
+    // 2. There's content
+    // 3. NOT currently analyzing (to avoid covering the progress bar)
+    if (hasContent && !isViewingCareerInsights && !isAnalyzing) {
       setCareerInsightsExpanded(true);
     }
-  }, [careerCards.length, discoveredInsights.interests.length, discoveredInsights.goals.length, discoveredInsights.skills.length, discoveredInsights.personalQualities.length, isViewingCareerInsights]);
+  }, [careerCards.length, discoveredInsights.interests.length, discoveredInsights.goals.length, discoveredInsights.skills.length, discoveredInsights.personalQualities.length, isViewingCareerInsights, isAnalyzing]);
 
   // Initialize real-time persona adaptation service
   useEffect(() => {
@@ -841,6 +844,9 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
           // Show progress and start analysis
           setIsAnalyzing(true);
           setProgressUpdate(null);
+          
+          // Collapse insights during analysis to ensure progress bar is visible
+          setCareerInsightsExpanded(false);
 
           // Determine if we should use enhanced analysis (Perplexity) for authenticated users
           const enableEnhancement = !!currentUser;
@@ -984,9 +990,11 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
               }
             }
 
-            // Hide progress modal after short delay
+            // Hide progress modal after short delay and expand insights to show results
             setTimeout(() => {
               setIsAnalyzing(false);
+              // Auto-expand insights to show the newly generated career cards
+              setCareerInsightsExpanded(true);
             }, 2000);
 
             const cardCount = careerCardsToUse.length;
@@ -1022,6 +1030,9 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
                 }));
                 guestSessionService.addCareerCards(cardsWithIds);
               }
+              
+              // Auto-expand insights to show the fallback career cards
+              setCareerInsightsExpanded(true);
               
               return `Generated ${fallbackCards.length} career insights using fallback analysis`;
             }
