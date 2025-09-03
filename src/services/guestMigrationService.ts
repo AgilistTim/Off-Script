@@ -39,6 +39,22 @@ interface MigrationRecord {
 }
 
 export class GuestMigrationService {
+
+  /**
+   * Utility function to add timeout protection to async operations
+   */
+  private static async withTimeout<T>(
+    promise: Promise<T>,
+    timeoutMs: number,
+    operationName: string
+  ): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error(`${operationName} timed out after ${timeoutMs}ms`)), timeoutMs)
+      )
+    ]);
+  }
   
   /**
    * Main migration function - transfers guest data to registered user
@@ -103,14 +119,19 @@ export class GuestMigrationService {
       if (guestSession.conversationHistory.length > 0) {
         console.log('✅ [MIGRATION FLOW] Starting conversation history transfer...');
         migrationTasks.push(
-          this.transferConversationHistory(userId, guestSession)
+          this.withTimeout(
+            this.transferConversationHistory(userId, guestSession),
+            30000, // 30 second timeout for conversation history transfer
+            'conversation history transfer'
+          )
             .then(count => {
               migrationRecord.dataTransferred.conversationMessages = count;
               console.log('✅ [MIGRATION FLOW] Conversation transfer completed:', { messageCount: count });
             })
             .catch(error => {
-              console.error('❌ [MIGRATION FLOW] Conversation transfer failed:', error);
-              throw error;
+              console.warn('⚠️ [MIGRATION FLOW] Conversation transfer failed (non-critical):', error);
+              // Don't throw - make this non-critical to avoid failing the entire migration
+              migrationRecord.dataTransferred.conversationMessages = 0;
             })
         );
       } else {
@@ -158,8 +179,15 @@ export class GuestMigrationService {
           })
       );
 
-      // Execute all migration tasks
-      await Promise.all(migrationTasks);
+      // Execute all migration tasks with better error handling
+      const migrationResults = await Promise.allSettled(migrationTasks);
+      
+      // Log any failed tasks but don't fail the entire migration
+      migrationResults.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.warn(`⚠️ Migration task ${index} failed (non-critical):`, result.reason);
+        }
+      });
 
       // Record the migration
       const finalRecord: MigrationRecord = {
@@ -263,11 +291,21 @@ export class GuestMigrationService {
   ): Promise<number> {
     if (guestSession.conversationHistory.length === 0) return 0;
 
+    // Validate input data
+    if (!userId || typeof userId !== 'string') {
+      throw new Error('Invalid userId provided for conversation history transfer');
+    }
+
+    if (!guestSession.sessionId || typeof guestSession.sessionId !== 'string') {
+      throw new Error('Invalid guest session ID');
+    }
+
     try {
       // Create a special migration chat thread
       const migrationThreadRef = doc(collection(db, 'chatThreads'));
       
-      await setDoc(migrationThreadRef, {
+      // Prepare thread data with proper Firebase serialization
+      const threadData = {
         id: migrationThreadRef.id,
         userId,
         title: 'Guest Session Conversation',
@@ -279,22 +317,33 @@ export class GuestMigrationService {
         isMigrated: true,
         migrationSource: 'guest_session',
         guestSessionId: guestSession.sessionId
-      });
+      };
+
+      const cleanedThreadData = cleanObjectForFirebase(threadData);
+      await setDoc(migrationThreadRef, cleanedThreadData);
 
       // Add all conversation messages
       let messageCount = 0;
       for (const message of guestSession.conversationHistory) {
         try {
-          await addDoc(collection(db, 'chatThreads', migrationThreadRef.id, 'messages'), {
-            content: message.content,
+          // Prepare message data with proper Firebase serialization
+          const messageData = {
+            content: message.content?.trim() || '', // Ensure content is properly trimmed
             role: message.role,
             timestamp: serverTimestamp(),
             originalTimestamp: message.timestamp,
             migrated: true
-          });
+          };
+
+          const cleanedMessageData = cleanObjectForFirebase(messageData);
+          await addDoc(collection(db, 'chatThreads', migrationThreadRef.id, 'messages'), cleanedMessageData);
           messageCount++;
         } catch (messageError) {
-          console.warn('Failed to migrate message:', messageError);
+          console.warn('Failed to migrate message:', {
+            error: messageError,
+            messagePreview: message.content?.substring(0, 50) + '...',
+            messageRole: message.role
+          });
         }
       }
 
@@ -791,31 +840,50 @@ export class GuestMigrationService {
           console.log(`🚀 Starting background Perplexity enhancement for user: ${userId}`);
           
           // Note: In a production environment, this would ideally be handled by a job queue
-          // For now, we'll run it as a background process
-          const enhancedCards = await dashboardCareerEnhancer.batchEnhanceUserCareerCards(
-            userId,
-            careerCards,
-            (status) => {
-              console.log(`📊 Enhancement progress:`, status);
-              // TODO: Could emit real-time progress updates to the user via WebSocket/SSE
-              
-              // Trigger context update when enhancement completes
-              if (status.status === 'completed') {
-                console.log('🎯 Enhancement completed - triggering ElevenLabs context update');
-                this.triggerContextUpdateForEnhancement(userId, status);
+          // For now, we'll run it as a background process with timeout protection
+          const enhancedCards = await this.withTimeout(
+            dashboardCareerEnhancer.batchEnhanceUserCareerCards(
+              userId,
+              careerCards,
+              (status) => {
+                console.log(`📊 Enhancement progress:`, status);
+                // TODO: Could emit real-time progress updates to the user via WebSocket/SSE
+                
+                // Trigger context update when enhancement completes (non-blocking)
+                if (status.status === 'completed') {
+                  console.log('🎯 Enhancement completed - triggering ElevenLabs context update');
+                  this.triggerContextUpdateForEnhancement(userId, status)
+                    .catch(error => console.warn('⚠️ Context update failed (non-critical):', error));
+                }
               }
-            }
+            ),
+            300000, // 5 minute timeout for enhancement process
+            'Perplexity enhancement'
           );
 
-          // Save enhanced data back to Firebase
-          await this.saveEnhancedCareerCardsToFirebase(userId, enhancedCards);
+          // Save enhanced data back to Firebase with timeout protection
+          await this.withTimeout(
+            this.saveEnhancedCareerCardsToFirebase(userId, enhancedCards),
+            60000, // 1 minute timeout for Firebase save
+            'enhanced career cards save'
+          );
 
-          // Final context update after data is saved to Firebase
-          await this.triggerFinalContextUpdate(userId, enhancedCards);
+          // Final context update after data is saved to Firebase (non-blocking)
+          this.triggerFinalContextUpdate(userId, enhancedCards)
+            .catch(error => console.warn('⚠️ Final context update failed (non-critical):', error));
 
           console.log(`✅ Background Perplexity enhancement completed for user: ${userId}`);
         } catch (error) {
           console.error(`❌ Background Perplexity enhancement failed for user ${userId}:`, error);
+          
+          // Don't fail silently - log detailed error information for debugging
+          if (error.message?.includes('timed out')) {
+            console.error('🕐 Enhancement process timed out - this may indicate API or network issues');
+          } else if (error.message?.includes('Firebase')) {
+            console.error('🔥 Firebase error during enhancement - check permissions and connectivity');
+          } else if (error.message?.includes('Perplexity')) {
+            console.error('🔍 Perplexity API error - check API key and rate limits');
+          }
         }
       }, 5000); // Start after 5 seconds to allow user registration to complete
 

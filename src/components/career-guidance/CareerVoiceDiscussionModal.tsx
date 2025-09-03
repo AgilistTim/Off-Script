@@ -357,7 +357,13 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
   if (!apiKey || !careerAwareAgentId) {
     return (
       <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="max-w-4xl h-[80vh] bg-gradient-to-br from-primary-white to-primary-mint/10 border border-primary-green/30 text-primary-black overflow-hidden [&>button]:hidden">
+        <DialogContent 
+          className="max-w-4xl h-[80vh] bg-gradient-to-br from-primary-white to-primary-mint/10 border border-primary-green/30 text-primary-black overflow-hidden [&>button]:hidden"
+          aria-describedby="config-error-description"
+        >
+          <div id="config-error-description" className="sr-only">
+            Configuration error dialog for missing ElevenLabs setup
+          </div>
           <div className="flex items-center justify-center h-full">
             <div className="flex flex-col items-center space-y-4 text-center">
               <X className="h-8 w-8 text-primary-peach" />

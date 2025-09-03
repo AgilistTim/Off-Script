@@ -380,23 +380,25 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
           state.videoProgress.videosWatched.length > 0
         );
         
-        // 🔍 DETAILED DEBUGGING FOR hasSignificantData
-        console.log('🔍 hasSignificantData() called with state:', {
-          careerCardsCount: state.careerCards.length,
-          conversationCount: state.conversationHistory.length,
-          hasPersonProfile: !!state.personProfile,
-          personProfileInterests: state.personProfile?.interests?.length || 0,
-          personProfileGoals: state.personProfile?.goals?.length || 0,
-          videosWatchedCount: state.videoProgress.videosWatched.length,
-          criteria: {
-            hasCareerCards: state.careerCards.length > 0,
-            hasMinConversation: state.conversationHistory.length >= 4,
-            hasPersonProfileInterests: state.personProfile && state.personProfile.interests.length > 0,
-            hasPersonProfileGoals: state.personProfile && state.personProfile.goals.length > 0,
-            hasVideosWatched: state.videoProgress.videosWatched.length > 0
-          },
-          finalResult: result
-        });
+        // Rate-limited logging to prevent spam - only log on state changes or errors
+        const currentStateHash = `${state.careerCards.length}-${state.conversationHistory.length}-${state.personProfile?.interests?.length || 0}-${state.personProfile?.goals?.length || 0}`;
+        const lastStateHash = (state as any)._lastSignificantDataHash;
+        
+        if (currentStateHash !== lastStateHash) {
+          // Only log when significant data state actually changes
+          console.log('🔍 hasSignificantData() - state changed:', {
+            careerCardsCount: state.careerCards.length,
+            conversationCount: state.conversationHistory.length,
+            hasPersonProfile: !!state.personProfile,
+            personProfileInterests: state.personProfile?.interests?.length || 0,
+            personProfileGoals: state.personProfile?.goals?.length || 0,
+            videosWatchedCount: state.videoProgress.videosWatched.length,
+            finalResult: result
+          });
+          
+          // Store hash to prevent duplicate logging
+          set({ ...(state as any), _lastSignificantDataHash: currentStateHash });
+        }
         
         return result;
       },

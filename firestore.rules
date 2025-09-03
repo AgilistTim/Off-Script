@@ -192,7 +192,7 @@ service cloud.firestore {
     }
     
     // User persona data - users can only access their own persona data
-    match /userPersona/{userId} {
+    match /userPersonaProfiles/{userId} {
       allow read: if isAuthenticated() && 
         (isOwner(userId) || isAdmin());
       

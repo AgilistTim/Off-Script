@@ -390,7 +390,7 @@ export class ReportDataAggregationService {
   ): Promise<PersonaProgressData> {
     try {
       // Try to get persona data - may not exist for all users
-      const personaDoc = await getDoc(doc(db, 'userPersona', userId));
+      const personaDoc = await getDoc(doc(db, 'userPersonaProfiles', userId));
       
       let personaData = null;
       if (personaDoc.exists()) {
