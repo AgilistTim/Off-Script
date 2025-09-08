@@ -22,6 +22,40 @@ import {
 import { db } from './firebase';
 import { environmentConfig } from '../config/environment';
 
+// Helper function to safely convert various date formats to Date objects
+function safeToDate(dateValue: any): Date {
+  if (!dateValue) return new Date();
+  
+  // Firestore Timestamp
+  if (dateValue && typeof dateValue.toDate === 'function') {
+    return dateValue.toDate();
+  }
+  
+  // ISO string
+  if (typeof dateValue === 'string') {
+    const date = new Date(dateValue);
+    return isNaN(date.getTime()) ? new Date() : date;
+  }
+  
+  // JavaScript Date object
+  if (dateValue instanceof Date) {
+    return dateValue;
+  }
+  
+  // Timestamp in milliseconds
+  if (typeof dateValue === 'number') {
+    return new Date(dateValue);
+  }
+  
+  // Firestore server timestamp (object with seconds/nanoseconds)
+  if (dateValue && typeof dateValue === 'object' && dateValue.seconds) {
+    return new Date(dateValue.seconds * 1000);
+  }
+  
+  // Fallback to current date
+  return new Date();
+}
+
 // Interfaces for admin data structures
 export interface ConversationSummary {
   id: string;
@@ -103,20 +137,23 @@ class ElevenLabsAdminService {
 
   /**
    * Get all conversations with user information for admin dashboard
+   * Aggregates both voice (elevenLabsConversations) and text (chatThreads) conversations
    */
   async getAllConversations(limitCount: number = 100): Promise<ConversationSummary[]> {
     try {
-      const conversationsRef = collection(db, 'elevenLabsConversations');
-      const q = query(
-        conversationsRef,
+      const conversations: ConversationSummary[] = [];
+
+      // Get voice conversations from elevenLabsConversations
+      const voiceConversationsRef = collection(db, 'elevenLabsConversations');
+      const voiceQuery = query(
+        voiceConversationsRef,
         orderBy('updatedAt', 'desc'),
         limit(limitCount)
       );
 
-      const querySnapshot = await getDocs(q);
-      const conversations: ConversationSummary[] = [];
+      const voiceQuerySnapshot = await getDocs(voiceQuery);
 
-      for (const conversationDoc of querySnapshot.docs) {
+      for (const conversationDoc of voiceQuerySnapshot.docs) {
         const data = conversationDoc.data();
         
         // Get user information
@@ -142,8 +179,8 @@ class ElevenLabsAdminService {
           userName,
           userEmail,
           messageCount: data.messageCount || 0,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
+          createdAt: safeToDate(data.createdAt),
+          updatedAt: safeToDate(data.updatedAt),
           lastMessage: data.lastMessage || '',
           lastMessageRole: data.lastMessageRole || 'user',
           participants: data.participants || [],
@@ -153,7 +190,62 @@ class ElevenLabsAdminService {
         });
       }
 
-      return conversations;
+      // Get text conversations from chatThreads
+      const textThreadsRef = collection(db, 'chatThreads');
+      const textQuery = query(
+        textThreadsRef,
+        orderBy('updatedAt', 'desc'),
+        limit(limitCount)
+      );
+
+      const textQuerySnapshot = await getDocs(textQuery);
+
+      for (const threadDoc of textQuerySnapshot.docs) {
+        const data = threadDoc.data();
+        
+        // Get message count from messages subcollection
+        const messagesRef = collection(db, 'chatThreads', threadDoc.id, 'messages');
+        const messagesSnapshot = await getDocs(messagesRef);
+        const messageCount = messagesSnapshot.size;
+
+        // Get user information
+        let userName = 'Unknown User';
+        let userEmail = 'unknown@example.com';
+        
+        try {
+          if (data.userId) {
+            const userDoc = await getDoc(doc(db, 'users', data.userId));
+            if (userDoc.exists()) {
+              const userData = userDoc.data();
+              userName = userData.displayName || userData.name || 'Unknown User';
+              userEmail = userData.email || 'unknown@example.com';
+            }
+          }
+        } catch (userError) {
+          console.warn(`Failed to get user data for ${data.userId}:`, userError);
+        }
+
+        conversations.push({
+          id: threadDoc.id,
+          userId: data.userId || 'unknown',
+          userName,
+          userEmail,
+          messageCount: messageCount,
+          createdAt: safeToDate(data.createdAt),
+          updatedAt: safeToDate(data.updatedAt),
+          lastMessage: data.lastMessage || '',
+          lastMessageRole: 'user', // Default for text threads
+          participants: [data.userId || 'unknown'],
+          status: 'active', // Text threads are typically active
+          careerCardsGenerated: 0, // Career cards are tracked separately in threadCareerGuidance
+          hasAudio: false // Text threads don't have audio
+        });
+      }
+
+      // Sort all conversations by most recent activity and limit results
+      conversations.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
+      return conversations.slice(0, limitCount);
+
     } catch (error) {
       console.error('Error fetching conversations:', error);
       throw new Error(`Failed to fetch conversations: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -161,23 +253,46 @@ class ElevenLabsAdminService {
   }
 
   /**
-   * Get conversation transcript with all messages (leverages existing Firebase data)
-   * Note: This uses the existing chatService.getConversationTranscript functionality
+   * Get conversation transcript with all messages (supports both voice and text conversations)
+   * Note: This supports both elevenLabsConversations and chatThreads
    */
   async getConversationTranscript(conversationId: string): Promise<ConversationMessage[]> {
     try {
-      const messagesRef = collection(db, 'elevenLabsConversations', conversationId, 'messages');
-      const q = query(messagesRef, orderBy('timestamp', 'asc'));
-      const messagesSnapshot = await getDocs(q);
+      // First try voice conversations (elevenLabsConversations)
+      try {
+        const voiceMessagesRef = collection(db, 'elevenLabsConversations', conversationId, 'messages');
+        const voiceQuery = query(voiceMessagesRef, orderBy('timestamp', 'asc'));
+        const voiceMessagesSnapshot = await getDocs(voiceQuery);
 
-      return messagesSnapshot.docs.map(doc => {
+        if (!voiceMessagesSnapshot.empty) {
+          return voiceMessagesSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              role: data.role,
+              content: data.content,
+              timestamp: safeToDate(data.timestamp),
+              userId: data.userId
+            };
+          });
+        }
+      } catch (voiceError) {
+        console.log('No voice conversation found, trying text conversation...');
+      }
+
+      // If no voice conversation found, try text conversations (chatThreads)
+      const textMessagesRef = collection(db, 'chatThreads', conversationId, 'messages');
+      const textQuery = query(textMessagesRef, orderBy('timestamp', 'asc'));
+      const textMessagesSnapshot = await getDocs(textQuery);
+
+      return textMessagesSnapshot.docs.map(doc => {
         const data = doc.data();
         return {
           id: doc.id,
           role: data.role,
           content: data.content,
-          timestamp: data.timestamp?.toDate() || new Date(),
-          userId: data.userId
+          timestamp: safeToDate(data.timestamp),
+          userId: data.userId || 'unknown'
         };
       });
     } catch (error) {
@@ -494,6 +609,7 @@ class ElevenLabsAdminService {
 
   /**
    * Get user-specific conversation data for enhanced user management
+   * Aggregates both voice (elevenLabsConversations) and text (chatThreads/chatSummaries) data
    */
   async getUserConversationData(userId: string): Promise<{
     conversationCount: number;
@@ -503,20 +619,22 @@ class ElevenLabsAdminService {
     conversations: ConversationSummary[];
   }> {
     try {
-      const conversationsRef = collection(db, 'elevenLabsConversations');
-      const userConversationsQuery = query(
-        conversationsRef,
+      // Get voice conversations from elevenLabsConversations
+      const voiceConversationsRef = collection(db, 'elevenLabsConversations');
+      const voiceConversationsQuery = query(
+        voiceConversationsRef,
         where('userId', '==', userId),
         orderBy('updatedAt', 'desc')
       );
 
-      const conversationsSnapshot = await getDocs(userConversationsQuery);
+      const voiceConversationsSnapshot = await getDocs(voiceConversationsQuery);
       const conversations: ConversationSummary[] = [];
       let totalMessages = 0;
       let totalCareerCards = 0;
       let lastActivity: Date | null = null;
 
-      for (const conversationDoc of conversationsSnapshot.docs) {
+      // Process voice conversations
+      for (const conversationDoc of voiceConversationsSnapshot.docs) {
         const data = conversationDoc.data();
         
         const conversation: ConversationSummary = {
@@ -525,8 +643,8 @@ class ElevenLabsAdminService {
           userName: 'User', // Will be filled by caller if needed
           userEmail: '', // Will be filled by caller if needed
           messageCount: data.messageCount || 0,
-          createdAt: data.createdAt?.toDate() || new Date(),
-          updatedAt: data.updatedAt?.toDate() || new Date(),
+          createdAt: safeToDate(data.createdAt),
+          updatedAt: safeToDate(data.updatedAt),
           lastMessage: data.lastMessage || '',
           lastMessageRole: data.lastMessageRole || 'user',
           participants: data.participants || [],
@@ -543,6 +661,69 @@ class ElevenLabsAdminService {
           lastActivity = conversation.updatedAt;
         }
       }
+
+      // Get text conversations from chatThreads
+      const textThreadsRef = collection(db, 'chatThreads');
+      const textThreadsQuery = query(
+        textThreadsRef,
+        where('userId', '==', userId),
+        orderBy('updatedAt', 'desc')
+      );
+
+      const textThreadsSnapshot = await getDocs(textThreadsQuery);
+
+      // Process text conversations
+      for (const threadDoc of textThreadsSnapshot.docs) {
+        const data = threadDoc.data();
+        
+        // Get message count from messages subcollection
+        const messagesRef = collection(db, 'chatThreads', threadDoc.id, 'messages');
+        const messagesSnapshot = await getDocs(messagesRef);
+        const messageCount = messagesSnapshot.size;
+
+        // Convert text thread to ConversationSummary format
+        const conversation: ConversationSummary = {
+          id: threadDoc.id,
+          userId: data.userId || userId,
+          userName: 'User', // Will be filled by caller if needed
+          userEmail: '', // Will be filled by caller if needed
+          messageCount: messageCount,
+          createdAt: safeToDate(data.createdAt),
+          updatedAt: safeToDate(data.updatedAt),
+          lastMessage: data.lastMessage || '',
+          lastMessageRole: 'user', // Default for text threads
+          participants: [data.userId || userId],
+          status: 'active', // Text threads are typically active
+          careerCardsGenerated: 0, // Career cards are tracked separately in threadCareerGuidance
+          hasAudio: false // Text threads don't have audio
+        };
+
+        conversations.push(conversation);
+        totalMessages += messageCount;
+        
+        if (!lastActivity || conversation.updatedAt > lastActivity) {
+          lastActivity = conversation.updatedAt;
+        }
+      }
+
+      // Get career cards from threadCareerGuidance and chatSummaries
+      const careerGuidanceRef = collection(db, 'threadCareerGuidance');
+      const careerGuidanceQuery = query(
+        careerGuidanceRef,
+        where('userId', '==', userId)
+      );
+
+      const careerGuidanceSnapshot = await getDocs(careerGuidanceQuery);
+      for (const guidanceDoc of careerGuidanceSnapshot.docs) {
+        const data = guidanceDoc.data();
+        if (data.guidance?.primaryPathway) totalCareerCards++;
+        if (data.guidance?.alternativePathways?.length) {
+          totalCareerCards += data.guidance.alternativePathways.length;
+        }
+      }
+
+      // Sort conversations by most recent activity
+      conversations.sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime());
 
       return {
         conversationCount: conversations.length,
