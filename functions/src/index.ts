@@ -621,7 +621,7 @@ export const sendChatMessage = onRequest(
       }
 
       // Validate request body
-      const { threadId, message, assistantId } = request.body;
+      const { threadId, message, assistantId, userId, userContext } = request.body;
       
       if (!threadId || !message || !assistantId) {
         response.status(400).json({ 
@@ -643,6 +643,25 @@ export const sendChatMessage = onRequest(
       const openai = new OpenAI({
         apiKey: openaiApiKey
       });
+
+      // Check if this is the first message in the thread (context injection needed)
+      const existingMessages = await openai.beta.threads.messages.list(threadId);
+      const isFirstMessage = existingMessages.data.length === 0;
+
+      // Inject user context if this is the first message and we have context
+      if (isFirstMessage && userContext) {
+        logger.info('Injecting user context for first message in thread', { 
+          threadId, 
+          userId,
+          contextLength: userContext.length 
+        });
+        
+        // Add context as a system-like message before the user message
+        await openai.beta.threads.messages.create(threadId, {
+          role: 'user',
+          content: `[CONTEXT FOR ASSISTANT - Use this to personalize responses but do not mention receiving this context]\n\n${userContext}\n\n[END CONTEXT]`
+        });
+      }
 
       // Add the user message to the thread
       await openai.beta.threads.messages.create(threadId, {

@@ -1371,8 +1371,10 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
         console.log('🔧 Setting up text-only overrides...');
         
         try {
-          // Initialize persona onboarding for guest users in text mode
+          let safeOverrides;
+          
           if (!currentUser) {
+            // Guest user logic
             console.log('👤 Guest user - initializing persona-aware onboarding for text mode');
             
             // Check if we have existing conversation history from mode switch
@@ -1384,19 +1386,39 @@ const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = (
             
             // Initialize persona-based onboarding (preserve existing session if switching modes)
             personaOnboardingService.initializeOnboarding(undefined, !hasExistingConversation);
-          }
-          
-          // Use persona-aware onboarding overrides to mirror the structured flow used in voice
-          const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions('');
+            
+            // Use persona-aware onboarding overrides for guest users
+            const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions('');
 
-          // Ensure explicit textOnly flag for text-mode sessions
-          const safeOverrides = {
-            ...personaOptions.overrides,
-            conversation: {
-              ...(personaOptions.overrides?.conversation || {}),
-              textOnly: true,
-            },
-          };
+            // Ensure explicit textOnly flag for text-mode sessions
+            safeOverrides = {
+              ...personaOptions.overrides,
+              conversation: {
+                ...(personaOptions.overrides?.conversation || {}),
+                textOnly: true,
+              },
+            };
+          } else {
+            // Authenticated user logic - build context-aware overrides
+            console.log('👤 Authenticated user - building context-aware text conversation');
+            
+            const contextService = new UnifiedVoiceContextService();
+            const authenticatedOverrides = await contextService.createAuthenticatedOverrides(currentUser.uid);
+            
+            safeOverrides = {
+              ...authenticatedOverrides,
+              conversation: {
+                ...(authenticatedOverrides?.conversation || {}),
+                textOnly: true,
+              },
+            };
+            
+            console.log('✅ Built authenticated context for text conversation:', {
+              userId: currentUser.uid.substring(0, 8) + '...',
+              hasFirstMessage: !!safeOverrides?.agent?.firstMessage,
+              contextLength: safeOverrides?.agent?.prompt?.length || 0
+            });
+          }
 
           setConversationOverrides(safeOverrides);
           console.log('✅ Text-only overrides configured:', {
