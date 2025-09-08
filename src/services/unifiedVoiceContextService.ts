@@ -1279,23 +1279,63 @@ TOOL USAGE STRATEGY (ENHANCED FOR CAREER CARD GENERATION):
       if (userDoc.exists()) {
         const userData = userDoc.data();
         
-        // Get conversation count from conversations collection
+        // Get conversation count from actual conversation collections
         let conversationCount = 0;
         try {
-          const conversationsQuery = query(
-            collection(db, 'conversations'),
-            where('userId', '==', userId),
-            orderBy('createdAt', 'desc')
+          // Count text conversations (chatThreads)
+          const textThreadsQuery = query(
+            collection(db, 'chatThreads'),
+            where('userId', '==', userId)
           );
-          const conversationsSnapshot = await getDocs(conversationsQuery);
-          conversationCount = conversationsSnapshot.size;
+          const textThreadsSnapshot = await getDocs(textThreadsQuery);
+          conversationCount += textThreadsSnapshot.size;
+
+          // Count voice conversations (elevenLabsConversations)
+          const voiceConversationsQuery = query(
+            collection(db, 'elevenLabsConversations'),
+            where('userId', '==', userId)
+          );
+          const voiceConversationsSnapshot = await getDocs(voiceConversationsQuery);
+          conversationCount += voiceConversationsSnapshot.size;
+
+          console.log('📊 Conversation count calculated:', {
+            userId: userId.substring(0, 8) + '...',
+            textThreads: textThreadsSnapshot.size,
+            voiceConversations: voiceConversationsSnapshot.size,
+            totalConversations: conversationCount
+          });
         } catch (convError) {
           console.warn('Could not get conversation count:', convError);
           conversationCount = userData.totalConversations || 0;
         }
 
-        // Get career cards count
-        const careerCardsGenerated = userData.careerCardsGenerated || 0;
+        // Get career cards count from actual career guidance data
+        let careerCardsGenerated = 0;
+        try {
+          const careerGuidanceQuery = query(
+            collection(db, 'threadCareerGuidance'),
+            where('userId', '==', userId)
+          );
+          const careerGuidanceSnapshot = await getDocs(careerGuidanceQuery);
+          
+          // Count career cards from guidance documents
+          careerGuidanceSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.guidance?.primaryPathway) careerCardsGenerated++;
+            if (data.guidance?.alternativePathways?.length) {
+              careerCardsGenerated += data.guidance.alternativePathways.length;
+            }
+          });
+
+          console.log('📊 Career cards count calculated:', {
+            userId: userId.substring(0, 8) + '...',
+            guidanceDocs: careerGuidanceSnapshot.size,
+            totalCareerCards: careerCardsGenerated
+          });
+        } catch (careerError) {
+          console.warn('Could not get career cards count:', careerError);
+          careerCardsGenerated = userData.careerCardsGenerated || 0;
+        }
         
         // Determine engagement level
         let engagementLevel = 'new';
