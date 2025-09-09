@@ -35,9 +35,9 @@ const MainLayout: React.FC = () => {
       
       {/* Global Toast Notifications */}
       <Toaster 
-        position="top-right"
+        position="top-center"
         toastOptions={{
-          duration: 4000,
+          duration: 3000, // Shorter duration - auto-dismiss after 3 seconds
           style: {
             background: '#ffffff',
             color: '#374151',
@@ -45,6 +45,8 @@ const MainLayout: React.FC = () => {
             borderRadius: '0.75rem',
             fontSize: '14px',
             maxWidth: '400px',
+            marginTop: '80px', // Push down below header/navigation
+            zIndex: 40, // Lower z-index to not interfere with navigation
           },
         }}
       />

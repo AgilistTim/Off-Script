@@ -2386,7 +2386,11 @@ class CareerPathwayService {
       });
 
       // Call OpenAI API through Firebase Function for comprehensive career pathway generation
-      const response = await fetch(`${environmentConfig.apiEndpoints.openaiAssistant}/generateCareerPathways`, {
+      const { getFirebaseFunctionUrl } = await import('./firebase');
+      const functionUrl = getFirebaseFunctionUrl('generateCareerPathways');
+      console.log('🌐 Calling generateCareerPathways function:', functionUrl);
+      
+      const response = await fetch(functionUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -176,7 +176,6 @@ export const AdaptiveAIResponse: React.FC<AdaptiveAIResponseProps> = ({
     
     // Select appropriate insight based on persona
     let insight = "";
-    const messageContent = userMessage.toLowerCase();
     
     if (persona.type === 'skeptical_pragmatist') {
       insight = CAREER_INSIGHTS_BANK.practical_advice[

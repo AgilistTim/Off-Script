@@ -621,7 +621,7 @@ export const sendChatMessage = onRequest(
       }
 
       // Validate request body
-      const { threadId, message, assistantId } = request.body;
+      const { threadId, message, assistantId, userId, userContext } = request.body;
       
       if (!threadId || !message || !assistantId) {
         response.status(400).json({ 
@@ -643,6 +643,25 @@ export const sendChatMessage = onRequest(
       const openai = new OpenAI({
         apiKey: openaiApiKey
       });
+
+      // Check if this is the first message in the thread (context injection needed)
+      const existingMessages = await openai.beta.threads.messages.list(threadId);
+      const isFirstMessage = existingMessages.data.length === 0;
+
+      // Inject user context if this is the first message and we have context
+      if (isFirstMessage && userContext) {
+        logger.info('Injecting user context for first message in thread', { 
+          threadId, 
+          userId,
+          contextLength: userContext.length 
+        });
+        
+        // Add context as a system-like message before the user message
+        await openai.beta.threads.messages.create(threadId, {
+          role: 'user',
+          content: `[CONTEXT FOR ASSISTANT - Use this to personalize responses but do not mention receiving this context]\n\n${userContext}\n\n[END CONTEXT]`
+        });
+      }
 
       // Add the user message to the thread
       await openai.beta.threads.messages.create(threadId, {
@@ -3696,6 +3715,130 @@ export const searchCareerData = onRequest(
         error: 'Failed to search career data',
         message: error.message
       });
+    }
+  }
+);
+
+/**
+ * Text chat (OpenAI Responses) - START (no-op placeholder)
+ */
+export const textChatStart = onRequest(
+  {
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret]
+  },
+  async (request, response) => {
+    try {
+      if (request.method !== 'POST') {
+        response.status(405).json({ error: 'Method not allowed. Use POST only.' });
+        return;
+      }
+      const origin = request.headers.origin;
+      if (!origin || !isOriginAllowed(origin)) {
+        response.status(403).json({ error: 'Origin not allowed' });
+        return;
+      }
+      const { sessionId, personaContext } = request.body || {};
+      console.log('🟢 [TEXT START] OpenAI text session start:', {
+        sessionId: sessionId || 'none',
+        personaContextPreview: typeof personaContext === 'string' ? personaContext.substring(0, 160) + '...' : 'none',
+        personaContextLength: typeof personaContext === 'string' ? personaContext.length : 0
+      });
+      response.status(200).json({ ok: true });
+    } catch (error) {
+      response.status(500).json({ error: 'Internal server error' });
+    }
+  }
+);
+
+/**
+ * Text chat (OpenAI Responses) - MESSAGE
+ * Body: { sessionId?: string, text: string, personaContext?: string, conversation_history?: Array<{role:'user'|'assistant', content:string}> }
+ * Returns: { reply: string }
+ */
+export const textChatMessage = onRequest(
+  {
+    cors: corsConfig,
+    secrets: [openaiApiKeySecret]
+  },
+  async (request, response) => {
+    try {
+      if (request.method !== 'POST') {
+        response.status(405).json({ error: 'Method not allowed. Use POST only.' });
+        return;
+      }
+      const origin = request.headers.origin;
+      if (!origin || !isOriginAllowed(origin)) {
+        response.status(403).json({ error: 'Origin not allowed' });
+        return;
+      }
+      const { sessionId, text, personaContext, conversation_history } = request.body || {};
+      console.log('💬 [TEXT MSG] Incoming message:', {
+        sessionId: sessionId || 'none',
+        textPreview: typeof text === 'string' ? text.substring(0, 120) + '...' : 'invalid',
+        personaContextPresent: !!personaContext,
+        personaContextLength: typeof personaContext === 'string' ? personaContext.length : 0,
+        historyCount: Array.isArray(conversation_history) ? conversation_history.length : 0
+      });
+      if (!text || typeof text !== 'string') {
+        response.status(400).json({ error: 'Missing text' });
+        return;
+      }
+
+      const apiKey = openaiApiKeySecret.value();
+      if (!apiKey) {
+        response.status(500).json({ error: 'API configuration error' });
+        return;
+      }
+
+      const openai = new OpenAI({ apiKey });
+      const systemBlock = personaContext ? [{ role: 'system' as const, content: personaContext }] : [];
+
+      const priorTurns: Array<{ role: 'user' | 'assistant'; content: string }> = Array.isArray(conversation_history)
+        ? conversation_history.filter((m: any) => (m?.role === 'user' || m?.role === 'assistant') && typeof m?.content === 'string')
+        : [];
+
+      let trimmedTurns = priorTurns;
+      if (priorTurns.length > 0) {
+        const last = priorTurns[priorTurns.length - 1];
+        if (last.role === 'user' && typeof text === 'string' && last.content === text) {
+          trimmedTurns = priorTurns.slice(0, -1);
+        }
+      }
+
+      const completion = await openai.responses.create({
+        model: 'gpt-5',
+        input: [
+          ...systemBlock,
+          ...trimmedTurns,
+          { role: 'user', content: text }
+        ] as any,
+      });
+
+      const reply = (completion as any).output_text || '';
+      console.log('🟣 [TEXT MSG] OpenAI reply:', {
+        replyPreview: reply.substring(0, 160) + '...'
+      });
+      response.status(200).json({ reply });
+    } catch (error) {
+      console.error('🔴 [TEXT MSG] Error:', error);
+      response.status(500).json({ error: 'Internal server error', details: (error as Error).message });
+    }
+  }
+);
+
+/**
+ * Text chat (OpenAI Responses) - END (no-op)
+ */
+export const textChatEnd = onRequest(
+  {
+    cors: corsConfig
+  },
+  async (request, response) => {
+    try {
+      response.status(200).json({ ok: true });
+    } catch (error) {
+      response.status(500).json({ error: 'Internal server error' });
     }
   }
 );

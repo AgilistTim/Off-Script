@@ -88,10 +88,10 @@ const Header: React.FC = () => {
                     fontWeight="700"
                     className="transition-all duration-brand"
                   >
-                    OFF
+                    Off
                   </text>
                   <text 
-                    x="37" 
+                    x="30" 
                     y="28" 
                     fontFamily="Barlow Semi Condensed, sans-serif" 
                     fontSize="24" 
@@ -99,14 +99,14 @@ const Header: React.FC = () => {
                     fontStyle="italic"
                     className="transition-all duration-brand"
                   >
-                    SCRIPT
+                    Script
                   </text>
                 </g>
                 {/* Underline accent */}
                 <line 
                   x1="0" 
                   y1="32" 
-                  x2="100" 
+                  x2="90" 
                   y2="32" 
                   stroke="currentColor" 
                   strokeWidth="2"

@@ -973,7 +973,7 @@ ${contextPrompt}
       console.warn('⚠️ No user data found, falling back to guest prompt');
       // Fallback to a very safe guest-style prompt
       const prompt = await this.buildGuestContext();
-      const firstMessage = "Hi I'm Sarah an AI assistant, what's your name?";
+      const firstMessage = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal.\n\nTo make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind.\n\nFirst up whats your name?";
       return this.buildConversationOverrides(prompt, firstMessage, 'authenticated');
     }
 
@@ -1003,14 +1003,14 @@ ${contextPrompt}
    */
   public async createGuestOverrides(topicTitle?: string): Promise<any> {
     const prompt = await this.buildGuestContext();
-    const firstMessage = topicTitle
-      ? `Let's talk about ${topicTitle}. I can personalize suggestions around this—what would you like to explore first?`
-      : "Hi I'm Sarah an AI assistant, what's your name?";
+    // ALWAYS use the required Sarah introduction message for fresh conversations
+    const firstMessage = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal.\n\nTo make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind.\n\nFirst up whats your name?";
     return this.buildConversationOverrides(prompt, firstMessage, 'guest');
   }
 
   /**
    * Build basic discovery context for guest users
+   * FIXED: No longer injects fake career interests from previous sessions
    */
   private async buildGuestContext(): Promise<string> {
     // Check if guest has a captured name
@@ -1023,12 +1023,7 @@ ${contextPrompt}
     const engagementMetrics = guestSessionService.getEngagementMetrics();
     const guestSession = guestSessionService.getGuestSession();
     
-    // Get guest career cards for context
-    const guestSessionId = guestSessionService.getSessionId();
-    const careerCards = await this.getCareerCardsForContext(guestSessionId, true);
-    const careerCardContext = this.formatCareerCardsForElevenLabsContext(careerCards, guestName || undefined);
-    
-    let contextPrompt = `USER CONTEXT: Guest User
+    let contextPrompt = `USER CONTEXT: Guest User (Fresh Start)
 ${nameContext}
 - Conversation messages: ${engagementMetrics.messageCount}
 - Career cards generated: ${engagementMetrics.careerCardsGenerated}
@@ -1039,18 +1034,15 @@ ${nameContext}
 CONVERSATION GOALS (ENHANCED FOR CONVERSION):
 - PRIORITY: Generate at least 1 career card within first 3-4 exchanges
 - Help them identify interests, skills, and career aspirations quickly
-- Use extract_and_update_profile tool early to capture name and insights
+- Use update_person_profile tool early to capture name and insights
 - AGGRESSIVELY use analyze_conversation_for_careers when ANY interests mentioned
 - Use trigger_instant_insights for immediate engagement and value
 - Build trust through immediate valuable insights and career recommendations
 - Show clear value to encourage account creation
 
-PERSONA: Warm, encouraging career guide who helps young adults discover their potential`;
+CRITICAL: Do NOT assume any interests, skills, or career preferences until the user explicitly mentions them. Start with a clean slate and discover their interests through conversation.
 
-    // Add career card context if available
-    if (careerCardContext) {
-      contextPrompt += `\n\n${careerCardContext}`;
-    }
+PERSONA: Warm, encouraging career guide who helps young adults discover their potential`;
 
     return contextPrompt;
   }
@@ -1060,7 +1052,7 @@ PERSONA: Warm, encouraging career guide who helps young adults discover their po
    */
   public async generatePersonalizedFirstMessage(userData: User | null): Promise<string> {
     if (!userData) {
-      return "Hi I'm Sarah an AI assistant, what's your name?";
+      return "Hi, I'm Sarah, your AI guide. What name can I use?";
     }
 
     const engagementData = await this.getUserEngagementData(userData.uid);
@@ -1287,23 +1279,63 @@ TOOL USAGE STRATEGY (ENHANCED FOR CAREER CARD GENERATION):
       if (userDoc.exists()) {
         const userData = userDoc.data();
         
-        // Get conversation count from conversations collection
+        // Get conversation count from actual conversation collections
         let conversationCount = 0;
         try {
-          const conversationsQuery = query(
-            collection(db, 'conversations'),
-            where('userId', '==', userId),
-            orderBy('createdAt', 'desc')
+          // Count text conversations (chatThreads)
+          const textThreadsQuery = query(
+            collection(db, 'chatThreads'),
+            where('userId', '==', userId)
           );
-          const conversationsSnapshot = await getDocs(conversationsQuery);
-          conversationCount = conversationsSnapshot.size;
+          const textThreadsSnapshot = await getDocs(textThreadsQuery);
+          conversationCount += textThreadsSnapshot.size;
+
+          // Count voice conversations (elevenLabsConversations)
+          const voiceConversationsQuery = query(
+            collection(db, 'elevenLabsConversations'),
+            where('userId', '==', userId)
+          );
+          const voiceConversationsSnapshot = await getDocs(voiceConversationsQuery);
+          conversationCount += voiceConversationsSnapshot.size;
+
+          console.log('📊 Conversation count calculated:', {
+            userId: userId.substring(0, 8) + '...',
+            textThreads: textThreadsSnapshot.size,
+            voiceConversations: voiceConversationsSnapshot.size,
+            totalConversations: conversationCount
+          });
         } catch (convError) {
           console.warn('Could not get conversation count:', convError);
           conversationCount = userData.totalConversations || 0;
         }
 
-        // Get career cards count
-        const careerCardsGenerated = userData.careerCardsGenerated || 0;
+        // Get career cards count from actual career guidance data
+        let careerCardsGenerated = 0;
+        try {
+          const careerGuidanceQuery = query(
+            collection(db, 'threadCareerGuidance'),
+            where('userId', '==', userId)
+          );
+          const careerGuidanceSnapshot = await getDocs(careerGuidanceQuery);
+          
+          // Count career cards from guidance documents
+          careerGuidanceSnapshot.docs.forEach(doc => {
+            const data = doc.data();
+            if (data.guidance?.primaryPathway) careerCardsGenerated++;
+            if (data.guidance?.alternativePathways?.length) {
+              careerCardsGenerated += data.guidance.alternativePathways.length;
+            }
+          });
+
+          console.log('📊 Career cards count calculated:', {
+            userId: userId.substring(0, 8) + '...',
+            guidanceDocs: careerGuidanceSnapshot.size,
+            totalCareerCards: careerCardsGenerated
+          });
+        } catch (careerError) {
+          console.warn('Could not get career cards count:', careerError);
+          careerCardsGenerated = userData.careerCardsGenerated || 0;
+        }
         
         // Determine engagement level
         let engagementLevel = 'new';
@@ -1675,7 +1707,7 @@ ${this.getContextAwareInstruction(contextType)}`,
    */
   private async resetAgentToCleanState(agentId: string): Promise<void> {
     try {
-      const cleanFirstMessage = "Hi I'm Sarah an AI assistant, what's your name?";
+      const cleanFirstMessage = "Hi I'm Sarah an AI assistant, together we will explore what you enjoy and discover career pathways that might be perfect for you. What name can I use?";
       
       const cleanSystemPrompt = `You are an expert career counselor specializing in AI-powered career guidance for young adults.
 

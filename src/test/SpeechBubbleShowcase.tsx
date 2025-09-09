@@ -6,11 +6,11 @@ import { SpeechBubble, ContextualSpeechBubble } from '../components/ui/speech-bu
 const SpeechBubbleShowcase: React.FC = () => {
   return (
     <div className="p-6 space-y-12 bg-gradient-organic min-h-screen">
-      <h1 className="text-3xl font-bold text-center text-primary-black">Speech Bubble Showcase</h1>
+      <h1 className="text-3xl font-bold text-center text-black">Speech Bubble Showcase</h1>
       
       {/* Conversation Example */}
       <section className="max-w-4xl mx-auto space-y-6">
-        <h2 className="text-2xl font-semibold text-primary-black">Sample Conversation</h2>
+        <h2 className="text-2xl font-semibold text-black">Sample Conversation</h2>
         
         <div className="space-y-4">
           {/* Assistant message */}
@@ -52,11 +52,11 @@ const SpeechBubbleShowcase: React.FC = () => {
 
       {/* All Variants Showcase */}
       <section className="max-w-6xl mx-auto space-y-8">
-        <h2 className="text-2xl font-semibold text-primary-black text-center">All Speech Bubble Variants</h2>
+        <h2 className="text-2xl font-semibold text-black text-center">All Speech Bubble Variants</h2>
         
         {/* User variants */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-primary-black">User Messages (Right-aligned)</h3>
+          <h3 className="text-lg font-semibold text-black">User Messages (Right-aligned)</h3>
           <div className="space-y-3">
             <div className="flex justify-end">
               <SpeechBubble variant="user" isUser={true}>Standard user message</SpeechBubble>
@@ -72,7 +72,7 @@ const SpeechBubbleShowcase: React.FC = () => {
 
         {/* Assistant variants */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-primary-black">Assistant Messages (Left-aligned)</h3>
+          <h3 className="text-lg font-semibold text-black">Assistant Messages (Left-aligned)</h3>
           <div className="space-y-3">
             <div className="flex justify-start">
               <SpeechBubble variant="assistant">Standard assistant response</SpeechBubble>
@@ -88,7 +88,7 @@ const SpeechBubbleShowcase: React.FC = () => {
 
         {/* Special variants */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-primary-black">Special Variants</h3>
+          <h3 className="text-lg font-semibold text-black">Special Variants</h3>
           <div className="space-y-3">
             <div className="flex justify-center">
               <SpeechBubble variant="system">System message - centered and neutral</SpeechBubble>
@@ -107,7 +107,7 @@ const SpeechBubbleShowcase: React.FC = () => {
 
         {/* Size variants */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-primary-black">Size Variants</h3>
+          <h3 className="text-lg font-semibold text-black">Size Variants</h3>
           <div className="space-y-3">
             <div className="flex justify-start">
               <SpeechBubble variant="assistant" size="sm">Small speech bubble</SpeechBubble>
@@ -126,7 +126,7 @@ const SpeechBubbleShowcase: React.FC = () => {
 
         {/* Animation variants */}
         <div className="space-y-4">
-          <h3 className="text-lg font-semibold text-primary-black">Animation Effects</h3>
+          <h3 className="text-lg font-semibold text-black">Animation Effects</h3>
           <div className="space-y-3">
             <div className="flex justify-start">
               <SpeechBubble variant="assistant" animation="fadeIn">Fade in animation</SpeechBubble>
@@ -149,7 +149,7 @@ const SpeechBubbleShowcase: React.FC = () => {
 
       {/* Contextual Speech Bubbles in Different Design Modes */}
       <section className="max-w-6xl mx-auto space-y-8">
-        <h2 className="text-2xl font-semibold text-primary-black text-center">Contextual Speech Bubbles</h2>
+        <h2 className="text-2xl font-semibold text-black text-center">Contextual Speech Bubbles</h2>
         
         {/* Energetic Context */}
         <DesignProvider mode={{ aesthetic: 'dice', energy: 'high', interaction: 'energetic' }}>
@@ -216,9 +216,9 @@ const SpeechBubbleShowcase: React.FC = () => {
 
       {/* Usage Guidelines */}
       <section className="max-w-4xl mx-auto space-y-4">
-        <h2 className="text-2xl font-semibold text-primary-black text-center">Usage Guidelines</h2>
-        <div className="bg-primary-white/60 backdrop-blur-sm rounded-2xl p-6 border border-primary-black/10">
-          <ul className="space-y-3 text-primary-black">
+        <h2 className="text-2xl font-semibold text-black text-center">Usage Guidelines</h2>
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl p-6 border border-gray-200">
+          <ul className="space-y-3 text-black">
             <li><strong>Basic Usage:</strong> Use `SpeechBubble` for direct control over styling</li>
             <li><strong>Context-Aware:</strong> Use `ContextualSpeechBubble` to automatically adapt to design context</li>
             <li><strong>User vs Assistant:</strong> Set `isUser={true}` for user messages, defaults to assistant styling</li>

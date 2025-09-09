@@ -30,14 +30,14 @@
  * - React rendering: No key conflicts or duplicate warnings
  */
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useChatContext } from '../../context/ChatContext';
 import { useAuth } from '../../context/AuthContext';
 import careerPathwayService, { CareerExplorationSummary, ComprehensiveCareerGuidance } from '../../services/careerPathwayService';
 import { Button } from '../ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
+import { Card, CardContent, CardDescription, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
+import { Tabs, TabsContent } from '../ui/tabs';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '../ui/collapsible';
 import { 
   Loader2, 
@@ -62,12 +62,8 @@ import {
   Heart,
   Lightbulb,
   PoundSterling,
-  ChevronRight,
   Trash2,
-  Download,
-  Calendar,
   Building,
-  ArrowRight as ArrowRightIcon,
   Brain,
   Code,
   Wrench,
@@ -428,15 +424,6 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
     return '';
   };
 
-  // Helper function to get growth outlook display
-  const getGrowthColor = (outlook: string): string => {
-    if (!outlook) return 'text-primary-white/60';
-    const lower = outlook.toLowerCase();
-    if (lower.includes('high') || lower.includes('strong') || lower.includes('excellent')) return 'text-acid-green';
-    if (lower.includes('good') || lower.includes('moderate')) return 'text-electric-blue';
-    if (lower.includes('limited') || lower.includes('declining')) return 'text-sunset-orange';
-    return 'text-primary-white/60';
-  };
 
   // Simple thread ID cleaning - removes common prefixes/suffixes
   const cleanThreadId = (threadId: string): string => {
@@ -1019,11 +1006,6 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
     return 'outline';
   };
 
-  const getMatchColor = (match: number) => {
-    if (match >= 90) return 'text-acid-green';
-    if (match >= 70) return 'text-cyber-yellow';
-    return 'text-neon-pink';
-  };
 
   // Add cleanup trigger on component mount
   useEffect(() => {
@@ -1091,22 +1073,22 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
         {/* Action Bar */}
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-electric-blue to-neon-pink rounded-lg flex items-center justify-center">
-              <Star className="w-4 h-4 text-primary-white" />
+            <div className="w-8 h-8 bg-gradient-to-br from-gray-700 to-gray-800 rounded-lg flex items-center justify-center">
+              <Star className="w-4 h-4 text-white" />
             </div>
-            <p className="text-primary-white/80 font-medium">
+            <p className="text-white/80 font-medium">
               Your Career Discoveries
             </p>
           </div>
           
           <div className="flex items-center space-x-2">
-            <span className="text-sm text-primary-white/60">
+            <span className="text-sm text-white/60">
               {allExplorations.length} career paths discovered
             </span>
             <button
               onClick={handleRefresh}
               disabled={isLoading}
-              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-electric-blue to-neon-pink rounded-lg text-primary-white font-bold text-sm hover:scale-105 transition-transform duration-200 disabled:opacity-50"
+              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-gray-700 to-gray-800 rounded-lg text-white font-bold text-sm hover:scale-105 transition-transform duration-200 disabled:opacity-50"
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
               <span>{isLoading ? 'Loading...' : 'Refresh'}</span>
@@ -1124,13 +1106,13 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
               key={exploration.threadId}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-gradient-to-br from-primary-black/90 to-electric-blue/10 border border-electric-blue/30 rounded-xl shadow-lg hover:shadow-glow-blue transition-all duration-200 backdrop-blur-sm"
+              className="bg-gradient-to-br from-black/90 to-gray-900/10 border border-gray-700/30 rounded-xl shadow-lg hover:shadow-glow-blue transition-all duration-200 backdrop-blur-sm"
             >
               {/* Card Header - Always Visible */}
               <div className="p-6 pb-4">
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
-                    <h3 className="text-xl font-street font-black text-primary-white mb-2">
+                    <h3 className="text-xl font-street font-black text-white mb-2">
                       {(() => {
                         if (careerGuidanceData.has(exploration.threadId)) {
                           const guidance = careerGuidanceData.get(exploration.threadId)!;
@@ -1149,7 +1131,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                         return exploration.primaryCareerPath;
                       })()}
                     </h3>
-                    <div className="flex items-center space-x-4 text-sm text-primary-white/60 mb-3">
+                    <div className="flex items-center space-x-4 text-sm text-white/60 mb-3">
                       {careerData.industry && (
                         <div className="flex items-center">
                           <Briefcase className="w-4 h-4 mr-1" />
@@ -1171,7 +1153,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                   <div className="flex flex-col items-end space-y-2">
                     <Badge 
                       variant={getMatchVariant(exploration.match)}
-                      className="bg-gradient-to-r from-electric-blue to-neon-pink text-primary-white border-0"
+                      className="bg-gradient-to-r from-gray-700 to-gray-800 text-white border-0"
                     >
                       {exploration.match}% match
                     </Badge>
@@ -1186,35 +1168,35 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                           
                           if (isComprehensive) {
                             return (
-                              <Badge className="bg-gradient-to-r from-cyber-blue to-electric-blue text-primary-white border-0 font-bold text-xs">
+                              <Badge className="bg-gradient-to-r from-gray-600 to-gray-700 text-white border-0 font-bold text-xs">
                                 <Brain className="w-3 h-3 mr-1" />
                                 COMPREHENSIVE
                               </Badge>
                             );
                           } else if (isEnhanced) {
                             return (
-                              <Badge className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black border-0 font-bold text-xs">
+                              <Badge className="bg-gradient-to-r from-gray-200 to-gray-300 text-black border-0 font-bold text-xs">
                                 <Lightbulb className="w-3 h-3 mr-1" />
                                 ENHANCED
                               </Badge>
                             );
                           } else if (source?.enhancementStatus === 'failed') {
                             return (
-                              <Badge className="bg-gradient-to-r from-sunset-orange to-neon-pink text-primary-white border-0 font-bold text-xs">
+                              <Badge className="bg-gradient-to-r from-gray-500 to-gray-600 text-white border-0 font-bold text-xs">
                                 <RefreshCw className="w-3 h-3 mr-1" />
                                 BASIC
                               </Badge>
                             );
                           } else if (source?.enhancementStatus === 'pending') {
                             return (
-                              <Badge className="bg-gradient-to-r from-electric-blue to-cyber-blue text-primary-white border-0 font-bold text-xs">
+                              <Badge className="bg-gradient-to-r from-gray-700 to-gray-600 text-white border-0 font-bold text-xs">
                                 <Loader2 className="w-3 h-3 mr-1 animate-spin" />
                                 ENHANCING
                               </Badge>
                             );
                           } else {
                             return (
-                              <Badge className="bg-gradient-to-r from-primary-gray to-primary-white/20 text-primary-white/70 border-0 font-bold text-xs">
+                              <Badge className="bg-gradient-to-r from-gray-600 to-white/20 text-white/70 border-0 font-bold text-xs">
                                 <Star className="w-3 h-3 mr-1" />
                                 STANDARD
                               </Badge>
@@ -1229,13 +1211,13 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                           
                           if (isComprehensive) {
                             return (
-                              <div className="text-xs text-cyber-blue font-medium">
+                              <div className="text-xs text-gray-600 font-medium">
                                 Professional career intelligence
                               </div>
                             );
                           } else if (isEnhanced) {
                             return (
-                              <div className="text-xs text-acid-green font-medium">
+                              <div className="text-xs text-gray-500 font-medium">
                                 Enhanced with real UK data
                               </div>
                             );
@@ -1249,7 +1231,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
 
                 {/* Basic Career Info */}
                 <div className="space-y-3">
-                  <p className="text-primary-white/80 text-sm line-clamp-2">
+                  <p className="text-white/80 text-sm line-clamp-2">
                     {exploration.description}
                   </p>
 
@@ -1257,10 +1239,10 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                   <div className="flex flex-wrap gap-4 text-sm">
                     {salaryDisplay && (
                       <div className="flex items-center space-x-2">
-                        <div className="w-6 h-6 bg-gradient-to-br from-acid-green to-cyber-yellow rounded-lg flex items-center justify-center">
-                          <PoundSterling className="w-4 h-4 text-primary-black" />
+                        <div className="w-6 h-6 bg-gradient-to-br from-gray-200 to-gray-300 rounded-lg flex items-center justify-center">
+                          <PoundSterling className="w-4 h-4 text-black" />
                         </div>
-                        <span className="text-primary-white font-medium">{salaryDisplay}</span>
+                        <span className="text-white font-medium">{salaryDisplay}</span>
                       </div>
                     )}
                   </div>
@@ -1270,13 +1252,13 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                       {careerData.keySkills.slice(0, 5).map((skill, index) => (
                         <span
                           key={index}
-                          className="px-3 py-1 bg-gradient-to-r from-neon-pink/20 to-electric-blue/20 border border-electric-blue/30 rounded-full text-xs text-primary-white font-medium"
+                          className="px-3 py-1 bg-gradient-to-r from-gray-500/20 to-gray-700/20 border border-gray-700/30 rounded-full text-xs text-white font-medium"
                         >
                           {skill}
                         </span>
                       ))}
                       {careerData.keySkills.length > 5 && (
-                        <span className="px-3 py-1 bg-gradient-to-r from-cyber-yellow/20 to-acid-green/20 border border-cyber-yellow/30 rounded-full text-xs text-primary-white font-medium">
+                        <span className="px-3 py-1 bg-gradient-to-r from-gray-300/20 to-gray-500/20 border border-gray-300/30 rounded-full text-xs text-white font-medium">
                           +{careerData.keySkills.length - 5} more
                         </span>
                       )}
@@ -1289,7 +1271,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                   <div className="flex items-center space-x-2">
                     <button
                       onClick={() => toggleCardExpansion(exploration.threadId, exploration)}
-                      className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-electric-blue/20 to-neon-pink/20 border border-electric-blue/30 rounded-lg text-primary-white font-medium hover:bg-gradient-to-r hover:from-electric-blue/30 hover:to-neon-pink/30 transition-all duration-200"
+                      className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-gray-700/20 to-gray-500/20 border border-gray-700/30 rounded-lg text-white font-medium hover:bg-gradient-to-r hover:from-gray-700/30 hover:to-gray-500/30 transition-all duration-200"
                     >
                       <span>{isExpanded ? 'Show Less' : 'Show Details'}</span>
                       {isExpanded ? (
@@ -1302,7 +1284,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                     {currentUser && (
                       <button
                         onClick={() => deleteCareerCard(exploration.threadId)}
-                        className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-neon-pink/20 to-sunset-orange/20 border border-neon-pink/30 rounded-lg text-neon-pink hover:bg-gradient-to-r hover:from-neon-pink/30 hover:to-sunset-orange/30 transition-all duration-200"
+                        className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-gray-500/20 to-gray-600/20 border border-gray-500/30 rounded-lg text-gray-500 hover:bg-gradient-to-r hover:from-gray-500/30 hover:to-gray-600/30 transition-all duration-200"
                         title="Delete Career Card"
                       >
                         <Trash2 className="w-4 h-4" />
@@ -1312,7 +1294,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                   
                   <button
                     onClick={() => onSelectExploration?.(exploration.threadId)}
-                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-electric-blue to-neon-pink rounded-lg text-primary-white font-bold hover:scale-105 transition-transform duration-200"
+                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-gray-700 to-gray-800 rounded-lg text-white font-bold hover:scale-105 transition-transform duration-200"
                   >
                     <span>Explore Path</span>
                     <ArrowRight className="w-4 h-4" />
@@ -1343,12 +1325,12 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                             const guidance = careerGuidanceData.get(exploration.threadId);
                             return guidance?.primaryPathway?.id === 'fallback';
                           })() && (
-                            <div className="bg-gradient-to-r from-sunset-orange/20 to-cyber-yellow/20 border border-sunset-orange/30 rounded-lg p-4 mb-6">
-                              <div className="flex items-center space-x-2 text-sunset-orange">
+                            <div className="bg-gradient-to-r from-gray-600/20 to-gray-300/20 border border-gray-600/30 rounded-lg p-4 mb-6">
+                              <div className="flex items-center space-x-2 text-gray-600">
                                 <Lightbulb className="w-5 h-5" />
                                 <span className="font-medium">Basic Guidance Mode</span>
                               </div>
-                              <p className="text-primary-white/70 text-sm mt-2">
+                              <p className="text-white/70 text-sm mt-2">
                                 Our detailed AI analysis is temporarily unavailable. Here's some basic guidance to get you started.
                               </p>
                             </div>
@@ -1380,8 +1362,8 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                     {/* Core Purpose */}
                                     <div>
                                       <h4 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                                        <div className="bg-electric-blue/20 rounded-full p-1.5 mr-2">
-                                          <Target className="w-4 h-4 text-electric-blue" />
+                                        <div className="bg-gray-700/20 rounded-full p-1.5 mr-2">
+                                          <Target className="w-4 h-4 text-gray-700" />
                                         </div>
                                         Core Purpose
                                       </h4>
@@ -1391,10 +1373,10 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                       
                                       {/* Day in the Life Enhancement */}
                                       {primaryPathway.dayInTheLife && (
-                                        <div className="bg-gradient-to-r from-cyber-yellow/10 to-acid-green/10 rounded-lg p-4 mt-4 border border-cyber-yellow/20">
+                                        <div className="bg-gradient-to-r from-gray-300/10 to-gray-500/10 rounded-lg p-4 mt-4 border border-gray-300/20">
                                           <h5 className="font-semibold text-gray-900 mb-2 flex items-center">
-                                            <div className="bg-cyber-yellow/20 rounded-full p-1 mr-2">
-                                              <Clock className="w-4 h-4 text-cyber-yellow" />
+                                            <div className="bg-gray-300/20 rounded-full p-1 mr-2">
+                                              <Clock className="w-4 h-4 text-gray-300" />
                                             </div>
                                             A Day in the Life
                                           </h5>
@@ -1444,7 +1426,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                             {roleFundamentals.keyStakeholders.map((stakeholder, index) => (
                                               <span
                                                 key={index}
-                                                className="px-3 py-1 bg-gradient-to-r from-cyber-blue/20 to-electric-blue/20 border border-cyber-blue/30 rounded-full text-xs text-primary-white font-medium"
+                                                className="px-3 py-1 bg-gradient-to-r from-gray-600/20 to-gray-700/20 border border-gray-600/30 rounded-full text-xs text-white font-medium"
                                               >
                                                 {stakeholder}
                                               </span>
@@ -1478,7 +1460,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                   {competencyReqs.technicalSkills.map((skill, index) => (
                                                     <span
                                                       key={index}
-                                                      className="px-3 py-1 bg-gradient-to-r from-electric-blue/20 to-neon-pink/20 border border-electric-blue/30 rounded-full text-xs text-primary-white font-medium"
+                                                      className="px-3 py-1 bg-gradient-to-r from-gray-700/20 to-gray-500/20 border border-gray-700/30 rounded-full text-xs text-white font-medium"
                                                     >
                                                       {skill}
                                                     </span>
@@ -1498,7 +1480,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                   {competencyReqs.softSkills.map((skill, index) => (
                                                     <span
                                                       key={index}
-                                                      className="px-3 py-1 bg-gradient-to-r from-cyber-purple/20 to-neon-pink/20 border border-cyber-purple/30 rounded-full text-xs text-primary-white font-medium"
+                                                      className="px-3 py-1 bg-gradient-to-r from-gray-400/20 to-gray-500/20 border border-gray-400/30 rounded-full text-xs text-white font-medium"
                                                     >
                                                       {skill}
                                                     </span>
@@ -1518,7 +1500,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                   {competencyReqs.tools.map((tool, index) => (
                                                     <span
                                                       key={index}
-                                                      className="px-3 py-1 bg-gradient-to-r from-acid-green/20 to-cyber-yellow/20 border border-acid-green/30 rounded-full text-xs text-primary-white font-medium"
+                                                      className="px-3 py-1 bg-gradient-to-r from-gray-500/20 to-gray-300/20 border border-gray-500/30 rounded-full text-xs text-white font-medium"
                                                     >
                                                       {tool}
                                                     </span>
@@ -1581,21 +1563,21 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                   Salary Ranges
                                                 </h4>
                                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                                  <div className="p-4 bg-gradient-to-r from-acid-green/10 to-cyber-yellow/10 border border-acid-green/30 rounded-lg">
-                                                    <div className="text-xs text-acid-green font-medium mb-1">Entry Level</div>
-                                                    <div className="text-lg font-bold text-primary-white">£{rewards.salaryRange.entry.toLocaleString()}</div>
+                                                  <div className="p-4 bg-gradient-to-r from-gray-500/10 to-gray-300/10 border border-gray-500/30 rounded-lg">
+                                                    <div className="text-xs text-gray-500 font-medium mb-1">Entry Level</div>
+                                                    <div className="text-lg font-bold text-white">£{rewards.salaryRange.entry.toLocaleString()}</div>
                                                   </div>
-                                                  <div className="p-4 bg-gradient-to-r from-electric-blue/10 to-cyber-blue/10 border border-electric-blue/30 rounded-lg">
-                                                    <div className="text-xs text-electric-blue font-medium mb-1">Mid Level</div>
-                                                    <div className="text-lg font-bold text-primary-white">£{rewards.salaryRange.mid.toLocaleString()}</div>
+                                                  <div className="p-4 bg-gradient-to-r from-gray-700/10 to-gray-600/10 border border-gray-700/30 rounded-lg">
+                                                    <div className="text-xs text-gray-700 font-medium mb-1">Mid Level</div>
+                                                    <div className="text-lg font-bold text-white">£{rewards.salaryRange.mid.toLocaleString()}</div>
                                                   </div>
-                                                  <div className="p-4 bg-gradient-to-r from-cyber-purple/10 to-neon-pink/10 border border-cyber-purple/30 rounded-lg">
-                                                    <div className="text-xs text-cyber-purple font-medium mb-1">Senior Level</div>
-                                                    <div className="text-lg font-bold text-primary-white">£{rewards.salaryRange.senior.toLocaleString()}</div>
+                                                  <div className="p-4 bg-gradient-to-r from-gray-400/10 to-gray-500/10 border border-gray-400/30 rounded-lg">
+                                                    <div className="text-xs text-gray-400 font-medium mb-1">Senior Level</div>
+                                                    <div className="text-lg font-bold text-white">£{rewards.salaryRange.senior.toLocaleString()}</div>
                                                   </div>
-                                                  <div className="p-4 bg-gradient-to-r from-sunset-orange/10 to-cyber-yellow/10 border border-sunset-orange/30 rounded-lg">
-                                                    <div className="text-xs text-sunset-orange font-medium mb-1">Exceptional</div>
-                                                    <div className="text-lg font-bold text-primary-white">£{rewards.salaryRange.exceptional.toLocaleString()}</div>
+                                                  <div className="p-4 bg-gradient-to-r from-gray-600/10 to-gray-300/10 border border-gray-600/30 rounded-lg">
+                                                    <div className="text-xs text-gray-600 font-medium mb-1">Exceptional</div>
+                                                    <div className="text-lg font-bold text-white">£{rewards.salaryRange.exceptional.toLocaleString()}</div>
                                                   </div>
                                                 </div>
                                               </div>
@@ -1610,27 +1592,27 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                 </h4>
                                                 <div className="grid grid-cols-2 gap-4">
                                                   {rewards.variablePay.bonuses && (
-                                                    <div className="p-4 bg-gradient-to-r from-electric-blue/10 to-neon-pink/10 border border-electric-blue/30 rounded-lg">
-                                                      <h5 className="font-medium text-electric-blue mb-2">Bonuses</h5>
-                                                      <p className="text-sm text-primary-white">{rewards.variablePay.bonuses}</p>
+                                                    <div className="p-4 bg-gradient-to-r from-gray-700/10 to-gray-500/10 border border-gray-700/30 rounded-lg">
+                                                      <h5 className="font-medium text-gray-700 mb-2">Bonuses</h5>
+                                                      <p className="text-sm text-white">{rewards.variablePay.bonuses}</p>
                                                     </div>
                                                   )}
                                                   {rewards.variablePay.commissions && (
-                                                    <div className="p-4 bg-gradient-to-r from-cyber-purple/10 to-neon-pink/10 border border-cyber-purple/30 rounded-lg">
-                                                      <h5 className="font-medium text-cyber-purple mb-2">Commissions</h5>
-                                                      <p className="text-sm text-primary-white">{rewards.variablePay.commissions}</p>
+                                                    <div className="p-4 bg-gradient-to-r from-gray-400/10 to-gray-500/10 border border-gray-400/30 rounded-lg">
+                                                      <h5 className="font-medium text-gray-400 mb-2">Commissions</h5>
+                                                      <p className="text-sm text-white">{rewards.variablePay.commissions}</p>
                                                     </div>
                                                   )}
                                                   {rewards.variablePay.equity && (
-                                                    <div className="p-4 bg-gradient-to-r from-acid-green/10 to-cyber-yellow/10 border border-acid-green/30 rounded-lg">
-                                                      <h5 className="font-medium text-acid-green mb-2">Equity</h5>
-                                                      <p className="text-sm text-primary-white">{rewards.variablePay.equity}</p>
+                                                    <div className="p-4 bg-gradient-to-r from-gray-500/10 to-gray-300/10 border border-gray-500/30 rounded-lg">
+                                                      <h5 className="font-medium text-gray-500 mb-2">Equity</h5>
+                                                      <p className="text-sm text-white">{rewards.variablePay.equity}</p>
                                                     </div>
                                                   )}
                                                   {rewards.variablePay.profitShare && (
-                                                    <div className="p-4 bg-gradient-to-r from-sunset-orange/10 to-cyber-yellow/10 border border-sunset-orange/30 rounded-lg">
-                                                      <h5 className="font-medium text-sunset-orange mb-2">Profit Share</h5>
-                                                      <p className="text-sm text-primary-white">{rewards.variablePay.profitShare}</p>
+                                                    <div className="p-4 bg-gradient-to-r from-gray-600/10 to-gray-300/10 border border-gray-600/30 rounded-lg">
+                                                      <h5 className="font-medium text-gray-600 mb-2">Profit Share</h5>
+                                                      <p className="text-sm text-white">{rewards.variablePay.profitShare}</p>
                                                     </div>
                                                   )}
                                                 </div>
@@ -1676,7 +1658,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                         {rewards.nonFinancialBenefits.perks.map((perk, index) => (
                                                           <span
                                                             key={index}
-                                                            className="px-3 py-1 bg-gradient-to-r from-cyber-purple/20 to-neon-pink/20 border border-cyber-purple/30 rounded-full text-xs text-primary-white font-medium"
+                                                            className="px-3 py-1 bg-gradient-to-r from-gray-400/20 to-gray-500/20 border border-gray-400/30 rounded-full text-xs text-white font-medium"
                                                           >
                                                             {perk}
                                                           </span>
@@ -1727,7 +1709,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                         {market.demandOutlook.regionalHotspots.map((region, index) => (
                                                           <span
                                                             key={index}
-                                                            className="px-3 py-1 bg-gradient-to-r from-acid-green/20 to-cyber-yellow/20 border border-acid-green/30 rounded-full text-xs text-primary-white font-medium"
+                                                            className="px-3 py-1 bg-gradient-to-r from-gray-500/20 to-gray-300/20 border border-gray-500/30 rounded-full text-xs text-white font-medium"
                                                           >
                                                             {region}
                                                           </span>
@@ -1818,24 +1800,24 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                   Working Hours & Patterns
                                                 </h4>
                                                 <div className="grid grid-cols-2 gap-4">
-                                                  <div className="p-4 bg-gradient-to-r from-electric-blue/10 to-neon-pink/10 border border-electric-blue/30 rounded-lg">
-                                                    <h5 className="font-medium text-electric-blue mb-2">Typical Hours</h5>
-                                                    <p className="text-sm text-primary-white">{lifestyle.workingHours.typical}</p>
+                                                  <div className="p-4 bg-gradient-to-r from-gray-700/10 to-gray-500/10 border border-gray-700/30 rounded-lg">
+                                                    <h5 className="font-medium text-gray-700 mb-2">Typical Hours</h5>
+                                                    <p className="text-sm text-white">{lifestyle.workingHours.typical}</p>
                                                   </div>
-                                                  <div className="p-4 bg-gradient-to-r from-cyber-purple/10 to-neon-pink/10 border border-cyber-purple/30 rounded-lg">
-                                                    <h5 className="font-medium text-cyber-purple mb-2">Flexibility</h5>
-                                                    <p className="text-sm text-primary-white">{lifestyle.workingHours.flexibility}</p>
+                                                  <div className="p-4 bg-gradient-to-r from-gray-400/10 to-gray-500/10 border border-gray-400/30 rounded-lg">
+                                                    <h5 className="font-medium text-gray-400 mb-2">Flexibility</h5>
+                                                    <p className="text-sm text-white">{lifestyle.workingHours.flexibility}</p>
                                                   </div>
                                                   {lifestyle.workingHours.shiftWork && (
-                                                    <div className="p-4 bg-gradient-to-r from-sunset-orange/10 to-cyber-yellow/10 border border-sunset-orange/30 rounded-lg">
-                                                      <h5 className="font-medium text-sunset-orange mb-2">Shift Work</h5>
-                                                      <p className="text-sm text-primary-white">This role involves shift work</p>
+                                                    <div className="p-4 bg-gradient-to-r from-gray-600/10 to-gray-300/10 border border-gray-600/30 rounded-lg">
+                                                      <h5 className="font-medium text-gray-600 mb-2">Shift Work</h5>
+                                                      <p className="text-sm text-white">This role involves shift work</p>
                                                     </div>
                                                   )}
                                                   {lifestyle.workingHours.onCall && (
-                                                    <div className="p-4 bg-gradient-to-r from-acid-green/10 to-cyber-yellow/10 border border-acid-green/30 rounded-lg">
-                                                      <h5 className="font-medium text-acid-green mb-2">On-Call</h5>
-                                                      <p className="text-sm text-primary-white">This role has on-call responsibilities</p>
+                                                    <div className="p-4 bg-gradient-to-r from-gray-500/10 to-gray-300/10 border border-gray-500/30 rounded-lg">
+                                                      <h5 className="font-medium text-gray-500 mb-2">On-Call</h5>
+                                                      <p className="text-sm text-white">This role has on-call responsibilities</p>
                                                     </div>
                                                   )}
                                                 </div>
@@ -1852,30 +1834,30 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                 <div className="space-y-4">
                                                   <div className="flex gap-4">
                                                     {lifestyle.remoteOptions.remoteWork && (
-                                                      <div className="flex-1 p-4 bg-gradient-to-r from-acid-green/10 to-cyber-yellow/10 border border-acid-green/30 rounded-lg">
-                                                        <h5 className="font-medium text-acid-green mb-2">Remote Work</h5>
-                                                        <p className="text-sm text-primary-white">Full remote work available</p>
+                                                      <div className="flex-1 p-4 bg-gradient-to-r from-gray-500/10 to-gray-300/10 border border-gray-500/30 rounded-lg">
+                                                        <h5 className="font-medium text-gray-500 mb-2">Remote Work</h5>
+                                                        <p className="text-sm text-white">Full remote work available</p>
                                                       </div>
                                                     )}
                                                     {lifestyle.remoteOptions.hybridOptions && (
-                                                      <div className="flex-1 p-4 bg-gradient-to-r from-electric-blue/10 to-cyber-blue/10 border border-electric-blue/30 rounded-lg">
-                                                        <h5 className="font-medium text-electric-blue mb-2">Hybrid Options</h5>
-                                                        <p className="text-sm text-primary-white">Hybrid work arrangements available</p>
+                                                      <div className="flex-1 p-4 bg-gradient-to-r from-gray-700/10 to-gray-600/10 border border-gray-700/30 rounded-lg">
+                                                        <h5 className="font-medium text-gray-700 mb-2">Hybrid Options</h5>
+                                                        <p className="text-sm text-white">Hybrid work arrangements available</p>
                                                       </div>
                                                     )}
                                                   </div>
                                                   {lifestyle.remoteOptions.travelRequirements && (
-                                                    <div className="p-4 bg-gradient-to-r from-cyber-purple/10 to-neon-pink/10 border border-cyber-purple/30 rounded-lg">
-                                                      <h5 className="font-medium text-cyber-purple mb-2">Travel Requirements</h5>
+                                                    <div className="p-4 bg-gradient-to-r from-gray-400/10 to-gray-500/10 border border-gray-400/30 rounded-lg">
+                                                      <h5 className="font-medium text-gray-400 mb-2">Travel Requirements</h5>
                                                       <div className="space-y-2">
-                                                        <p className="text-sm text-primary-white">
+                                                        <p className="text-sm text-white">
                                                           <strong>Frequency:</strong> {lifestyle.remoteOptions.travelRequirements.frequency}
                                                         </p>
-                                                        <p className="text-sm text-primary-white">
+                                                        <p className="text-sm text-white">
                                                           <strong>Duration:</strong> {lifestyle.remoteOptions.travelRequirements.duration}
                                                         </p>
                                                         {lifestyle.remoteOptions.travelRequirements.international && (
-                                                          <p className="text-sm text-primary-white">Includes international travel</p>
+                                                          <p className="text-sm text-white">Includes international travel</p>
                                                         )}
                                                       </div>
                                                     </div>
@@ -1899,7 +1881,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                         {environment.typicalEmployers.map((employer, index) => (
                                                           <span
                                                             key={index}
-                                                            className="px-3 py-1 bg-gradient-to-r from-cyber-purple/20 to-neon-pink/20 border border-cyber-purple/30 rounded-full text-xs text-primary-white font-medium"
+                                                            className="px-3 py-1 bg-gradient-to-r from-gray-400/20 to-gray-500/20 border border-gray-400/30 rounded-full text-xs text-white font-medium"
                                                           >
                                                             {employer}
                                                           </span>
@@ -1914,7 +1896,7 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                         {environment.teamStructures.map((structure, index) => (
                                                           <span
                                                             key={index}
-                                                            className="px-3 py-1 bg-gradient-to-r from-electric-blue/20 to-neon-pink/20 border border-electric-blue/30 rounded-full text-xs text-primary-white font-medium"
+                                                            className="px-3 py-1 bg-gradient-to-r from-gray-700/20 to-gray-500/20 border border-gray-700/30 rounded-full text-xs text-white font-medium"
                                                           >
                                                             {structure}
                                                           </span>
@@ -1926,21 +1908,21 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                     <div>
                                                       <h5 className="font-medium text-gray-900 mb-2">Cultural Norms</h5>
                                                       <div className="grid grid-cols-2 gap-4">
-                                                        <div className="p-4 bg-gradient-to-r from-electric-blue/10 to-neon-pink/10 border border-electric-blue/30 rounded-lg">
-                                                          <h6 className="font-medium text-electric-blue mb-1">Work Pace</h6>
-                                                          <p className="text-sm text-primary-white">{environment.culturalNorms.pace}</p>
+                                                        <div className="p-4 bg-gradient-to-r from-gray-700/10 to-gray-500/10 border border-gray-700/30 rounded-lg">
+                                                          <h6 className="font-medium text-gray-700 mb-1">Work Pace</h6>
+                                                          <p className="text-sm text-white">{environment.culturalNorms.pace}</p>
                                                         </div>
-                                                        <div className="p-4 bg-gradient-to-r from-cyber-purple/10 to-neon-pink/10 border border-cyber-purple/30 rounded-lg">
-                                                          <h6 className="font-medium text-cyber-purple mb-1">Formality</h6>
-                                                          <p className="text-sm text-primary-white">{environment.culturalNorms.formality}</p>
+                                                        <div className="p-4 bg-gradient-to-r from-gray-400/10 to-gray-500/10 border border-gray-400/30 rounded-lg">
+                                                          <h6 className="font-medium text-gray-400 mb-1">Formality</h6>
+                                                          <p className="text-sm text-white">{environment.culturalNorms.formality}</p>
                                                         </div>
-                                                        <div className="p-4 bg-gradient-to-r from-acid-green/10 to-cyber-yellow/10 border border-acid-green/30 rounded-lg">
-                                                          <h6 className="font-medium text-acid-green mb-1">Decision Making</h6>
-                                                          <p className="text-sm text-primary-white">{environment.culturalNorms.decisionMaking}</p>
+                                                        <div className="p-4 bg-gradient-to-r from-gray-500/10 to-gray-300/10 border border-gray-500/30 rounded-lg">
+                                                          <h6 className="font-medium text-gray-500 mb-1">Decision Making</h6>
+                                                          <p className="text-sm text-white">{environment.culturalNorms.decisionMaking}</p>
                                                         </div>
-                                                        <div className="p-4 bg-gradient-to-r from-sunset-orange/10 to-cyber-yellow/10 border border-sunset-orange/30 rounded-lg">
-                                                          <h6 className="font-medium text-sunset-orange mb-1">Diversity & Inclusion</h6>
-                                                          <p className="text-sm text-primary-white">{environment.culturalNorms.diversityInclusion}</p>
+                                                        <div className="p-4 bg-gradient-to-r from-gray-600/10 to-gray-300/10 border border-gray-600/30 rounded-lg">
+                                                          <h6 className="font-medium text-gray-600 mb-1">Diversity & Inclusion</h6>
+                                                          <p className="text-sm text-white">{environment.culturalNorms.diversityInclusion}</p>
                                                         </div>
                                                       </div>
                                                     </div>
@@ -1958,23 +1940,23 @@ const CareerExplorationOverview: React.FC<CareerExplorationOverviewProps> = ({
                                                 </h4>
                                                 <div className="space-y-4">
                                                   <div className="grid grid-cols-2 gap-4">
-                                                    <div className="p-4 bg-gradient-to-r from-electric-blue/10 to-neon-pink/10 border border-electric-blue/30 rounded-lg">
-                                                      <h5 className="font-medium text-electric-blue mb-2">Stress Intensity</h5>
-                                                      <p className="text-sm text-primary-white">{lifestyle.stressProfile.intensity}</p>
+                                                    <div className="p-4 bg-gradient-to-r from-gray-700/10 to-gray-500/10 border border-gray-700/30 rounded-lg">
+                                                      <h5 className="font-medium text-gray-700 mb-2">Stress Intensity</h5>
+                                                      <p className="text-sm text-white">{lifestyle.stressProfile.intensity}</p>
                                                     </div>
-                                                    <div className="p-4 bg-gradient-to-r from-cyber-purple/10 to-neon-pink/10 border border-cyber-purple/30 rounded-lg">
-                                                      <h5 className="font-medium text-cyber-purple mb-2">Volatility</h5>
-                                                      <p className="text-sm text-primary-white">{lifestyle.stressProfile.volatility}</p>
+                                                    <div className="p-4 bg-gradient-to-r from-gray-400/10 to-gray-500/10 border border-gray-400/30 rounded-lg">
+                                                      <h5 className="font-medium text-gray-400 mb-2">Volatility</h5>
+                                                      <p className="text-sm text-white">{lifestyle.stressProfile.volatility}</p>
                                                     </div>
                                                   </div>
                                                   <div className="grid grid-cols-2 gap-4">
-                                                    <div className="p-4 bg-gradient-to-r from-acid-green/10 to-cyber-yellow/10 border border-acid-green/30 rounded-lg">
-                                                      <h5 className="font-medium text-acid-green mb-2">Work-Life Flexibility</h5>
-                                                      <p className="text-sm text-primary-white">{lifestyle.workLifeBoundaries.flexibility}</p>
+                                                    <div className="p-4 bg-gradient-to-r from-gray-500/10 to-gray-300/10 border border-gray-500/30 rounded-lg">
+                                                      <h5 className="font-medium text-gray-500 mb-2">Work-Life Flexibility</h5>
+                                                      <p className="text-sm text-white">{lifestyle.workLifeBoundaries.flexibility}</p>
                                                     </div>
-                                                    <div className="p-4 bg-gradient-to-r from-sunset-orange/10 to-cyber-yellow/10 border border-sunset-orange/30 rounded-lg">
-                                                      <h5 className="font-medium text-sunset-orange mb-2">Autonomy</h5>
-                                                      <p className="text-sm text-primary-white">{lifestyle.workLifeBoundaries.autonomy}</p>
+                                                    <div className="p-4 bg-gradient-to-r from-gray-600/10 to-gray-300/10 border border-gray-600/30 rounded-lg">
+                                                      <h5 className="font-medium text-gray-600 mb-2">Autonomy</h5>
+                                                      <p className="text-sm text-white">{lifestyle.workLifeBoundaries.autonomy}</p>
                                                     </div>
                                                   </div>
                                                 </div>

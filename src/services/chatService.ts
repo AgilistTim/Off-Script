@@ -18,8 +18,9 @@ import {
 import axios from 'axios';
 import { environmentConfig } from '../config/environment';
 
-// Get environment configuration
-const apiBaseUrl = environmentConfig.apiEndpoints.openaiAssistant || '/api/openai';
+// Get Firebase Function URL for chat services
+import { getFirebaseFunctionUrl } from './firebase';
+const apiBaseUrl = getFirebaseFunctionUrl('textChatMessage');
 
 // OpenAI Assistant ID
 const ASSISTANT_ID = 'asst_b6kBes7rHBC9gA4yJ9I5r5zm';
@@ -141,12 +142,37 @@ export const getUserChatThreads = async (userId: string): Promise<ChatThread[]> 
 /**
  * Send a message to the OpenAI Assistant
  */
-export const sendMessage = async (threadId: string, message: string): Promise<ChatMessage> => {
+export const sendMessage = async (threadId: string, message: string, userId?: string): Promise<ChatMessage> => {
   try {
+    let userContext: string | undefined;
+    
+    // Build user context for authenticated users
+    if (userId) {
+      try {
+        const { textConversationContextService } = await import('./textConversationContextService');
+        const contextData = await textConversationContextService.buildUserContext(userId);
+        userContext = contextData?.contextPrompt;
+        
+        if (userContext) {
+          console.log('✅ Built user context for text conversation:', {
+            userId: userId.substring(0, 8) + '...',
+            contextLength: userContext.length,
+            hasProfile: !!contextData?.userProfile.name,
+            careerCards: contextData?.careerExploration.careerCards.length || 0,
+            pastConversations: contextData?.conversationHistory.totalConversations || 0
+          });
+        }
+      } catch (error) {
+        console.warn('Could not build user context, proceeding without context:', error);
+      }
+    }
+
     const response = await axios.post(`${apiBaseUrl}/sendChatMessage`, {
       threadId,
       message,
-      assistantId: ASSISTANT_ID
+      assistantId: ASSISTANT_ID,
+      userId,
+      userContext
     }, {
       headers: {
         'Content-Type': 'application/json'

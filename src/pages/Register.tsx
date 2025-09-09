@@ -99,7 +99,7 @@ const Register: React.FC = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary-black via-primary-black to-electric-blue/10">
+    <div className="min-h-screen bg-gradient-to-br from-black via-black to-gray-900">
       {/* Floating background elements - hidden on mobile for performance */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none hidden sm:block">
         <motion.div
@@ -112,7 +112,7 @@ const Register: React.FC = () => {
             repeat: Infinity, 
             ease: "linear" 
           }}
-          className="absolute top-20 right-20 w-24 h-24 sm:w-36 sm:h-36 bg-gradient-to-br from-electric-blue/15 to-neon-pink/15 rounded-full blur-xl"
+          className="absolute top-20 right-20 w-24 h-24 sm:w-36 sm:h-36 bg-gradient-to-br from-gray-600/30 to-gray-700/30 rounded-full blur-xl"
         />
         <motion.div
           animate={{ 
@@ -124,7 +124,7 @@ const Register: React.FC = () => {
             repeat: Infinity, 
             ease: "linear" 
           }}
-          className="absolute bottom-32 left-20 w-32 h-32 sm:w-44 sm:h-44 bg-gradient-to-br from-cyber-yellow/15 to-acid-green/15 rounded-full blur-xl"
+          className="absolute bottom-32 left-20 w-32 h-32 sm:w-44 sm:h-44 bg-gradient-to-br from-gray-500/30 to-gray-600/30 rounded-full blur-xl"
         />
         <motion.div
           animate={{ 
@@ -136,7 +136,7 @@ const Register: React.FC = () => {
             repeat: Infinity, 
             ease: "easeInOut" 
           }}
-          className="absolute top-1/3 right-1/4 w-20 h-20 sm:w-28 sm:h-28 bg-gradient-to-br from-neon-pink/10 to-electric-blue/10 rounded-full blur-lg"
+          className="absolute top-1/3 right-1/4 w-20 h-20 sm:w-28 sm:h-28 bg-gradient-to-br from-gray-600/20 to-gray-700/20 rounded-full blur-lg"
         />
       </div>
 
@@ -160,13 +160,13 @@ const Register: React.FC = () => {
             transition={{ duration: 0.6 }}
             className="text-center"
           >
-            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-electric-blue to-neon-pink rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-glow-blue">
-              <Rocket className="w-8 h-8 sm:w-10 sm:h-10 text-primary-white" />
+            <div className="w-16 h-16 sm:w-20 sm:h-20 bg-gradient-to-br from-gray-700 to-gray-800 rounded-full flex items-center justify-center mx-auto mb-4 sm:mb-6 shadow-glow-blue">
+              <Rocket className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
             </div>
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow mb-3 sm:mb-4 animate-glow-pulse">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-600 via-gray-700 to-gray-800 mb-3 sm:mb-4 animate-glow-pulse">
               CREATE ACCOUNT
             </h1>
-            <p className="text-base sm:text-lg text-primary-white/70 px-4">
+            <p className="text-base sm:text-lg text-white/70 px-4">
               {hasGuestData() 
                 ? "Continue your career journey and save your progress" 
                 : "Start your revolutionary career exploration"
@@ -179,9 +179,9 @@ const Register: React.FC = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="relative overflow-hidden rounded-2xl p-6 sm:p-8 lg:p-10 xl:p-12 shadow-2xl border border-electric-blue/20 bg-gradient-to-br from-primary-black/90 to-electric-blue/10 backdrop-blur-lg"
+            className="relative overflow-hidden rounded-2xl p-6 sm:p-8 lg:p-10 xl:p-12 shadow-2xl border border-gray-600/20 bg-gradient-to-br from-black/90 to-gray-900/10 backdrop-blur-lg"
           >
-            <div className="absolute inset-0 bg-gradient-to-br from-electric-blue/5 to-neon-pink/5" />
+            <div className="absolute inset-0 bg-gradient-to-br from-gray-600/5 to-gray-700/5" />
             
             <div className="relative">
               <AnimatePresence>
@@ -190,11 +190,11 @@ const Register: React.FC = () => {
                     initial={{ opacity: 0, y: -10, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                    className="mb-6 p-4 bg-gradient-to-r from-neon-pink/20 to-electric-blue/20 border border-neon-pink/50 rounded-xl backdrop-blur-sm"
+                    className="mb-6 p-4 bg-gradient-to-r from-gray-600/20 to-gray-700/20 border border-gray-500/50 rounded-xl backdrop-blur-sm"
                   >
                     <div className="flex items-center space-x-3">
-                      <AlertCircle className="w-5 h-5 text-neon-pink flex-shrink-0" />
-                      <p className="text-neon-pink font-bold text-sm sm:text-base">{error}</p>
+                      <AlertCircle className="w-5 h-5 text-gray-300 flex-shrink-0" />
+                      <p className="text-gray-300 font-bold text-sm sm:text-base">{error}</p>
                     </div>
                   </motion.div>
                 )}
@@ -203,12 +203,12 @@ const Register: React.FC = () => {
               <form onSubmit={handleSubmit} className="space-y-4 sm:space-y-6">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
                   <div className="space-y-2">
-                    <label htmlFor="displayName" className="block text-xs sm:text-sm font-black text-electric-blue uppercase tracking-wider">
+                    <label htmlFor="displayName" className="block text-xs sm:text-sm font-black text-gray-400 uppercase tracking-wider">
                       FULL NAME
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
-                        <User className="w-4 h-4 sm:w-5 sm:h-5 text-primary-white/40" />
+                        <User className="w-4 h-4 sm:w-5 sm:h-5 text-white/40" />
                       </div>
                       <input
                         id="displayName"
@@ -224,12 +224,12 @@ const Register: React.FC = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <label htmlFor="email" className="block text-xs sm:text-sm font-black text-electric-blue uppercase tracking-wider">
+                    <label htmlFor="email" className="block text-xs sm:text-sm font-black text-gray-400 uppercase tracking-wider">
                       EMAIL ADDRESS
                     </label>
                     <div className="relative">
                       <div className="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
-                        <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-primary-white/40" />
+                        <Mail className="w-4 h-4 sm:w-5 sm:h-5 text-white/40" />
                       </div>
                       <input
                         id="email"
@@ -246,12 +246,12 @@ const Register: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="password" className="block text-xs sm:text-sm font-black text-electric-blue uppercase tracking-wider">
+                  <label htmlFor="password" className="block text-xs sm:text-sm font-black text-gray-400 uppercase tracking-wider">
                     PASSWORD
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
-                      <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-primary-white/40" />
+                      <Lock className="w-4 h-4 sm:w-5 sm:h-5 text-white/40" />
                     </div>
                     <input
                       id="password"
@@ -266,7 +266,7 @@ const Register: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 sm:pr-4 flex items-center text-primary-white/40 hover:text-primary-white transition-colors"
+                      className="absolute inset-y-0 right-0 pr-3 sm:pr-4 flex items-center text-white/40 hover:text-white transition-colors"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </button>
@@ -274,12 +274,12 @@ const Register: React.FC = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <label htmlFor="confirmPassword" className="block text-xs sm:text-sm font-black text-electric-blue uppercase tracking-wider">
+                  <label htmlFor="confirmPassword" className="block text-xs sm:text-sm font-black text-gray-400 uppercase tracking-wider">
                     CONFIRM PASSWORD
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 sm:pl-4 flex items-center pointer-events-none">
-                      <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-primary-white/40" />
+                      <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-white/40" />
                     </div>
                     <input
                       id="confirmPassword"
@@ -294,7 +294,7 @@ const Register: React.FC = () => {
                     <button
                       type="button"
                       onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute inset-y-0 right-0 pr-3 sm:pr-4 flex items-center text-primary-white/40 hover:text-primary-white transition-colors"
+                      className="absolute inset-y-0 right-0 pr-3 sm:pr-4 flex items-center text-white/40 hover:text-white transition-colors"
                     >
                       {showConfirmPassword ? <EyeOff className="w-4 h-4 sm:w-5 sm:h-5" /> : <Eye className="w-4 h-4 sm:w-5 sm:h-5" />}
                     </button>
@@ -312,7 +312,7 @@ const Register: React.FC = () => {
                     <div className="flex items-center justify-center space-x-2 sm:space-x-3">
                       {loading ? (
                         <>
-                          <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-primary-black/30 border-t-primary-black rounded-full animate-spin" />
+                          <div className="w-5 h-5 sm:w-6 sm:h-6 border-2 border-black/30 border-t-black rounded-full animate-spin" />
                           <span>CREATING ACCOUNT...</span>
                         </>
                       ) : (
@@ -328,11 +328,11 @@ const Register: React.FC = () => {
               </form>
 
               <div className="mt-6 sm:mt-8 text-center">
-                <p className="text-primary-white/70 font-medium text-sm sm:text-base">
+                <p className="text-white/70 font-medium text-sm sm:text-base">
                   Already have an account?{' '}
                   <Link 
                     to="/auth/login" 
-                    className="text-transparent bg-clip-text bg-gradient-to-r from-electric-blue to-neon-pink font-black hover:from-neon-pink hover:to-cyber-yellow transition-all duration-200"
+                    className="text-transparent bg-clip-text bg-gradient-to-r from-gray-600 to-gray-700 font-black hover:from-gray-600 hover:to-gray-700 transition-all duration-200"
                   >
                     Sign in here
                   </Link>
@@ -354,17 +354,17 @@ const Register: React.FC = () => {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: 0.5 + index * 0.1 }}
-                className="relative overflow-hidden rounded-xl p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-primary-black/60 to-electric-blue/10 border border-electric-blue/20 backdrop-blur-sm hover:border-electric-blue/40 transition-all duration-200"
+                className="relative overflow-hidden rounded-xl p-4 sm:p-6 lg:p-8 bg-gradient-to-br from-black/60 to-gray-900/10 border border-gray-600/20 backdrop-blur-sm hover:border-gray-600/40 transition-all duration-200"
               >
                 <div className="flex items-center space-x-3 mb-2 sm:mb-3">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-electric-blue to-neon-pink rounded-lg flex items-center justify-center">
                     {feature.icon}
                   </div>
-                  <h3 className="text-base sm:text-lg font-black text-primary-white">
+                  <h3 className="text-base sm:text-lg font-black text-white">
                     {feature.title}
                   </h3>
                 </div>
-                <p className="text-primary-white/70 text-sm sm:text-base">
+                <p className="text-white/70 text-sm sm:text-base">
                   {feature.description}
                 </p>
               </motion.div>
@@ -378,7 +378,7 @@ const Register: React.FC = () => {
             transition={{ delay: 0.8, duration: 0.6 }}
             className="text-center"
           >
-            <div className="flex items-center justify-center space-x-2 text-primary-white/40 font-medium text-xs sm:text-sm">
+            <div className="flex items-center justify-center space-x-2 text-white/40 font-medium text-xs sm:text-sm">
               <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />
               <span>Secure • Innovative • Revolutionary</span>
               <Sparkles className="w-3 h-3 sm:w-4 sm:h-4" />

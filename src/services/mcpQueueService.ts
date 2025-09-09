@@ -50,7 +50,9 @@ class MCPQueueService {
     conversationHistory: any[],
     triggerReason: string,
     mcpEndpoint: string,
-    userId?: string
+    userId?: string,
+    assistantFirstMessage?: string,
+    sessionId?: string
   ): Promise<any> {
     const requestId = `analysis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     
@@ -80,7 +82,9 @@ class MCPQueueService {
           conversationHistory,
           triggerReason,
           mcpEndpoint,
-          userId
+          userId,
+          assistantFirstMessage,
+          sessionId
         );
 
         // Update status to completed
@@ -234,7 +238,9 @@ class MCPQueueService {
     conversationHistory: any[],
     triggerReason: string,
     mcpEndpoint: string,
-    userId?: string
+    userId?: string,
+    assistantFirstMessage?: string,
+    sessionId?: string
   ): Promise<any> {
     try {
       // Filter out empty messages
@@ -263,7 +269,11 @@ class MCPQueueService {
             user_context: {
               user_id: userId || 'guest',
               user_type: userId ? 'registered' : 'guest',
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
+              // Pass assistant first message so MCP/OpenAI can honour our desired persona
+              assistant_first_message: assistantFirstMessage || undefined,
+              // Include sessionId for traceability and to allow server to attach it to OpenAI context
+              sessionId: sessionId || undefined
             }
           }
         }

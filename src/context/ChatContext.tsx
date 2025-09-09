@@ -717,8 +717,8 @@ export const ChatProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Show typing indicator
       setIsTyping(true);
       
-      // Send message to OpenAI Assistant
-      const response = await sendMessageToAssistant(openAIThreadId, message);
+      // Send message to OpenAI Assistant with user context
+      const response = await sendMessageToAssistant(openAIThreadId, message, currentUser?.uid);
       
       // Store assistant response in Firestore
       await storeMessage(

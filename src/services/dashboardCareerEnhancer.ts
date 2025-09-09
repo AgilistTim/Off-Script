@@ -49,7 +49,7 @@ export class DashboardCareerEnhancer {
    * Main enhancement method - progressive enhancement pattern
    * Shows basic cards immediately, enhances asynchronously
    */
-  async enhanceDashboardCards(userCareerCards: CareerCard[]): Promise<EnhancedCareerCard[]> {
+  async enhanceDashboardCards(userCareerCards: CareerCard[], userId?: string): Promise<EnhancedCareerCard[]> {
     console.log('🔍 DashboardCareerEnhancer: Starting enhancement for', userCareerCards.length, 'cards');
 
     // 1. Filter cards needing enhancement (check cache first, including Firestore)
@@ -71,7 +71,7 @@ export class DashboardCareerEnhancer {
     try {
       // 3. Batch enhance with Promise.allSettled for parallel processing
       const enhancementPromises = uncachedCards.map(card => 
-        this.enhanceCardWithPerplexity(card.title)
+        this.enhanceCardWithPerplexity(card.title, userId)
       );
       
       const results = await Promise.allSettled(enhancementPromises);
@@ -79,10 +79,11 @@ export class DashboardCareerEnhancer {
       // 4. Process results and update cache
       const enhancedCards = await this.processEnhancementResults(results, uncachedCards, userCareerCards);
 
-      // 5. Show success toast
+      // 5. Show success toast with shorter duration
       const successCount = results.filter(r => r.status === 'fulfilled').length;
       toast.success(`Career data updated! Enhanced ${successCount}/${uncachedCards.length} cards`, { 
-        id: 'enhancement' 
+        id: 'enhancement',
+        duration: 2500 // Auto-dismiss after 2.5 seconds
       });
 
       console.log('✅ Enhancement completed:', { 
@@ -127,7 +128,7 @@ export class DashboardCareerEnhancer {
   /**
    * Single comprehensive Perplexity call for career enhancement (JSON structured response)
    */
-  private async enhanceCardWithPerplexity(careerTitle: string): Promise<{
+  private async enhanceCardWithPerplexity(careerTitle: string, userId?: string): Promise<{
     title: string;
     data: EnhancedCareerData;
     confidence: number;
@@ -143,7 +144,7 @@ export class DashboardCareerEnhancer {
       }
 
       // Convert structured Perplexity data to our EnhancedCareerData format
-      const enhancedData = this.convertStructuredToEnhancedData(result.data);
+      const enhancedData = this.convertStructuredToEnhancedData(result.data, careerTitle);
       
       if (!enhancedData) {
         throw new Error('Unable to convert Perplexity data - critical salary information missing. Refusing to display potentially misleading career data.');
@@ -152,7 +153,7 @@ export class DashboardCareerEnhancer {
       const confidence = this.calculateStructuredConfidence(result.data);
 
       // Cache the result
-      await this.setCachedEnhancement(careerTitle, enhancedData, confidence);
+      await this.setCachedEnhancement(careerTitle, enhancedData, confidence, userId);
 
       console.log('✅ Successfully enhanced with structured data:', careerTitle, { 
         confidence,
@@ -464,7 +465,7 @@ export class DashboardCareerEnhancer {
   /**
    * Convert structured Perplexity data to our EnhancedCareerData format
    */
-  private convertStructuredToEnhancedData(data: PerplexityStructuredCareerData): EnhancedCareerData | null {
+  private convertStructuredToEnhancedData(data: PerplexityStructuredCareerData, careerTitle: string): EnhancedCareerData | null {
     console.log('🔄 Converting structured Perplexity data to enhanced format');
 
     const salaryData = this.convertStructuredSalaryData(data);
@@ -479,7 +480,7 @@ export class DashboardCareerEnhancer {
     // The comprehensive career data will be handled separately in the career card structure
     return {
       verifiedSalaryRanges: salaryData,
-      realTimeMarketDemand: this.convertStructuredMarketData(data),
+      realTimeMarketDemand: this.convertStructuredMarketData(data, careerTitle),
       currentEducationPathways: this.convertStructuredEducationData(data),
       workEnvironmentDetails: this.convertStructuredWorkEnvironmentData(data),
       automationRiskAssessment: this.convertStructuredAutomationData(data),
@@ -567,9 +568,9 @@ export class DashboardCareerEnhancer {
   }
 
   /**
-   * Convert structured market data to our format
+   * Convert structured market data to our format with comprehensive validation
    */
-  private convertStructuredMarketData(data: PerplexityStructuredCareerData): EnhancedCareerData['realTimeMarketDemand'] {
+  private convertStructuredMarketData(data: PerplexityStructuredCareerData, careerTitle: string): EnhancedCareerData['realTimeMarketDemand'] {
     const marketData = data.enhancedData?.realTimeMarketDemand;
     const sources = data.sources?.map(s => s.url) || [];
 
@@ -599,28 +600,118 @@ export class DashboardCareerEnhancer {
       return 5.0;
     };
 
+    // CRITICAL: Data quality validation for market intelligence
+    const rawGrowthRate = parseGrowthRate(marketData?.growthRate);
+    const rawJobPostings = marketData?.jobPostingVolume || 1500;
+    
+    const validatedGrowthRate = this.validateGrowthRate(rawGrowthRate, careerTitle);
+    const validatedJobPostings = this.validateJobPostings(rawJobPostings, careerTitle);
+
     return {
-      jobPostingVolume: marketData?.jobPostingVolume || 1500,
-      growthRate: parseGrowthRate(marketData?.growthRate),
+      jobPostingVolume: validatedJobPostings,
+      growthRate: validatedGrowthRate,
       competitionLevel: (marketData?.competitionLevel as 'Low' | 'Medium' | 'High') || 'Medium',
       sources
     };
   }
 
   /**
-   * Convert structured education data to our format
+   * CRITICAL: Validate growth rate data for accuracy and reasonableness
+   */
+  private validateGrowthRate(growthRate: number, careerTitle: string): number {
+    // UK career growth rate validation rules based on ONS data patterns
+    const validationRules = {
+      // Extremely negative growth rates are usually data errors
+      minAcceptableGrowth: -15, // Very few careers decline more than 15% YoY
+      maxAcceptableGrowth: 50,   // Very few careers grow more than 50% YoY except emerging tech
+      
+      // Suspicious ranges that warrant defaulting to safe values
+      suspiciouslyLow: -5,       // Below -5% is often parsing errors like "-0.04"
+      suspiciouslyHigh: 25,      // Above 25% is often parsing errors or hype
+      
+      // Default values for different career categories
+      techDefault: 8,            // Technology careers
+      healthcareDefault: 6,      // Healthcare careers  
+      traditionalDefault: 3,     // Traditional industries
+      emergingDefault: 12        // Emerging industries
+    };
+
+    // Flag suspicious data
+    const isSuspicious = 
+      growthRate < validationRules.suspiciouslyLow || 
+      growthRate > validationRules.suspiciouslyHigh ||
+      Math.abs(growthRate) < 0.1; // Tiny values like -0.04% are often parsing errors
+
+    if (isSuspicious) {
+      console.warn(`⚠️ [DATA QUALITY] Suspicious growth rate for "${careerTitle}": ${growthRate}% - applying validation`);
+      
+      // Apply intelligent defaults based on career type
+      const lowerTitle = careerTitle.toLowerCase();
+      
+      if (lowerTitle.includes('ai') || lowerTitle.includes('data') || lowerTitle.includes('software')) {
+        return validationRules.techDefault;
+      } else if (lowerTitle.includes('health') || lowerTitle.includes('care') || lowerTitle.includes('medical')) {
+        return validationRules.healthcareDefault;
+      } else if (lowerTitle.includes('renewable') || lowerTitle.includes('sustainability') || lowerTitle.includes('creator')) {
+        return validationRules.emergingDefault;
+      } else {
+        return validationRules.traditionalDefault;
+      }
+    }
+
+    // Clamp to acceptable ranges even if not flagged as suspicious
+    return Math.max(validationRules.minAcceptableGrowth, 
+                   Math.min(validationRules.maxAcceptableGrowth, growthRate));
+  }
+
+  /**
+   * CRITICAL: Validate job posting volume for reasonableness
+   */
+  private validateJobPostings(jobPostings: number, careerTitle: string): number {
+    const validationRules = {
+      minReasonable: 50,        // Very niche roles
+      maxReasonable: 50000,     // Very common roles like "Manager"
+      defaultLow: 500,          // Specialized roles default
+      defaultMed: 2000,         // Common roles default
+      defaultHigh: 8000         // Very common roles default
+    };
+
+    // Validate range
+    if (jobPostings < validationRules.minReasonable || jobPostings > validationRules.maxReasonable) {
+      console.warn(`⚠️ [DATA QUALITY] Suspicious job posting volume for "${careerTitle}": ${jobPostings} - applying validation`);
+      
+      const lowerTitle = careerTitle.toLowerCase();
+      
+      // Apply intelligent defaults based on role commonality
+      if (lowerTitle.includes('manager') || lowerTitle.includes('specialist') || lowerTitle.includes('analyst')) {
+        return validationRules.defaultHigh;
+      } else if (lowerTitle.includes('developer') || lowerTitle.includes('consultant') || lowerTitle.includes('coordinator')) {
+        return validationRules.defaultMed;
+      } else {
+        return validationRules.defaultLow;
+      }
+    }
+
+    return jobPostings;
+  }
+
+  /**
+   * Convert structured education data to our format with validation and categorization
    */
   private convertStructuredEducationData(data: PerplexityStructuredCareerData): EnhancedCareerData['currentEducationPathways'] {
     const educationData = data.enhancedData?.currentEducationPathways || [];
+    const sources = data.sources || [];
     
-    return educationData
+    // Map pathways and include URLs from sources where possible
+    const processedPathways = educationData
       .map(pathway => {
         const cost = this.parseEducationCost(pathway.cost);
-        // Only include pathways where we can parse valid cost data
-        if (!cost) {
-          console.warn('⚠️ Skipping education pathway due to unparseable cost:', pathway.title);
-          return null;
-        }
+        
+        // Try to find matching URL from sources
+        const matchingSource = sources.find(source => 
+          source.title.toLowerCase().includes(pathway.title.toLowerCase().slice(0, 10)) ||
+          source.title.toLowerCase().includes(pathway.provider.toLowerCase())
+        );
         
         return {
           type: pathway.type as 'University' | 'Apprenticeship' | 'Professional' | 'Online',
@@ -629,11 +720,13 @@ export class DashboardCareerEnhancer {
           duration: pathway.duration,
           cost,
           entryRequirements: pathway.entryRequirements || [],
-          url: '',
+          url: matchingSource?.url || '',
           verified: pathway.verified || false
         };
-      })
-      .filter((pathway): pathway is NonNullable<typeof pathway> => pathway !== null);
+      });
+    
+    // Apply validation and categorization using the new methods
+    return this.processEducationPathways(processedPathways);
   }
 
   /**
@@ -647,14 +740,16 @@ export class DashboardCareerEnhancer {
       // "Free" or similar
       /(free|no cost|£0)/i,
       // Employer funded patterns
-      /(employer.{0,20}fund|apprentice.{0,20}levy|no tuition)/i
+      /(employer.{0,20}fund|apprentice.{0,20}levy|no tuition)/i,
+      // Generic "funded" patterns
+      /(^funded$|government.{0,20}fund|publicly.{0,20}fund|state.{0,20}fund)/i
     ];
     
     for (const pattern of patterns) {
       const matches = costStr.match(pattern);
       if (matches) {
         // Handle free/employer funded courses
-        if (pattern === patterns[1] || pattern === patterns[2]) {
+        if (pattern === patterns[1] || pattern === patterns[2] || pattern === patterns[3]) {
           return { min: 0, max: 0, currency: 'GBP' };
         }
         
@@ -667,8 +762,9 @@ export class DashboardCareerEnhancer {
       }
     }
     
-    console.warn('⚠️ Could not parse education cost from:', costStr.substring(0, 100), '- skipping this pathway but continuing with others');
-    return null; // Return null to skip this pathway but don't fail the entire process
+    console.warn('⚠️ Could not parse education cost from:', costStr.substring(0, 100), '- using generic cost range');
+    // Instead of skipping completely, provide a generic cost range for unparseable strings
+    return { min: 0, max: 50000, currency: 'GBP' }; // £0-£50k covers most UK education costs
   }
 
   /**
@@ -995,7 +1091,7 @@ export class DashboardCareerEnhancer {
   /**
    * Save enhanced data to Firestore
    */
-  private async saveToFirestore(careerTitle: string, data: EnhancedCareerData, confidence: number): Promise<void> {
+  private async saveToFirestore(careerTitle: string, data: EnhancedCareerData, confidence: number, userId?: string): Promise<void> {
     try {
       const docKey = careerTitle.toLowerCase().replace(/[^a-z0-9]/g, '_');
       const docRef = doc(firestore, this.FIRESTORE_COLLECTION, docKey);
@@ -1014,7 +1110,7 @@ export class DashboardCareerEnhancer {
       console.log('💾 Saved to Firestore:', careerTitle, { confidence });
       
       // Also merge enhanced data back to threadCareerGuidance for user-facing display
-      await this.mergeEnhancedDataToThreadGuidance(careerTitle, data);
+      await this.mergeEnhancedDataToThreadGuidance(careerTitle, data, userId);
       
     } catch (error) {
       console.warn('⚠️ Firestore write error for', careerTitle, ':', error);
@@ -1025,71 +1121,110 @@ export class DashboardCareerEnhancer {
   /**
    * Merge enhanced data from enhancedCareerCards back to threadCareerGuidance for user-facing display
    */
-  private async mergeEnhancedDataToThreadGuidance(careerTitle: string, enhancedData: EnhancedCareerData): Promise<void> {
+  private async mergeEnhancedDataToThreadGuidance(careerTitle: string, enhancedData: EnhancedCareerData, userId?: string): Promise<void> {
     try {
       console.log(`🔄 Merging enhanced data for "${careerTitle}" back to threadCareerGuidance`);
       
       // Find threadCareerGuidance documents that contain this career title
+      // CRITICAL FIX: Filter by userId to avoid permission errors
       const threadGuidanceRef = collection(firestore, 'threadCareerGuidance');
-      const guidanceSnapshot = await getDocs(threadGuidanceRef);
+      let guidanceQuery;
+      
+      if (userId) {
+        // Only query current user's documents to avoid permission errors
+        guidanceQuery = query(threadGuidanceRef, where('userId', '==', userId));
+        console.log(`🔍 Filtering threadCareerGuidance by userId: ${userId}`);
+      } else {
+        // If no userId provided, skip merge to avoid permission errors
+        console.log('⚠️ No userId provided, skipping merge to avoid permission errors');
+        return;
+      }
+      
+      const guidanceSnapshot = await getDocs(guidanceQuery);
       
       let mergedCount = 0;
       
       for (const docSnap of guidanceSnapshot.docs) {
-        const data = docSnap.data();
+        const data = docSnap.data() as any; // Type assertion for Firestore document data
         let hasUpdates = false;
         const updates: any = {};
         
-        // Check and update primary pathway
-        if (data.guidance?.primaryPathway?.title?.toLowerCase() === careerTitle.toLowerCase()) {
-          console.log(`🎯 Found matching primary pathway in doc ${docSnap.id}`);
+        // Improved flexible title matching function
+        const normalizeTitle = (title: string) => {
+          return title.toLowerCase()
+            .replace(/[^\w\s]/g, '') // Remove special chars like /
+            .replace(/\s+/g, ' ')    // Normalize whitespace
+            .trim();
+        };
+
+        const normalizedCareerTitle = normalizeTitle(careerTitle);
+        
+        // Check and update primary pathway with flexible matching
+        if (data.guidance?.primaryPathway?.title) {
+          const normalizedPrimaryTitle = normalizeTitle(data.guidance.primaryPathway.title);
           
-          updates['guidance.primaryPathway'] = {
-            ...data.guidance.primaryPathway,
-            // Map enhanced data to the fields expected by user-facing components
-            enhancedSalary: enhancedData.verifiedSalaryRanges,
-            careerProgression: enhancedData.currentEducationPathways,
-            dayInTheLife: enhancedData.workEnvironmentDetails,
-            industryTrends: enhancedData.industryGrowthProjection,
-            topUKEmployers: enhancedData.realTimeMarketDemand,
-            professionalTestimonials: enhancedData.competencyRequirements,
-            additionalQualifications: enhancedData.competencyRequirements?.qualificationPathway,
-            workLifeBalance: enhancedData.workEnvironmentDetails,
-            inDemandSkills: enhancedData.competencyRequirements?.technicalSkills,
-            professionalAssociations: enhancedData.competencyRequirements?.softSkills,
-            enhancedSources: enhancedData.realTimeMarketDemand?.sources || enhancedData.verifiedSalaryRanges?.entry?.sources || [],
-            isEnhanced: true,
-            enhancedAt: new Date(),
-            enhancementSource: 'perplexity',
-            enhancementStatus: 'enhanced'
-          };
-          hasUpdates = true;
+          // Exact match or partial match (for cases like "Content Creator" vs "Content Creator/Streamer")
+          const isMatch = normalizedPrimaryTitle === normalizedCareerTitle || 
+                         normalizedPrimaryTitle.includes(normalizedCareerTitle) ||
+                         normalizedCareerTitle.includes(normalizedPrimaryTitle);
+          
+          if (isMatch) {
+            console.log(`🎯 Found matching primary pathway in doc ${docSnap.id}: "${data.guidance.primaryPathway.title}" matches "${careerTitle}"`);
+          
+            updates['guidance.primaryPathway'] = {
+              ...data.guidance.primaryPathway,
+              // Map enhanced data to the fields expected by user-facing components
+              enhancedSalary: enhancedData.verifiedSalaryRanges,
+              careerProgression: enhancedData.currentEducationPathways,
+              dayInTheLife: enhancedData.workEnvironmentDetails,
+              industryTrends: enhancedData.industryGrowthProjection,
+              topUKEmployers: enhancedData.realTimeMarketDemand,
+              professionalTestimonials: enhancedData.competencyRequirements,
+              additionalQualifications: enhancedData.competencyRequirements?.qualificationPathway,
+              workLifeBalance: enhancedData.workEnvironmentDetails,
+              inDemandSkills: enhancedData.competencyRequirements?.technicalSkills,
+              professionalAssociations: enhancedData.competencyRequirements?.softSkills,
+              enhancedSources: enhancedData.realTimeMarketDemand?.sources || enhancedData.verifiedSalaryRanges?.entry?.sources || [],
+              isEnhanced: true,
+              enhancedAt: new Date(),
+              enhancementSource: 'perplexity',
+              enhancementStatus: 'enhanced'
+            };
+            hasUpdates = true;
+          }
         }
         
-        // Check and update alternative pathways
+        // Check and update alternative pathways with flexible matching
         if (data.guidance?.alternativePathways?.length > 0) {
           const updatedAlternatives = data.guidance.alternativePathways.map((pathway: any) => {
-            if (pathway.title?.toLowerCase() === careerTitle.toLowerCase()) {
-              console.log(`🎯 Found matching alternative pathway in doc ${docSnap.id}`);
-              return {
-                ...pathway,
-                // Map enhanced data to the fields expected by user-facing components
-                enhancedSalary: enhancedData.verifiedSalaryRanges,
-                careerProgression: enhancedData.currentEducationPathways,
-                dayInTheLife: enhancedData.workEnvironmentDetails,
-                industryTrends: enhancedData.industryGrowthProjection,
-                topUKEmployers: enhancedData.realTimeMarketDemand,
-                professionalTestimonials: enhancedData.competencyRequirements,
-                additionalQualifications: enhancedData.competencyRequirements?.qualificationPathway,
-                workLifeBalance: enhancedData.workEnvironmentDetails,
-                inDemandSkills: enhancedData.competencyRequirements?.technicalSkills,
-                professionalAssociations: enhancedData.competencyRequirements?.softSkills,
-                enhancedSources: enhancedData.realTimeMarketDemand?.sources || enhancedData.verifiedSalaryRanges?.entry?.sources || [],
-                isEnhanced: true,
-                enhancedAt: new Date(),
-                enhancementSource: 'perplexity',
-                enhancementStatus: 'enhanced'
-              };
+            if (pathway.title) {
+              const normalizedPathwayTitle = normalizeTitle(pathway.title);
+              const isAltMatch = normalizedPathwayTitle === normalizedCareerTitle || 
+                               normalizedPathwayTitle.includes(normalizedCareerTitle) ||
+                               normalizedCareerTitle.includes(normalizedPathwayTitle);
+              
+              if (isAltMatch) {
+                console.log(`🎯 Found matching alternative pathway in doc ${docSnap.id}: "${pathway.title}" matches "${careerTitle}"`);
+                return {
+                  ...pathway,
+                  // Map enhanced data to the fields expected by user-facing components
+                  enhancedSalary: enhancedData.verifiedSalaryRanges,
+                  careerProgression: enhancedData.currentEducationPathways,
+                  dayInTheLife: enhancedData.workEnvironmentDetails,
+                  industryTrends: enhancedData.industryGrowthProjection,
+                  topUKEmployers: enhancedData.realTimeMarketDemand,
+                  professionalTestimonials: enhancedData.competencyRequirements,
+                  additionalQualifications: enhancedData.competencyRequirements?.qualificationPathway,
+                  workLifeBalance: enhancedData.workEnvironmentDetails,
+                  inDemandSkills: enhancedData.competencyRequirements?.technicalSkills,
+                  professionalAssociations: enhancedData.competencyRequirements?.softSkills,
+                  enhancedSources: enhancedData.realTimeMarketDemand?.sources || enhancedData.verifiedSalaryRanges?.entry?.sources || [],
+                  isEnhanced: true,
+                  enhancedAt: new Date(),
+                  enhancementSource: 'perplexity',
+                  enhancementStatus: 'enhanced'
+                };
+              }
             }
             return pathway;
           });
@@ -1155,7 +1290,7 @@ export class DashboardCareerEnhancer {
   /**
    * Set cached enhancement data for a career title (saves to both memory cache and Firestore)
    */
-  private async setCachedEnhancement(careerTitle: string, data: EnhancedCareerData, confidence: number = 0.9): Promise<void> {
+  private async setCachedEnhancement(careerTitle: string, data: EnhancedCareerData, confidence: number = 0.9, userId?: string): Promise<void> {
     const now = Date.now();
     const cacheData = {
       data,
@@ -1168,7 +1303,7 @@ export class DashboardCareerEnhancer {
     this.cache.set(careerTitle.toLowerCase(), cacheData);
 
     // Store in Firestore asynchronously (don't await to avoid blocking)
-    this.saveToFirestore(careerTitle, data, confidence).catch(error => {
+    this.saveToFirestore(careerTitle, data, confidence, userId).catch(error => {
       console.warn('⚠️ Failed to save to Firestore:', error);
     });
 
@@ -1307,6 +1442,152 @@ export class DashboardCareerEnhancer {
       console.error('❌ Manual merge failed:', error);
       throw error;
     }
+  }
+
+  /**
+   * Validation and categorization methods for education pathways
+   */
+
+  /**
+   * Categorize and score education pathway for accessibility
+   */
+  private categorizeEducationPathway(pathway: any): any {
+    const categories = {
+      'Free': this.isFreePathway(pathway),
+      'Bootcamp': this.isBootcampPathway(pathway),
+      'Apprenticeship': this.isApprenticeshipPathway(pathway),
+      'Fast-track': this.isFastTrackPathway(pathway),
+      'Online': this.isOnlinePathway(pathway),
+      'University': this.isUniversityPathway(pathway)
+    };
+    
+    return {
+      ...pathway,
+      categories: Object.keys(categories).filter(key => categories[key]),
+      accessibilityScore: this.calculateAccessibilityScore(pathway),
+      validated: this.isValidUrl(pathway.url)
+    };
+  }
+
+  /**
+   * Check if pathway is free or low-cost
+   */
+  private isFreePathway(pathway: any): boolean {
+    if (pathway.cost?.min === 0 || pathway.cost?.max === 0) return true;
+    const title = pathway.title?.toLowerCase() || '';
+    const description = pathway.description?.toLowerCase() || '';
+    return title.includes('free') || description.includes('free') || 
+           title.includes('no cost') || description.includes('no cost');
+  }
+
+  /**
+   * Check if pathway is a bootcamp or intensive program
+   */
+  private isBootcampPathway(pathway: any): boolean {
+    const title = pathway.title?.toLowerCase() || '';
+    const type = pathway.type?.toLowerCase() || '';
+    return type === 'bootcamp' || title.includes('bootcamp') || 
+           title.includes('intensive') || title.includes('immersive');
+  }
+
+  /**
+   * Check if pathway is an apprenticeship
+   */
+  private isApprenticeshipPathway(pathway: any): boolean {
+    const title = pathway.title?.toLowerCase() || '';
+    const type = pathway.type?.toLowerCase() || '';
+    return type === 'apprenticeship' || title.includes('apprentice') || 
+           title.includes('traineeship');
+  }
+
+  /**
+   * Check if pathway is fast-track (short duration)
+   */
+  private isFastTrackPathway(pathway: any): boolean {
+    const duration = pathway.duration?.toLowerCase() || '';
+    return duration.includes('week') || 
+           (duration.includes('month') && !duration.includes('6 month') && !duration.includes('12 month'));
+  }
+
+  /**
+   * Check if pathway is online/remote
+   */
+  private isOnlinePathway(pathway: any): boolean {
+    const location = pathway.location?.toLowerCase() || '';
+    const title = pathway.title?.toLowerCase() || '';
+    return location === 'online' || location.includes('remote') || 
+           title.includes('online') || title.includes('remote');
+  }
+
+  /**
+   * Check if pathway is university-based
+   */
+  private isUniversityPathway(pathway: any): boolean {
+    const provider = pathway.provider?.toLowerCase() || '';
+    const type = pathway.type?.toLowerCase() || '';
+    const title = pathway.title?.toLowerCase() || '';
+    return type === 'university' || provider.includes('university') || 
+           provider.includes('college') || title.includes('degree') || 
+           title.includes('masters') || title.includes('bachelor');
+  }
+
+  /**
+   * Calculate accessibility score (0-100, higher = more accessible)
+   */
+  private calculateAccessibilityScore(pathway: any): number {
+    let score = 0;
+    
+    // Cost factor (40 points max)
+    if (this.isFreePathway(pathway)) {
+      score += 40;
+    } else if (pathway.cost?.min < 1000) {
+      score += 25;
+    } else if (pathway.cost?.min < 5000) {
+      score += 15;
+    }
+    
+    // Duration factor (30 points max)
+    if (this.isFastTrackPathway(pathway)) {
+      score += 30;
+    } else if (pathway.duration?.includes('month')) {
+      score += 20;
+    } else if (pathway.duration?.includes('year')) {
+      score += 10;
+    }
+    
+    // Type factor (30 points max)
+    if (this.isBootcampPathway(pathway) || this.isApprenticeshipPathway(pathway)) {
+      score += 30;
+    } else if (this.isOnlinePathway(pathway)) {
+      score += 20;
+    } else if (this.isUniversityPathway(pathway)) {
+      score += 10;
+    }
+    
+    return Math.min(score, 100);
+  }
+
+  /**
+   * Validate URL format and basic accessibility
+   */
+  private isValidUrl(url: string): boolean {
+    if (!url || typeof url !== 'string') return false;
+    try {
+      const urlObj = new URL(url);
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Process and enhance education pathways with validation and categorization
+   */
+  private processEducationPathways(pathways: any[]): any[] {
+    return pathways
+      .map(pathway => this.categorizeEducationPathway(pathway))
+      .filter(pathway => pathway.validated || !pathway.url) // Include pathways without URLs or with valid URLs
+      .sort((a, b) => b.accessibilityScore - a.accessibilityScore); // Sort by accessibility
   }
 }
 

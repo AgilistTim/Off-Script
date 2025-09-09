@@ -31,6 +31,7 @@ export interface EnvironmentConfig {
   elevenLabs: {
     apiKey?: string;
     agentId?: string;
+    textAgentId?: string;
   };
   
   // Perplexity configuration
@@ -47,6 +48,10 @@ export interface EnvironmentConfig {
   
   // Environment and features
   environment: string;
+  providers?: {
+    text?: 'openai' | 'elevenlabs';
+    voice?: 'elevenlabs' | 'openai';
+  };
   features: {
     voiceChat: boolean;
     careerGuidance: boolean;
@@ -111,6 +116,7 @@ export const environmentConfig: EnvironmentConfig = {
   elevenLabs: {
     apiKey: import.meta.env.VITE_ELEVENLABS_API_KEY,
     agentId: import.meta.env.VITE_ELEVENLABS_AGENT_ID,
+    textAgentId: import.meta.env.VITE_ELEVENLABS_TEXT_AGENT_ID,
   },
   
   perplexity: {
@@ -124,6 +130,10 @@ export const environmentConfig: EnvironmentConfig = {
   },
   
   environment: import.meta.env.MODE || 'development',
+  providers: {
+    text: (import.meta.env.VITE_TEXT_PROVIDER as any) || 'openai',
+    voice: (import.meta.env.VITE_VOICE_PROVIDER as any) || 'elevenlabs',
+  },
   
   features: {
     voiceChat: true,

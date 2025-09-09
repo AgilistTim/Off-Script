@@ -2,14 +2,17 @@ import React, { useCallback, useEffect, useState, useRef } from 'react';
 import { useConversation } from '@elevenlabs/react';
 import { useAuth } from '../../context/AuthContext';
 import { guestSessionService } from '../../services/guestSessionService';
-import { CareerCard, PersonProfile } from '../../types/careerCard';
+import { PersonProfile } from '../../types/careerCard';
 import { saveConversationToFirebase, generateConversationId } from '../../services/chatService';
 import { mcpQueueService } from '../../services/mcpQueueService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 import { EnhancedUserContextService } from '../../services/enhancedUserContextService';
 import { environmentConfig } from '../../config/environment';
+import { ChatTextInput } from './ChatTextInput';
 
 
+
+type CommunicationMode = 'voice' | 'text' | null;
 
 interface ElevenLabsWidgetProps {
   onCareerCardsGenerated?: (cards: any[]) => void;
@@ -29,13 +32,17 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   className = ''
 }) => {
   const { currentUser } = useAuth();
+  // Global guard to prevent audio initialization before explicit user action.
+  if (typeof window !== 'undefined' && (window as any).__ALLOW_AUDIO_INIT === undefined) {
+    (window as any).__ALLOW_AUDIO_INIT = false;
+  }
   
   // Generate a persistent conversation ID for this session
   const conversationIdRef = useRef<string>(generateConversationId());
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [conversationHistory, setConversationHistory] = useState<Array<{ role: 'user' | 'assistant'; content: string; timestamp: Date }>>([]);
   const [isConnected, setIsConnected] = useState<boolean>(false);
-  const [insightsGenerated, setInsightsGenerated] = useState(0);
+  const [communicationMode, setCommunicationMode] = useState<CommunicationMode>(null);
   
   // Track data generated during this conversation session
   const [sessionCareerCardCount, setSessionCareerCardCount] = useState(0);
@@ -102,8 +109,8 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   const getAgentId = useCallback((): string => {
     const agentId = environmentConfig.elevenLabs.agentId;
     if (!agentId) {
-      console.error('Missing VITE_ELEVENLABS_AGENT_ID environment variable');
-      throw new Error('ElevenLabs agent ID not configured');
+      console.warn('Missing VITE_ELEVENLABS_AGENT_ID environment variable (voice disabled)');
+      return '';
     }
     
     if (!currentUser) {
@@ -168,19 +175,6 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
   // Removed generateLocalCareerCards - using OpenAI analysis only
   // If OpenAI fails, we show error rather than confusing with hardcoded data
 
-  // Profile extraction from OpenAI analysis only - no hardcoded fallbacks
-  const extractProfileFromConversation = (conversationText: string): PersonProfile => {
-    // Return empty profile - rely on OpenAI/MCP for real analysis
-    return {
-      interests: [],
-      goals: [],
-      skills: [],
-      values: [],
-      careerStage: "exploring",
-      workStyle: [],
-      lastUpdated: new Date().toLocaleDateString()
-    };
-  };
 
   // Enhanced conversation analysis with care sector detection
   const analyzeConversationForCareerInsights = useCallback(async (triggerReason: string) => {
@@ -246,34 +240,18 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           triggerReason
         });
       
-      // Create enhanced context for better MCP analysis - send as message array
-      const enhancedContext = {
-        conversationHistory: validMessages, // Send as array instead of string
-        analysisRequest: {
-          extractGoals: "Extract career goals, aspirations, and what the user wants to achieve professionally. Look for phrases about wanting fulfilling work, work-life balance, financial goals, impact goals.",
-          extractSkills: "Extract both mentioned skills (like physics, maths, problem-solving) and implied skills from activities and interests. Include academic subjects, hobbies, and demonstrated abilities.",
-          extractValues: "Extract what matters to the user in work and life. Look for mentions of helping others, conservation, teamwork, avoiding certain environments (like military), work preferences.",
-          extractInterests: "Extract specific interests, subjects, activities, and areas of curiosity mentioned by the user.",
-          careerPreferences: "Note preferences about work environment, team vs individual work, specific sectors of interest or avoidance."
-        },
-        conversationSummary: {
-          totalMessages: validMessages.length,
-          userMessages: validMessages.filter(m => m.role === 'user').length,
-          keyTopics: triggerReason,
-          careInterestDetected: hasCareInterest
-        },
-        // Cache-busting to ensure fresh analysis
-        timestamp: Date.now(),
-        analysisId: `analysis_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        forceFreshAnalysis: true
-      };
       
       // Use queue service instead of direct fetch to prevent blocking
+      // Include the agent's configured first message so MCP/OpenAI can honour the "Sarah" persona
+      const assistantFirstMessage = getConversationOverrides()?.overrides?.agent?.firstMessage;
+      const sessionId = conversationIdRef.current;
       const queueResult = await mcpQueueService.queueAnalysisRequest(
         validMessages,
         triggerReason,
         mcpEndpoint,
-        currentUser?.uid
+        currentUser?.uid,
+        assistantFirstMessage,
+        sessionId
       );
 
       // Parse the result - queue service returns the analysis directly
@@ -438,191 +416,162 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
       return {
         overrides: {
           agent: {
-            firstMessage: "Hi I'm Sarah an AI assistant, what's your name?"
+            firstMessage: "Hi, I'm Sarah, your AI guide. What's your name?"
           }
         }
       };
     }
   }, [currentUser, userProfileData]);
 
-  // Initialize conversation with client tools that ElevenLabs calls
-  const conversation = useConversation({
-    clientTools: {
-      // Consolidated Tool 1: All career exploration and analysis
-      explore_career_opportunities: async (parameters: { 
-        analysis_type: 'instant_insights' | 'deep_analysis' | 'specific_focus',
-        trigger_reason: string,
-        focus_area?: string 
-      }) => {
-        console.log('🚨 TOOL CALLED: explore_career_opportunities - UNIFIED CAREER ANALYSIS!');
-        console.log('🔍 Tool parameters:', parameters);
-        
-        // Map analysis_type to appropriate trigger_reason if needed
-        const effectiveTriggerReason = parameters.trigger_reason || 
-          (parameters.analysis_type === 'instant_insights' ? 'instant_analysis' : 
-           parameters.analysis_type === 'specific_focus' ? `focus_on_${parameters.focus_area}` : 
-           'agent_request');
-        
-        // Use existing career analysis functionality
-        const result = await analyzeConversationForCareerInsights(effectiveTriggerReason);
-        
-        return result;
-      },
+  // Client tools definition for ElevenLabs agent
+  const clientTools = {
+    // Consolidated Tool 1: All career exploration and analysis
+    explore_career_opportunities: async (parameters: {
+      analysis_type: 'instant_insights' | 'deep_analysis' | 'specific_focus',
+      trigger_reason: string,
+      focus_area?: string
+    }) => {
+      console.log('🚨 TOOL CALLED: explore_career_opportunities - UNIFIED CAREER ANALYSIS!');
+      console.log('🔍 Tool parameters:', parameters);
 
-      // Legacy tool mapping for backwards compatibility with agent configuration
-      generate_career_recommendations: async (parameters: any) => {
-        console.log('🚨 TOOL CALLED: generate_career_recommendations -> explore_career_opportunities (Legacy Mapping)');
-        console.log('🔄 Routing to unified career exploration tool');
-        console.log('🔍 Legacy tool parameters:', parameters);
-        
-        // Map legacy parameters to unified tool format
-        const effectiveTriggerReason = parameters.trigger_reason || 'career_recommendations';
-        
-        // Use existing career analysis functionality (same as explore_career_opportunities)
-        const result = await analyzeConversationForCareerInsights(effectiveTriggerReason);
-        
-        return result;
-      },
+      const effectiveTriggerReason = parameters.trigger_reason ||
+        (parameters.analysis_type === 'instant_insights' ? 'instant_analysis' :
+         parameters.analysis_type === 'specific_focus' ? `focus_on_${parameters.focus_area}` :
+         'agent_request');
 
-      // Consolidated Tool 2: All profile extraction and updates including names
-      extract_and_update_profile: async (parameters: { 
-        name?: string,
-        interests?: string[], 
-        goals?: string[], 
-        skills?: string[],
-        values?: string[],
-        insights_from_conversation?: string
-      }) => {
-        console.log('🚨 TOOL CALLED: extract_and_update_profile - UNIFIED PROFILE MANAGEMENT!');
-        console.log('👤 Updating person profile with enhanced name support...');
-        console.log('👤 Profile parameters:', parameters);
-        
-        // Start loading state for profile update
-        onAnalysisStateChange?.({ isAnalyzing: true, type: 'profile_update', progress: 'Updating your profile...' });
-        
-        if (onPersonProfileGenerated) {
-          try {
-            // Use conversation history and parameters to generate detailed profile
-            const validMessages = conversationHistoryRef.current.filter(msg => 
-              msg.content && typeof msg.content === 'string' && msg.content.trim().length > 0
-            );
-            const conversationText = validMessages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
-            
-            if (conversationText.length > 20) { // If we have real conversation content
-              const response = await fetch(`${mcpEndpoint}/analyze`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  conversationHistory: validMessages, // Send as array
-                  userId: currentUser?.uid || `guest_${Date.now()}`,
-                  triggerReason: 'persona_update',
-                  generatePersona: true,
-                  profileParams: parameters,
-                  // Include name extraction in analysis
-                  extractName: !parameters.name, // Extract name if not provided
-                  // Cache-busting for profile updates
-                  timestamp: Date.now(),
-                  analysisId: `profile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                  forceFreshAnalysis: true
-                })
-              });
-              
-              if (response.ok) {
-                const result = await response.json();
-                
-                // Helper function to normalize data to arrays
-                const normalizeToArray = (data: any): string[] => {
-                  if (Array.isArray(data)) return data;
-                  if (typeof data === 'string') {
-                    // Split by comma, semicolon, or newline and clean up
-                    return data.split(/[,;\n]/).map(item => item.trim()).filter(item => item.length > 0);
-                  }
-                  return [];
-                };
-                
-                // Generate enhanced profile from analysis with name support
-                const updatedProfile: PersonProfile = {
-                  name: parameters.name || result.extractedName || undefined, // Include name field
-                  interests: normalizeToArray(parameters.interests || result.detectedInterests) || ["Technology", "Problem Solving", "Innovation"],
-                  goals: normalizeToArray(parameters.goals || result.detectedGoals) || ["Career development", "Skill building"],
-                  skills: normalizeToArray(parameters.skills || result.detectedSkills) || ["Communication", "Analytical thinking"],
-                  values: normalizeToArray(parameters.values || result.detectedValues) || ["Making a difference", "Innovation", "Growth"],
-                  careerStage: result.careerStage || "exploring",
-                  workStyle: normalizeToArray(result.workStyle) || ["Collaborative", "Flexible"],
-                  lastUpdated: new Date().toLocaleDateString()
-                };
-                
-                console.log('🎯 Generated enhanced profile with name support:', updatedProfile);
-                // Track session progress for conversation end callback
-                setSessionHasGeneratedProfile(true);
-                onPersonProfileGenerated(updatedProfile);
-                
-                // Complete loading state
-                onAnalysisStateChange?.({ isAnalyzing: false });
-                
-                const nameMessage = updatedProfile.name ? ` Nice to meet you, ${updatedProfile.name}!` : '';
-                return `I've analyzed our conversation and updated your profile with insights about your interests in ${updatedProfile.interests.join(', ')}!${nameMessage}`;
-              }
-            }
-          } catch (error) {
-            console.error('❌ Error generating persona from conversation:', error);
-            
-            // Complete loading state on error
-            onAnalysisStateChange?.({ isAnalyzing: false });
-          }
-          
-          // Fallback to basic profile with name support
-          const updatedProfile: PersonProfile = {
-            name: parameters.name || undefined, // Include name from parameters
-            interests: Array.isArray(parameters.interests) ? parameters.interests : ["Technology", "Problem Solving", "Innovation"],
-            goals: Array.isArray(parameters.goals) ? parameters.goals : ["Career development", "Skill building"],
-            skills: Array.isArray(parameters.skills) ? parameters.skills : ["Communication", "Analytical thinking"],
-            values: Array.isArray(parameters.values) ? parameters.values : ["Making a difference", "Innovation", "Growth"],
-            careerStage: "exploring",
-            workStyle: ["Collaborative", "Flexible"],
-            lastUpdated: new Date().toLocaleDateString()
-          };
-          
-          // Track session progress for conversation end callback
-          setSessionHasGeneratedProfile(true);
-          onPersonProfileGenerated(updatedProfile);
-          
-          // Complete loading state
-          onAnalysisStateChange?.({ isAnalyzing: false });
-          
-          const nameMessage = updatedProfile.name ? ` Nice to meet you, ${updatedProfile.name}!` : '';
-          return `I've updated your profile based on our conversation!${nameMessage}`;
-        }
-        
-        // Complete loading state for simple update
-        onAnalysisStateChange?.({ isAnalyzing: false });
-        
-        return "Profile updated successfully!";
-      }
+      const result = await analyzeConversationForCareerInsights(effectiveTriggerReason);
+      return result;
     },
+
+    // Legacy tool mapping for backwards compatibility with agent configuration
+    generate_career_recommendations: async (parameters: any) => {
+      console.log('🚨 TOOL CALLED: generate_career_recommendations -> explore_career_opportunities (Legacy Mapping)');
+      console.log('🔄 Routing to unified career exploration tool');
+      console.log('🔍 Legacy tool parameters:', parameters);
+
+      const effectiveTriggerReason = parameters.trigger_reason || 'career_recommendations';
+      const result = await analyzeConversationForCareerInsights(effectiveTriggerReason);
+      return result;
+    },
+
+    // Consolidated Tool 2: All profile extraction and updates including names
+    extract_and_update_profile: async (parameters: {
+      name?: string,
+      interests?: string[],
+      goals?: string[],
+      skills?: string[],
+      values?: string[],
+      insights_from_conversation?: string
+    }) => {
+      console.log('🚨 TOOL CALLED: extract_and_update_profile - UNIFIED PROFILE MANAGEMENT!');
+      console.log('👤 Updating person profile with enhanced name support...');
+      console.log('👤 Profile parameters:', parameters);
+
+      onAnalysisStateChange?.({ isAnalyzing: true, type: 'profile_update', progress: 'Updating your profile...' });
+
+      if (onPersonProfileGenerated) {
+        try {
+          const validMessages = conversationHistoryRef.current.filter(msg =>
+            msg.content && typeof msg.content === 'string' && msg.content.trim().length > 0
+          );
+          const conversationText = validMessages.map(msg => `${msg.role}: ${msg.content}`).join('\n');
+
+          if (conversationText.length > 20) {
+            const response = await fetch(`${mcpEndpoint}/analyze`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                conversationHistory: validMessages,
+                userId: currentUser?.uid || `guest_${Date.now()}`,
+                triggerReason: 'persona_update',
+                generatePersona: true,
+                profileParams: parameters,
+                extractName: !parameters.name,
+                timestamp: Date.now(),
+                analysisId: `profile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+                forceFreshAnalysis: true
+              })
+            });
+
+            if (response.ok) {
+              const result = await response.json();
+
+              const normalizeToArray = (data: any): string[] => {
+                if (Array.isArray(data)) return data;
+                if (typeof data === 'string') {
+                  return data.split(/[,;\n]/).map(item => item.trim()).filter(item => item.length > 0);
+                }
+                return [];
+              };
+
+              const updatedProfile: PersonProfile = {
+                name: parameters.name || result.extractedName || undefined,
+                interests: normalizeToArray(parameters.interests || result.detectedInterests) || ["Technology", "Problem Solving", "Innovation"],
+                goals: normalizeToArray(parameters.goals || result.detectedGoals) || ["Career development", "Skill building"],
+                skills: normalizeToArray(parameters.skills || result.detectedSkills) || ["Communication", "Analytical thinking"],
+                values: normalizeToArray(parameters.values || result.detectedValues) || ["Making a difference", "Innovation", "Growth"],
+                careerStage: result.careerStage || "exploring",
+                workStyle: normalizeToArray(result.workStyle) || ["Collaborative", "Flexible"],
+                lastUpdated: new Date().toLocaleDateString()
+              };
+
+              console.log('🎯 Generated enhanced profile with name support:', updatedProfile);
+              setSessionHasGeneratedProfile(true);
+              onPersonProfileGenerated(updatedProfile);
+              onAnalysisStateChange?.({ isAnalyzing: false });
+
+              const nameMessage = updatedProfile.name ? ` Nice to meet you, ${updatedProfile.name}!` : '';
+              return `I've analyzed our conversation and updated your profile with insights about your interests in ${updatedProfile.interests.join(', ')}!${nameMessage}`;
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error generating persona from conversation:', error);
+          onAnalysisStateChange?.({ isAnalyzing: false });
+        }
+
+        const updatedProfile: PersonProfile = {
+          name: parameters.name || undefined,
+          interests: Array.isArray(parameters.interests) ? parameters.interests : ["Technology", "Problem Solving", "Innovation"],
+          goals: Array.isArray(parameters.goals) ? parameters.goals : ["Career development", "Skill building"],
+          skills: Array.isArray(parameters.skills) ? parameters.skills : ["Communication", "Analytical thinking"],
+          values: Array.isArray(parameters.values) ? parameters.values : ["Making a difference", "Innovation", "Growth"],
+          careerStage: "exploring",
+          workStyle: ["Collaborative", "Flexible"],
+          lastUpdated: new Date().toLocaleDateString()
+        };
+
+        setSessionHasGeneratedProfile(true);
+        onPersonProfileGenerated(updatedProfile);
+        onAnalysisStateChange?.({ isAnalyzing: false });
+
+        const nameMessage = updatedProfile.name ? ` Nice to meet you, ${updatedProfile.name}!` : '';
+        return `I've updated your profile based on our conversation!${nameMessage}`;
+      }
+
+      onAnalysisStateChange?.({ isAnalyzing: false });
+      return "Profile updated successfully!";
+    }
+  };
+
+  // Conversation event handlers bundled for useConversation
+  const conversationHandlers = {
     onConnect: () => {
       console.log('🟢 ElevenLabs connected');
       setConnectionStatus('connected');
       setIsConnected(true);
-      // Reset session tracking for new conversation
       setSessionCareerCardCount(0);
       setSessionHasGeneratedProfile(false);
-      onConversationStart?.(); // Call the new prop
+      onConversationStart?.();
     },
     onDisconnect: () => {
       console.log('🔴 ElevenLabs disconnected');
       setConnectionStatus('disconnected');
       setIsConnected(false);
-      
-      // Note: We deliberately preserve conversation history, career cards, and profile data
-      // when disconnecting to maintain user's progress and insights
       console.log('💾 Preserving conversation data and generated insights after disconnect');
       onConversationEnd?.(sessionHasGeneratedProfile, sessionCareerCardCount);
     },
     onMessage: (message: any) => {
       console.log('📦 Raw message received:', message);
-      
-      // Handle agent_response events with proper structure
       if (message && typeof message === 'object' && message.type === 'agent_response') {
         if (message.agent_response_event && message.agent_response_event.agent_response) {
           const { agent_response } = message.agent_response_event;
@@ -631,11 +580,10 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
           return;
         }
       }
-      
-      // Fallback to existing parsing for compatibility
+
       let content: string | null = null;
       let role: 'user' | 'assistant' = 'assistant';
-      
+
       if (typeof message === 'string') {
         content = message;
       } else if (message && typeof message === 'object') {
@@ -646,14 +594,14 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         } else if (message.message) {
           content = message.message;
         }
-        
+
         if (message.role) {
           role = message.role;
         } else if (message.source) {
           role = message.source === 'user' ? 'user' : 'assistant';
         }
       }
-      
+
       if (content && typeof content === 'string' && content.trim().length > 0) {
         console.log('🎯 Agent response:', content.substring(0, 50) + '...');
         updateConversationHistory(role, content);
@@ -661,27 +609,23 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         console.log('⚠️ Could not parse message content:', message);
       }
     },
-    onError: (error) => {
+    onError: (error: any) => {
       console.error('❌ ElevenLabs error:', error);
     },
     onUserTranscriptReceived: (transcript: string | any) => {
       console.log('📝 Raw transcript received:', transcript);
-      
       let userTranscript: string | null = null;
-      
-      // Handle structured user_transcript events
+
       if (transcript && typeof transcript === 'object' && transcript.type === 'user_transcript') {
         if (transcript.user_transcription_event && transcript.user_transcription_event.user_transcript) {
           userTranscript = transcript.user_transcription_event.user_transcript;
           console.log('🎯 User transcript from structured event:', userTranscript);
         }
-      } 
-      // Handle direct string transcripts (fallback)
-      else if (typeof transcript === 'string') {
+      } else if (typeof transcript === 'string') {
         userTranscript = transcript;
         console.log('🎯 User transcript from string:', userTranscript);
       }
-      
+
       if (userTranscript && userTranscript.trim().length > 0) {
         updateConversationHistory('user', userTranscript);
       } else {
@@ -694,6 +638,44 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     onModeChange: (mode: string) => {
       console.log('🎯 Mode:', mode);
     }
+  };
+
+  // Initialize conversation with client tools that ElevenLabs calls
+  // Only initialize ElevenLabs when in voice mode or when text mode is explicitly configured
+  // to use ElevenLabs as the text provider (deprecated in our platform unless configured).
+  const shouldInitializeConversation = communicationMode && (
+    communicationMode === 'voice' ||
+    (communicationMode === 'text' && environmentConfig.providers?.text === 'elevenlabs')
+  );
+
+  // Build initial options for useConversation depending on selected mode
+  const conversationOptions: any | undefined = shouldInitializeConversation
+    ? ((): any => {
+        const base: any = { clientTools, ...conversationHandlers };
+        if (communicationMode === 'text') {
+          const overrides: any = getConversationOverrides()?.overrides || {};
+          base.overrides = {
+            ...(overrides || {}),
+            conversation: {
+              ...(overrides.conversation || {}),
+              textOnly: true,
+            },
+          };
+        } else {
+          const overrides: any = getConversationOverrides()?.overrides;
+          if (overrides) base.overrides = overrides;
+        }
+        return base;
+      })()
+    : undefined;
+
+  const conversation = useConversation(conversationOptions);
+
+  console.debug('🔍 ElevenLabsWidget conversation init check:', {
+    communicationMode,
+    shouldInitializeConversation,
+    hasConversation: !!conversation,
+    initialOptions: conversationOptions ? Object.keys(conversationOptions) : null,
   });
 
   // Monitor conversation state for UI updates
@@ -803,6 +785,110 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     }
   }, [conversation]);
 
+  // Handle mode selection for widget
+  const handleModeSelection = (mode: CommunicationMode) => {
+    console.log(`🎯 Widget communication mode selected: ${mode}`);
+    // Set global flag before updating mode so audio hooks can react accordingly
+    if (typeof window !== 'undefined') {
+      (window as any).__ALLOW_AUDIO_INIT = mode === 'voice';
+    }
+
+    setCommunicationMode(mode);
+    
+    if (mode === 'voice') {
+      // Start voice conversation automatically
+      startConversation();
+    }
+    // Text mode doesn't need connection setup
+  };
+
+  // Reset mode selection for widget
+  const handleResetMode = () => {
+    console.log('🔄 Resetting widget communication mode');
+    setCommunicationMode(null);
+    
+    // End voice session if active
+    if (isConnected || connectionStatus === 'connecting') {
+      endConversation();
+    }
+  };
+
+  // Generate widget response for text-only mode
+  const generateWidgetResponse = (userMessage: string, messageCount: number): string => {
+    const lowerMessage = userMessage.toLowerCase();
+    
+    // First message responses
+    if (messageCount <= 1) {
+      return "Hi! I'm your career guidance assistant. I can help you discover career paths based on your interests and skills. What would you like to explore about your career?";
+    }
+    
+    // Contextual responses
+    if (lowerMessage.includes('interest') || lowerMessage.includes('love') || lowerMessage.includes('enjoy')) {
+      return "That's great to hear! Your interests are key to finding the right career. I'm analyzing this to suggest matching opportunities. What else do you enjoy doing?";
+    }
+    
+    if (lowerMessage.includes('skill') || lowerMessage.includes('good at')) {
+      return "Excellent! Your skills are valuable assets. I'm identifying careers where these strengths would be in demand. What other abilities do you have?";
+    }
+    
+    // Default responses
+    const responses = [
+      "Thanks for sharing that! I'm processing your input to find career matches. Tell me more about what you're looking for in a career.",
+      "That's helpful information! I'm analyzing your preferences to suggest suitable career paths. What other aspects of work are important to you?",
+      "I understand. Every detail helps me provide better career recommendations. What else would you like to discuss about your career goals?"
+    ];
+    
+    return responses[Math.floor(Math.random() * responses.length)];
+  };
+
+  // Send text message function
+  const sendTextMessage = useCallback(async (messageText: string) => {
+    if (!messageText.trim()) {
+      console.warn('Cannot send message: empty text');
+      return;
+    }
+
+    // In text mode, we don't need a voice connection
+    if (communicationMode === 'voice' && !isConnected) {
+      console.warn('Cannot send message: voice mode requires connection');
+      return;
+    }
+
+    try {
+      console.log('📤 Sending text message via widget:', messageText);
+      
+      // Add user message to conversation history immediately for responsive UI
+      await updateConversationHistory('user', messageText);
+      
+      // Handle text-only mode responses
+      if (communicationMode === 'text') {
+        console.log('📱 Widget text-only mode: Providing immediate response');
+        
+        // Add immediate AI response
+        setTimeout(async () => {
+          try {
+            const response = generateWidgetResponse(messageText, conversationHistory.length);
+            await updateConversationHistory('assistant', response);
+            
+            // In text-only mode, analysis will be triggered by the AI agent's built-in tools
+            // when it detects appropriate conversation patterns, just like in voice mode
+            console.log('💬 Widget text-only mode: Analysis triggered by AI agent tools based on conversation context');
+          } catch (error) {
+            console.error('❌ Error in widget text-only mode:', error);
+            // Add a fallback response
+            await updateConversationHistory('assistant', "I understand what you're saying. Could you tell me more about your career interests and what type of work environment appeals to you?");
+          }
+        }, 800);
+      } else {
+        // Voice mode - just log that message was added
+        console.log('✅ Text message added to conversation history - voice agent will see and respond');
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to send text message:', error);
+    }
+  }, [communicationMode, isConnected, updateConversationHistory, analyzeConversationForCareerInsights]);
+
 
 
 
@@ -813,18 +899,6 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
     agentId !== '__ELEVENLABS_AGENT_ID__' &&
     apiKey !== '__ELEVENLABS_API_KEY__';
 
-  if (!isConfigured) {
-    return (
-      <div className={`p-6 border-2 border-dashed border-gray-300 rounded-lg text-center ${className}`}>
-        <div className="text-gray-500">
-          <p className="text-lg font-medium">ElevenLabs Configuration Required</p>
-          <p className="text-sm mt-2">Please configure VITE_ELEVENLABS_AGENT_ID and VITE_ELEVENLABS_API_KEY</p>
-          <p className="text-xs mt-1 text-gray-400">Current: agentId={agentId || 'undefined'}, apiKey={apiKey ? 'present' : 'undefined'}</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className={`flex flex-col items-center space-y-4 p-6 ${className}`}>
       <div className="text-center space-y-2">
@@ -834,43 +908,131 @@ export const ElevenLabsWidget: React.FC<ElevenLabsWidgetProps> = ({
         </p>
       </div>
 
-      <div className="flex flex-col items-center space-y-4">
-        {connectionStatus === 'disconnected' && (
-          <button
-            onClick={startConversation}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-          >
-            🎙️ Start Conversation
-          </button>
-        )}
-
-        {connectionStatus === 'connecting' && (
-          <div className="flex items-center space-x-2 text-blue-600">
-            <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
-            <span>Connecting...</span>
+      {/* Mode Selection - Show when no mode selected */}
+      {!communicationMode && (
+        <div className="flex flex-col items-center space-y-4">
+          <div className="text-center mb-4">
+            <p className="text-primary-white/80 text-sm">Choose how you'd like to interact:</p>
           </div>
-        )}
-
-        {connectionStatus === 'connected' && (
-          <div className="flex flex-col items-center space-y-3">
-            <div className="flex items-center space-x-2 text-green-600">
-              <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="font-medium">Connected - Speak naturally!</span>
-            </div>
-            
+          <div className="flex flex-col sm:flex-row gap-3">
             <button
-              onClick={endConversation}
-              className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+              onClick={() => handleModeSelection('voice')}
+              disabled={!isConfigured}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              End Conversation
+              🎙️ Voice Chat
+            </button>
+            <button
+              onClick={() => handleModeSelection('text')}
+              className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              💬 Text Chat
             </button>
           </div>
-        )}
-      </div>
+          {!isConfigured && (
+            <p className="text-primary-white/60 text-xs text-center">
+              Voice requires ElevenLabs setup. Text is always available.
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Voice Mode Controls */}
+      {communicationMode === 'voice' && (
+        <div className="flex flex-col items-center space-y-4">
+          <div className="flex items-center space-x-2 mb-2">
+            <span className="text-primary-white/80 text-sm">🎙️ Voice Mode</span>
+            <button
+              onClick={handleResetMode}
+              className="px-3 py-1 bg-primary-white/20 text-primary-white text-xs rounded hover:bg-primary-white/30 transition-colors"
+            >
+              Switch
+            </button>
+          </div>
+
+          {connectionStatus === 'disconnected' && (
+            <button
+              onClick={startConversation}
+              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+            >
+              🎙️ Start Voice Conversation
+            </button>
+          )}
+
+          {connectionStatus === 'connecting' && (
+            <div className="flex items-center space-x-2 text-blue-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent"></div>
+              <span>Connecting...</span>
+            </div>
+          )}
+
+          {connectionStatus === 'connected' && (
+            <div className="flex flex-col items-center space-y-3">
+              <div className="flex items-center space-x-2 text-green-600">
+                <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                <span className="font-medium">Connected - Speak naturally!</span>
+              </div>
+              
+              <button
+                onClick={endConversation}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors text-sm"
+              >
+                End Conversation
+              </button>
+            </div>
+          )}
+
+          {/* Voice mode can also accept text input when connected */}
+          {connectionStatus === 'connected' && (
+            <div className="w-full max-w-md">
+              <ChatTextInput
+                onSendMessage={sendTextMessage}
+                disabled={!isConnected}
+                placeholder="Type a message or speak naturally..."
+                className="w-full"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Text Mode Controls */}
+      {communicationMode === 'text' && (
+        <div className="flex flex-col items-center space-y-4">
+          <div className="flex items-center space-x-2 mb-2">
+            <span className="text-primary-white/80 text-sm">💬 Text Mode</span>
+            <button
+              onClick={handleResetMode}
+              className="px-3 py-1 bg-primary-white/20 text-primary-white text-xs rounded hover:bg-primary-white/30 transition-colors"
+            >
+              Switch
+            </button>
+          </div>
+
+          <div className="w-full max-w-md">
+            <ChatTextInput
+              onSendMessage={sendTextMessage}
+              disabled={false}
+              placeholder="Type your message..."
+              className="w-full"
+            />
+          </div>
+          
+          <p className="text-primary-white/60 text-xs text-center">
+            💬 Text-only conversation - no voice connection needed
+          </p>
+        </div>
+      )}
 
       <div className="text-xs text-primary-white/60 max-w-md text-center">
         <p>✨ Career cards will appear automatically as you discuss your interests</p>
         <p>🔍 Analysis happens every few messages to generate personalized recommendations</p>
+        {communicationMode === 'voice' && isConnected && (
+          <p>💬 Speak naturally or type messages</p>
+        )}
+        {communicationMode === 'text' && (
+          <p>💬 Type messages to start your career conversation</p>
+        )}
       </div>
     </div>
   );

@@ -53,45 +53,50 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-2 sm:inset-4 md:inset-8 lg:inset-16 bg-white rounded-2xl shadow-2xl z-50 overflow-hidden"
+            className="fixed inset-2 sm:inset-4 md:inset-8 lg:inset-16 bg-template-white rounded-2xl border-4 border-black shadow-[8px_8px_0px_0px_#000000] z-50 overflow-hidden"
           >
             <div className="h-full flex flex-col">
               {/* Header */}
-              <div className="bg-gradient-to-r from-primary-green to-primary-lavender text-primary-black p-6 relative">
-                <div className="absolute top-4 right-4 flex gap-2">
+              <div className="bg-template-yellow border-b-4 border-black text-black p-8 relative">
+                <div className="absolute top-6 right-6 flex gap-3">
                   {onRefreshDetails && (
                     <button
                       onClick={handleRefreshDetails}
                       disabled={isRefreshing}
-                      className="p-2 hover:bg-white/20 rounded-full transition-colors disabled:opacity-50"
+                      className="w-12 h-12 hover:bg-black/10 rounded-xl border-2 border-black bg-white/50 shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 disabled:opacity-50 flex items-center justify-center"
                     >
-                      <RefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+                      <RefreshCw className={`h-6 w-6 ${isRefreshing ? 'animate-spin' : ''}`} />
                     </button>
                   )}
-                  <button onClick={onClose} className="p-2 hover:bg-white/20 rounded-full transition-colors">
-                    <X className="h-5 w-5" />
+                  <button 
+                    onClick={onClose} 
+                    className="w-12 h-12 hover:bg-black/10 rounded-xl border-2 border-black bg-white/50 shadow-[2px_2px_0px_0px_#000000] hover:shadow-[4px_4px_0px_0px_#000000] transition-all duration-200 flex items-center justify-center"
+                  >
+                    <X className="h-6 w-6" />
                   </button>
                 </div>
                 
-                <div className="pr-12">
-                  <h2 className="text-2xl md:text-3xl font-bold mb-2">{careerCard.title}</h2>
-                  <div className="flex items-center gap-4 text-primary-black/70 mb-2">
-                    <div className="flex items-center gap-1">
-                      <Briefcase className="h-4 w-4" />
-                      <span>{careerCard.industry || 'Various Industries'}</span>
+                <div className="pr-20">
+                  <h2 className="text-3xl md:text-4xl font-black mb-3 text-black">{careerCard.title}</h2>
+                  <div className="flex items-center gap-4 text-black/80 mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 bg-template-primary rounded-xl border-2 border-black flex items-center justify-center">
+                        <Briefcase className="h-5 w-5 text-white" />
+                      </div>
+                      <span className="font-semibold text-lg">{careerCard.industry || 'Various Industries'}</span>
                     </div>
                   </div>
                   
-                  <div className="flex items-center gap-2 text-sm">
+                  <div className="flex items-center gap-3">
                     {careerCard.perplexityData ? (
-                      <div className="flex items-center gap-1 bg-primary-green/20 px-2 py-1 rounded text-primary-black">
-                        <CheckCircle className="h-3 w-3" />
-                        <span>Enhanced AI data available</span>
+                      <div className="flex items-center gap-2 bg-template-mint border-2 border-black px-4 py-2 rounded-xl text-black shadow-[2px_2px_0px_0px_#000000]">
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="font-bold">Enhanced AI data available</span>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1 bg-primary-lavender/20 px-2 py-1 rounded text-primary-black">
-                        <CheckCircle className="h-3 w-3" />
-                        <span>Basic data only</span>
+                      <div className="flex items-center gap-2 bg-template-white border-2 border-black px-4 py-2 rounded-xl text-black shadow-[2px_2px_0px_0px_#000000]">
+                        <CheckCircle className="h-4 w-4" />
+                        <span className="font-bold">Basic data only</span>
                       </div>
                     )}
                   </div>
@@ -104,16 +109,16 @@ export const CareerDetailsModal: React.FC<CareerDetailsModalProps> = ({
               </div>
 
               {/* Footer */}
-              <div className="border-t bg-gray-50 p-6">
+              <div className="border-t-4 border-black bg-template-lavender p-6">
                 <div className="flex justify-between items-center">
-                  <div className="text-sm text-gray-600">
-                    Career guidance powered by AI
+                  <div className="text-sm text-black font-semibold">
+                    🤖 Career guidance powered by AI
                   </div>
                   <button
                     onClick={onClose}
-                    className="px-6 py-2 bg-primary-green text-primary-black rounded-lg hover:bg-primary-yellow transition-colors font-medium"
+                    className="px-8 py-3 bg-template-primary text-white rounded-xl border-2 border-black shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] hover:scale-105 transition-all duration-200 font-black text-lg"
                   >
-                    Got it
+                    Got it!
                   </button>
                 </div>
               </div>
@@ -131,7 +136,7 @@ interface EnhancedCareerDataDisplayProps {
 }
 
 const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ careerCard }) => {
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['overview', 'compensation']));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['overview', 'skills']));
 
   const toggleSection = (sectionId: string) => {
     setExpandedSections(prev => {
@@ -175,7 +180,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
               <h3 className="text-lg font-semibold mb-3 text-gray-900">Skills</h3>
               <div className="flex flex-wrap gap-2">
                 {careerCard.keySkills.map((skill, index) => (
-                  <span key={index} className="px-3 py-1 bg-primary-lavender/20 text-primary-black rounded-full text-sm">
+                  <span key={index} className="px-3 py-1 bg-gray-200/80 text-black rounded-full text-sm">
                     {skill}
                   </span>
                 ))}
@@ -190,27 +195,27 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
   return (
     <div className="space-y-4">
       {/* Success Message */}
-              <div className="bg-gradient-to-r from-primary-green/10 to-primary-lavender/10 p-4 rounded-lg border border-primary-green/30">
-        <h2 className="text-lg font-bold text-primary-black mb-2 flex items-center gap-2">
+              <div className="bg-gradient-to-r from-gray-100/10 to-gray-200/10 p-4 rounded-lg border border-gray-300/30">
+        <h2 className="text-lg font-bold text-black mb-2 flex items-center gap-2">
           <CheckCircle className="h-5 w-5" />
           🎉 COMPREHENSIVE CAREER INTELLIGENCE AVAILABLE!
         </h2>
-        <p className="text-sm text-primary-black/70">All enhanced career data is displayed below in comprehensive sections</p>
+        <p className="text-sm text-gray-600">All enhanced career data is displayed below in comprehensive sections</p>
       </div>
 
       {/* Accordion Sections */}
       <div className="space-y-3">
         
-        {/* 1. Role Overview */}
+        {/* 1. PRIORITY: Role Overview */}
         <AccordionSection
           id="overview"
-          title="Role Overview"
+          title="🎯 What You'll Do"
           icon={Target}
           isExpanded={expandedSections.has('overview')}
           onToggle={() => toggleSection('overview')}
-          bgColor="bg-primary-lavender/10"
-          borderColor="border-primary-lavender/30"
-          textColor="text-primary-black"
+          bgColor="bg-template-mint/30"
+          borderColor="border-black"
+          textColor="text-black"
         >
           <div className="space-y-4">
             {careerCard.roleFundamentals && (
@@ -228,7 +233,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                     <ul className="text-sm text-gray-700 space-y-1">
                       {careerCard.roleFundamentals.problemsSolved.map((problem, i) => (
                         <li key={i} className="flex items-start gap-2">
-                          <span className="text-primary-green mt-1">•</span>
+                          <span className="text-gray-600 mt-1">•</span>
                           <span>{problem}</span>
                         </li>
                       ))}
@@ -242,7 +247,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                     <ul className="text-sm text-gray-700 space-y-1">
                       {careerCard.roleFundamentals.typicalResponsibilities.map((resp, i) => (
                         <li key={i} className="flex items-start gap-2">
-                          <span className="text-primary-green mt-1">•</span>
+                          <span className="text-gray-600 mt-1">•</span>
                           <span>{resp}</span>
                         </li>
                       ))}
@@ -255,7 +260,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                     <h4 className="font-semibold text-gray-900 mb-2">Key Stakeholders</h4>
                     <div className="flex flex-wrap gap-2">
                       {careerCard.roleFundamentals.keyStakeholders.map((stakeholder, i) => (
-                        <span key={i} className="px-3 py-1 bg-primary-lavender/20 text-primary-black rounded-full text-sm">
+                        <span key={i} className="px-3 py-1 bg-gray-200/80 text-black rounded-full text-sm">
                           {stakeholder}
                         </span>
                       ))}
@@ -275,16 +280,16 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
           </div>
         </AccordionSection>
 
-        {/* 2. Compensation & Rewards */}
+        {/* 6. LOWER PRIORITY: Compensation & Rewards */}
         <AccordionSection
           id="compensation"
-          title="Compensation & Rewards"
+          title="💷 Financial Overview"
           icon={DollarSign}
           isExpanded={expandedSections.has('compensation')}
           onToggle={() => toggleSection('compensation')}
-          bgColor="bg-primary-green/10"
-          borderColor="border-primary-green/30"
-          textColor="text-primary-black"
+          bgColor="bg-gray-100/20"
+          borderColor="border-gray-400"
+          textColor="text-gray-700"
         >
           <div className="space-y-4">
             {/* Perplexity salary data */}
@@ -292,21 +297,21 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
               <div>
                 <h4 className="font-semibold text-gray-900 mb-3">Verified Salary Ranges</h4>
                 <div className="grid grid-cols-3 gap-4 mb-4">
-                  <div className="text-center p-3 bg-primary-green/20 rounded-lg">
+                  <div className="text-center p-3 bg-gray-200/20 rounded-lg">
                     <div className="text-xs text-gray-600 mb-1">Entry Level</div>
-                    <div className="font-bold text-primary-black">
+                    <div className="font-bold text-black">
                       £{careerCard.perplexityData.verifiedSalaryRanges.entry.min.toLocaleString()} - £{careerCard.perplexityData.verifiedSalaryRanges.entry.max.toLocaleString()}
                     </div>
                   </div>
-                  <div className="text-center p-3 bg-primary-green/20 rounded-lg">
+                  <div className="text-center p-3 bg-gray-200/20 rounded-lg">
                     <div className="text-xs text-gray-600 mb-1">Mid Level</div>
-                    <div className="font-bold text-primary-black">
+                    <div className="font-bold text-black">
                       £{careerCard.perplexityData.verifiedSalaryRanges.mid.min.toLocaleString()} - £{careerCard.perplexityData.verifiedSalaryRanges.mid.max.toLocaleString()}
                     </div>
                   </div>
-                  <div className="text-center p-3 bg-primary-green/20 rounded-lg">
+                  <div className="text-center p-3 bg-gray-200/20 rounded-lg">
                     <div className="text-xs text-gray-600 mb-1">Senior Level</div>
-                    <div className="font-bold text-primary-black">
+                    <div className="font-bold text-black">
                       £{careerCard.perplexityData.verifiedSalaryRanges.senior.min.toLocaleString()} - £{careerCard.perplexityData.verifiedSalaryRanges.senior.max.toLocaleString()}
                     </div>
                   </div>
@@ -357,7 +362,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                     <div className="space-y-2 text-sm">
                       {careerCard.compensationRewards.nonFinancialBenefits.pension && (
                         <div className="flex items-start gap-2">
-                          <Shield className="h-4 w-4 text-primary-green mt-0.5" />
+                          <Shield className="h-4 w-4 text-gray-600 mt-0.5" />
                           <div>
                             <span className="font-medium">Pension:</span> {careerCard.compensationRewards.nonFinancialBenefits.pension}
                           </div>
@@ -365,7 +370,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                       )}
                       {careerCard.compensationRewards.nonFinancialBenefits.healthcare && (
                         <div className="flex items-start gap-2">
-                          <Shield className="h-4 w-4 text-primary-green mt-0.5" />
+                          <Shield className="h-4 w-4 text-gray-600 mt-0.5" />
                           <div>
                             <span className="font-medium">Healthcare:</span> {careerCard.compensationRewards.nonFinancialBenefits.healthcare}
                           </div>
@@ -399,16 +404,16 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
           </div>
         </AccordionSection>
 
-        {/* 3. Skills & Qualifications */}
+        {/* 2. PRIORITY: Skills & Qualifications */}
         <AccordionSection
           id="skills"
-          title="Skills & Qualifications"
+          title="🛠️ Skills You'll Need"
           icon={Book}
           isExpanded={expandedSections.has('skills')}
           onToggle={() => toggleSection('skills')}
-          bgColor="bg-primary-peach/10"
-          borderColor="border-primary-peach/30"
-          textColor="text-primary-black"
+          bgColor="bg-template-lavender/30"
+          borderColor="border-black"
+          textColor="text-black"
         >
           <div className="space-y-4">
             {careerCard.competencyRequirements && (
@@ -418,7 +423,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                     <h4 className="font-semibold text-gray-900 mb-2">Technical Skills Required</h4>
                     <div className="flex flex-wrap gap-2">
                       {careerCard.competencyRequirements.technicalSkills.map((skill, i) => (
-                        <span key={i} className="px-3 py-1 bg-primary-peach/20 text-primary-black rounded-full text-sm">
+                        <span key={i} className="px-3 py-1 bg-orange-100/80 text-black rounded-full text-sm">
                           {skill}
                         </span>
                       ))}
@@ -431,7 +436,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                     <h4 className="font-semibold text-gray-900 mb-2">Soft Skills Needed</h4>
                     <div className="flex flex-wrap gap-2">
                       {careerCard.competencyRequirements.softSkills.map((skill, i) => (
-                        <span key={i} className="px-3 py-1 bg-primary-peach/20 text-primary-black rounded-full text-sm">
+                        <span key={i} className="px-3 py-1 bg-orange-100/80 text-black rounded-full text-sm">
                           {skill}
                         </span>
                       ))}
@@ -564,7 +569,7 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
                 <h4 className="font-semibold text-gray-900 mb-2">Key Skills</h4>
                 <div className="flex flex-wrap gap-2">
                   {careerCard.keySkills.map((skill, i) => (
-                    <span key={i} className="px-3 py-1 bg-primary-peach/20 text-primary-black rounded-full text-sm">
+                    <span key={i} className="px-3 py-1 bg-orange-100/80 text-black rounded-full text-sm">
                       {skill}
                     </span>
                   ))}
@@ -581,9 +586,9 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
           icon={TrendingUp}
           isExpanded={expandedSections.has('career')}
           onToggle={() => toggleSection('career')}
-          bgColor="bg-primary-yellow/10"
-          borderColor="border-primary-yellow/30"
-          textColor="text-primary-black"
+          bgColor="bg-yellow-100/10"
+          borderColor="border-yellow-200/30"
+          textColor="text-black"
         >
           <div className="space-y-4">
             {careerCard.careerTrajectory && (
@@ -676,9 +681,9 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
           icon={BarChart3}
           isExpanded={expandedSections.has('market')}
           onToggle={() => toggleSection('market')}
-          bgColor="bg-primary-mint/10"
-          borderColor="border-primary-mint/30"
-          textColor="text-primary-black"
+          bgColor="bg-teal-100/10"
+          borderColor="border-teal-200/30"
+          textColor="text-black"
         >
           <div className="space-y-4">
             {careerCard.labourMarketDynamics && (
@@ -846,9 +851,9 @@ const EnhancedCareerDataDisplay: React.FC<EnhancedCareerDataDisplayProps> = ({ c
           icon={Building2}
           isExpanded={expandedSections.has('environment')}
           onToggle={() => toggleSection('environment')}
-          bgColor="bg-primary-mint/10"
-          borderColor="border-primary-mint/30"
-          textColor="text-primary-black"
+          bgColor="bg-teal-100/10"
+          borderColor="border-teal-200/30"
+          textColor="text-black"
         >
           <div className="space-y-4">
             {careerCard.workEnvironmentCulture && (
@@ -1069,20 +1074,22 @@ const AccordionSection: React.FC<AccordionSectionProps> = ({
   children
 }) => {
   return (
-    <div className={`border ${borderColor} rounded-lg overflow-hidden`}>
+    <div className={`border-4 ${borderColor} rounded-2xl overflow-hidden shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] transition-all duration-200`}>
       <button
         onClick={onToggle}
-        className={`w-full px-4 py-3 ${bgColor} ${textColor} flex items-center justify-between hover:opacity-80 transition-opacity`}
+        className={`w-full px-6 py-4 ${bgColor} ${textColor} flex items-center justify-between hover:scale-[1.02] transition-all duration-200`}
       >
-        <div className="flex items-center gap-3">
-          <Icon className="h-5 w-5" />
-          <span className="font-semibold text-left">{title}</span>
+        <div className="flex items-center gap-4">
+          <div className="w-10 h-10 bg-template-primary rounded-xl border-2 border-black flex items-center justify-center">
+            <Icon className="h-6 w-6 text-white" />
+          </div>
+          <span className="font-black text-lg text-left">{title}</span>
         </div>
-        <ChevronDown className={`h-5 w-5 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} />
+        <ChevronDown className={`h-6 w-6 transition-transform duration-300 ${isExpanded ? 'rotate-180' : ''} text-black`} />
       </button>
       
       {isExpanded && (
-        <div className="p-4 bg-white border-t border-gray-100">
+        <div className="p-6 bg-template-white border-t-4 border-black">
           {children}
         </div>
       )}

@@ -8,6 +8,7 @@ import { CareerDiscussionContext, CareerDiscussionService, CareerDiscussionConte
 import { environmentConfig } from '../config/environment';
 import careerPathwayService from './careerPathwayService';
 import { getUserById, updateUserProfile } from './userService';
+import { ConversationOverrideService } from './conversationOverrideService';
 
 // ElevenLabs Career-Aware Agent Configuration
 // Dynamic agent ID from environment configuration
@@ -36,9 +37,11 @@ interface CareerDiscussionSession {
 class CareerAwareVoiceService implements CareerDiscussionService {
   private activeSessions: Map<string, CareerDiscussionSession> = new Map();
   private elevenLabsApiKey: string | undefined;
+  private conversationOverrideService: ConversationOverrideService;
 
   constructor() {
     this.elevenLabsApiKey = environmentConfig.elevenLabs.apiKey;
+    this.conversationOverrideService = new ConversationOverrideService();
   }
 
   /**
@@ -81,19 +84,25 @@ class CareerAwareVoiceService implements CareerDiscussionService {
       // Prepare rich context prompt for the agent
       const contextPrompt = this.buildContextPrompt(context);
 
-      // Build conversation overrides instead of global agent PATCH
-      // Use technical.sessionId as userId (it contains the actual user ID)
-      const userId = context.technical.sessionId;
+      // Build conversation overrides using the new comprehensive service with ALL Perplexity data
+      // Extract the actual user ID from the session ID 
+      const userId = context.technical.sessionId.split('_').pop(); // Extract user ID from session_timestamp_userId format
       
-      // Use the user data from context (which now includes name data)
-      const userData = context.userContext?.profile;
+      if (!userId) {
+        throw new Error('Invalid session ID format - cannot extract user ID');
+      }
       
-      const { overrides, agentResponse } = await this.buildConversationOverrides(
-        userId, 
-        contextPrompt,
-        context.careerFocus.careerCard.title,
-        userData
+      // Use the new comprehensive ConversationOverrideService that includes ALL training data
+      const overrides = await this.conversationOverrideService.buildCareerOverrides(
+        userId,
+        context.careerFocus.careerCard,
+        context
       );
+      
+      // Build the agent response message
+      const userData = context.userContext?.profile;
+      const userName = (userData?.careerProfile?.name || userData?.displayName || 'there').trim();
+      const agentResponse = `Hi ${userName}! I have all the details about your career path in ${context.careerFocus.careerCard.title}. What would you like to explore first about this career?`;
 
       // Store overrides in session for UI components to use
       session.conversationOverrides = overrides;

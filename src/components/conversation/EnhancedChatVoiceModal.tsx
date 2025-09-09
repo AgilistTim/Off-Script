@@ -1,13 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { motion } from 'framer-motion';
 import { useConversation } from '@elevenlabs/react';
 import { 
   X, 
-  Mic, 
-  MicOff, 
   Loader2, 
   Volume2,
-  VolumeX,
   MessageSquare,
   User,
   Bot,
@@ -23,21 +20,14 @@ import {
   Wrench,
   DollarSign,
   TrendingUp as TrendingUpIcon,
-  BarChart3,
-  Building2,
-  Clock,
   AlertTriangle,
   Heart,
-  Shield,
   Lightbulb,
   Star,
   CheckCircle2,
   Zap,
   Award,
-  Smile,
   Radio,
-  Save,
-  CheckCircle
 } from 'lucide-react';
 
 import { 
@@ -46,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
+import { type OnboardingStage } from '../ui/onboarding-progress';
 import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
@@ -63,13 +54,23 @@ import {
 } from '../ui/collapsible';
 import { useAuth } from '../../context/AuthContext';
 
-import { mcpQueueService } from '../../services/mcpQueueService';
 import { progressAwareMCPService, MCPProgressUpdate } from '../../services/progressAwareMCPService';
 import { UnifiedVoiceContextService } from '../../services/unifiedVoiceContextService';
 import { guestSessionService } from '../../services/guestSessionService';
+import { personaOnboardingService } from '../../services/personaOnboardingService';
+import { realTimePersonaAdaptationService } from '../../services/realTimePersonaAdaptationService';
+import { treeProgressService } from '../../services/treeProgressService';
 import { careerPathwayService } from '../../services/careerPathwayService';
 import { lightweightCareerSuggestionService } from '../../services/lightweightCareerSuggestionService';
 import environmentConfig from '../../config/environment';
+import { TextConversationClient } from '../../services/textConversationClient';
+import { EnhancedTextConversationClient } from '../../services/enhancedTextConversationClient';
+import { TextPromptService } from '../../services/textPromptService';
+import { ChatTextInput } from './ChatTextInput';
+import { useIsMobile } from '../../hooks/useIsMobile';
+import { CompactProgressIndicator, MiniProgressIndicator } from '../ui/compact-progress-indicator';
+import { structuredOnboardingService } from '../../services/structuredOnboardingService';
+import { conversationFlowManager } from '../../services/conversationFlowManager';
 
 
 
@@ -79,6 +80,143 @@ interface ConversationMessage {
   content: string;
   timestamp: Date;
 }
+
+type CommunicationMode = 'voice' | 'text' | null;
+
+// Helper functions for career relevance validation and fallback generation
+const validateCareerRelevance = (careerCards: any[], conversationContent: string): boolean => {
+  if (!careerCards || careerCards.length === 0) return false;
+  
+  // Extract key interest words from conversation
+  const interestKeywords = extractInterestKeywords(conversationContent);
+  console.log('🔍 [VALIDATION] Extracted interest keywords:', interestKeywords);
+  
+  // Check if any career card is relevant to the interests
+  const relevantCards = careerCards.filter(card => {
+    const cardText = (card.title + ' ' + (card.description || '')).toLowerCase();
+    return interestKeywords.some(keyword => cardText.includes(keyword.toLowerCase()));
+  });
+  
+  const isRelevant = relevantCards.length > 0;
+  console.log('🔍 [VALIDATION] Career relevance check:', {
+    totalCards: careerCards.length,
+    relevantCards: relevantCards.length,
+    cardTitles: careerCards.map(c => c.title),
+    isRelevant
+  });
+  
+  return isRelevant;
+};
+
+const extractInterestKeywords = (content: string): string[] => {
+  const keywords: string[] = [];
+  const lowercaseContent = content.toLowerCase();
+  
+  // Beauty and fashion
+  if (/makeup|cosmetic|beauty|skincare|facial/.test(lowercaseContent)) {
+    keywords.push('makeup', 'beauty', 'cosmetics');
+  }
+  
+  // Hair styling
+  if (/hair|styling|hairdress|barber|salon/.test(lowercaseContent)) {
+    keywords.push('hair', 'styling', 'salon');
+  }
+  
+  // Film and TV
+  if (/tv|film|movie|cinema|entertainment|special effects/.test(lowercaseContent)) {
+    keywords.push('film', 'television', 'entertainment', 'media');
+  }
+  
+  // Art and creativity
+  if (/art|creative|design|artistic|visual/.test(lowercaseContent)) {
+    keywords.push('art', 'creative', 'design');
+  }
+  
+  // Social interaction
+  if (/talking|people|social|communication|interact/.test(lowercaseContent)) {
+    keywords.push('social', 'communication', 'people');
+  }
+  
+  return keywords;
+};
+
+const generateFallbackCareerCards = (conversationContent: string, userMessages: any[]): any[] => {
+  const keywords = extractInterestKeywords(conversationContent);
+  const cards: any[] = [];
+  
+  // Generate relevant career cards based on detected interests
+  if (keywords.includes('makeup') || keywords.includes('beauty')) {
+    cards.push({
+      id: 'makeup-artist',
+      title: 'Makeup Artist',
+      description: 'Create stunning makeup looks for clients in various settings',
+      matchScore: 85,
+      sector: 'Beauty & Fashion',
+      salaryRange: '£18,000 - £35,000',
+      educationLevel: 'Vocational Training',
+      skills: ['Makeup application', 'Color theory', 'Client consultation', 'Artistic skills'],
+      pathways: ['Beauty college courses', 'Apprenticeships', 'Portfolio building'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+  }
+  
+  if (keywords.includes('hair') || keywords.includes('styling')) {
+    cards.push({
+      id: 'hair-stylist',
+      title: 'Hair Stylist',
+      description: 'Cut, color, and style hair to create beautiful looks for clients',
+      matchScore: 80,
+      sector: 'Beauty & Fashion',
+      salaryRange: '£16,000 - £30,000',
+      educationLevel: 'Vocational Training',
+      skills: ['Hair cutting', 'Coloring techniques', 'Customer service', 'Trend awareness'],
+      pathways: ['Hairdressing apprenticeship', 'Beauty college', 'NVQ Level 2 & 3'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+  }
+  
+  if ((keywords.includes('makeup') || keywords.includes('hair')) && (keywords.includes('film') || keywords.includes('television'))) {
+    cards.push({
+      id: 'special-effects-makeup',
+      title: 'Special Effects Makeup Artist',
+      description: 'Create dramatic makeup and prosthetics for film, TV, and theater',
+      matchScore: 90,
+      sector: 'Entertainment & Media',
+      salaryRange: '£20,000 - £45,000',
+      educationLevel: 'Specialized Training',
+      skills: ['Special effects techniques', 'Prosthetics', 'Character design', 'Film industry knowledge'],
+      pathways: ['Specialized SFX courses', 'Film school', 'Industry apprenticeships'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+  }
+  
+  if (keywords.includes('art') || keywords.includes('creative')) {
+    cards.push({
+      id: 'creative-director',
+      title: 'Creative Director',
+      description: 'Lead creative teams and develop visual concepts for brands and campaigns',
+      matchScore: 75,
+      sector: 'Creative & Media',
+      salaryRange: '£25,000 - £50,000',
+      educationLevel: 'Bachelor\'s Degree',
+      skills: ['Creative vision', 'Team leadership', 'Brand development', 'Visual communication'],
+      pathways: ['Art/Design degree', 'Marketing background', 'Portfolio development'],
+      createdAt: new Date(),
+      updatedAt: new Date()
+    });
+  }
+  
+  console.log('🔄 [FALLBACK] Generated career cards:', {
+    keywordsFound: keywords,
+    cardsGenerated: cards.length,
+    cardTitles: cards.map(c => c.title)
+  });
+  
+  return cards;
+};
 
 interface EnhancedChatVoiceModalProps {
   isOpen: boolean;
@@ -90,7 +228,7 @@ interface EnhancedChatVoiceModalProps {
   onConversationEnd?: (hasGeneratedData: boolean, careerCardCount: number) => void;
 }
 
-export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
+const EnhancedChatVoiceModalComponent: React.FC<EnhancedChatVoiceModalProps> = ({
   isOpen,
   onClose,
   careerContext,
@@ -101,12 +239,21 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 }) => {
   const { currentUser, userData } = useAuth();
 
+  // Mobile detection hook
+  const isMobile = useIsMobile();
+
+  // Global guard to prevent audio initialization before explicit user action.
+  // Audio hooks check this flag to decide whether to request microphone access.
+  if (typeof window !== 'undefined' && (window as any).__ALLOW_AUDIO_INIT === undefined) {
+    (window as any).__ALLOW_AUDIO_INIT = false;
+  }
+
   const [conversationHistory, setConversationHistory] = useState<ConversationMessage[]>(currentConversationHistory);
   const [isConnected, setIsConnected] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const [isLoading, setIsLoading] = useState(false);
-  const [savingInsights, setSavingInsights] = useState(false);
+  const [communicationMode, setCommunicationMode] = useState<CommunicationMode>(null);
   const [insightsSaved, setInsightsSaved] = useState(false);
   const [discoveredInsights, setDiscoveredInsights] = useState<{
     interests: string[];
@@ -117,10 +264,34 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   const [careerCards, setCareerCards] = useState<any[]>([]);
   const [newContentAdded, setNewContentAdded] = useState<string | null>(null);
   const [ctaBottomOffsetPx, setCtaBottomOffsetPx] = useState<number>(0);
+  const [isViewingCareerInsights, setIsViewingCareerInsights] = useState<boolean>(false);
+  const [careerInsightsExpanded, setCareerInsightsExpanded] = useState<boolean>(false);
+  const [scrollPosition, setScrollPosition] = useState<number>(0);
+  
+  // Connection monitoring
+  const [connectionMonitor, setConnectionMonitor] = useState<NodeJS.Timeout | null>(null);
+  const [lastActivity, setLastActivity] = useState<number>(Date.now());
   
   // Progress tracking for career analysis
   const [progressUpdate, setProgressUpdate] = useState<MCPProgressUpdate | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  
+  // Onboarding progress tracking
+  const [extractedProfileData, setExtractedProfileData] = useState<{
+    name?: string;
+    education?: string;
+    careerDirection?: string;
+    careerCardsGenerated?: number;
+  }>({});
+  const [currentOnboardingStage, setCurrentOnboardingStage] = useState<OnboardingStage>('initial');
+  
+  // Real-time persona adaptation tracking
+  const [personaAdaptationState, setPersonaAdaptationState] = useState<any>(null);
+  const [personaChangeEvents, setPersonaChangeEvents] = useState<any[]>([]);
+  
+  // Compact progress visualization
+  const [compactProgressData, setCompactProgressData] = useState<any>(null);
+  
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const mobileScrollAreaRef = useRef<HTMLDivElement>(null);
@@ -128,9 +299,87 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   
   // Ref to always access current conversation history (avoids stale closure)
   const conversationHistoryRef = useRef<ConversationMessage[]>([]);
+
+  // Extract profile data from conversation
+  const extractProfileDataFromConversation = (messages: ConversationMessage[]) => {
+    const extracted: typeof extractedProfileData = {};
+    
+    // Extract name - look for "I'm [Name]" or "My name is [Name]" patterns
+    const namePatterns = [
+      /(?:I'm|I am)\s+([A-Z][a-zA-Z]+)(?:\.|$|\s)/i,
+      /(?:My name is|Name is|Call me)\s+([A-Z][a-zA-Z]+)/i,
+      /(?:Hi|Hello),?\s*(?:I'm|I am)\s+([A-Z][a-zA-Z]+)/i
+    ];
+    
+    // Extract education/work status
+    const educationPatterns = [
+      /(?:I'm|I am)\s+(?:currently\s+)?(?:in\s+)?(secondary school|college|university|working|graduated)/i,
+      /(?:I'm|I am)\s+(?:a\s+)?(student|worker|graduate)/i,
+      /(?:taking a gap year|gap year)/i
+    ];
+    
+    // Extract career direction
+    const careerPatterns = [
+      /(?:interested in|like|enjoy|want to work in)\s+([^.]+)/i,
+      /(?:exploring|considering)\s+([^.]+)/i,
+      /(?:career|job|work)\s+in\s+([^.]+)/i
+    ];
+
+    for (const message of messages) {
+      if (message.role === 'user') {
+        const content = message.content;
+        
+        // Extract name
+        if (!extracted.name) {
+          for (const pattern of namePatterns) {
+            const match = content.match(pattern);
+            if (match && match[1]) {
+              extracted.name = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+              break;
+            }
+          }
+        }
+        
+        // Extract education/work
+        if (!extracted.education) {
+          for (const pattern of educationPatterns) {
+            const match = content.match(pattern);
+            if (match && match[1]) {
+              extracted.education = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase();
+              break;
+            } else if (match && match[0]) {
+              extracted.education = match[0].charAt(0).toUpperCase() + match[0].slice(1).toLowerCase();
+              break;
+            }
+          }
+        }
+        
+        // Extract career interests
+        if (!extracted.careerDirection) {
+          for (const pattern of careerPatterns) {
+            const match = content.match(pattern);
+            if (match && match[1]) {
+              extracted.careerDirection = match[1].trim().charAt(0).toUpperCase() + match[1].trim().slice(1);
+              break;
+            }
+          }
+        }
+      }
+    }
+    
+    // Count career cards generated
+    extracted.careerCardsGenerated = careerCards.length;
+    
+    return extracted;
+  };
   
   // Ref to always access current career cards (avoids stale closure)
   const careerCardsRef = useRef<any[]>([]);
+  
+  // Refs for debug logging memoization (to reduce log spam)
+  const lastDebugKey = useRef<string>('');
+  const lastConversationDebugKey = useRef<string>('');
+  const renderCount = useRef(0);
 
   // Debug: Log component mount/unmount
   useEffect(() => {
@@ -187,33 +436,227 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     }
   }, [careerCards, onCareerCardsDiscovered]);
 
-  // Determine agent based on user auth state and context
-  const getAgentId = (): string => {
-    const agentId = environmentConfig.elevenLabs.agentId;
-    if (!agentId) {
+  // Memoize persona change handler to prevent useEffect from re-creating it
+  const handlePersonaChange = useCallback((event: any) => {
+    console.log('🔄 Persona change event received:', {
+      type: event.type,
+      previousPersona: event.previousState.currentPersona,
+      newPersona: event.newState.currentPersona,
+      confidence: Math.round(event.newState.confidence * 100) + '%',
+      recommendedActions: event.recommendedActions.length
+    });
+    
+    // Update state with new persona information
+    setPersonaAdaptationState(event.newState);
+    setPersonaChangeEvents(prev => [...prev, event].slice(-5)); // Keep last 5 events
+    
+    // TODO: If we need to inject context into conversation, we could do it here
+    // For now, this is primarily for tracking and debugging
+  }, []);
+
+  // Career insights view toggle function
+  const toggleCareerInsightsView = useCallback((isViewing: boolean) => {
+    if (isViewing) {
+      // Save scroll position before going to fullscreen
+      if (scrollAreaRef.current) {
+        setScrollPosition(scrollAreaRef.current.scrollTop || 0);
+      }
+    } else {
+      // Returning from fullscreen - collapse insights and scroll to bottom (latest messages)
+      setCareerInsightsExpanded(false);
+      
+      // On mobile, ensure insights stay collapsed (mobile uses separate view paradigm)
+      if (isMobile) {
+        console.log('📱 [MOBILE NAVIGATION] Returning from fullscreen - keeping insights collapsed for mobile');
+      }
+      
+      setTimeout(() => {
+        // Scroll to bottom to show latest messages after a brief delay to allow for layout changes
+        if (scrollAreaRef.current) {
+          scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+        }
+      }, 100);
+    }
+    setIsViewingCareerInsights(isViewing);
+  }, [scrollPosition, isMobile]);
+
+  // Initialize career insights expansion based on content
+  useEffect(() => {
+    const hasContent = careerCards.length > 0 || 
+                      discoveredInsights.interests.length > 0 || 
+                      discoveredInsights.goals.length > 0 || 
+                      discoveredInsights.skills.length > 0 || 
+                      discoveredInsights.personalQualities.length > 0;
+    
+    // Only auto-expand if:
+    // 1. Not returning from fullscreen 
+    // 2. There's content
+    // 3. NOT currently analyzing (to avoid covering the progress bar)
+    // 4. NOT on mobile (mobile uses separate fullscreen view)
+    if (hasContent && !isViewingCareerInsights && !isAnalyzing && !isMobile) {
+      console.log('🔍 [INSIGHTS EXPANSION] Auto-expanding insights (desktop only):', {
+        hasContent,
+        isViewingCareerInsights,
+        isAnalyzing,
+        isMobile,
+        careerCards: careerCards.length,
+        interests: discoveredInsights.interests.length
+      });
+      setCareerInsightsExpanded(true);
+    } else if (hasContent && (isAnalyzing || isMobile)) {
+      console.log('🚫 [INSIGHTS EXPANSION] Preventing expansion:', {
+        hasContent,
+        isAnalyzing,
+        isMobile,
+        reason: isAnalyzing ? 'during analysis' : 'mobile uses separate view',
+        careerCards: careerCards.length,
+        interests: discoveredInsights.interests.length
+      });
+    }
+  }, [careerCards.length, discoveredInsights.interests.length, discoveredInsights.goals.length, discoveredInsights.skills.length, discoveredInsights.personalQualities.length, isViewingCareerInsights, isAnalyzing, isMobile]);
+
+  // Initialize real-time persona adaptation service
+  useEffect(() => {
+    if (!currentUser && isOpen) {
+      console.log('🧠 Initializing real-time persona adaptation for guest user');
+      
+      // Set up persona change listener with memoized handler
+      const unsubscribe = realTimePersonaAdaptationService.onPersonaChange(handlePersonaChange);
+      
+      return () => {
+        console.log('🧹 Cleaning up persona adaptation listeners');
+        unsubscribe();
+        realTimePersonaAdaptationService.reset();
+      };
+    }
+  }, [currentUser, isOpen, handlePersonaChange]);
+
+  // Memoize progress update handler to prevent recreation on every render
+  const updateCompactProgress = useCallback(() => {
+    try {
+      const progressData = treeProgressService.getCompactProgressData();
+      
+      // Use ref to avoid stale closure comparisons
+      setCompactProgressData(prevData => {
+        // Skip update if data hasn't actually changed
+        if (prevData) {
+          const progressKey = `${progressData.stage.customerLabel}-${Math.round(progressData.stage.progress * 100)}`;
+          const lastProgressKey = `${prevData.stage.customerLabel}-${Math.round(prevData.stage.progress * 100)}`;
+          
+          if (progressKey === lastProgressKey) {
+            return prevData; // No actual change, skip update
+          }
+        }
+        
+        console.log('📊 Compact progress updated:', {
+          stage: progressData.stage.customerLabel,
+          progress: Math.round(progressData.stage.progress * 100) + '%',
+          stats: progressData.stats
+        });
+        
+        return progressData;
+      });
+    } catch (error) {
+      console.error('❌ Failed to update compact progress:', error);
+    }
+  }, []);
+
+  // Initialize and update compact progress visualization with real-time updates
+  useEffect(() => {
+    if (!currentUser && isOpen) {
+      console.log('📊 Initializing compact progress visualization for guest user');
+      
+      // Initialize structured onboarding for guest users (only when modal opens)
+      const guestSession = guestSessionService.getGuestSession();
+      if (!guestSession.structuredOnboarding) {
+        if (guestSession.conversationHistory.length === 0) {
+          console.log('🎯 Fresh guest user detected - initializing structured onboarding');
+          structuredOnboardingService.initializeStructuredFlow();
+        } else {
+          console.log('🔄 Existing session without structured onboarding - user can continue with legacy flow or restart for questionnaire');
+        }
+      }
+      
+      // Batched update mechanism using refs to avoid stale closures
+      let updateTimeout: NodeJS.Timeout | null = null;
+      
+      const updateCompactProgressBatched = () => {
+        if (updateTimeout) {
+          clearTimeout(updateTimeout);
+        }
+        updateTimeout = setTimeout(updateCompactProgress, 100); // Batch updates within 100ms
+      };
+
+      // Update initially
+      updateCompactProgress();
+
+      // Set up listener for real-time progress updates with memoized handler
+      const unsubscribe = treeProgressService.onProgressUpdate((update) => {
+        console.log('📊 Real-time progress update received:', update.description);
+        updateCompactProgressBatched();
+      });
+
+      // Backup periodic update (reduced frequency since we have real-time updates)
+      const updateInterval = setInterval(updateCompactProgressBatched, 10000); // Update every 10 seconds as backup
+
+      return () => {
+        console.log('🧹 Cleaning up compact progress listeners');
+        unsubscribe();
+        clearInterval(updateInterval);
+        if (updateTimeout) {
+          clearTimeout(updateTimeout);
+        }
+      };
+    }
+  }, [currentUser, isOpen, updateCompactProgress]);
+
+  // Trigger real-time progress updates when conversation changes
+  useEffect(() => {
+    if (!currentUser && conversationHistory.length > 0) {
+      // Verify against guest session to prevent counter inflation
+      const guestSession = guestSessionService.getGuestSession();
+      const actualMessageCount = guestSession.conversationHistory.length;
+      const stateMessageCount = conversationHistory.length;
+      
+      console.log('💬 Conversation length changed, triggering progress update:', {
+        stateCount: stateMessageCount,
+        sessionCount: actualMessageCount,
+        isInflated: stateMessageCount > actualMessageCount
+      });
+      
+      // Only trigger progress updates based on actual session message count to prevent inflation
+      const effectiveLength = Math.min(stateMessageCount, actualMessageCount);
+      if (effectiveLength > 0) {
+        treeProgressService.triggerRealTimeUpdate('message_sent');
+        
+        // Check for milestones based on actual conversation length
+        if (effectiveLength === 3 || effectiveLength === 5 || effectiveLength === 10) {
+          treeProgressService.triggerRealTimeUpdate('engagement_milestone');
+        }
+      }
+    }
+  }, [conversationHistory.length, currentUser]);
+
+  // Determine agent based on communication mode (ElevenLabs is VOICE-ONLY)
+  const getAgentId = (mode: CommunicationMode = communicationMode): string => {
+    const voiceAgentId = environmentConfig.elevenLabs.agentId;
+    if (mode !== 'voice') {
+      return '';
+    }
+    if (!voiceAgentId) {
       console.error('Missing VITE_ELEVENLABS_AGENT_ID environment variable');
-      throw new Error('ElevenLabs agent ID not configured');
+      throw new Error('ElevenLabs voice agent ID not configured');
     }
-    
-    if (!currentUser) {
-      // Guest user - use unified career-aware agent
-      return agentId;
-    }
-    
-    if (careerContext && careerContext.title) {
-      // Authenticated user with career context - use same agent with career context injection
-      return agentId;
-    }
-    
-    // Authenticated user without specific career context - use same agent with user context injection
-    return agentId;
+    console.log('🎙️ Using voice agent:', voiceAgentId);
+    return voiceAgentId;
   };
 
-  const agentId = getAgentId();
+  // Get current agent ONLY for voice mode
+  const currentAgentId = communicationMode === 'voice' ? getAgentId('voice') : '';
   const apiKey = environmentConfig.elevenLabs.apiKey;
 
   // Fallback career card generation when MCP is unavailable
-  const generateFallbackCareerCards = async (messages: any[], triggerReason: string) => {
+  const generateAsyncFallbackCareerCards = async (messages: any[], triggerReason: string) => {
     console.log('🎯 Generating fallback career cards from conversation');
     
     // Extract career-related keywords from conversation and trigger
@@ -292,14 +735,32 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
 
 
-  // Initialize conversation (only when environment config is ready)
-  const conversation = useConversation({
-    agentId: agentId || '', // Fallback to empty string when config not ready
-    // Remove firstMessage override to prevent WebSocket connection issues
-    clientTools: {
+  // Define client tools that can be used by both voice and text modes
+  // Memoize to prevent infinite useEffect loops in text mode
+  const clientTools = useMemo(() => ({
       analyze_conversation_for_careers: async (parameters: { trigger_reason: string }) => {
         console.log('🚨 TOOL CALLED: analyze_conversation_for_careers - Enhanced modal with progress tracking!');
         console.log('🔍 Tool parameters:', parameters);
+        
+        // **PROGRESSIVE TOOL ENABLEMENT**: Enable career analysis when appropriate
+        const shouldEnable = conversationFlowManager.shouldEnableSpecificTool('analyze_conversation_for_careers');
+        console.log('🔍 [DEBUG] Tool enablement check:', {
+          toolName: 'analyze_conversation_for_careers',
+          shouldEnable,
+          conversationHistoryLength: conversationHistoryRef.current.length,
+          guestSessionLength: guestSessionService.getGuestSession().conversationHistory.length
+        });
+        
+        if (!shouldEnable && conversationHistoryRef.current.length < 4) {
+          console.log('⏸️ Career analysis tool not yet enabled - need more conversation');
+          return "I'm learning about your interests and goals. Tell me more about what you enjoy or what kind of work appeals to you, and I'll start building career suggestions.";
+        }
+        
+        console.log('✅ Career analysis tool enabled - proceeding with analysis');
+        
+        // Trigger progress update when career analysis starts
+        console.log('🌱 Triggering progress update for career analysis start');
+        treeProgressService.triggerRealTimeUpdate('engagement_milestone');
         
         try {
           // Use ref to get current conversation history (avoids stale closure)
@@ -404,9 +865,24 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           }
 
           // **EXISTING: Use full MCP analysis for authenticated users**
+          
+          // FIRST: Inject a message to inform the user about the analysis
+          const analysisMessage = {
+            role: 'assistant' as const,
+            content: "I'm analyzing our discussion to find some initial career options we can explore together - this might take a few minutes. You'll see the progress below.",
+            timestamp: new Date()
+          };
+          
+          // Add the message to conversation history
+          setConversationHistory(prev => [...prev, analysisMessage]);
+          conversationHistoryRef.current = [...conversationHistoryRef.current, analysisMessage];
+          
           // Show progress and start analysis
           setIsAnalyzing(true);
           setProgressUpdate(null);
+          
+          // Collapse insights during analysis to ensure progress bar is visible
+          setCareerInsightsExpanded(false);
 
           // Determine if we should use enhanced analysis (Perplexity) for authenticated users
           const enableEnhancement = !!currentUser;
@@ -446,6 +922,10 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               
               const completionMessage = `✅ Analysis complete! I've created ${cardCount} personalized career cards: ${cardTitles.join(', ')}${cardCount > 3 ? ' and more' : ''}. Each includes ${hasEnhancement ? 'verified salary data, training pathways, and market insights from my latest research' : 'detailed analysis of skills, progression paths, and market demand'}. Which career would you like to explore first?`;
               
+              // Trigger progress update for career cards generation
+              console.log('🌱 Triggering progress update for career cards generated');
+              treeProgressService.triggerRealTimeUpdate('career_cards_generated');
+              
               // Persist cards for authenticated users so they appear on the dashboard
               if (currentUser && careerCards.length > 0) {
                 (async () => {
@@ -464,7 +944,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               }
 
               // **FIXED: Update agent context ASYNCHRONOUSLY (non-blocking) to avoid delays**
-              const currentAgentId = getAgentId();
               if (currentAgentId && careerCards.length > 0) {
                 // Fire and forget - don't block the completion message
                 (async () => {
@@ -547,9 +1026,11 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               }
             }
 
-            // Hide progress modal after short delay
+            // Hide progress modal after short delay and expand insights to show results
             setTimeout(() => {
               setIsAnalyzing(false);
+              // Auto-expand insights to show the newly generated career cards
+              setCareerInsightsExpanded(true);
             }, 2000);
 
             const cardCount = careerCardsToUse.length;
@@ -566,7 +1047,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             
             // Try fallback analysis
             console.log('🔄 Attempting fallback analysis...');
-            const fallbackResult = await generateFallbackCareerCards(validMessages, parameters.trigger_reason);
+            const fallbackResult = await generateAsyncFallbackCareerCards(validMessages, parameters.trigger_reason);
             
             if (fallbackResult && typeof fallbackResult === 'object' && fallbackResult.careerCards) {
               const fallbackCards = fallbackResult.careerCards;
@@ -586,6 +1067,9 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                 guestSessionService.addCareerCards(cardsWithIds);
               }
               
+              // Auto-expand insights to show the fallback career cards
+              setCareerInsightsExpanded(true);
+              
               return `Generated ${fallbackCards.length} career insights using fallback analysis`;
             }
             
@@ -602,10 +1086,35 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         }
       },
 
-      update_person_profile: async (parameters: { interests?: string[] | string; goals?: string[] | string; skills?: string[] | string; personalQualities?: string[] | string; [key: string]: any }) => {
+      update_person_profile: async (parameters: { 
+        name?: string; 
+        interests?: string[] | string; 
+        goals?: string[] | string; 
+        skills?: string[] | string; 
+        personalQualities?: string[] | string; 
+        lifeStage?: string;
+        careerDirection?: string;
+        [key: string]: any 
+      }) => {
         console.log('🚨 TOOL CALLED: update_person_profile - Enhanced modal agent calling tools!');
         console.log('👤 Updating person profile based on conversation...');
         console.log('👤 Profile parameters:', parameters);
+        
+        // **PROGRESSIVE TOOL ENABLEMENT**: Enable profile updates early for profile building  
+        const shouldEnable = conversationFlowManager.shouldEnableSpecificTool('update_person_profile');
+        console.log('🔍 [DEBUG] Profile tool enablement check:', {
+          toolName: 'update_person_profile',
+          shouldEnable,
+          conversationHistoryLength: conversationHistoryRef.current.length,
+          guestSessionLength: guestSessionService.getGuestSession().conversationHistory.length
+        });
+        
+        if (!shouldEnable && conversationHistoryRef.current.length < 2) {
+          console.log('⏸️ Profile tool not yet enabled - need basic information');
+          return "Let me gather a bit more information about you first, then I'll update your profile.";
+        }
+        
+        console.log('✅ Profile tool enabled - proceeding with update');
         
         try {
           // Handle both string and array inputs from ElevenLabs agent
@@ -625,6 +1134,11 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             skills: parseInsights(parameters.skills),
             personalQualities: parseInsights(parameters.personalQualities)
           };
+
+          // Handle individual fields that don't go into insights display
+          const name = parameters.name?.trim();
+          const lifeStage = parameters.lifeStage?.trim();
+          const careerDirection = parameters.careerDirection?.trim();
 
           // Update local state for immediate UI feedback
           setDiscoveredInsights(prev => {
@@ -650,13 +1164,13 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             const { guestSessionService } = await import('../../services/guestSessionService');
             
             const profileData = {
-              name: parameters.name || null,
+              name: name || null,
               interests: newInsights.interests,
               goals: newInsights.goals,
               skills: newInsights.skills,
               values: newInsights.personalQualities, // Map personalQualities to values
               workStyle: parseInsights(parameters.workStyle),
-              careerStage: parameters.careerStage || 'exploring',
+              careerStage: lifeStage || parameters.careerStage || 'exploring',
               lastUpdated: new Date().toISOString()
             };
 
@@ -664,8 +1178,27 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             console.log('💾 Profile saved to guest session for migration:', profileData);
           }
 
-          console.log('✅ Profile insights updated:', newInsights);
-          return "Profile insights updated successfully based on conversation";
+          console.log('✅ Profile insights updated:', {
+            ...newInsights,
+            name,
+            lifeStage,
+            careerDirection
+          });
+          
+          // Trigger progress update when profile is updated
+          console.log('🌱 Triggering progress update for profile update');
+          treeProgressService.triggerRealTimeUpdate('engagement_milestone');
+          
+          const updateSummary = [];
+          if (name) updateSummary.push(`name: ${name}`);
+          if (lifeStage) updateSummary.push(`life stage: ${lifeStage}`);
+          if (careerDirection) updateSummary.push(`career direction: ${careerDirection}`);
+          if (newInsights.interests.length) updateSummary.push(`${newInsights.interests.length} interests`);
+          if (newInsights.goals.length) updateSummary.push(`${newInsights.goals.length} goals`);
+          if (newInsights.skills.length) updateSummary.push(`${newInsights.skills.length} skills`);
+          if (newInsights.personalQualities.length) updateSummary.push(`${newInsights.personalQualities.length} strengths`);
+          
+          return `Profile updated: ${updateSummary.join(', ') || 'no new information'}`;
 
         } catch (error) {
           console.error('❌ Error updating profile:', error);
@@ -687,28 +1220,90 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           console.log('🚀 EXECUTING ACTUAL MCP ANALYSIS (was previously just fake response)');
           
           // Check if we have enough conversation history for analysis
-          if (conversationHistory.length === 0) {
+          if (conversationHistoryRef.current.length === 0) {
             return "I need a bit more conversation to analyze your interests. Could you tell me more about what you enjoy doing?";
           }
+          
+          // Enhanced conversation content validation - use ref to avoid stale closure
+          const currentHistory = conversationHistoryRef.current;
+          const userMessages = currentHistory.filter(msg => msg.role === 'user');
+          const allContent = userMessages.map(msg => msg.content.toLowerCase()).join(' ');
+          
+          console.log('🔍 [CAREER GENERATION] Content analysis:', {
+            totalMessages: currentHistory.length,
+            userMessages: userMessages.length,
+            hasCareerKeywords: /work|job|career|skill|interest|enjoy|goal|consultancy|ai|build/.test(allContent),
+            contentPreview: allContent.substring(0, 200) + '...'
+          });
 
           // **THIS IS THE ACTUAL FIX**: Call the MCP analysis service with correct parameters
-          const analysisResult = await progressAwareMCPService.analyzeConversationWithProgress(
-            conversationHistory,  // Use conversation history directly (already in correct format)
-            effectiveTriggerReason,
-            currentUser?.uid || 'guest', // userId
-            (update: MCPProgressUpdate) => {
-              console.log('📊 Career analysis progress from tool:', update);
-            }, // onProgress callback
-            false, // enablePerplexityEnhancement
-            (result: any) => {
-              // Inline completion handler to avoid scoping issues
-              console.log('🎉 Career analysis completed from generate_career_recommendations tool:', result);
-              if (onCareerCardsDiscovered && result.success) {
-                const careerCards = result.enhancedCareerCards || result.basicCareerCards || [];
-                onCareerCardsDiscovered(careerCards);
-              }
-            } // onCompletion callback
-          );
+          console.log('🔍 Starting MCP analysis with conversation history:', {
+            historyLength: currentHistory.length,
+            triggerReason: effectiveTriggerReason,
+            userId: currentUser?.uid || 'guest'
+          });
+          
+          console.log('🚀 [CAREER GENERATION] Starting MCP analysis...');
+          
+          // **DEBUGGING FIX**: Log the actual conversation content being analyzed
+          console.log('🔍 [DEBUG] Full conversation content being sent to MCP:', {
+            conversationContent: currentHistory.map(msg => `${msg.role}: ${msg.content}`).join('\n'),
+            totalLength: currentHistory.length,
+            userMessagesContent: userMessages.map(msg => msg.content)
+          });
+          
+          const analysisResult = await Promise.race([
+            progressAwareMCPService.analyzeConversationWithProgress(
+              currentHistory,  // Use current history ref to avoid stale closure
+              effectiveTriggerReason,
+              currentUser?.uid || 'guest', // userId
+              (update: MCPProgressUpdate) => {
+                console.log('📊 Career analysis progress from tool:', update);
+              }, // onProgress callback
+              false, // enablePerplexityEnhancement
+              (result: any) => {
+                // Inline completion handler to avoid scoping issues
+                console.log('🎉 [CAREER GENERATION] Analysis completed:', {
+                  success: result.success,
+                  careerCardsCount: (result.enhancedCareerCards || result.basicCareerCards || []).length,
+                  hasOnCareerCardsDiscovered: !!onCareerCardsDiscovered
+                });
+                
+                if (onCareerCardsDiscovered && result.success) {
+                  const careerCards = result.enhancedCareerCards || result.basicCareerCards || [];
+                  console.log('📋 [CAREER GENERATION] Calling onCareerCardsDiscovered with cards:', careerCards.length);
+                  
+                  // **TEMPORARY FIX**: Validate if career cards are relevant to user's interests
+                  const isRelevant = validateCareerRelevance(careerCards, allContent);
+                  if (!isRelevant) {
+                    console.log('⚠️ [CAREER GENERATION] MCP returned irrelevant cards, generating fallback...');
+                    const fallbackCards = generateFallbackCareerCards(allContent, userMessages);
+                    console.log('🔄 [CAREER GENERATION] Using fallback cards:', fallbackCards.length);
+                    onCareerCardsDiscovered(fallbackCards);
+                    careerCardsRef.current = fallbackCards;
+                    setCareerCards(fallbackCards);
+                  } else {
+                    onCareerCardsDiscovered(careerCards);
+                    careerCardsRef.current = careerCards;
+                    setCareerCards(careerCards);
+                  }
+                } else {
+                  console.warn('⚠️ [CAREER GENERATION] Analysis result missing success or cards:', result);
+                }
+              } // onCompletion callback
+            ),
+            // Add timeout to prevent hanging
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('MCP analysis timeout after 60 seconds')), 60000)
+            )
+          ]);
+          
+          console.log('🏁 [CAREER GENERATION] MCP analysis completed:', {
+            success: (analysisResult as any)?.success,
+            hasCareerCards: !!((analysisResult as any)?.enhancedCareerCards || (analysisResult as any)?.basicCareerCards)
+          });
+          
+          console.log('✅ MCP analysis service call completed:', analysisResult);
           
           // Return acknowledgment that analysis is starting (not fake completion)
           return "Perfect! I'm analyzing our conversation to create personalized career cards for you. This will take about 30-40 seconds...";
@@ -718,32 +1313,228 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           return "I'm having trouble accessing the career analysis system right now. Could you tell me more about your interests while I try again?";
         }
       },
-    },
-    onConnect: () => {
-      if (conversationInitialized.current) {
-        console.log('⚠️ Conversation already initialized, skipping duplicate connection');
-        return;
+
+      trigger_instant_insights: async (parameters: { trigger_reason: string }) => {
+        console.log('🚨 TOOL CALLED: trigger_instant_insights - Instant career analysis!');
+        console.log('🔍 Tool parameters:', parameters);
+        
+        try {
+          // Provide immediate career insights based on current conversation context
+          const guestSession = guestSessionService.getGuestSession();
+          const conversationText = guestSession.conversationHistory
+            .map(msg => msg.content)
+            .join(' ')
+            .toLowerCase();
+
+          // Quick pattern matching for instant insights
+          const insights = [];
+          
+          if (/tech|software|coding|programming|developer|engineer/.test(conversationText)) {
+            insights.push("🚀 Strong technical interests detected - consider software engineering, web development, or data science paths");
+          }
+          
+          if (/creative|design|art|visual|ui|ux/.test(conversationText)) {
+            insights.push("🎨 Creative talents showing - UX/UI design, graphic design, or digital marketing could be great fits");
+          }
+          
+          if (/help|people|teach|support|care/.test(conversationText)) {
+            insights.push("🤝 People-focused mindset - careers in education, healthcare, consulting, or HR might align well");
+          }
+          
+          if (/business|management|lead|strategy/.test(conversationText)) {
+            insights.push("📈 Leadership potential - consider business analysis, project management, or entrepreneurship");
+          }
+
+          // Trigger progress update
+          treeProgressService.triggerRealTimeUpdate('engagement_milestone');
+          
+          const insightText = insights.length > 0 
+            ? insights.join('. ') + '.'
+            : "Based on our conversation, I can see you have diverse interests that could lead to several exciting career paths!";
+            
+          return `Instant insight: ${insightText} Let's explore these directions further!`;
+          
+        } catch (error) {
+          console.error('❌ Error in trigger_instant_insights tool:', error);
+          return "I'm excited about what you've shared! Let me gather more details to provide better career insights.";
+        }
+      },
+    }), [currentUser, setConversationHistory, setCareerCards, setDiscoveredInsights, setIsAnalyzing, setProgressUpdate]);
+
+  // Get conversation overrides for text mode
+  const [conversationOverrides, setConversationOverrides] = useState<any>(null);
+  
+  // Set up overrides when communication mode changes to text
+  useEffect(() => {
+    const setupTextOverrides = async () => {
+      if (communicationMode === 'text') {
+        console.log('🔧 Setting up text-only overrides...');
+        
+        try {
+          let safeOverrides;
+          
+          if (!currentUser) {
+            // Guest user logic
+            console.log('👤 Guest user - initializing persona-aware onboarding for text mode');
+            
+            // Check if we have existing conversation history from mode switch
+            const hasExistingConversation = conversationHistory.length > 0;
+            console.log('🔄 Text mode - checking for existing conversation:', {
+              historyLength: conversationHistory.length,
+              hasExisting: hasExistingConversation
+            });
+            
+            // Initialize persona-based onboarding (preserve existing session if switching modes)
+            personaOnboardingService.initializeOnboarding(undefined, !hasExistingConversation);
+            
+            // Use persona-aware onboarding overrides for guest users
+            const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions('');
+
+            // Ensure explicit textOnly flag for text-mode sessions
+            safeOverrides = {
+              ...personaOptions.overrides,
+              conversation: {
+                ...(personaOptions.overrides?.conversation || {}),
+                textOnly: true,
+              },
+            };
+          } else {
+            // Authenticated user logic - build context-aware overrides
+            console.log('👤 Authenticated user - building context-aware text conversation');
+            
+            const contextService = new UnifiedVoiceContextService();
+            const authenticatedOverrides = await contextService.createAuthenticatedOverrides(currentUser.uid);
+            
+            safeOverrides = {
+              ...authenticatedOverrides,
+              conversation: {
+                ...(authenticatedOverrides?.conversation || {}),
+                textOnly: true,
+              },
+            };
+            
+            console.log('✅ Built authenticated context for text conversation:', {
+              userId: currentUser.uid.substring(0, 8) + '...',
+              hasFirstMessage: !!safeOverrides?.agent?.firstMessage,
+              contextLength: safeOverrides?.agent?.prompt?.length || 0
+            });
+          }
+
+          setConversationOverrides(safeOverrides);
+          console.log('✅ Text-only overrides configured:', {
+            hasOverrides: !!safeOverrides,
+            textOnly: safeOverrides?.conversation?.textOnly,
+            hasFirstMessage: !!safeOverrides?.agent?.firstMessage
+          });
+          
+        } catch (error) {
+          console.error('❌ Failed to setup text overrides:', error);
+          
+          // Fallback overrides
+          const fallbackOverrides = {
+            conversation: { textOnly: true },
+            agent: {
+              prompt: { 
+                prompt: "You are Sarah, an AI career assistant. Help users explore career opportunities through natural conversation." 
+              },
+              firstMessage: "Hi! I'm Sarah, your AI career assistant. What brings you here today?"
+            }
+          };
+          
+          setConversationOverrides(fallbackOverrides);
+          console.log('⚠️ Using fallback text-only overrides');
+        }
+      } else {
+        setConversationOverrides(null);
+        console.log('🎙️ Cleared text overrides for voice mode');
       }
-      
-      console.log(`🎙️ Connected to enhanced chat voice assistant (Agent: ${agentId})`);
-      conversationInitialized.current = true;
-      setIsConnected(true);
-      setConnectionStatus('connected');
-      setIsLoading(false); // Reset loading state on successful connection
-      
-      // Let the agent use its default greeting to avoid connection issues
-      // Custom greetings will be handled by the agent's prompt configuration
-    },
+    };
+    
+    if (communicationMode) {
+      setupTextOverrides();
+    }
+  }, [communicationMode]);
+  
+  // Debug conversation initialization
+  // Only initialize the ElevenLabs conversation for text mode when the app is explicitly configured
+  // to use ElevenLabs for text (provider === 'elevenlabs'). Otherwise Text mode should use OpenAI.
+  const shouldInitializeConversation = communicationMode && (
+    communicationMode === 'voice' ||
+    (communicationMode === 'text' && environmentConfig.providers?.text === 'elevenlabs' && conversationOverrides)
+  );
+  // Memoized debug logging to reduce spam
+  const debugKey = `${communicationMode}-${!!conversationOverrides}-${currentAgentId}-${shouldInitializeConversation}`;
+  
+  if (lastDebugKey.current !== debugKey) {
+    console.log('🔍 Conversation initialization check:', {
+      communicationMode,
+      hasOverrides: !!conversationOverrides,
+      currentAgentId,
+      shouldInitialize: shouldInitializeConversation
+    });
+    lastDebugKey.current = debugKey;
+  }
+
+  // Initialize conversation for both voice and text modes
+  const conversation = useConversation(
+    shouldInitializeConversation ? {
+      agentId: currentAgentId,
+      clientTools,
+      overrides: conversationOverrides,
+      onConnect: () => {
+        console.log('🔥 ONCONNECT CALLBACK FIRED!', { 
+          agentId: currentAgentId, 
+          mode: communicationMode,
+          isInitialized: conversationInitialized.current 
+        });
+        
+        if (conversationInitialized.current) {
+          console.log('⚠️ Conversation already initialized, skipping duplicate connection');
+          return;
+        }
+        
+        console.log(`🎙️ Connected to enhanced chat assistant (Agent: ${currentAgentId}, Mode: ${communicationMode})`);
+        conversationInitialized.current = true;
+        setIsConnected(true);
+        setConnectionStatus('connected');
+        setIsLoading(false);
+        
+        // In text mode, don't send first message automatically - wait for user to send first message
+        if (communicationMode === 'text') {
+          console.log('📱 Text mode connected - waiting for user message');
+        }
+      },
     onDisconnect: () => {
-      console.log('📞 Disconnected from enhanced chat voice assistant');
+      console.log('📞 Disconnected from enhanced chat assistant');
+      
       conversationInitialized.current = false;
       setIsConnected(false);
       setConnectionStatus('disconnected');
       setIsSpeaking(false);
       setIsLoading(false);
       
-      // Call onConversationEnd callback with career cards data
-      if (onConversationEnd) {
+      // Check if this is an onboarding completion scenario where conversation should continue
+      const onboardingStage = guestSessionService.getCurrentOnboardingStage();
+      const guestSessionHistory = guestSessionService.getConversationForAnalysis();
+      const hasOngoingConversation = guestSessionHistory.length >= 4; // At least 2 exchanges
+      const hasPersonProfile = !!guestSessionService.getGuestSession().personProfile;
+      const isOnboardingTransition = (
+        (onboardingStage === 'tailored_guidance' || onboardingStage === 'journey_active') && 
+        hasOngoingConversation && 
+        hasPersonProfile
+      );
+      
+      console.log('🔍 Disconnect analysis:', {
+        onboardingStage,
+        hasOngoingConversation,
+        hasPersonProfile,
+        isOnboardingTransition,
+        conversationLength: conversationHistory.length,
+        guestSessionHistoryLength: guestSessionHistory.length
+      });
+      
+      // Only call onConversationEnd for intentional endings, not for onboarding transitions
+      if (!isOnboardingTransition && onConversationEnd) {
         const currentCards = careerCardsRef.current;
         const hasGeneratedData = currentCards.length > 0;
         console.log('🎯 Calling onConversationEnd:', { hasGeneratedData, careerCardCount: currentCards.length });
@@ -752,7 +1543,11 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         console.log('🔍 onConversationEnd function name:', onConversationEnd.name);
         onConversationEnd(hasGeneratedData, currentCards.length);
         console.log('✅ onConversationEnd called successfully');
-      } else {
+      } else if (isOnboardingTransition) {
+        console.log('🔄 Onboarding transition detected - preparing for continued conversation without ending session');
+        // Update onboarding stage to journey_active to indicate ongoing conversation
+        guestSessionService.updateOnboardingStage('journey_active');
+      } else if (!onConversationEnd) {
         console.warn('⚠️ onConversationEnd callback not provided to EnhancedChatVoiceModal');
       }
     },
@@ -772,7 +1567,6 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         // Save message to guest session for migration
         if (!currentUser) {
           try {
-            guestSessionService.addConversationMessage(newMessage.role, newMessage.content);
             const guestSession = guestSessionService.getGuestSession();
             console.log('💾 [GUEST FLOW] Saved message to guest session for migration:', {
               messageRole: newMessage.role,
@@ -780,6 +1574,64 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
               totalMessages: guestSession.conversationHistory.length,
               sessionId: guestSession.sessionId
             });
+
+            // Process message and potentially trigger persona analysis (async, non-blocking)
+            personaOnboardingService.processConversationMessage(
+              newMessage.role, 
+              newMessage.content
+            ).then(analysisResult => {
+              if (analysisResult.analysisTriggered && analysisResult.result) {
+                const personaSummary = personaOnboardingService.getPersonaSummary();
+                console.log('🧠 [PERSONA ANALYSIS] Classification updated:', {
+                  hasPersona: personaSummary.hasPersona,
+                  type: personaSummary.type,
+                  confidence: personaSummary.confidence,
+                  stage: personaSummary.stage,
+                  onboardingStage: guestSessionService.getCurrentOnboardingStage()
+                });
+                
+                // Trigger real-time persona adaptation
+                if (personaSummary.hasPersona && analysisResult.result) {
+                  console.log('🔄 [REAL-TIME ADAPTATION] Updating persona state for conversation adaptation');
+                  
+                  // Get the persona profile from guest session (has proper PersonaProfile type)
+                  const personaProfile = guestSessionService.getPersonaProfile();
+                  const evidence = analysisResult.evidenceUpdate;
+                  
+                  if (personaProfile) {
+                    // Initialize adaptation if needed
+                    if (!realTimePersonaAdaptationService.getCurrentState()) {
+                      realTimePersonaAdaptationService.initializeAdaptation(personaProfile);
+                    } else {
+                      // Update existing state with new persona profile
+                      const changeEvent = realTimePersonaAdaptationService.updatePersonaState(
+                        personaProfile,
+                        evidence,
+                        'conversation_message'
+                      );
+                      
+                      if (changeEvent) {
+                        console.log('🔄 [REAL-TIME ADAPTATION] Persona change detected:', {
+                          type: changeEvent.type,
+                          from: changeEvent.previousState.currentPersona,
+                          to: changeEvent.newState.currentPersona,
+                          confidence: Math.round(changeEvent.newState.confidence * 100) + '%'
+                        });
+                        
+                        // Get context injection for agent adaptation
+                        const contextInjection = realTimePersonaAdaptationService.getCurrentContextInjection();
+                        if (contextInjection) {
+                          console.log('💬 [CONTEXT INJECTION] Available for next agent interaction:', contextInjection.substring(0, 200) + '...');
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }).catch(error => {
+              console.error('❌ [PERSONA ANALYSIS] Failed to process message:', error);
+            });
+            
           } catch (error) {
             console.error('❌ [GUEST FLOW] Failed to save message to guest session:', error);
           }
@@ -797,68 +1649,168 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       console.log('🎙️ Voice mode changed:', mode);
       setIsSpeaking(mode.mode === 'speaking');
     }
-  });
+    } : undefined
+  );
 
-  // Auto-scroll to bottom of conversation - Enhanced reliability for both mobile and desktop
+  // Memoized debug conversation object to reduce spam
+  const conversationDebugKey = `${!!conversation}-${conversation?.status}-${isConnected}-${connectionStatus}`;
+  
+  if (lastConversationDebugKey.current !== conversationDebugKey) {
+    console.log('🔍 Conversation object debug:', {
+      hasConversation: !!conversation,
+      hasStartSession: !!(conversation && conversation.startSession),
+      hasSendUserMessage: !!(conversation && conversation.sendUserMessage),
+      conversationStatus: conversation?.status || 'unknown',
+      isConnected,
+      connectionStatus,
+      conversationMethods: conversation ? Object.keys(conversation) : []
+    });
+    lastConversationDebugKey.current = conversationDebugKey;
+  }
+  
+  // Auto-connect for text mode using Enhanced OpenAI client when provider is openai
   useEffect(() => {
-    const scrollToBottom = () => {
-      // Function to scroll a specific container
-      const scrollContainer = (containerRef: React.RefObject<HTMLDivElement>) => {
-        if (containerRef.current) {
-          const scrollElement = containerRef.current.querySelector('[data-radix-scroll-area-viewport]');
-          if (scrollElement) {
-            const scrollHeight = scrollElement.scrollHeight;
-            const clientHeight = scrollElement.clientHeight;
-            const maxScrollTop = scrollHeight - clientHeight;
-            
-            // Force scroll to absolute bottom
-            const forceScroll = () => {
-              scrollElement.scrollTop = maxScrollTop;
-            };
-            
-            // Multiple scroll attempts with different strategies
-            forceScroll(); // Immediate
-            requestAnimationFrame(forceScroll); // After paint
-            setTimeout(forceScroll, 50); // Early fallback
-            setTimeout(forceScroll, 150); // Late fallback
-            
-            // Also try smooth scroll as backup
-            setTimeout(() => {
-              scrollElement.scrollTo({
-                top: scrollElement.scrollHeight,
-                behavior: 'smooth'
-              });
-            }, 200);
-          }
-        }
-      };
+    if (
+      communicationMode === 'text' &&
+      environmentConfig.providers?.text === 'openai' &&
+      conversationOverrides?.conversation?.textOnly === true
+    ) {
+      console.log('🔄 Auto-connecting enhanced text conversation via OpenAI client');
 
-      // Scroll both mobile and desktop containers
-      scrollContainer(mobileScrollAreaRef);
-      scrollContainer(scrollAreaRef);
-    };
+      try {
+        // Create enhanced text client with same clientTools as voice mode
+        const enhancedTextClient = new EnhancedTextConversationClient(clientTools);
 
-    scrollToBottom();
-  }, [conversationHistory, isSpeaking]);
-
-  // Additional scroll trigger specifically for new messages
-  useEffect(() => {
-    if (conversationHistory.length > 0) {
-      const timer = setTimeout(() => {
-        // Scroll both containers
-        [mobileScrollAreaRef, scrollAreaRef].forEach(ref => {
-          if (ref.current) {
-            const scrollContainer = ref.current.querySelector('[data-radix-scroll-area-viewport]');
-            if (scrollContainer) {
-              scrollContainer.scrollTop = scrollContainer.scrollHeight;
-            }
+        enhancedTextClient.onMessage((msg) => {
+          const newMessage: any = { role: 'assistant', content: msg, timestamp: new Date() };
+          setConversationHistory(prev => {
+            const updated = [...prev, newMessage];
+            conversationHistoryRef.current = updated;
+            return updated;
+          });
+          
+          // Trigger same UI updates as voice mode
+          if (!currentUser) {
+            guestSessionService.addConversationMessage('assistant', msg);
           }
         });
-      }, 300);
-      
-      return () => clearTimeout(timer);
+
+        // Use the updated ConversationFlowManager prompt which has mandatory evidence collection
+        const basePersonaContext = conversationOverrides?.agent?.prompt?.prompt || '';
+        const contextType = currentUser ? 'authenticated' : 'guest';
+        
+        console.log('🔧 [ENHANCED TEXT MODAL] Using ConversationFlowManager prompt instead of TextPromptService:', {
+          basePromptLength: basePersonaContext.length,
+          basePromptPreview: basePersonaContext.substring(0, 200) + '...',
+          contextType
+        });
+        
+        // Use the basePersonaContext directly from ConversationFlowManager (which has the mandatory evidence collection)
+        const enhancedPersonaContext = basePersonaContext;
+
+        const baseFirstMessage = conversationOverrides?.agent?.firstMessage;
+        
+        // Only send first message if conversation is truly empty
+        const currentConversationLength = conversationHistoryRef.current.length;
+        const isNewConversation = currentConversationLength === 0;
+        const firstMessage = isNewConversation ? baseFirstMessage : undefined;
+        
+        console.log('🟢 [ENHANCED TEXT START] Initializing enhanced OpenAI text client with:', {
+          sessionId: guestSessionService.getGuestSession().sessionId,
+          personaContextPreview: enhancedPersonaContext.substring(0, 160) + '...',
+          personaContextLength: enhancedPersonaContext.length,
+          hasFirstMessage: !!firstMessage,
+          hasClientTools: Object.keys(clientTools).length,
+          isNewConversation,
+          currentConversationLength
+        });
+
+        // Use the explicit sessionId getter to ensure a valid sessionId is provided
+        void enhancedTextClient.start({ 
+          personaContext: enhancedPersonaContext, 
+          firstMessage, 
+          sessionId: guestSessionService.getSessionId() 
+        });
+
+        // Replace send in text mode to use the enhanced client
+        (window as any).__TEXT_CLIENT__ = enhancedTextClient;
+
+        return () => { void enhancedTextClient.end(); };
+        
+      } catch (error) {
+        console.error('❌ Failed to initialize enhanced text client, falling back to basic client:', error);
+        
+        // Fallback to basic text client if enhanced client fails
+        // Import Firebase URL utility at the top - should be available since it's already imported
+        const proxyBase = '/api/openai-assistant'; // Fallback proxy base
+        const textClient = new TextConversationClient(proxyBase);
+
+        textClient.onMessage((msg) => {
+          const newMessage: any = { role: 'assistant', content: msg, timestamp: new Date() };
+          setConversationHistory(prev => {
+            const updated = [...prev, newMessage];
+            conversationHistoryRef.current = updated;
+            return updated;
+          });
+        });
+
+        const personaContext = conversationOverrides?.agent?.prompt?.prompt;
+        const firstMessage = conversationOverrides?.agent?.firstMessage;
+        
+        void textClient.start({ personaContext, firstMessage, sessionId: guestSessionService.getSessionId() });
+        (window as any).__TEXT_CLIENT__ = textClient;
+
+        return () => { void textClient.end(); };
+      }
     }
-  }, [conversationHistory.length]);
+  }, [communicationMode, conversationOverrides, clientTools, currentUser]);
+
+  // Memoize scroll function to prevent recreation on every render
+  const scrollToBottom = useCallback(() => {
+    // Function to scroll a specific container
+    const scrollContainer = (containerRef: React.RefObject<HTMLDivElement>) => {
+      if (containerRef.current) {
+        const scrollElement = containerRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollElement) {
+          const scrollHeight = scrollElement.scrollHeight;
+          const clientHeight = scrollElement.clientHeight;
+          const maxScrollTop = scrollHeight - clientHeight;
+          
+          // Force scroll to absolute bottom
+          const forceScroll = () => {
+            scrollElement.scrollTop = maxScrollTop;
+          };
+          
+          // Multiple scroll attempts with different strategies
+          forceScroll(); // Immediate
+          requestAnimationFrame(forceScroll); // After paint
+          setTimeout(forceScroll, 50); // Early fallback
+          setTimeout(forceScroll, 150); // Late fallback
+          
+          // Also try smooth scroll as backup
+          setTimeout(() => {
+            scrollElement.scrollTo({
+              top: scrollElement.scrollHeight,
+              behavior: 'smooth'
+            });
+          }, 200);
+        }
+      }
+    };
+
+    // Scroll both mobile and desktop containers
+    scrollContainer(mobileScrollAreaRef);
+    scrollContainer(scrollAreaRef);
+  }, []);
+
+  // Optimized auto-scroll with debouncing to prevent excessive scroll events
+  useEffect(() => {
+    const debounceTimer = setTimeout(() => {
+      scrollToBottom();
+    }, 50); // Small debounce to batch scroll events
+
+    return () => clearTimeout(debounceTimer);
+  }, [conversationHistory.length, isSpeaking, scrollToBottom]); // Only depend on length, not entire array
 
   // Sync with external conversation history
   useEffect(() => {
@@ -909,7 +1861,16 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       if (conversation && conversationInitialized.current) {
         console.log('🧹 Cleaning up conversation on unmount');
         conversationInitialized.current = false;
-        conversation.endSession().catch(console.error);
+        
+        // Only attempt to end session if connection is active
+        if (conversation.status === 'connected' || conversation.status === 'connecting') {
+          conversation.endSession().catch((error) => {
+            console.error('❌ Error cleaning up conversation on unmount:', error);
+            // Suppress WebSocket errors during cleanup
+          });
+        } else {
+          console.log('📞 Conversation already disconnected, skipping cleanup endSession');
+        }
       }
     };
   }, []); // Empty dependency array - only run cleanup on actual unmount
@@ -918,6 +1879,41 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
   useEffect(() => {
     careerCardsRef.current = careerCards;
   }, [careerCards]);
+
+  // Extract profile data from conversation history
+  useEffect(() => {
+    if (conversationHistory.length > 0) {
+      const extracted = extractProfileDataFromConversation(conversationHistory);
+      setExtractedProfileData(prev => ({
+        ...prev,
+        ...extracted
+      }));
+    }
+  }, [conversationHistory, careerCards]);
+
+  // Sync onboarding stage with guest session service
+  useEffect(() => {
+    if (!currentUser) {
+      // For guest users, get the onboarding stage from the guest session service
+      const currentStage = guestSessionService.getCurrentOnboardingStage();
+      setCurrentOnboardingStage(currentStage as OnboardingStage);
+      
+      console.log('🎯 Onboarding progress updated:', {
+        stage: currentStage,
+        extractedData: extractedProfileData
+      });
+    }
+  }, [currentUser, conversationHistory]);
+
+  // Log progress for debugging
+  useEffect(() => {
+    console.log('📊 Profile extraction progress:', {
+      stage: currentOnboardingStage,
+      extracted: extractedProfileData,
+      conversationLength: conversationHistory.length,
+      careerCardsCount: careerCards.length
+    });
+  }, [currentOnboardingStage, extractedProfileData, conversationHistory.length, careerCards.length]);
 
   // Handle conversation start
   const handleStartConversation = async () => {
@@ -952,7 +1948,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             if (overrides) {
               console.log('🎙️ Using career conversation overrides for privacy-safe session');
               await conversation.startSession({
-                agentId,
+                agentId: currentAgentId,
                 userId: currentUser?.uid,
                 connectionType: 'webrtc',
                 overrides
@@ -960,7 +1956,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             } else {
               console.log('🎙️ No overrides found, starting basic career session');
               await conversation.startSession({
-                agentId,
+                agentId: currentAgentId,
                 userId: currentUser?.uid,
                 connectionType: 'webrtc'
               });
@@ -968,7 +1964,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
           } else {
             console.log('🎙️ No active career sessions, starting basic session');
             await conversation.startSession({
-              agentId,
+              agentId: currentAgentId,
               userId: currentUser?.uid,
               connectionType: 'webrtc'
             });
@@ -976,7 +1972,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         } catch (error) {
           console.warn('⚠️ Error getting career overrides, falling back to basic session:', error);
           await conversation.startSession({
-            agentId,
+            agentId: currentAgentId,
             userId: currentUser?.uid,
             connectionType: 'webrtc'
           });
@@ -987,8 +1983,25 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
         let overrides: any | undefined;
 
         if (!currentUser) {
-          console.log('👤 Guest user - building guest overrides');
-          overrides = await contextService.createGuestOverrides();
+          console.log('👤 Guest user - initializing persona-aware onboarding');
+          
+          // Check if we have existing conversation history from mode switch
+          const hasExistingConversation = conversationHistory.length > 0;
+          console.log('🔄 Checking for existing conversation:', {
+            historyLength: conversationHistory.length,
+            hasExisting: hasExistingConversation
+          });
+          
+          // Initialize persona-based onboarding (preserve existing session if switching modes)
+          personaOnboardingService.initializeOnboarding(undefined, !hasExistingConversation);
+          
+          // Get persona-aware conversation options
+          const personaOptions = await personaOnboardingService.getPersonaAwareConversationOptions(currentAgentId);
+          overrides = personaOptions.overrides;
+          
+          console.log('🧠 Persona-aware guest conversation initialized:', {
+            preservedExisting: hasExistingConversation
+          });
         } else {
           console.log('👤 Authenticated user - building authenticated overrides');
           overrides = await contextService.createAuthenticatedOverrides(currentUser.uid);
@@ -996,14 +2009,14 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
         console.log('🔍 DEBUG: Conversation overrides structure:', {
           overrides,
-          agentId,
+          agentId: currentAgentId,
           userId: currentUser?.uid,
           firstMessage: overrides?.agent?.firstMessage
         });
 
         // Start session with overrides for general chat
         await conversation.startSession({
-          agentId,
+          agentId: currentAgentId,
           userId: currentUser?.uid,
           connectionType: 'webrtc',
           overrides
@@ -1017,7 +2030,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
       if (error instanceof Error && error.message.includes('context')) {
         console.warn('⚠️ Enhanced context injection failed, starting conversation without enhanced context');
         try {
-          await conversation.startSession({ agentId, connectionType: 'webrtc' });
+          await conversation.startSession({ agentId: currentAgentId, connectionType: 'webrtc' });
           console.log('✅ Enhanced chat conversation started without context injection');
         } catch (fallbackError) {
           console.error('❌ Fallback conversation start also failed:', fallbackError);
@@ -1031,18 +2044,337 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     }
   };
 
+
   // Handle conversation end
   const handleEndConversation = async () => {
     try {
       setIsLoading(true);
-      await conversation.endSession();
-      console.log('📞 Enhanced chat conversation ended');
+      
+      // Only attempt to end session if conversation exists and is connected
+      if (conversation && (conversation.status === 'connected' || conversation.status === 'connecting')) {
+        await conversation.endSession();
+        console.log('📞 Enhanced chat conversation ended');
+      } else {
+        console.log('📞 Conversation already disconnected or not available, skipping endSession');
+      }
     } catch (error) {
       console.error('❌ Failed to end enhanced chat conversation:', error);
+      // Don't throw the error, just log it to prevent UI issues
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Send text message function
+  const sendTextMessage = async (messageText: string) => {
+    if (!messageText.trim()) {
+      console.warn('Cannot send message: empty text');
+      return;
+    }
+    
+    // In text mode, we don't need a voice connection
+    if (communicationMode === 'voice' && !isConnected) {
+      console.warn('Cannot send message: voice mode requires connection');
+      return;
+    }
+
+    try {
+      console.log('📤 Sending text message via enhanced modal:', messageText);
+      
+      // Add user message to conversation history immediately for responsive UI
+      const newMessage: ConversationMessage = {
+        role: 'user',
+        content: messageText.trim(),
+        timestamp: new Date()
+      };
+      
+      setConversationHistory(prev => {
+        const updated = [...prev, newMessage];
+        conversationHistoryRef.current = updated; // Keep ref in sync
+        console.log(`📝 Text message added to history. Total messages: ${updated.length}`);
+        
+        // Save message to guest session for migration
+        if (!currentUser) {
+          try {
+            const guestSession = guestSessionService.getGuestSession();
+            console.log('💾 [GUEST FLOW] Saved text message to guest session for migration:', {
+              messageRole: newMessage.role,
+              messagePreview: newMessage.content.substring(0, 50) + '...',
+              totalMessages: guestSession.conversationHistory.length,
+              sessionId: guestSession.sessionId
+            });
+
+            // Process message and potentially trigger persona analysis (async, non-blocking)
+            personaOnboardingService.processConversationMessage(
+              newMessage.role, 
+              newMessage.content
+            ).then(analysisResult => {
+              if (analysisResult.analysisTriggered && analysisResult.result) {
+                const personaSummary = personaOnboardingService.getPersonaSummary();
+                console.log('🧠 [PERSONA ANALYSIS] Classification updated from text:', {
+                  hasPersona: personaSummary.hasPersona,
+                  type: personaSummary.type,
+                  confidence: personaSummary.confidence,
+                  stage: personaSummary.stage,
+                  onboardingStage: guestSessionService.getCurrentOnboardingStage()
+                });
+                
+                // Trigger real-time persona adaptation for text mode
+                if (personaSummary.hasPersona && analysisResult.result) {
+                  console.log('🔄 [REAL-TIME ADAPTATION] Updating persona state from text conversation');
+                  
+                  // Get the persona profile from guest session (has proper PersonaProfile type)
+                  const personaProfile = guestSessionService.getPersonaProfile();
+                  const evidence = analysisResult.evidenceUpdate;
+                  
+                  if (personaProfile) {
+                    // Initialize adaptation if needed
+                    if (!realTimePersonaAdaptationService.getCurrentState()) {
+                      realTimePersonaAdaptationService.initializeAdaptation(personaProfile);
+                    } else {
+                      // Update existing state with new persona profile
+                      const changeEvent = realTimePersonaAdaptationService.updatePersonaState(
+                        personaProfile,
+                        evidence,
+                        'text_message'
+                      );
+                      
+                      if (changeEvent) {
+                        console.log('🔄 [REAL-TIME ADAPTATION] Persona change detected from text:', {
+                          type: changeEvent.type,
+                          from: changeEvent.previousState.currentPersona,
+                          to: changeEvent.newState.currentPersona,
+                          confidence: Math.round(changeEvent.newState.confidence * 100) + '%'
+                        });
+                        
+                        // Get context injection for agent adaptation
+                        const contextInjection = realTimePersonaAdaptationService.getCurrentContextInjection();
+                        if (contextInjection) {
+                          console.log('💬 [CONTEXT INJECTION] Available from text mode:', contextInjection.substring(0, 200) + '...');
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }).catch(error => {
+              console.error('❌ [PERSONA ANALYSIS] Failed to process text message:', error);
+            });
+            
+          } catch (error) {
+            console.error('❌ [GUEST FLOW] Failed to save text message to guest session:', error);
+          }
+        }
+        
+        return updated;
+      });
+      
+      // Handle provider-specific send
+      if (communicationMode === 'text' && environmentConfig.providers?.text === 'openai') {
+        const client = (window as any).__TEXT_CLIENT__ as { sendUserMessage: (t: string, h?: Array<{role:'user'|'assistant'; content:string}>) => Promise<void> } | undefined;
+        if (client) {
+          console.log('💬 [TEXT MSG] Sending to OpenAI proxy:', {
+            messagePreview: messageText.substring(0, 120) + '...'
+          });
+          const minimalHistory = (conversationHistoryRef.current || []).map((m: any) => ({ role: m.role, content: m.content }));
+          await client.sendUserMessage(messageText, minimalHistory);
+        } else {
+          console.warn('⚠️ Text client not initialized');
+        }
+      } else if (communicationMode === 'voice') {
+        // Voice mode - message already added to history, voice agent will see and respond
+        console.log('✅ Text message added to conversation history via enhanced modal - voice agent will see and respond');
+      }
+    } catch (error) {
+      console.error('❌ Failed to send text message via enhanced modal:', error);
+    }
+  };
+
+  // Check if analysis should be triggered (replicates ElevenLabs agent logic)
+  const checkIfAnalysisShouldBeTriggered = (messages: ConversationMessage[], latestMessage: string): boolean => {
+    const validMessages = messages.filter(msg => 
+      msg.content && 
+      msg.content.trim().length > 0 && 
+      !msg.content.includes('Connected to enhanced chat voice assistant')
+    );
+    
+    // Need at least 4 messages for meaningful analysis
+    if (validMessages.length < 4) return false;
+    
+    // Check for career-related keywords in the conversation
+    const conversationText = validMessages.map(m => m.content).join(' ').toLowerCase();
+    const latestText = latestMessage.toLowerCase();
+    
+    const careerKeywords = [
+      'career', 'job', 'work', 'profession', 'industry', 'field',
+      'skills', 'experience', 'goals', 'interests', 'passion',
+      'salary', 'growth', 'opportunities', 'future', 'path',
+      'education', 'training', 'qualifications', 'degree'
+    ];
+    
+    const keywordMatches = careerKeywords.filter(keyword => 
+      conversationText.includes(keyword) || latestText.includes(keyword)
+    ).length;
+    
+    // Trigger analysis if we have career context and sufficient conversation
+    const shouldTrigger = keywordMatches >= 3 && validMessages.length >= 4;
+    
+    console.log('🤖 Analysis trigger check:', {
+      validMessages: validMessages.length,
+      keywordMatches,
+      shouldTrigger,
+      sample: conversationText.substring(0, 100) + '...'
+    });
+    
+    return shouldTrigger;
+  };
+
+  // Generate phase-aware AI response using conversation flow manager
+  const generateImmediateResponse = (userMessage: string, messageCount: number): string => {
+    return conversationFlowManager.generatePhaseAwareResponse(userMessage, messageCount);
+  };
+  
+  // LEGACY: Generate immediate AI response using old structured onboarding flow
+  const generateImmediateResponseOld = (userMessage: string, messageCount: number): string => {
+    const lowerMessage = userMessage.toLowerCase();
+    
+    // First message - Welcome and start structured flow
+    if (messageCount <= 1) {
+      // ALWAYS use the required Sarah introduction message
+      const welcomeResponse = "Hi, I'm Sarah an AI assistant. I'm here to help you think about careers and next steps. Lots of people feel unsure about their future — some have no idea where to start, some are weighing up different paths, and some already have a clear goal.\n\nTo make sure I can give you the most useful support, I'll ask a few quick questions about where you're at right now. There are no right or wrong answers — just tell me in your own words. By the end, I'll have a better idea whether you need help discovering options, narrowing down choices, or planning the next steps for a career you already have in mind.\n\nFirst up whats your name?";
+      
+      // Initialize structured onboarding
+      structuredOnboardingService.initializeStructuredFlow();
+      
+      // Return the exact Sarah introduction message
+      return welcomeResponse;
+    }
+    
+    // Check if user is responding to a structured question
+    const currentQuestion = structuredOnboardingService.getCurrentQuestion();
+    if (currentQuestion && structuredOnboardingService.shouldPromptStructuredQuestion()) {
+      
+      // Try to process user response if it matches current question format
+      if (currentQuestion.type === 'multiple_choice' && currentQuestion.options) {
+        // Check if user provided a number response
+        const numberMatch = userMessage.match(/^(\d+)\.?\s*/);
+        if (numberMatch) {
+          const responseIndex = parseInt(numberMatch[1]) - 1;
+          if (responseIndex >= 0 && responseIndex < currentQuestion.options.length) {
+            // Valid response - process it
+            console.log('📝 Processing structured response:', { questionId: currentQuestion.id, responseIndex });
+            
+            try {
+              const newState = structuredOnboardingService.submitResponse(currentQuestion.id, responseIndex);
+              
+              // Generate response based on completion status
+              if (newState.isComplete) {
+                return "Perfect! Thank you for completing the career assessment. Based on your responses, I now have a clear understanding of your situation and can provide personalized guidance. Let me analyze your profile and suggest some career paths that align with your goals and preferences.";
+              } else {
+                // Get next question
+                const nextPrompt = structuredOnboardingService.getStructuredPrompt();
+                if (nextPrompt) {
+                  return `Great choice! ${nextPrompt}`;
+                } else {
+                  return "Thank you for that response. Let me continue gathering information about your career interests.";
+                }
+              }
+            } catch (error) {
+              console.error('❌ Error processing structured response:', error);
+            }
+          }
+        }
+      } else if (currentQuestion.type === 'open_ended') {
+        // Process open-ended response
+        console.log('📝 Processing open-ended response:', { questionId: currentQuestion.id });
+        
+        try {
+          const newState = structuredOnboardingService.submitResponse(currentQuestion.id, userMessage);
+          
+          if (newState.isComplete) {
+            return "Excellent insights! I now have a comprehensive understanding of your career situation. Let me process this information and provide you with personalized career recommendations that match your unique profile.";
+          } else {
+            const nextPrompt = structuredOnboardingService.getStructuredPrompt();
+            if (nextPrompt) {
+              return `Thank you for sharing that. ${nextPrompt}`;
+            }
+          }
+        } catch (error) {
+          console.error('❌ Error processing open-ended response:', error);
+        }
+      }
+      
+      // If we couldn't process the response, prompt for the current question again
+      const structuredPrompt = structuredOnboardingService.getStructuredPrompt();
+      if (structuredPrompt) {
+        return `I want to make sure I understand you correctly. ${structuredPrompt}`;
+      }
+    }
+    
+    // If structured onboarding is complete, use normal conversation flow
+    const currentState = structuredOnboardingService.getCurrentState();
+    if (currentState.isComplete) {
+      
+      // Interest/passion responses
+      if (lowerMessage.includes('interest') || lowerMessage.includes('passionate') || lowerMessage.includes('love') || lowerMessage.includes('enjoy')) {
+        return "That's wonderful! Based on your career assessment, I can see how your interests align with certain career paths. Let me provide some specific recommendations that match both your interests and your career decision stage.";
+      }
+      
+      // Skills responses
+      if (lowerMessage.includes('skill') || lowerMessage.includes('good at') || lowerMessage.includes('talent')) {
+        return "Excellent! Your skills combined with the insights from your assessment give me a clear picture of suitable career directions. Let me suggest some paths that leverage your strengths.";
+      }
+      
+      // Goals/ambition responses  
+      if (lowerMessage.includes('goal') || lowerMessage.includes('want to') || lowerMessage.includes('hope to') || lowerMessage.includes('dream')) {
+        return "Your goals are important! Based on your career assessment profile, I can suggest specific steps to help you achieve these aspirations. Let me provide some tailored recommendations.";
+      }
+      
+      // Default post-assessment responses
+      const postAssessmentResponses = [
+        "Based on your career assessment, I have valuable insights about your situation. I'm analyzing this along with what you've shared to provide personalized career recommendations.",
+        "Great question! Your assessment results help me understand exactly how to guide you. Let me provide some specific suggestions based on your profile.",
+        "That's a thoughtful point. Given your assessment results and career decision stage, I can offer some targeted advice that fits your specific situation."
+      ];
+      
+      return postAssessmentResponses[Math.floor(Math.random() * postAssessmentResponses.length)];
+    }
+    
+    // If somehow we're not in structured flow and not complete, fall back to encouraging structured completion
+    if (messageCount >= 3) {
+      const structuredPrompt = structuredOnboardingService.getStructuredPrompt();
+      if (structuredPrompt) {
+        return `I'd like to understand your situation better to provide the most helpful guidance. ${structuredPrompt}`;
+      }
+    }
+    
+    // Ultimate fallback
+    const fallbackResponses = [
+      "I'm here to provide personalized career guidance based on your unique situation. Let me ask you some questions to understand how I can best help you.",
+      "Thanks for sharing that with me. To give you the most relevant advice, I'd like to understand more about your current career situation.",
+      "That's valuable information! Let me learn a bit more about your career goals and decision-making stage so I can provide tailored recommendations."
+    ];
+    
+    return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+  };
+
+  // Handle mode selection
+  const handleModeSelection = (mode: CommunicationMode) => {
+    console.log(`🎯 Communication mode selected: ${mode}`);
+    // Set global flag before updating mode so audio hooks can react accordingly
+    if (typeof window !== 'undefined') {
+      (window as any).__ALLOW_AUDIO_INIT = mode === 'voice';
+    }
+
+    setCommunicationMode(mode);
+
+    if (mode === 'voice') {
+      // Start voice conversation automatically
+      handleStartConversation();
+    }
+    // Text mode doesn't need connection setup
+  };
+
 
   // Format timestamp for display
   const formatTime = (timestamp: Date) => {
@@ -1051,10 +2383,10 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
   // Get agent display info
   const getAgentInfo = () => {
-    // Dynamic agent info based on current configuration
-    const currentAgentId = environmentConfig.elevenLabs.agentId;
+    // Dynamic agent info based on current configuration and communication mode
+    const activeAgentId = getAgentId(communicationMode);
     
-    switch (agentId) {
+    switch (activeAgentId) {
       case 'agent_01k0fkhhx0e8k8e6nwtz8ptkwb':
         return {
           name: 'Career Guide',
@@ -1076,23 +2408,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     }
   };
 
-  const agentInfo = getAgentInfo();
 
-  // Handle saving insights to profile
-  const handleSaveInsights = async () => {
-    setSavingInsights(true);
-    try {
-      // Here you would typically save to Firebase/backend
-      // For now, we'll just simulate the save
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setInsightsSaved(true);
-      console.log('✅ Insights saved to profile:', discoveredInsights);
-    } catch (error) {
-      console.error('❌ Failed to save insights:', error);
-    } finally {
-      setSavingInsights(false);
-    }
-  };
 
   // Format salary display
   const formatSalary = (salary: string | number | undefined): string => {
@@ -1108,39 +2424,280 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
     return { color: 'bg-gradient-to-r from-primary-white to-primary-mint/50 text-primary-black', icon: Briefcase };
   };
 
+  // Memoize expensive career cards rendering to prevent unnecessary re-computation
+  const memoizedCareerCards = useMemo(() => {
+    return careerCards.map((card, index) => {
+      const matchBadge = getMatchBadge(card.matchScore || 85);
+      const MatchIcon = matchBadge.icon;
+      
+      return { ...card, matchBadge, MatchIcon, key: `${card.title}-${index}` };
+    });
+  }, [careerCards]);
+
+  // Memoize agent info to prevent recreation on every render
+  const agentInfo = useMemo(() => getAgentInfo(), [currentAgentId, currentUser, communicationMode]);
+
   if (!isOpen) return null;
 
 
 
-  // Handle missing environment config
-      if (!apiKey || !agentId) {
-    return (
-      <Dialog open={isOpen} onOpenChange={onClose}>
-        <DialogContent className="w-[95vw] max-w-5xl h-[80dvh] bg-white p-6 border-2 border-black shadow-card">
-          <DialogHeader>
-            <DialogTitle className="sr-only">Configuration Error</DialogTitle>
-          </DialogHeader>
-          <div className="flex items-center justify-center h-full">
-            <div className="flex flex-col items-center space-y-4 text-center">
-              <AlertTriangle className="h-8 w-8 text-black" />
-              <h3 className="text-lg font-bold text-black">Configuration Missing</h3>
-              <p className="text-black">ElevenLabs configuration is not available. Please check your environment setup.</p>
-              <Button onClick={onClose} variant="outline" className="border-black text-black hover:bg-template-primary hover:text-white min-h-[44px]">
-                Close
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
+  // Do not block the modal when voice configuration is missing.
+  // Voice controls are already disabled when !apiKey, and Text Chat remains available.
+
+  // Memoized render logging to reduce spam
+  renderCount.current++;
+  
+  if (renderCount.current % 20 === 1) { // Log every 20th render
+    console.log('🎭 EnhancedChatVoiceModal: Rendering modal (isOpen=true)', { renderCount: renderCount.current });
   }
 
-  console.log('🎭 EnhancedChatVoiceModal: Rendering modal (isOpen=true)');
+  // Render fullscreen career insights for mobile
+  const renderMobileCareerInsights = () => (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3 }}
+      className="fixed inset-0 bg-white z-50 overflow-y-auto pb-16"
+    >
+      {/* Header with back button */}
+      <div className="sticky top-0 bg-white p-4 border-b-2 border-black flex justify-between items-center z-10">
+        <h2 className="font-bold text-lg text-black">Career Insights</h2>
+        <button
+          onClick={() => toggleCareerInsightsView(false)}
+          className="min-h-[44px] min-w-[44px] md:min-h-[36px] md:min-w-[36px] p-2 hover:bg-gray-100 rounded-lg transition-colors touch-manipulation active:scale-95"
+          aria-label="Back to chat"
+        >
+          <X className="w-5 h-5 text-black" />
+        </button>
+      </div>
+
+      {/* Career insights content */}
+      <div className="p-4">
+        {/* New Content Notification */}
+        {newContentAdded && (
+          <div className="mb-3 p-2 bg-white text-black rounded-lg border-2 border-black text-center text-sm font-medium animate-pulse">
+            ✨ {newContentAdded}
+          </div>
+        )}
+        
+        {/* Compact Progress Indicator (Mobile) */}
+        {compactProgressData && !currentUser && (
+          <div className="mb-4">
+            <MiniProgressIndicator 
+              data={compactProgressData}
+              onClick={() => {
+                console.log('📊 Mobile Fullscreen - Progress indicator clicked');
+              }}
+            />
+          </div>
+        )}
+        
+        <div className="bg-gray-50 rounded-lg border-2 border-black p-4">
+          {/* Progress Indicator - Only show when analyzing */}
+          {isAnalyzing && progressUpdate && (
+            <div className="bg-white rounded-lg p-3 border-2 border-black mb-4">
+              <div className="flex items-center space-x-2 mb-2">
+                <Loader2 className="w-4 h-4 animate-spin text-black" />
+                <span className="text-sm font-medium text-black">Analyzing Career Path</span>
+              </div>
+              <div className="text-xs text-gray-800 mb-2">
+                {progressUpdate.message || 'Processing your conversation...'}
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-black h-2 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${progressUpdate.progress || 0}%` }}
+                />
+              </div>
+              <div className="text-xs text-gray-600 mt-1 text-center">
+                {progressUpdate.progress || 0}% complete
+              </div>
+            </div>
+          )}
+          
+          {/* Profile Details - Show First */}
+          {(discoveredInsights.interests.length > 0 || 
+            discoveredInsights.goals.length > 0 || 
+            discoveredInsights.skills.length > 0 ||
+            discoveredInsights.personalQualities.length > 0) && (
+            <div className="mb-4 p-3 bg-white rounded-lg border-2 border-black">
+              <h4 className="text-sm font-bold text-black mb-3">Profile Details from Conversation:</h4>
+              <div className="space-y-3 text-xs">
+                {/* Personal Qualities */}
+                {discoveredInsights.personalQualities.length > 0 && (
+                  <div className="bg-gray-50 border border-gray-300 rounded-lg p-2">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Star className="w-4 h-4 text-black" />
+                      <span className="font-bold text-black text-sm">Your Strengths:</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1">
+                      {discoveredInsights.personalQualities.map((quality, idx) => (
+                        <div key={idx} className="flex items-center space-x-2 bg-white rounded px-2 py-1">
+                          <Award className="w-3 h-3 text-black" />
+                          <span className="text-black font-medium text-xs">{quality}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Interests */}
+                {discoveredInsights.interests.length > 0 && (
+                  <div className="bg-gray-50 border border-gray-300 rounded-lg p-2">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Heart className="w-4 h-4 text-black" />
+                      <span className="font-bold text-black text-sm">What You Enjoy:</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1">
+                      {discoveredInsights.interests.map((interest, idx) => (
+                        <div key={idx} className="bg-white rounded px-2 py-1 text-black font-medium text-xs">
+                          {interest}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Goals */}
+                {discoveredInsights.goals.length > 0 && (
+                  <div className="bg-gray-50 border border-gray-300 rounded-lg p-2">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Target className="w-4 h-4 text-black" />
+                      <span className="font-bold text-black text-sm">Your Goals:</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1">
+                      {discoveredInsights.goals.map((goal, idx) => (
+                        <div key={idx} className="bg-white rounded px-2 py-1 text-black font-medium text-xs">
+                          {goal}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {/* Skills */}
+                {discoveredInsights.skills.length > 0 && (
+                  <div className="bg-gray-50 border border-gray-300 rounded-lg p-2">
+                    <div className="flex items-center space-x-2 mb-2">
+                      <Wrench className="w-4 h-4 text-black" />
+                      <span className="font-bold text-black text-sm">Your Skills:</span>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1">
+                      {discoveredInsights.skills.map((skill, idx) => (
+                        <div key={idx} className="bg-white rounded px-2 py-1 text-black font-medium text-xs">
+                          {skill}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Career Cards for Mobile Fullscreen */}
+          {careerCards.length > 0 && (
+            <div className="space-y-3">
+              {careerCards.map((card, index) => {
+                const MatchIcon = card.matchPercentage >= 80 ? CheckCircle2 : Target;
+                return (
+                  <div key={index} className="bg-white border-2 border-black rounded-xl p-3">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2 mb-1">
+                            <Briefcase className="w-4 h-4 text-black" />
+                            <h3 className="font-bold text-black text-sm">{card.title}</h3>
+                          </div>
+                          <div className="flex items-center space-x-2 mb-2">
+                            <MatchIcon className="w-3 h-3 mr-1" />
+                            <span className="text-xs font-medium text-black">
+                              {card.matchPercentage || 75}% match
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Salary and Growth */}
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <div className="flex items-center space-x-1">
+                          <PoundSterling className="w-3 h-3 text-black" />
+                          <span className="text-black font-medium">
+                            {card.salaryRange || 'Competitive'}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <TrendingUp className="w-3 h-3 text-black" />
+                          <span className="text-black font-medium">
+                            {card.growthPotential || 'High Growth'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Description */}
+                      <p className="text-xs text-gray-700 leading-relaxed">
+                        {card.description}
+                      </p>
+
+                      {/* Skills & Requirements */}
+                      {card.requiredSkills && card.requiredSkills.length > 0 && (
+                        <div>
+                          <div className="flex items-center space-x-1 mb-2">
+                            <Wrench className="w-3 h-3 text-black" />
+                            <span className="text-xs font-medium text-black">Key Skills:</span>
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {card.requiredSkills.slice(0, 4).map((skill, idx) => (
+                              <span key={idx} className="text-xs bg-gray-100 text-black px-2 py-1 rounded border">
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!careerContext && careerCards.length === 0 && (discoveredInsights.interests.length === 0 && discoveredInsights.goals.length === 0 && discoveredInsights.skills.length === 0 && discoveredInsights.personalQualities.length === 0) && (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <User className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-600 text-sm mb-2">No career insights yet</p>
+              <p className="text-gray-500 text-xs">Start a conversation to discover career opportunities</p>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Back to Chat Button - Fixed at bottom */}
+      <div className="fixed bottom-4 right-4">
+        <button
+          onClick={() => toggleCareerInsightsView(false)}
+          className="bg-template-primary text-white font-bold px-4 py-2 rounded-full shadow-lg border-2 border-black flex items-center space-x-2 hover:scale-105 transition-transform min-h-[44px] min-w-[44px] md:min-h-[36px] md:min-w-[36px] touch-manipulation active:scale-95"
+        >
+          <MessageSquare className="w-4 h-4" />
+          <span>Back to Chat</span>
+        </button>
+      </div>
+    </motion.div>
+  );
+
+  // Show fullscreen career insights on mobile when viewing
+  if (isViewingCareerInsights && isMobile) {
+    return renderMobileCareerInsights();
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent 
-        className="md:max-w-7xl md:w-[95vw] md:h-[85vh] w-screen max-w-none h-[100dvh] p-0 bg-white border-2 border-black [&>button]:hidden z-[120] grid grid-rows-[auto_1fr_auto]"
+        className="w-full max-w-none h-[100dvh] p-0 overflow-hidden bg-white border-2 border-black [&>button]:hidden z-[120] grid grid-rows-[auto_1fr_auto] md:max-w-7xl md:w-[95vw] md:h-[85vh]"
         aria-describedby="enhanced-chat-description"
       >
           {/* Fixed Header */}
@@ -1173,13 +2730,20 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
             </div>
           </DialogHeader>
 
+
           {/* Flexible Content Area */}
           <div className="min-h-0 h-full overflow-hidden px-2 md:px-4 pt-2">
             {/* Mobile Layout: Stacked */}
             <div className="flex flex-col h-full md:hidden">
               {/* Mobile: Collapsible Career Insights */}
               <div className="flex-shrink-0 border-b-2 border-gray-200">
-                <Collapsible defaultOpen={careerCards.length > 0 || discoveredInsights.interests.length > 0 || discoveredInsights.goals.length > 0 || discoveredInsights.skills.length > 0 || discoveredInsights.personalQualities.length > 0}>
+                <Collapsible 
+                  open={careerInsightsExpanded}
+                  onOpenChange={(open) => {
+                    setCareerInsightsExpanded(open);
+                    toggleCareerInsightsView(open);
+                  }}
+                >
                   <CollapsibleTrigger className="w-full p-4 flex justify-between items-center hover:bg-gray-50 rounded-lg transition-colors">
                     <div className="flex items-center space-x-3">
                       <div className="w-8 h-8 bg-template-primary rounded-lg flex items-center justify-center relative">
@@ -1208,6 +2772,20 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                         ✨ {newContentAdded}
                       </div>
                     )}
+                    
+                    {/* Compact Progress Indicator (Mobile) */}
+                    {compactProgressData && !currentUser && (
+                      <div className="mb-4">
+                        <MiniProgressIndicator 
+                          data={compactProgressData}
+                          onClick={() => {
+                            console.log('📊 Mobile - Progress indicator clicked');
+                            // Could expand to full tree view or show detailed progress modal
+                          }}
+                        />
+                      </div>
+                    )}
+                    
                     <div className="max-h-80 overflow-y-auto bg-gray-50 rounded-lg border-2 border-black p-4">
                       {/* Progress Indicator - Only show when analyzing, no min-height */}
                       {isAnalyzing && progressUpdate && (
@@ -1291,49 +2869,193 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                         </div>
                       )}
                       
-                      {/* Career Cards for Mobile */}
+                      {/* Career Cards for Mobile - Now Expandable! */}
                       {careerCards.length > 0 && (
-                        <div className="space-y-3">
+                        <Accordion type="single" collapsible className="space-y-3">
                           {careerCards.map((card, index) => {
                             const matchBadge = getMatchBadge(card.matchScore || 85);
                             const MatchIcon = matchBadge.icon;
                             
                             return (
-                              <div key={index} className="border-2 border-black rounded-lg bg-white p-3">
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center space-x-2">
-                                    <Briefcase className="w-4 h-4 text-black" />
-                                    <h4 className="text-sm font-bold text-black">{card.title}</h4>
+                              <AccordionItem 
+                                key={index} 
+                                value={`mobile-career-${index}`}
+                                className="border-2 border-black rounded-lg bg-white px-3"
+                              >
+                                <AccordionTrigger className="hover:no-underline py-3">
+                                  <div className="flex items-center justify-between w-full mr-3">
+                                    <div className="flex items-center space-x-2">
+                                      <Briefcase className="w-4 h-4 text-black" />
+                                      <div className="text-left">
+                                        <h4 className="text-sm font-bold text-black">{card.title}</h4>
+                                        <p className="text-xs text-gray-600 line-clamp-1">
+                                          {card.description || 'Career pathway discovered from our conversation'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <Badge className="text-xs bg-gray-100 text-black border border-black ml-2">
+                                      <MatchIcon className="w-3 h-3 mr-1" />
+                                      {card.matchScore || 85}%
+                                    </Badge>
                                   </div>
-                                  <Badge className="text-xs bg-gray-100 text-black border border-black">
-                                    <MatchIcon className="w-3 h-3 mr-1" />
-                                    {card.matchScore || 85}%
-                                  </Badge>
-                                </div>
-                                <p className="text-xs text-gray-600 mb-2">
-                                  {card.description || 'Career pathway discovered from our conversation'}
-                                </p>
-                                {(card.salaryRange || card.averageSalary || card.growthOutlook) && (
-                                  <div className="flex items-center space-x-4 text-xs">
-                                    {(card.salaryRange || card.averageSalary) && (
-                                      <div className="flex items-center space-x-1">
-                                        <PoundSterling className="w-3 h-3 text-black" />
-                                        <span className="text-black">
-                                          {card.salaryRange || formatSalary(card.averageSalary)}
-                                        </span>
+                                </AccordionTrigger>
+                                
+                                <AccordionContent className="pb-3">
+                                  <div className="space-y-3 mt-2">
+                                    {/* Basic Info */}
+                                    {(card.salaryRange || card.averageSalary || card.growthOutlook) && (
+                                      <div className="flex items-center space-x-4 text-xs border-b border-gray-200 pb-2">
+                                        {(card.salaryRange || card.averageSalary) && (
+                                          <div className="flex items-center space-x-1">
+                                            <PoundSterling className="w-3 h-3 text-black" />
+                                            <span className="text-black font-medium">
+                                              {card.salaryRange || formatSalary(card.averageSalary)}
+                                            </span>
+                                          </div>
+                                        )}
+                                        {card.growthOutlook && (
+                                          <div className="flex items-center space-x-1">
+                                            <TrendingUp className="w-3 h-3 text-black" />
+                                            <span className="text-black">{card.growthOutlook}</span>
+                                          </div>
+                                        )}
                                       </div>
                                     )}
-                                    {card.growthOutlook && (
-                                      <div className="flex items-center space-x-1">
-                                        <TrendingUp className="w-3 h-3 text-black" />
-                                        <span className="text-black">{card.growthOutlook}</span>
+
+                                    {/* Role Fundamentals */}
+                                    {card.roleFundamentals && (
+                                      <div>
+                                        <div className="flex items-center space-x-2 mb-2">
+                                          <Target className="w-3 h-3 text-black" />
+                                          <h5 className="text-xs font-bold text-black">Role Fundamentals</h5>
+                                        </div>
+                                        <p className="text-xs text-gray-800 mb-2">{card.roleFundamentals.corePurpose}</p>
+                                        {card.roleFundamentals.typicalResponsibilities && (
+                                          <div>
+                                            <p className="text-xs font-semibold text-black mb-1">Key Responsibilities:</p>
+                                            <ul className="text-xs text-gray-600 space-y-1">
+                                              {card.roleFundamentals.typicalResponsibilities.slice(0, 4).map((resp, i) => (
+                                                <li key={i} className="flex items-start space-x-1">
+                                                  <span className="text-black mt-0.5">•</span>
+                                                  <span>{resp}</span>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Skills & Requirements */}
+                                    {card.competencyRequirements && (
+                                      <div className="border-t border-gray-200 pt-3">
+                                        <div className="flex items-center space-x-2 mb-2">
+                                          <Wrench className="w-3 h-3 text-black" />
+                                          <h5 className="text-xs font-bold text-black">Skills & Requirements</h5>
+                                        </div>
+                                        {card.competencyRequirements.technicalSkills && (
+                                          <div className="mb-2">
+                                            <p className="text-xs font-semibold text-black mb-1">Technical Skills:</p>
+                                            <div className="flex flex-wrap gap-1">
+                                              {card.competencyRequirements.technicalSkills.slice(0, 6).map((skill, i) => (
+                                                <Badge key={i} variant="outline" className="text-xs border-black text-black">
+                                                  {skill}
+                                                </Badge>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        )}
+                                        {card.competencyRequirements.qualificationPathway && (
+                                          <div>
+                                            <p className="text-xs font-semibold text-black mb-1">Education:</p>
+                                            <p className="text-xs text-gray-600">
+                                              {card.competencyRequirements.qualificationPathway.degrees?.[0] || 
+                                               card.competencyRequirements.qualificationPathway.alternativeRoutes?.[0] ||
+                                               'Various pathways available'}
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Compensation */}
+                                    {card.compensationRewards && (
+                                      <div className="border-t border-gray-200 pt-3">
+                                        <div className="flex items-center space-x-2 mb-2">
+                                          <DollarSign className="w-3 h-3 text-black" />
+                                          <h5 className="text-xs font-bold text-black">Compensation</h5>
+                                        </div>
+                                        {card.compensationRewards.salaryBands && (
+                                          <div className="space-y-1">
+                                            <div className="flex justify-between text-xs">
+                                              <span className="font-medium text-black">Entry Level:</span>
+                                              <span className="text-black">£{card.compensationRewards.salaryBands.entryLevel?.toLocaleString() || '16,000'}</span>
+                                            </div>
+                                            <div className="flex justify-between text-xs">
+                                              <span className="font-medium text-black">Senior Level:</span>
+                                              <span className="text-black">£{card.compensationRewards.salaryBands.seniorLevel?.toLocaleString() || '30,000'}</span>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Career Path */}
+                                    {card.careerTrajectory && (
+                                      <div className="border-t border-gray-200 pt-3">
+                                        <div className="flex items-center space-x-2 mb-2">
+                                          <TrendingUpIcon className="w-3 h-3 text-black" />
+                                          <h5 className="text-xs font-bold text-black">Career Path</h5>
+                                        </div>
+                                        {card.careerTrajectory.progressionTimeline && (
+                                          <div className="space-y-1">
+                                            {card.careerTrajectory.progressionTimeline.slice(0, 3).map((stage, i) => (
+                                              <div key={i} className="flex justify-between text-xs">
+                                                <span className="font-medium text-black">{stage.role}</span>
+                                                <span className="text-gray-600">{stage.timeline}</span>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
                                       </div>
                                     )}
                                   </div>
-                                )}
-                              </div>
+                                </AccordionContent>
+                              </AccordionItem>
                             );
                           })}
+                        </Accordion>
+                      )}
+                      
+                      {/* Persona Adaptation Debug Panel (Mobile) */}
+                      {personaAdaptationState && (
+                        <div className="border-t-2 border-gray-200 pt-4">
+                          <h4 className="text-sm font-bold text-black mb-2 flex items-center">
+                            <Zap className="w-4 h-4 mr-2 text-purple-600" />
+                            Real-Time Persona Adaptation
+                          </h4>
+                          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 space-y-2">
+                            <div className="text-xs">
+                              <span className="font-medium text-purple-800">Current: </span>
+                              <Badge variant="outline" className="text-xs bg-purple-100 text-purple-800 border-purple-300">
+                                {personaAdaptationState.currentPersona}
+                              </Badge>
+                            </div>
+                            <div className="text-xs text-purple-700">
+                              <span className="font-medium">Confidence: </span>
+                              {Math.round(personaAdaptationState.confidence * 100)}%
+                            </div>
+                            <div className="text-xs text-purple-700">
+                              <span className="font-medium">Stage: </span>
+                              {personaAdaptationState.conversationStage}
+                            </div>
+                            {personaChangeEvents.length > 0 && (
+                              <div className="text-xs text-purple-600">
+                                <span className="font-medium">Changes: </span>
+                                {personaChangeEvents.length} adaptation events
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                       
@@ -1383,7 +3105,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                               {message.role === 'user' ? (currentUser ? (userData?.profile?.displayName || 'You') : 'You') : agentInfo.name}
                             </span>
                           </div>
-                          <p className="text-sm leading-relaxed break-words overflow-wrap-anywhere">{message.content}</p>
+                          <div className="text-sm leading-relaxed break-words overflow-wrap-anywhere whitespace-pre-line">{message.content}</div>
                           <p className="text-xs opacity-50 mt-2">
                             {formatTime(message.timestamp)}
                           </p>
@@ -1418,7 +3140,7 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                 <Card className="bg-gray-50 border-2 border-black h-full flex flex-col overflow-hidden min-h-[200px]">
                   <CardHeader className="pb-3 flex-shrink-0">
                     <div className="flex items-center justify-between">
-                      <CardTitle className="text-lg font-black text-black">
+                      <CardTitle className="text-lg font-bold text-black">
                         CAREER INSIGHTS
                       </CardTitle>
                       {careerCards.length > 0 && (
@@ -1434,6 +3156,19 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     {newContentAdded && (
                       <div className="mb-3 p-2 bg-white text-black rounded-lg border-2 border-black text-center text-sm font-medium animate-pulse">
                         ✨ {newContentAdded}
+                      </div>
+                    )}
+                    
+                    {/* Compact Progress Indicator (Desktop) */}
+                    {compactProgressData && !currentUser && (
+                      <div className="mb-4">
+                        <CompactProgressIndicator 
+                          data={compactProgressData}
+                          onClick={() => {
+                            console.log('📊 Desktop - Progress indicator clicked');
+                            // Could expand to detailed tree view or progress dashboard
+                          }}
+                        />
                       </div>
                     )}
                     
@@ -1821,6 +3556,44 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                     )}
                     </div>
 
+                    {/* Persona Adaptation Debug Panel (Desktop) */}
+                    {personaAdaptationState && (
+                      <div className="border-t-2 border-gray-200 pt-4">
+                        <h4 className="text-sm font-bold text-black mb-2 flex items-center">
+                          <Zap className="w-4 h-4 mr-2 text-purple-600" />
+                          Real-Time Persona Adaptation
+                        </h4>
+                        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 space-y-2">
+                          <div className="text-xs">
+                            <span className="font-medium text-purple-800">Current: </span>
+                            <Badge variant="outline" className="text-xs bg-purple-100 text-purple-800 border-purple-300">
+                              {personaAdaptationState.currentPersona}
+                            </Badge>
+                          </div>
+                          <div className="text-xs text-purple-700">
+                            <span className="font-medium">Confidence: </span>
+                            {Math.round(personaAdaptationState.confidence * 100)}%
+                          </div>
+                          <div className="text-xs text-purple-700">
+                            <span className="font-medium">Stage: </span>
+                            {personaAdaptationState.conversationStage}
+                          </div>
+                          {personaChangeEvents.length > 0 && (
+                            <div className="text-xs text-purple-600">
+                              <span className="font-medium">Changes: </span>
+                              {personaChangeEvents.length} adaptation events
+                            </div>
+                          )}
+                          {personaAdaptationState.previousPersona && (
+                            <div className="text-xs text-gray-600">
+                              <span className="font-medium">Previous: </span>
+                              {personaAdaptationState.previousPersona}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Smart Placeholder Text */}
                     {!careerContext && careerCards.length === 0 && (discoveredInsights.interests.length === 0 && discoveredInsights.goals.length === 0 && discoveredInsights.skills.length === 0 && discoveredInsights.personalQualities.length === 0) && (
                       <div className="text-center py-8">
@@ -1876,6 +3649,69 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                         </motion.div>
                       ))}
                       
+                                    {/* Career Analysis Progress Indicator - Show in conversation flow */}
+              {isAnalyzing && progressUpdate && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex justify-center"
+                >
+                  <div className="max-w-[80%] bg-blue-50 border-2 border-blue-300 rounded-xl p-4">
+                    <div className="flex items-center space-x-2 mb-3">
+                      <Loader2 className="w-5 h-5 animate-spin text-blue-600" />
+                      <span className="text-sm font-medium text-blue-800">Analyzing Career Options</span>
+                    </div>
+                    <div className="text-sm text-gray-700 mb-3">
+                      {progressUpdate.message || 'Processing your conversation...'}
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-3 mb-2">
+                      <div 
+                        className="bg-blue-600 h-3 rounded-full transition-all duration-500 ease-out"
+                        style={{ width: `${progressUpdate.progress || 0}%` }}
+                      />
+                    </div>
+                    <div className="text-xs text-gray-600 text-center">
+                      {progressUpdate.progress || 0}% complete - This might take a few minutes
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+
+              {/* Compact Progress Panel - Always visible when there's progress to show */}
+              {!isAnalyzing && (discoveredInsights.interests.length > 0 || discoveredInsights.goals.length > 0 || discoveredInsights.skills.length > 0 || careerCards.length > 0) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="flex justify-center mb-4"
+                >
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3 max-w-[80%]">
+                    <div className="flex items-center justify-between space-x-4">
+                      {/* Profile Progress */}
+                      <div className="flex items-center space-x-2">
+                        <User className="w-4 h-4 text-green-600" />
+                        <div className="text-xs">
+                          <span className="font-medium text-green-800">Profile:</span>
+                          <span className="text-green-600 ml-1">
+                            {discoveredInsights.interests.length + discoveredInsights.goals.length + discoveredInsights.skills.length + discoveredInsights.personalQualities.length} details
+                          </span>
+                        </div>
+                      </div>
+                      
+                      {/* Career Progress */}
+                      <div className="flex items-center space-x-2">
+                        <Briefcase className="w-4 h-4 text-green-600" />
+                        <div className="text-xs">
+                          <span className="font-medium text-green-800">Careers:</span>
+                          <span className="text-green-600 ml-1">
+                            {careerCards.length} {careerCards.length === 1 ? 'option' : 'options'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
+                      
                       {isSpeaking && (
                         <motion.div
                           initial={{ opacity: 0 }}
@@ -1899,49 +3735,84 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
 
           {/* Fixed Footer */}
           <div className="flex-shrink-0 border-t-2 border-gray-200 p-4">
-            <div className="bg-gray-50 rounded-xl p-4 border-2 border-black">
-              <div className="flex flex-col space-y-3 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
-                <div className="flex items-center justify-center lg:justify-start">
-                  {!isConnected ? (
+            <div className="bg-gray-50 rounded-xl p-4 border-2 border-black space-y-4">
+              
+              {/* Mode Selection - Show when no mode selected */}
+              {!communicationMode && (
+                <div className="text-center space-y-4">
+                  <div>
+                    <h3 className="text-lg font-bold text-black mb-2">Choose Communication Mode</h3>
+                    <p className="text-sm text-gray-600">Select how you'd like to interact with your career assistant</p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center">
                     <Button
-                      onClick={handleStartConversation}
-                      disabled={connectionStatus === 'connecting' || !apiKey}
-                      aria-label="Start voice chat"
-                      className="bg-template-primary text-white font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-template-primary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black"
+                      onClick={() => handleModeSelection('voice')}
+                      disabled={!apiKey}
+                      className="bg-template-primary text-white font-bold px-6 py-3 rounded-xl hover:scale-105 transition-transform duration-200 min-h-[48px] min-w-[44px] md:min-h-[36px] md:min-w-[36px] focus:outline-none focus:ring-2 focus:ring-template-primary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black touch-manipulation active:scale-95"
                     >
-                      {connectionStatus === 'connecting' ? (
-                        <>
-                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                          Connecting...
-                        </>
-                      ) : (
-                        <>
-                          <PhoneCall className="w-5 h-5 mr-2" />
-                          Start Voice Chat
-                        </>
-                      )}
+                      <PhoneCall className="w-5 h-5 mr-2" />
+                      Voice Chat
                     </Button>
-                  ) : (
                     <Button
-                      onClick={handleEndConversation}
-                      disabled={isLoading}
-                      aria-label="End voice call"
-                      className="bg-template-secondary text-black font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] pointer-coarse:min-h-[56px] focus:outline-none focus:ring-2 focus:ring-template-secondary border-2 border-black"
+                      onClick={() => handleModeSelection('text')}
+                      className="bg-template-secondary text-black font-bold px-6 py-3 rounded-xl hover:scale-105 transition-transform duration-200 min-h-[48px] min-w-[44px] md:min-h-[36px] md:min-w-[36px] focus:outline-none focus:ring-2 focus:ring-template-secondary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black touch-manipulation active:scale-95"
                     >
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                          Ending...
-                        </>
-                      ) : (
-                        <>
-                          <PhoneOff className="w-5 h-5 mr-2" />
-                          End Call
-                        </>
-                      )}
+                      <MessageSquare className="w-5 h-5 mr-2" />
+                      Text Chat
                     </Button>
+                  </div>
+                  {!apiKey && (
+                    <p className="text-xs text-gray-600">
+                      Voice chat requires ElevenLabs configuration. Text chat is always available.
+                    </p>
                   )}
                 </div>
+              )}
+
+              {/* Voice Mode Controls */}
+              {communicationMode === 'voice' && (
+                <div className="flex flex-col space-y-3 lg:flex-row lg:items-center lg:justify-between lg:space-y-0">
+                  <div className="flex items-center justify-center lg:justify-start space-x-3">
+                    {!isConnected ? (
+                      <Button
+                        onClick={handleStartConversation}
+                        disabled={connectionStatus === 'connecting' || !apiKey}
+                        aria-label="Start voice chat"
+                        className="bg-template-primary text-white font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] min-w-[44px] pointer-coarse:min-h-[56px] md:min-h-[36px] md:min-w-[36px] focus:outline-none focus:ring-2 focus:ring-template-primary shadow-[4px_4px_0px_0px_#000000] hover:shadow-[6px_6px_0px_0px_#000000] border-2 border-black touch-manipulation active:scale-95"
+                      >
+                        {connectionStatus === 'connecting' ? (
+                          <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Connecting...
+                          </>
+                        ) : (
+                          <>
+                            <PhoneCall className="w-5 h-5 mr-2" />
+                            Start Voice Chat
+                          </>
+                        )}
+                      </Button>
+                    ) : (
+                      <Button
+                        onClick={handleEndConversation}
+                        disabled={isLoading}
+                        aria-label="End voice call"
+                        className="bg-template-secondary text-black font-bold px-8 py-3 rounded-xl hover:scale-105 transition-transform duration-200 text-base min-h-[48px] min-w-[44px] pointer-coarse:min-h-[56px] md:min-h-[36px] md:min-w-[36px] focus:outline-none focus:ring-2 focus:ring-template-secondary border-2 border-black touch-manipulation active:scale-95"
+                      >
+                        {isLoading ? (
+                          <>
+                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                            Ending...
+                          </>
+                        ) : (
+                          <>
+                            <PhoneOff className="w-5 h-5 mr-2" />
+                            End Call
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
 
                 <div className="flex items-center space-x-2">
                   {isConnected && (
@@ -1972,9 +3843,82 @@ export const EnhancedChatVoiceModal: React.FC<EnhancedChatVoiceModalProps> = ({
                   )}
                 </div>
               </div>
+              )}
+
+              {/* Text Mode Controls - Hidden when viewing career insights on mobile */}
+              {communicationMode === 'text' && (!isViewingCareerInsights || !isMobile) && (
+                <div className={`${isMobile ? 'space-y-2' : 'space-y-3'}`}>
+                  {!isMobile && (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2 text-sm text-black">
+                        <MessageSquare className="w-4 h-4" />
+                        <span className="font-medium">Text Chat Mode</span>
+                      </div>
+                    </div>
+                  )}
+                  
+                  <ChatTextInput
+                    onSendMessage={sendTextMessage}
+                    disabled={false}
+                    placeholder="Type your message..."
+                    className="w-full"
+                    isLoading={isLoading}
+                    maxHeight={isMobile ? 48 : 120}
+                    isMobile={isMobile}
+                    showHelperText={!isMobile}
+                  />
+                  
+                  {!isMobile && (
+                    <div className="text-center">
+                      <p className="text-xs text-gray-600">
+                        💬 Text-only conversation - no voice connection needed
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Voice + Text Input for Voice Mode - Hidden when viewing career insights on mobile */}
+              {communicationMode === 'voice' && (connectionStatus === 'connected' || connectionStatus === 'disconnected') && (!isViewingCareerInsights || !isMobile) && (
+                <div className="w-full">
+                  <ChatTextInput
+                    onSendMessage={sendTextMessage}
+                    disabled={!isConnected}
+                    placeholder={isConnected ? "Type a message or use voice..." : "Start voice chat to enable messaging"}
+                    className="w-full"
+                    isLoading={isLoading}
+                    maxHeight={isMobile ? 48 : 120}
+                    isMobile={isMobile}
+                    showHelperText={!isMobile}
+                  />
+                </div>
+              )}
+
+              {/* Helper Text for Voice Mode - Hidden when viewing career insights on mobile */}
+              {communicationMode === 'voice' && isConnected && (!isViewingCareerInsights || !isMobile) && (
+                <div className="text-center">
+                  <p className="text-xs text-gray-600">
+                    🎙️ Voice chat active - speak or type your messages
+                  </p>
+                </div>
+              )}
             </div>
           </div>
       </DialogContent>
     </Dialog>
   );
 };
+
+// Export with React.memo for performance optimization
+export const EnhancedChatVoiceModal = React.memo(EnhancedChatVoiceModalComponent, (prevProps, nextProps) => {
+  // Custom comparison function to prevent unnecessary re-renders
+  return (
+    prevProps.isOpen === nextProps.isOpen &&
+    prevProps.careerContext?.title === nextProps.careerContext?.title &&
+    prevProps.currentConversationHistory.length === nextProps.currentConversationHistory.length &&
+    prevProps.onClose === nextProps.onClose &&
+    prevProps.onConversationUpdate === nextProps.onConversationUpdate &&
+    prevProps.onCareerCardsDiscovered === nextProps.onCareerCardsDiscovered &&
+    prevProps.onConversationEnd === nextProps.onConversationEnd
+  );
+});

@@ -34,6 +34,7 @@ export interface UseVoiceRecordingOptions {
 }
 
 export function useVoiceRecording(options: UseVoiceRecordingOptions = {}) {
+  console.debug(`[useVoiceRecording] initialized ts=${new Date().toISOString()}`)
   const {
     onTranscriptReady,
     onSpeechGenerated,
@@ -60,6 +61,17 @@ export function useVoiceRecording(options: UseVoiceRecordingOptions = {}) {
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number | null>(null);
 
+  const allowAudioInit = typeof window !== 'undefined' && (window as any).__ALLOW_AUDIO_INIT === true;
+
+  const audioOption = allowAudioInit
+    ? {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 44100
+      }
+    : false;
+
   const {
     status,
     startRecording: startMediaRecording,
@@ -70,12 +82,7 @@ export function useVoiceRecording(options: UseVoiceRecordingOptions = {}) {
     clearBlobUrl,
     previewStream
   } = useReactMediaRecorder({
-    audio: {
-      echoCancellation: true,
-      noiseSuppression: true,
-      autoGainControl: true,
-      sampleRate: 44100
-    },
+    audio: audioOption,
     onStart: () => {
       setState(prev => ({ 
         ...prev, 
@@ -118,6 +125,16 @@ export function useVoiceRecording(options: UseVoiceRecordingOptions = {}) {
       }
     }
   });
+
+  // Log when previewStream becomes available so we can trace when audio plumbing
+  // is initialized relative to conversation.startSession
+  useEffect(() => {
+    if (previewStream) {
+      console.debug(`[useVoiceRecording] previewStream available ts=${new Date().toISOString()}`, previewStream);
+    } else {
+      console.debug(`[useVoiceRecording] previewStream cleared or not available ts=${new Date().toISOString()}`);
+    }
+  }, [previewStream]);
 
   // Handle media recorder errors by monitoring status
   useEffect(() => {

@@ -23,11 +23,13 @@ const AdminConversations = lazy(() => import('./pages/admin/Conversations'));
 const AdminCareerCards = lazy(() => import('./pages/admin/CareerCards'));
 const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
+const PromptManagement = lazy(() => import('./components/admin/PromptManagement'));
 
 // Legacy pages (will be deprecated)
 const NotFound = lazy(() => import('./pages/NotFound'));
 const StyleGuide = lazy(() => import('./components/StyleGuide'));
 const Profile = lazy(() => import('./pages/Profile'));
+const Reports = lazy(() => import('./pages/Reports'));
 
 // Loading fallback
 const LoadingFallback = () => (
@@ -142,6 +144,24 @@ export const router = createBrowserRouter([
     ]
   },
   {
+    path: '/reports',
+    element: (
+      <Suspense fallback={<LoadingFallback />}>
+        <MainLayout />
+      </Suspense>
+    ),
+    children: [
+      {
+        index: true,
+        element: (
+          <ProtectedRoute>
+            <Reports />
+          </ProtectedRoute>
+        )
+      }
+    ]
+  },
+  {
     path: '/admin',
     element: (
       <Suspense fallback={<LoadingFallback />}>
@@ -174,6 +194,10 @@ export const router = createBrowserRouter([
       {
         path: 'settings',
         element: <AdminSettings />
+      },
+      {
+        path: 'prompts',
+        element: <PromptManagement />
       }
     ]
   },

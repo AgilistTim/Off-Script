@@ -451,3 +451,44 @@ button.street-button {
 .react-hot-toast {
   font-family: 'Barlow Semi Condensed', 'Inter', system-ui, sans-serif !important;
 }
+
+/* Ensure toasts don't interfere with navigation */
+.react-hot-toast-enter {
+  animation: toast-enter 0.35s ease-out;
+}
+
+.react-hot-toast-exit {
+  animation: toast-exit 0.4s ease-in forwards;
+}
+
+@keyframes toast-enter {
+  0% {
+    transform: translate3d(0, -100%, 0) scale(0.6);
+    opacity: 0;
+  }
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes toast-exit {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(0, -100%, 0) scale(0.6);
+    opacity: 0;
+  }
+}
+
+/* Ensure navigation elements have higher z-index than toasts */
+nav, .nav, header, .header {
+  z-index: 50 !important;
+}
+
+/* Toast container positioning adjustments */
+.react-hot-toast > div {
+  margin-top: 1rem !important;
+}

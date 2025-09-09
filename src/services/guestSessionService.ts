@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 
 // Import types from their actual locations
 import { CareerCard, PersonProfile } from '../types/careerCard';
+import { PersonaProfile, PersonaClassification, ConversationTrigger, PersonaTailoredRecommendations } from './personaService';
 
 interface UserPersona {
   type: string;
@@ -60,6 +61,30 @@ export interface GuestSession {
     sessionsWithActivity: number;
     lastCareerAnalysis: string | null;
   };
+
+  // Persona-based onboarding data
+  personaProfile?: PersonaProfile | null;
+  onboardingStage: 'initial' | 'discovery' | 'classification' | 'tailored_guidance' | 'journey_active' | 'complete';
+  classificationTriggers: ConversationTrigger[];
+  personaAnalysisHistory: Array<{
+    timestamp: string;
+    classification: PersonaClassification;
+    messageCount: number;
+  }>;
+
+  // Structured Q1-Q6 questionnaire onboarding
+  structuredOnboarding?: {
+    currentQuestion: string | null;
+    responses: Array<{
+      questionId: string;
+      response: string | number;
+      timestamp: Date;
+    }>;
+    stage: 'q1' | 'q2' | 'q2_details' | 'q3' | 'q4' | 'q5' | 'q6' | 'complete';
+    tentativePersona: 'uncertain' | 'exploring' | 'decided' | null;
+    hasSpecificCareer: boolean;
+    isComplete: boolean;
+  };
 }
 
 // Guest session actions
@@ -91,6 +116,18 @@ interface GuestSessionActions {
   // Migration helpers
   getSessionForMigration: () => GuestSession;
   hasSignificantData: () => boolean;
+
+  // Persona-based onboarding actions
+  updateOnboardingStage: (stage: GuestSession['onboardingStage']) => void;
+  setPersonaProfile: (profile: PersonaProfile) => void;
+  addClassificationTrigger: (trigger: ConversationTrigger) => void;
+  addPersonaAnalysis: (classification: PersonaClassification) => void;
+  getPersonaProfile: () => PersonaProfile | null;
+  getCurrentOnboardingStage: () => GuestSession['onboardingStage'];
+  shouldTriggerPersonaAnalysis: () => boolean;
+  
+  // Structured onboarding actions
+  updateSession: (sessionUpdates: Partial<GuestSession>) => void;
 }
 
 // Create guest session store with persistence
@@ -119,6 +156,12 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
         sessionsWithActivity: 1,
         lastCareerAnalysis: null
       },
+
+      // Persona-based onboarding initial state
+      personaProfile: null,
+      onboardingStage: 'initial',
+      classificationTriggers: [],
+      personaAnalysisHistory: [],
 
       // Actions
       initializeSession: () => {
@@ -159,7 +202,12 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
             careerCardsGenerated: 0,
             sessionsWithActivity: 0,
             lastCareerAnalysis: null
-          }
+          },
+          // Reset persona fields
+          personaProfile: null,
+          onboardingStage: 'initial',
+          classificationTriggers: [],
+          personaAnalysisHistory: []
         });
         console.log('🧹 Guest session cleared');
       },
@@ -228,14 +276,14 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
       updatePersonProfile: (profile: PersonProfile) => {
         const state = get();
         
-        // Merge with existing profile if present
+        // Merge with existing profile if present, safely handling undefined arrays
         const mergedProfile: PersonProfile = state.personProfile ? {
           name: profile.name || state.personProfile.name, // Use new name if provided, keep existing if not
-          interests: [...new Set([...state.personProfile.interests, ...profile.interests])],
-          goals: [...new Set([...state.personProfile.goals, ...profile.goals])],
-          skills: [...new Set([...state.personProfile.skills, ...profile.skills])],
-          values: [...new Set([...state.personProfile.values, ...profile.values])],
-          workStyle: [...new Set([...state.personProfile.workStyle, ...profile.workStyle])],
+          interests: [...new Set([...(state.personProfile.interests || []), ...(profile.interests || [])])],
+          goals: [...new Set([...(state.personProfile.goals || []), ...(profile.goals || [])])],
+          skills: [...new Set([...(state.personProfile.skills || []), ...(profile.skills || [])])],
+          values: [...new Set([...(state.personProfile.values || []), ...(profile.values || [])])],
+          workStyle: [...new Set([...(state.personProfile.workStyle || []), ...(profile.workStyle || [])])],
           careerStage: profile.careerStage !== "exploring" ? profile.careerStage : state.personProfile.careerStage,
           lastUpdated: profile.lastUpdated
         } : profile;
@@ -297,16 +345,26 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
 
       getSessionForMigration: () => {
         const session = get();
-        console.log('📤 [GUEST SESSION] Retrieved session for migration:', {
-          sessionId: session.sessionId,
-          conversationHistoryLength: session.conversationHistory.length,
-          careerCardsCount: session.careerCards.length,
-          hasPersonProfile: !!session.personProfile,
-          sampleMessages: session.conversationHistory.slice(0, 2).map(msg => ({
-            role: msg.role,
-            preview: msg.content.substring(0, 30) + '...'
-          }))
-        });
+        // Only log on first call and major milestones to reduce spam
+        const shouldLog = (
+          session.conversationHistory.length === 1 || // First message
+          session.conversationHistory.length % 10 === 0 || // Every 10 messages
+          (session.careerCards.length > 0 && session.conversationHistory.length % 20 === 0) // Less frequent when cards exist
+        );
+        
+        // Temporarily disabled to reduce log spam - TODO: implement proper rate limiting
+        if (false && shouldLog) {
+          console.log('📤 [GUEST SESSION] Retrieved session for migration:', {
+            sessionId: session.sessionId,
+            conversationHistoryLength: session.conversationHistory.length,
+            careerCardsCount: session.careerCards.length,
+            hasPersonProfile: !!session.personProfile,
+            sampleMessages: session.conversationHistory.slice(0, 2).map(msg => ({
+              role: msg.role,
+              preview: msg.content.substring(0, 30) + '...'
+            }))
+          });
+        }
         return session;
       },
 
@@ -322,25 +380,129 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
           state.videoProgress.videosWatched.length > 0
         );
         
-        // 🔍 DETAILED DEBUGGING FOR hasSignificantData
-        console.log('🔍 hasSignificantData() called with state:', {
-          careerCardsCount: state.careerCards.length,
-          conversationCount: state.conversationHistory.length,
-          hasPersonProfile: !!state.personProfile,
-          personProfileInterests: state.personProfile?.interests?.length || 0,
-          personProfileGoals: state.personProfile?.goals?.length || 0,
-          videosWatchedCount: state.videoProgress.videosWatched.length,
-          criteria: {
-            hasCareerCards: state.careerCards.length > 0,
-            hasMinConversation: state.conversationHistory.length >= 4,
-            hasPersonProfileInterests: state.personProfile && state.personProfile.interests.length > 0,
-            hasPersonProfileGoals: state.personProfile && state.personProfile.goals.length > 0,
-            hasVideosWatched: state.videoProgress.videosWatched.length > 0
-          },
-          finalResult: result
-        });
+        // Rate-limited logging to prevent spam - only log on state changes or errors
+        const currentStateHash = `${state.careerCards.length}-${state.conversationHistory.length}-${state.personProfile?.interests?.length || 0}-${state.personProfile?.goals?.length || 0}`;
+        const lastStateHash = (state as any)._lastSignificantDataHash;
+        
+        if (currentStateHash !== lastStateHash) {
+          // Only log when significant data state actually changes
+          console.log('🔍 hasSignificantData() - state changed:', {
+            careerCardsCount: state.careerCards.length,
+            conversationCount: state.conversationHistory.length,
+            hasPersonProfile: !!state.personProfile,
+            personProfileInterests: state.personProfile?.interests?.length || 0,
+            personProfileGoals: state.personProfile?.goals?.length || 0,
+            videosWatchedCount: state.videoProgress.videosWatched.length,
+            finalResult: result
+          });
+          
+          // Store hash to prevent duplicate logging
+          set({ ...(state as any), _lastSignificantDataHash: currentStateHash });
+        }
         
         return result;
+      },
+
+      // Persona-based onboarding actions
+      updateOnboardingStage: (stage: GuestSession['onboardingStage']) => {
+        const state = get();
+        set({
+          onboardingStage: stage,
+          lastActive: new Date().toISOString()
+        });
+        console.log('🎯 Onboarding stage updated:', { from: state.onboardingStage, to: stage });
+      },
+
+      setPersonaProfile: (profile: PersonaProfile) => {
+        set({
+          personaProfile: profile,
+          lastActive: new Date().toISOString()
+        });
+        console.log('👤 Persona profile set:', {
+          type: profile.classification.type,
+          confidence: Math.round(profile.classification.confidence * 100) + '%',
+          stage: profile.journeyStage
+        });
+      },
+
+      addClassificationTrigger: (trigger: ConversationTrigger) => {
+        const state = get();
+        set({
+          classificationTriggers: [...state.classificationTriggers, trigger],
+          lastActive: new Date().toISOString()
+        });
+        console.log('🎯 Classification trigger added:', {
+          type: trigger.type,
+          signal: trigger.signal.substring(0, 50),
+          personaIndicator: trigger.personaIndicator
+        });
+      },
+
+      addPersonaAnalysis: (classification: PersonaClassification) => {
+        const state = get();
+        set({
+          personaAnalysisHistory: [...state.personaAnalysisHistory, {
+            timestamp: new Date().toISOString(),
+            classification,
+            messageCount: state.conversationHistory.length
+          }],
+          lastActive: new Date().toISOString()
+        });
+        console.log('📊 Persona analysis added to history:', {
+          type: classification.type,
+          confidence: Math.round(classification.confidence * 100) + '%',
+          totalAnalyses: state.personaAnalysisHistory.length + 1
+        });
+      },
+
+      getPersonaProfile: () => {
+        return get().personaProfile;
+      },
+
+      getCurrentOnboardingStage: () => {
+        return get().onboardingStage;
+      },
+
+      shouldTriggerPersonaAnalysis: () => {
+        const state = get();
+        
+        // Trigger conditions:
+        // 1. At least 2 user messages (1 exchange)
+        // 2. Every 2 messages after that for refinement
+        // 3. Not already in journey_active or complete stage
+        
+        const userMessages = state.conversationHistory.filter(msg => msg.role === 'user').length;
+        const lastAnalysis = state.personaAnalysisHistory[state.personaAnalysisHistory.length - 1];
+        const messagesSinceLastAnalysis = lastAnalysis ? userMessages - lastAnalysis.messageCount : userMessages;
+        
+        const shouldTrigger = (
+          userMessages >= 2 && // At least one exchange
+          messagesSinceLastAnalysis >= 2 && // New content to analyze
+          !['journey_active', 'complete'].includes(state.onboardingStage) // Still in onboarding
+        );
+        
+        console.log('🤔 Should trigger persona analysis?', {
+          userMessages,
+          messagesSinceLastAnalysis,
+          currentStage: state.onboardingStage,
+          lastAnalysisMessageCount: lastAnalysis?.messageCount || 0,
+          shouldTrigger
+        });
+        
+        return shouldTrigger;
+      },
+
+      // Structured onboarding actions
+      updateSession: (sessionUpdates: Partial<GuestSession>) => {
+        const state = get();
+        set({
+          ...sessionUpdates,
+          lastActive: new Date().toISOString()
+        });
+        console.log('📝 Session updated with structured onboarding data:', {
+          updatedFields: Object.keys(sessionUpdates),
+          structuredOnboarding: sessionUpdates.structuredOnboarding
+        });
       }
     }),
     {
@@ -359,6 +521,13 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
         userPersona: state.userPersona,
         videoProgress: state.videoProgress,
         engagementMetrics: state.engagementMetrics,
+        // Persist persona onboarding data
+        personaProfile: state.personaProfile,
+        onboardingStage: state.onboardingStage,
+        classificationTriggers: state.classificationTriggers,
+        personaAnalysisHistory: state.personaAnalysisHistory,
+        // Persist structured onboarding data
+        structuredOnboarding: state.structuredOnboarding,
         // Skip analysisResults to keep storage light
       }),
       
@@ -380,6 +549,15 @@ export class GuestSessionService {
   constructor() {
     // Auto-initialize session on service creation
     this.store.getState().initializeSession();
+  }
+
+  // Ensure a non-empty sessionId exists; create one if missing
+  ensureSession(): void {
+    if (!this.store.getState().sessionId) {
+      this.store.getState().initializeSession();
+    } else {
+      this.store.getState().updateLastActive();
+    }
   }
 
   // Session management
@@ -433,6 +611,54 @@ export class GuestSessionService {
   // Name helper for ElevenLabs integration
   getGuestName(): string | null {
     return this.store.getState().personProfile?.name || null;
+  }
+
+  // Persona-based onboarding methods
+  updateOnboardingStage(stage: GuestSession['onboardingStage']): void {
+    this.store.getState().updateOnboardingStage(stage);
+  }
+
+  setPersonaProfile(profile: PersonaProfile): void {
+    this.store.getState().setPersonaProfile(profile);
+  }
+
+  addClassificationTrigger(trigger: ConversationTrigger): void {
+    this.store.getState().addClassificationTrigger(trigger);
+  }
+
+  addPersonaAnalysis(classification: PersonaClassification): void {
+    this.store.getState().addPersonaAnalysis(classification);
+  }
+
+  getPersonaProfile(): PersonaProfile | null {
+    return this.store.getState().getPersonaProfile();
+  }
+
+  getCurrentOnboardingStage(): GuestSession['onboardingStage'] {
+    return this.store.getState().getCurrentOnboardingStage();
+  }
+
+  shouldTriggerPersonaAnalysis(): boolean {
+    return this.store.getState().shouldTriggerPersonaAnalysis();
+  }
+
+  // Structured onboarding methods
+  updateSession(sessionUpdates: Partial<GuestSession>): void {
+    this.store.getState().updateSession(sessionUpdates);
+  }
+
+  // Convenience methods for persona workflow
+  getConversationForAnalysis(): Array<{role: string; content: string; timestamp: string}> {
+    return this.store.getState().getConversationHistory();
+  }
+
+  isPersonaClassified(): boolean {
+    const profile = this.getPersonaProfile();
+    return profile?.classification?.stage === 'confirmed';
+  }
+
+  getPersonaRecommendations(): PersonaTailoredRecommendations | null {
+    return this.getPersonaProfile()?.recommendations || null;
   }
 }
 

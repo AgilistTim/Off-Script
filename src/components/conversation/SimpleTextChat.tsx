@@ -1,4 +1,4 @@
-// Simple text chat component for testing basic OpenAI functionality
+// Simple text chat component using OpenAI for basic conversations
 import React, { useState } from 'react';
 import { Send } from 'lucide-react';
 import { simpleChatService } from '../../services/simpleChatService';

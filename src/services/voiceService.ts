@@ -107,7 +107,7 @@ class VoiceService {
       }
 
       // Create blob from all chunks
-      const audioBlob = new Blob(chunks, { type: 'audio/mpeg' });
+      const audioBlob = new Blob(chunks as BlobPart[], { type: 'audio/mpeg' });
       const audioUrl = URL.createObjectURL(audioBlob);
 
       return {

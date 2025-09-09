@@ -64,14 +64,14 @@ const Hero: React.FC = () => {
   // Handle signup CTA
   const handleSignUp = useCallback(() => {
     console.log('🎯 Hero: Sign up button clicked');
-    window.location.href = '/register';
-  }, []);
+    navigate('/auth/register');
+  }, [navigate]);
 
   // Handle login CTA  
   const handleLogin = useCallback(() => {
     console.log('🎯 Hero: Login button clicked');
-    window.location.href = '/login';
-  }, []);
+    navigate('/auth/login');
+  }, [navigate]);
 
   // Handle dismiss post-conversation CTA
   const handleDismissPostCTA = useCallback(() => {
@@ -130,25 +130,25 @@ const Hero: React.FC = () => {
         {/* Organic floating background elements */}
         <div className="absolute inset-0">
           <motion.div
-            className="absolute top-20 left-10 w-24 h-24 bg-primary-mint/30 rounded-full blur-xl"
+            className="absolute top-20 left-10 w-24 h-24 bg-gray-400/30 rounded-full blur-xl"
             variants={floatingVariants}
             animate="animate"
           />
           <motion.div
-            className="absolute bottom-20 right-10 w-32 h-32 bg-primary-lavender/30 rounded-full blur-lg"
+            className="absolute bottom-20 right-10 w-32 h-32 bg-gray-500/30 rounded-full blur-lg"
             variants={floatingVariants}
             animate="animate"
             transition={{ delay: 1 }}
           />
           <motion.div
-            className="absolute top-1/2 left-1/4 w-16 h-16 bg-primary-yellow/30 rounded-full blur-md"
+            className="absolute top-1/2 left-1/4 w-16 h-16 bg-gray-300/30 rounded-full blur-md"
             variants={pulseVariants}
             animate="animate"
           />
         </div>
 
         {/* Main content */}
-          <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 text-primary-black">
+          <div className="relative z-10 container mx-auto px-4 sm:px-6 lg:px-8 text-black">
           <div className="flex flex-col items-center justify-center min-h-screen py-20 text-center">
             
             {/* Main content container */}
@@ -158,53 +158,31 @@ const Hero: React.FC = () => {
               animate={controls}
               className="max-w-4xl mx-auto space-y-8 lg:space-y-12"
             >
-              {/* Event Badge */}
-              <motion.a
-                href="https://offscriptgen.com" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                variants={itemVariants}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                className="inline-flex items-center space-x-3 bg-white/80 backdrop-blur-sm px-6 py-3 rounded-full border border-gray-200/50 shadow-sm group transition-all duration-300 hover:bg-white/90 hover:shadow-md"
-              >
-                <motion.div
-                  animate={{ rotate: [0, 5, -5, 0] }}
-                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-                >
-                  <Sparkles className="h-4 w-4 text-blue-500" />
-                </motion.div>
-                <span className="text-gray-700 font-medium text-sm">
-                  LDN / 24-25 JAN 2026
-                </span>
-                <ArrowRight className="h-4 w-4 text-gray-500 group-hover:translate-x-1 transition-transform duration-300" />
-              </motion.a>
-              
               {/* Main Headlines */}
               <div className="space-y-6">
                 <motion.div variants={itemVariants} className="space-y-4">
                   <motion.h1
-                    className="font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-primary-black leading-tight"
+                    className="font-bold text-4xl sm:text-5xl lg:text-6xl xl:text-7xl text-black leading-tight"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.8, delay: 0.2 }}
                   >
                     Self-Made
-                    <span className="block text-transparent bg-gradient-to-r from-primary-green via-primary-yellow to-primary-peach bg-clip-text">
+                    <span className="block text-transparent bg-gradient-to-r from-gray-600 via-gray-700 to-gray-800 bg-clip-text">
                       Futures
                     </span>
                   </motion.h1>
                 </motion.div>
 
                 <motion.div variants={itemVariants}>
-                  <h2 className="font-semibold text-xl sm:text-2xl lg:text-3xl text-primary-black/80 leading-relaxed max-w-3xl mx-auto">
+                  <h2 className="font-semibold text-xl sm:text-2xl lg:text-3xl text-black/80 leading-relaxed max-w-3xl mx-auto">
                     Powerful AI that learns your goals and supports your journey with smart, UK‑specific next steps.
                   </h2>
                 </motion.div>
 
                 <motion.p
                   variants={itemVariants}
-                  className="text-lg sm:text-xl text-primary-black/70 leading-relaxed max-w-2xl mx-auto font-medium"
+                  className="text-lg sm:text-xl text-black/70 leading-relaxed max-w-2xl mx-auto font-medium"
                 >
                   Flip the Script. Not your usual career advice.
                 </motion.p>
@@ -223,7 +201,7 @@ const Hero: React.FC = () => {
                     className="font-semibold text-lg px-8 py-4 min-h-[48px] group"
                   >
                     <Volume2 className="h-5 w-5 mr-3 group-hover:animate-pulse" />
-                    Start Voice Chat
+                    Start your journey
                     <ArrowRight className="h-5 w-5 ml-3 group-hover:translate-x-1 transition-transform duration-300" />
                   </Button>
                 </motion.div>
@@ -232,108 +210,22 @@ const Hero: React.FC = () => {
               {/* Social Proof */}
               <motion.div
                 variants={itemVariants}
-                className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-8 text-primary-black/60"
+                className="flex flex-col sm:flex-row items-center justify-center space-y-4 sm:space-y-0 sm:space-x-8 text-black/60"
               >
                 <div className="flex items-center space-x-2">
-                  <Users className="h-5 w-5 text-primary-green" />
+                  <Users className="h-5 w-5 text-gray-600" />
                   <span className="font-medium">AI-powered guidance</span>
                 </div>
-                <div className="hidden sm:block w-px h-6 bg-primary-black/20"></div>
+                <div className="hidden sm:block w-px h-6 bg-black/20"></div>
                 <div className="flex items-center space-x-2">
-                  <Sparkles className="h-5 w-5 text-primary-yellow" />
+                  <Sparkles className="h-5 w-5 text-gray-500" />
                   <span className="font-medium">Personalized insights</span>
                 </div>
               </motion.div>
             </motion.div>
 
-            {/* Floating visual element */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 1, delay: 0.5 }}
-              className="relative mt-12 lg:mt-20"
-            >
-              <motion.div
-                   className="relative w-64 h-64 sm:w-80 sm:h-80 bg-gradient-to-br from-primary-mint/20 via-primary-lavender/20 to-primary-peach/20 rounded-3xl p-8 shadow-glow-calm border border-primary-green/30 backdrop-blur-sm"
-                animate={{ 
-                  rotate: [0, 2, -2, 0],
-                  scale: [1, 1.02, 1]
-                }}
-                transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-              >
-                {/* Content inside */}
-                <div className="h-full flex flex-col justify-between text-primary-black">
-                  <div>
-                    <motion.h3
-                      animate={{ x: [-1, 1, -1] }}
-                      transition={{ duration: 0.5, repeat: Infinity, repeatDelay: 3 }}
-                       className="font-bold text-2xl sm:text-3xl leading-tight text-primary-black"
-                    >
-                      Your Goals
-                      <span className="block text-primary-green">Your Path</span>
-                      <span className="block text-sm font-normal text-primary-black/60 mt-2">Self-Made Futures</span>
-                    </motion.h3>
-                  </div>
-                  
-                  <div className="text-right">
-                     <div className="font-bold text-sm text-primary-black/90">OFF SCRIPT</div>
-                     <div className="text-xs text-primary-black/60">SUMMIT26</div>
-                  </div>
-                </div>
-
-                {/* Animated corner elements */}
-                <motion.div
-                  animate={{ rotate: [0, 360] }}
-                  transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-                  className="absolute top-4 right-4 w-6 h-6 border-2 border-primary-green rounded-full"
-                />
-                <motion.div
-                  animate={{ scale: [1, 1.2, 1] }}
-                  transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute bottom-4 left-4 w-4 h-4 bg-primary-yellow rounded-full"
-                />
-              </motion.div>
-
-              {/* Floating elements around the main visual */}
-              <motion.div
-                animate={{ 
-                  y: [0, -15, 0],
-                  rotate: [0, 10, 0]
-                }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                className="absolute -top-6 -left-6 w-12 h-12 bg-gradient-to-br from-primary-mint to-primary-lavender rounded-xl shadow-glow-calm"
-              />
-              <motion.div
-                animate={{ 
-                  y: [0, 12, 0],
-                  rotate: [0, -15, 0]
-                }}
-                transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
-                className="absolute -bottom-4 -right-4 w-10 h-10 bg-gradient-to-br from-primary-peach to-primary-yellow rounded-full shadow-glow-warm"
-              />
-            </motion.div>
           </div>
         </div>
-
-        {/* Bottom scroll indicator */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 2 }}
-          className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
-        >
-          <motion.div
-            animate={{ y: [0, 8, 0] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            className="w-6 h-10 border-2 border-gray-400/50 rounded-full flex justify-center"
-          >
-            <motion.div
-              animate={{ y: [0, 10, 0] }}
-              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-              className="w-1 h-3 bg-gray-400/70 rounded-full mt-2"
-            />
-          </motion.div>
-        </motion.div>
       </section>
 
       {/* Enhanced Chat Voice Modal */}

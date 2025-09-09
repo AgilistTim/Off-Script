@@ -29,16 +29,16 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
 }) => {
   if (!pathway) {
     return (
-      <Card className="border-electric-blue/30 bg-gradient-to-br from-primary-black/90 to-electric-blue/10">
+      <Card className="border-blue-500/30 bg-gradient-to-br from-black/90 to-blue-500/10">
         <CardContent className="p-8 text-center">
           <div className="space-y-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-electric-blue to-neon-pink rounded-full flex items-center justify-center mx-auto shadow-glow-blue">
-              <MessageSquare className="h-8 w-8 text-primary-white" />
+            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-pink-500 rounded-full flex items-center justify-center mx-auto shadow-glow-blue">
+              <MessageSquare className="h-8 w-8 text-white" />
             </div>
-            <h3 className="text-2xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-electric-blue to-neon-pink">
+            <h3 className="text-2xl font-street font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 to-pink-500">
               Start Your Career Exploration
             </h3>
-            <p className="text-primary-white/70 max-w-md mx-auto">
+            <p className="text-white/70 max-w-md mx-auto">
               Have a conversation with our AI to discover personalized career paths tailored to your interests and goals.
             </p>
           </div>
@@ -64,9 +64,9 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
   };
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 90) return 'from-acid-green to-cyber-yellow';
-    if (confidence >= 80) return 'from-electric-blue to-neon-pink';
-    return 'from-cyber-purple to-electric-blue';
+    if (confidence >= 90) return 'from-green-400 to-yellow-400';
+    if (confidence >= 80) return 'from-blue-500 to-pink-500';
+    return 'from-purple-500 to-blue-500';
   };
 
   const getConfidenceText = (confidence: number) => {
@@ -137,41 +137,41 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
     >
-      <Card className="border-electric-blue/30 bg-gradient-to-br from-primary-black/90 to-electric-blue/10 shadow-glow-blue">
-        <CardContent className="p-8">
-          <div className="flex items-start justify-between mb-6">
-            <div className="flex items-center space-x-4">
-              <div className="w-16 h-16 bg-gradient-to-br from-electric-blue to-neon-pink rounded-xl flex items-center justify-center shadow-lg">
-                <Crown className="h-8 w-8 text-primary-white" />
+      <Card className="border-blue-500/30 bg-gradient-to-br from-black/90 to-blue-500/10 shadow-glow-blue">
+        <CardContent className="p-6 sm:p-8">
+          <div className="flex flex-col sm:flex-row items-start justify-between mb-6 gap-4 sm:gap-0">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-4 sm:space-y-0 sm:space-x-4 w-full sm:w-auto">
+              <div className="w-12 h-12 sm:w-16 sm:h-16 bg-gradient-to-br from-blue-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg flex-shrink-0">
+                <Crown className="h-6 w-6 sm:h-8 sm:w-8 text-white" />
               </div>
               <div>
-                <div className="flex items-center space-x-3 mb-2">
-                  <Badge className="bg-gradient-to-r from-acid-green to-cyber-yellow text-primary-black font-bold px-3 py-1">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
+                  <Badge className="bg-gradient-to-r from-green-400 to-yellow-400 text-black font-bold px-2 py-1 sm:px-3 text-xs sm:text-sm">
                     <Star className="w-3 h-3 mr-1" />
                     YOUR BEST MATCH
                   </Badge>
                   {pathway.isEnhanced && (
-                    <Badge className="bg-gradient-to-r from-neon-pink to-electric-blue text-primary-white font-bold px-3 py-1">
+                    <Badge className="bg-gradient-to-r from-pink-500 to-blue-500 text-white font-bold px-2 py-1 sm:px-3 text-xs sm:text-sm">
                       <Sparkles className="w-3 h-3 mr-1" />
                       ENHANCED DATA
                     </Badge>
                   )}
                   {pathway.perplexityData && (
-                    <Badge className="bg-gradient-to-r from-cyber-yellow to-acid-green text-primary-black font-bold px-3 py-1">
+                    <Badge className="bg-gradient-to-r from-yellow-400 to-green-400 text-black font-bold px-2 py-1 sm:px-3 text-xs sm:text-sm">
                       <Star className="w-3 h-3 mr-1" />
                       REAL-TIME UK DATA
                     </Badge>
                   )}
                   <Badge 
-                    className={`bg-gradient-to-r ${getConfidenceColor(pathway.confidence || 95)} text-primary-black font-bold px-3 py-1`}
+                    className={`bg-gradient-to-r ${getConfidenceColor(pathway.confidence || 95)} text-black font-bold px-2 py-1 sm:px-3 text-xs sm:text-sm`}
                   >
                     {pathway.confidence || 95}% {getConfidenceText(pathway.confidence || 95)}
                   </Badge>
                 </div>
-                <h1 className="text-4xl font-street font-black text-transparent bg-clip-text bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow mb-2">
+                <h1 className="text-2xl sm:text-3xl lg:text-4xl font-street font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-pink-500 to-yellow-400 mb-2">
                   {pathway.title}
                 </h1>
-                <p className="text-lg text-primary-white/80 max-w-2xl">
+                <p className="text-base sm:text-lg text-white/80 max-w-2xl">
                   Based on our analysis of your interests and career discussion
                 </p>
               </div>
@@ -179,53 +179,53 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
           </div>
 
           {/* Key Information Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8">
             {salaryDisplay && (
-              <div className="bg-gradient-to-r from-acid-green/20 to-cyber-yellow/20 border border-acid-green/30 rounded-xl p-4">
+              <div className="bg-gradient-to-r from-green-400/20 to-yellow-400/20 border border-green-400/30 rounded-xl p-3 sm:p-4">
                 <div className="flex items-center space-x-3 mb-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-acid-green to-cyber-yellow rounded-lg flex items-center justify-center">
-                    <PoundSterling className="w-5 h-5 text-primary-black" />
+                  <div className="w-8 h-8 bg-gradient-to-br from-green-400 to-yellow-400 rounded-lg flex items-center justify-center">
+                    <PoundSterling className="w-5 h-5 text-black" />
                   </div>
-                  <h3 className="text-lg font-bold text-acid-green">
+                  <h3 className="text-base sm:text-lg font-bold text-green-400">
                     {pathway.perplexityData?.verifiedSalaryRanges ? 'Verified Salary Range' : 'Salary Range'}
                   </h3>
                 </div>
-                <p className="text-2xl font-black text-primary-white">{salaryDisplay}</p>
+                <p className="text-xl sm:text-2xl font-bold text-white">{salaryDisplay}</p>
               </div>
             )}
 
             {growthDisplay && (
-              <div className="bg-gradient-to-r from-electric-blue/20 to-neon-pink/20 border border-electric-blue/30 rounded-xl p-4">
+              <div className="bg-gradient-to-r from-blue-500/20 to-pink-500/20 border border-blue-500/30 rounded-xl p-3 sm:p-4">
                 <div className="flex items-center space-x-3 mb-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-electric-blue to-neon-pink rounded-lg flex items-center justify-center">
-                    <TrendingUp className="w-5 h-5 text-primary-white" />
+                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-pink-500 rounded-lg flex items-center justify-center">
+                    <TrendingUp className="w-5 h-5 text-white" />
                   </div>
-                  <h3 className="text-lg font-bold text-electric-blue">
+                  <h3 className="text-base sm:text-lg font-bold text-blue-500">
                     {pathway.perplexityData?.realTimeMarketDemand ? 'Market Demand' : 'Growth Outlook'}
                   </h3>
                 </div>
-                <p className="text-xl font-bold text-primary-white">{growthDisplay}</p>
+                <p className="text-lg sm:text-xl font-bold text-white">{growthDisplay}</p>
               </div>
             )}
 
             {industryDisplay && (
-              <div className="bg-gradient-to-r from-cyber-purple/20 to-neon-pink/20 border border-cyber-purple/30 rounded-xl p-4">
+              <div className="bg-gradient-to-r from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-xl p-3 sm:p-4">
                 <div className="flex items-center space-x-3 mb-2">
-                  <div className="w-8 h-8 bg-gradient-to-br from-cyber-purple to-neon-pink rounded-lg flex items-center justify-center">
-                    <Briefcase className="w-5 h-5 text-primary-white" />
+                  <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                    <Briefcase className="w-5 h-5 text-white" />
                   </div>
-                  <h3 className="text-lg font-bold text-cyber-purple">
+                  <h3 className="text-base sm:text-lg font-bold text-purple-500">
                     {pathway.workEnvironmentCulture?.typicalEmployers ? 'Top Employer' : 'Industry'}
                   </h3>
                 </div>
-                <p className="text-xl font-bold text-primary-white">{industryDisplay}</p>
+                <p className="text-lg sm:text-xl font-bold text-white">{industryDisplay}</p>
               </div>
             )}
           </div>
 
           {/* Description */}
           <div className="mb-8">
-            <p className="text-xl text-primary-white/90 leading-relaxed">
+            <p className="text-xl text-white/90 leading-relaxed">
               {pathway.description}
             </p>
           </div>
@@ -233,7 +233,7 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
           {/* Key Skills Preview */}
           {pathway.keySkills && pathway.keySkills.length > 0 && (
             <div className="mb-8">
-              <h3 className="text-xl font-bold text-neon-pink mb-4 flex items-center">
+              <h3 className="text-xl font-bold text-pink-500 mb-4 flex items-center">
                 <Sparkles className="w-6 h-6 mr-2" />
                 Key Skills Required
               </h3>
@@ -244,13 +244,13 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: index * 0.1 }}
-                    className="px-4 py-2 bg-gradient-to-r from-electric-blue/20 to-neon-pink/20 border border-electric-blue/30 rounded-full text-primary-white font-medium hover:scale-105 transition-transform duration-200"
+                    className="px-4 py-2 bg-gradient-to-r from-blue-500/20 to-pink-500/20 border border-blue-500/30 rounded-full text-white font-medium hover:scale-105 transition-transform duration-200"
                   >
                     {skill}
                   </motion.span>
                 ))}
                 {pathway.keySkills.length > 6 && (
-                  <span className="px-4 py-2 bg-gradient-to-r from-cyber-yellow/20 to-acid-green/20 border border-cyber-yellow/30 rounded-full text-primary-white font-medium">
+                  <span className="px-4 py-2 bg-gradient-to-r from-yellow-400/20 to-green-400/20 border border-yellow-400/30 rounded-full text-white font-medium">
                     +{pathway.keySkills.length - 6} more skills
                   </span>
                 )}
@@ -263,12 +263,12 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
             <div className="mb-8 space-y-6">
               {/* Day in the Life */}
               {pathway.dayInTheLife && (
-                <div className="bg-gradient-to-r from-cyber-yellow/20 to-acid-green/20 border border-cyber-yellow/30 rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-cyber-yellow mb-3 flex items-center">
+                <div className="bg-gradient-to-r from-yellow-400/20 to-green-400/20 border border-yellow-400/30 rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-yellow-400 mb-3 flex items-center">
                     <Clock className="w-5 h-5 mr-2" />
                     A Day in the Life
                   </h3>
-                  <p className="text-primary-white/90 leading-relaxed">
+                  <p className="text-white/90 leading-relaxed">
                     {pathway.dayInTheLife}
                   </p>
                 </div>
@@ -276,22 +276,22 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
 
               {/* Career Progression Preview */}
               {pathway.careerProgression && pathway.careerProgression.length > 0 && (
-                <div className="bg-gradient-to-r from-electric-blue/20 to-cyber-blue/20 border border-electric-blue/30 rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-electric-blue mb-3 flex items-center">
+                <div className="bg-gradient-to-r from-blue-500/20 to-blue-600/20 border border-blue-500/30 rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-blue-500 mb-3 flex items-center">
                     <TrendingUp className="w-5 h-5 mr-2" />
                     Career Progression Path
                   </h3>
                   <div className="space-y-2">
                     {pathway.careerProgression.slice(0, 2).map((step: string, index: number) => (
                       <div key={index} className="flex items-start">
-                        <div className="w-6 h-6 bg-gradient-to-br from-electric-blue to-cyber-blue rounded-full flex items-center justify-center mr-3 mt-1 text-primary-black font-bold text-xs">
+                        <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mr-3 mt-1 text-black font-bold text-xs">
                           {index + 1}
                         </div>
-                        <span className="text-primary-white/90 text-sm">{step}</span>
+                        <span className="text-white/90 text-sm">{step}</span>
                       </div>
                     ))}
                     {pathway.careerProgression.length > 2 && (
-                      <p className="text-primary-white/60 text-sm ml-9">
+                      <p className="text-white/60 text-sm ml-9">
                         +{pathway.careerProgression.length - 2} more progression steps
                       </p>
                     )}
@@ -301,20 +301,20 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
 
               {/* Industry Trends Preview */}
               {pathway.industryTrends && pathway.industryTrends.length > 0 && (
-                <div className="bg-gradient-to-r from-neon-pink/20 to-sunset-orange/20 border border-neon-pink/30 rounded-xl p-6">
-                  <h3 className="text-lg font-bold text-neon-pink mb-3 flex items-center">
+                <div className="bg-gradient-to-r from-pink-500/20 to-orange-500/20 border border-pink-500/30 rounded-xl p-6">
+                  <h3 className="text-lg font-bold text-pink-500 mb-3 flex items-center">
                     <Star className="w-5 h-5 mr-2" />
                     Industry Outlook
                   </h3>
                   <div className="space-y-2">
                     {pathway.industryTrends.slice(0, 2).map((trend: string, index: number) => (
                       <div key={index} className="flex items-start">
-                        <ChevronRight className="w-4 h-4 text-neon-pink mr-2 mt-1 flex-shrink-0" />
-                        <span className="text-primary-white/90 text-sm">{trend}</span>
+                        <ChevronRight className="w-4 h-4 text-pink-500 mr-2 mt-1 flex-shrink-0" />
+                        <span className="text-white/90 text-sm">{trend}</span>
                       </div>
                     ))}
                     {pathway.industryTrends.length > 2 && (
-                      <p className="text-primary-white/60 text-sm ml-6">
+                      <p className="text-white/60 text-sm ml-6">
                         +{pathway.industryTrends.length - 2} more trends
                       </p>
                     )}
@@ -329,9 +329,9 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
             {onAskAI && (
               <Button 
                 onClick={onAskAI}
-                className="flex-1 bg-gradient-to-r from-electric-blue via-neon-pink to-cyber-yellow text-primary-black font-black text-lg py-4 px-8 rounded-xl hover:scale-105 transition-transform duration-200 shadow-glow-blue"
+                className="flex-1 bg-gradient-to-r from-blue-500 via-pink-500 to-yellow-400 text-black font-bold text-base sm:text-lg py-3 sm:py-4 px-6 sm:px-8 rounded-xl hover:scale-105 transition-transform duration-200 shadow-glow-blue"
               >
-                <MessageSquare className="w-6 h-6 mr-3" />
+                <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6 mr-2 sm:mr-3" />
                 Ask AI About This Career
               </Button>
             )}
@@ -340,7 +340,7 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
               <Button 
                 onClick={onExplorePath}
                 variant="outline"
-                className="flex-1 border-electric-blue/50 text-electric-blue hover:bg-electric-blue/10 font-bold text-lg py-4 px-8 rounded-xl transition-all duration-200"
+                className="flex-1 border-blue-500/50 text-blue-500 hover:bg-blue-500/10 font-bold text-base sm:text-lg py-3 sm:py-4 px-6 sm:px-8 rounded-xl transition-all duration-200"
               >
                 <span>View Full Details</span>
                 <ChevronRight className="w-5 h-5 ml-2" />
@@ -349,8 +349,8 @@ const PrimaryPathwayHero: React.FC<PrimaryPathwayHeroProps> = ({
           </div>
 
           {/* Location Badge */}
-          <div className="flex items-center justify-center mt-6 pt-6 border-t border-electric-blue/20">
-            <div className="flex items-center space-x-2 text-primary-white/60">
+          <div className="flex items-center justify-center mt-6 pt-6 border-t border-blue-500/20">
+            <div className="flex items-center space-x-2 text-white/60">
               <MapPin className="w-4 h-4" />
               <span className="text-sm font-medium">UK Career Path</span>
             </div>
