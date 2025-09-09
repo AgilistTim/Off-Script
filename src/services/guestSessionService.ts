@@ -276,14 +276,14 @@ const useGuestSessionStore = create<GuestSession & GuestSessionActions>()(
       updatePersonProfile: (profile: PersonProfile) => {
         const state = get();
         
-        // Merge with existing profile if present
+        // Merge with existing profile if present, safely handling undefined arrays
         const mergedProfile: PersonProfile = state.personProfile ? {
           name: profile.name || state.personProfile.name, // Use new name if provided, keep existing if not
-          interests: [...new Set([...state.personProfile.interests, ...profile.interests])],
-          goals: [...new Set([...state.personProfile.goals, ...profile.goals])],
-          skills: [...new Set([...state.personProfile.skills, ...profile.skills])],
-          values: [...new Set([...state.personProfile.values, ...profile.values])],
-          workStyle: [...new Set([...state.personProfile.workStyle, ...profile.workStyle])],
+          interests: [...new Set([...(state.personProfile.interests || []), ...(profile.interests || [])])],
+          goals: [...new Set([...(state.personProfile.goals || []), ...(profile.goals || [])])],
+          skills: [...new Set([...(state.personProfile.skills || []), ...(profile.skills || [])])],
+          values: [...new Set([...(state.personProfile.values || []), ...(profile.values || [])])],
+          workStyle: [...new Set([...(state.personProfile.workStyle || []), ...(profile.workStyle || [])])],
           careerStage: profile.careerStage !== "exploring" ? profile.careerStage : state.personProfile.careerStage,
           lastUpdated: profile.lastUpdated
         } : profile;

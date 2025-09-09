@@ -62,10 +62,11 @@ export class ConversationFlowManager {
       progress = Math.min(userMessages.length / 6, 0.9); // Cap at 90% until completion detected
     }
     
+    const displayedSteps = Math.min(userMessages.length, totalQuestions);
     return {
       phase: 'onboarding',
       progress,
-      description: `Building your profile (${userMessages.length}/6 steps)`
+      description: `Building your profile (${displayedSteps}/${totalQuestions} steps)`
     };
   }
 

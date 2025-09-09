@@ -200,6 +200,30 @@ service cloud.firestore {
         (isOwner(userId) || isAdmin());
     }
     
+    // Conversation objectives for prompt management - public read access, admin write protection
+    match /conversationObjectives/{objectiveId} {
+      allow read: if true; // Allow all users (including guests) to read conversation objectives
+      allow write: if isAuthenticated() && isAdmin();
+    }
+    
+    // Conversation trees for prompt management - public read access, admin write protection
+    match /conversationTrees/{treeId} {
+      allow read: if true; // Allow all users (including guests) to read conversation trees
+      allow write: if isAuthenticated() && isAdmin();
+    }
+    
+    // Prompt manifest for cache management - public read access, admin write protection
+    match /promptManifest/{manifestId} {
+      allow read: if true; // Allow all users (including guests) to read prompt manifest
+      allow write: if isAuthenticated() && isAdmin();
+    }
+    
+    // Prompt analytics for performance tracking - read for admins, write for system
+    match /promptAnalytics/{analyticsId} {
+      allow read: if isAuthenticated() && isAdmin();
+      allow write: if isAuthenticated();
+    }
+    
     // Collection group queries for admin search functionality
     match /{path=**}/messages/{messageId} {
       allow read: if isAuthenticated() && isAdmin();

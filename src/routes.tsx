@@ -23,6 +23,7 @@ const AdminConversations = lazy(() => import('./pages/admin/Conversations'));
 const AdminCareerCards = lazy(() => import('./pages/admin/CareerCards'));
 const AdminAnalytics = lazy(() => import('./pages/admin/Analytics'));
 const AdminSettings = lazy(() => import('./pages/admin/Settings'));
+const PromptManagement = lazy(() => import('./components/admin/PromptManagement'));
 
 // Legacy pages (will be deprecated)
 const NotFound = lazy(() => import('./pages/NotFound'));
@@ -193,6 +194,10 @@ export const router = createBrowserRouter([
       {
         path: 'settings',
         element: <AdminSettings />
+      },
+      {
+        path: 'prompts',
+        element: <PromptManagement />
       }
     ]
   },

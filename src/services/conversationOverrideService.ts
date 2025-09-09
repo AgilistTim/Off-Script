@@ -12,6 +12,7 @@ import { guestSessionService } from './guestSessionService';
 import { userPersonaService } from './userPersonaService';
 import { enhancedPersonaIntegration } from './enhancedPersonaIntegration';
 import { conversationFlowManager } from './conversationFlowManager';
+import { enhancedConversationManager } from './enhancedConversationManager';
 import { integratedOnboardingService } from './integratedOnboardingService';
 
 interface ConversationOverrides {
@@ -1246,20 +1247,22 @@ CONVERSATION FLOW (ENHANCED FOR CAREER CARDS):
     sessionId: string,
     currentStage: 'discovery' | 'classification' | 'tailored_guidance'
   ): Promise<ConversationOverrides> {
-    console.log('🧠 Building persona onboarding overrides using ConversationFlowManager:', {
+    console.log('🚀 Building objective-driven overrides using Enhanced Conversation Manager:', {
       sessionId: sessionId.substring(0, 15) + '...',
       currentStage
     });
 
-    // **NEW: Use ConversationFlowManager for phase-aware overrides**
-    const currentPhase = conversationFlowManager.getCurrentPhase();
-    const dynamicVariables = conversationFlowManager.getDynamicVariablesForAgent();
-    const systemPrompt = conversationFlowManager.getPhaseSystemPrompt();
+    // **ENHANCED: Use Enhanced Conversation Manager for objective-driven prompts**
+    const currentPhase = await enhancedConversationManager.getCurrentPhase();
+    const dynamicVariables = await enhancedConversationManager.getDynamicVariables();
+    const systemPrompt = await enhancedConversationManager.generateSystemPrompt();
     
-    console.log('🎭 Phase-aware overrides:', {
+    console.log('🎯 Objective-driven overrides:', {
       phase: currentPhase.phase,
       progress: Math.round(currentPhase.progress * 100) + '%',
-      description: currentPhase.description
+      description: currentPhase.description,
+      objectiveId: currentPhase.currentObjectiveId,
+      isObjectiveDriven: currentPhase.isObjectiveDriven
     });
 
     // Build dynamic first message based on phase

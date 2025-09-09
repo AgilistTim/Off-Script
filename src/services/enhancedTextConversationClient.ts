@@ -6,6 +6,7 @@ import {
   ConversationHistoryItem, 
   ITextConversationClient 
 } from './textConversationClient';
+import { enhancedConversationManager } from './enhancedConversationManager';
 
 export interface ClientTools {
   analyze_conversation_for_careers: (parameters: { trigger_reason: string }) => Promise<string>;
@@ -94,15 +95,39 @@ export class EnhancedTextConversationClient implements ITextConversationClient {
     const userMessage: ConversationHistoryItem = { role: 'user', content: text };
     this.conversationHistory.push(userMessage);
 
+    // **ENHANCED: Process message through Enhanced Conversation Manager**
+    try {
+      const processResult = await enhancedConversationManager.processUserMessage(text);
+      
+      console.log('🎯 [ENHANCED TEXT] Objective evaluation:', {
+        shouldTransition: processResult.shouldTransition,
+        nextObjective: processResult.nextObjectiveId,
+        isComplete: processResult.evaluation?.isComplete,
+        confidence: processResult.evaluation ? Math.round(processResult.evaluation.confidence * 100) : 0
+      });
+
+      // Update system prompt if objective changed
+      if (processResult.shouldTransition && processResult.nextObjectiveId) {
+        this.personaContext = processResult.systemPrompt;
+        console.log('🔄 [ENHANCED TEXT] Updated system prompt for new objective:', {
+          newObjective: processResult.nextObjectiveId,
+          promptLength: processResult.systemPrompt.length
+        });
+      }
+    } catch (error) {
+      console.warn('⚠️ [ENHANCED TEXT] Objective processing failed, continuing with legacy mode:', error);
+    }
+
     try {
       // Build messages array for OpenAI
       const messages = this.buildMessagesArray();
 
       // Create completion with function calling
+      const toolDefinitions = await this.buildToolDefinitions();
       const completion = await this.openaiClient.chat.completions.create({
         model: 'gpt-4o-2024-08-06',
         messages,
-        tools: this.buildToolDefinitions(),
+        tools: toolDefinitions,
         tool_choice: 'auto'
       });
 
@@ -293,10 +318,63 @@ Your next response should reference and discuss these ${this.generatedCareerCard
 
   /**
    * Build tool definitions for OpenAI function calling
+   * Enhanced to use objective-driven tool availability
    */
-  private buildToolDefinitions(): any[] {
-    return [
-      {
+  private async buildToolDefinitions(): Promise<any[]> {
+    // Check which tools should be enabled based on current objective
+    let shouldEnableCareerTools = true;
+    try {
+      shouldEnableCareerTools = await enhancedConversationManager.shouldEnableCareerTools();
+    } catch (error) {
+      console.warn('⚠️ [ENHANCED TEXT] Tool enablement check failed, using fallback:', error);
+    }
+
+    const availableTools = [];
+
+    // Always enable profile updates
+    availableTools.push({
+      type: 'function',
+      function: {
+        name: 'update_person_profile',
+        description: 'Extract and update user profile insights from conversation',
+        parameters: {
+          type: 'object',
+          properties: {
+            interests: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'User interests or hobbies'
+            },
+            goals: {
+              type: 'array', 
+              items: { type: 'string' },
+              description: 'Career goals or aspirations'
+            },
+            skills: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Skills or strengths'
+            },
+            name: {
+              type: 'string',
+              description: 'User name'
+            },
+            lifeStage: {
+              type: 'string',
+              description: 'Current life stage (student, working, graduate, etc.)'
+            },
+            careerDirection: {
+              type: 'string', 
+              description: 'Career direction or exploration status'
+            }
+          }
+        }
+      }
+    });
+
+    // Career analysis tools - enabled based on objective
+    if (shouldEnableCareerTools) {
+      availableTools.push({
         type: 'function',
         function: {
           name: 'analyze_conversation_for_careers',
@@ -312,75 +390,34 @@ Your next response should reference and discuss these ${this.generatedCareerCard
             required: ['trigger_reason']
           }
         }
-      },
-      {
-        type: 'function',
-        function: {
-          name: 'update_person_profile',
-          description: 'Extract and update user profile insights from conversation',
+      });
 
-          parameters: {
-            type: 'object',
-            properties: {
-              interests: {
-                type: 'array',
-                items: { type: 'string' },
-                description: 'User interests and activities'
-              },
-              goals: {
-                type: 'array', 
-                items: { type: 'string' },
-                description: 'Career goals and aspirations'
-              },
-              skills: {
-                type: 'array',
-                items: { type: 'string' },
-                description: 'Skills and abilities'
-              },
-              personalQualities: {
-                type: 'array',
-                items: { type: 'string' },
-                description: 'Personal qualities and traits'
-              }
-            }
-          }
-        }
-      },
-      {
-        type: 'function',
-        function: {
-          name: 'generate_career_recommendations',
-          description: 'Generate detailed career recommendations based on user profile',
-
-          parameters: {
-            type: 'object',
-            properties: {
-              trigger_reason: {
-                type: 'string',
-                description: 'Reason for generating recommendations'
-              }
-            }
-          }
-        }
-      },
-      {
+      availableTools.push({
         type: 'function',
         function: {
           name: 'trigger_instant_insights',
-          description: 'Provide immediate career insights based on latest user message',
-
+          description: 'Generate quick career insights based on current conversation',
           parameters: {
             type: 'object',
             properties: {
               user_message: {
                 type: 'string',
-                description: 'Latest user message to analyze'
+                description: 'User message that triggered the insights'
               }
-            }
+            },
+            required: ['user_message']
           }
         }
-      }
-    ];
+      });
+    }
+
+    console.log('🛠️ [ENHANCED TEXT] Tools enabled:', {
+      totalTools: availableTools.length,
+      careerToolsEnabled: shouldEnableCareerTools,
+      toolNames: availableTools.map(tool => tool.function.name)
+    });
+
+    return availableTools;
   }
 
 

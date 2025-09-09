@@ -11,7 +11,8 @@ import {
   Menu,
   X,
   Home,
-  Briefcase
+  Briefcase,
+  FileText
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -41,6 +42,7 @@ const AdminLayout: React.FC = () => {
   { name: 'Users', path: '/admin/users', icon: <Users size={20} /> },
   { name: 'Conversations', path: '/admin/conversations', icon: <MessageSquare size={20} /> },
   { name: 'Career Cards', path: '/admin/career-cards', icon: <Briefcase size={20} /> },
+  { name: 'Prompts', path: '/admin/prompts', icon: <FileText size={20} /> },
   { name: 'Analytics', path: '/admin/analytics', icon: <BarChart3 size={20} /> },
   { name: 'Settings', path: '/admin/settings', icon: <Settings size={20} /> },
 ];

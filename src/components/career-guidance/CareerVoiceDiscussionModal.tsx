@@ -268,6 +268,11 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
     }
 
     try {
+      // Explicitly allow audio init for dev-instrument guard
+      if (typeof window !== 'undefined') {
+        (window as any).__ALLOW_AUDIO_INIT = true;
+      }
+
       setConnectionStatus('connecting');
       
       console.log('🎙️ Starting voice conversation with modern conversation overrides');
@@ -312,6 +317,10 @@ export const CareerVoiceDiscussionModal: React.FC<CareerVoiceDiscussionModalProp
     conversation.endSession();
     setConnectionStatus('disconnected');
     setIsSpeaking(false);
+    // Reset audio init allowance after ending the session
+    if (typeof window !== 'undefined') {
+      (window as any).__ALLOW_AUDIO_INIT = false;
+    }
   };
 
 

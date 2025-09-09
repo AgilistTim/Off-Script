@@ -29,7 +29,8 @@ import {
   Star,
   Lightbulb,
   Trash2,
-  Rocket
+  Rocket,
+  ExternalLink
 } from 'lucide-react';
 import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
@@ -691,13 +692,29 @@ const UnifiedCareerCard: React.FC<UnifiedCareerCardProps> = ({ career, onAskAI, 
                             <div className="font-medium text-black">{pathway.title}</div>
                             <div className="text-sm text-black/70 mt-1">{pathway.type} • {pathway.provider} • {pathway.duration}</div>
                             {pathway.cost && (
-                              <div className="text-sm text-black/70 mt-1">
-                                Cost: {pathway.cost.min === 0 && pathway.cost.max === 0 ? 'Free' : `£${pathway.cost.min?.toLocaleString()} - £${pathway.cost.max?.toLocaleString()}`}
+                              <div className="text-sm mt-1 flex items-center">
+                                <span className={pathway.cost.min === 0 && pathway.cost.max === 0 ? 'text-green-600 font-semibold' : 'text-black/70'}>
+                                  Cost: {pathway.cost.min === 0 && pathway.cost.max === 0 ? 'Free ✨' : `£${pathway.cost.min?.toLocaleString()} - £${pathway.cost.max?.toLocaleString()}`}
+                                </span>
                               </div>
                             )}
                             {pathway.entryRequirements?.length > 0 && (
                               <div className="text-sm text-black/70 mt-1">
                                 Requirements: {pathway.entryRequirements.join(', ')}
+                              </div>
+                            )}
+                            {pathway.url && (
+                              <div className="mt-2">
+                                <a 
+                                  href={pathway.url} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center text-blue-600 hover:text-blue-800 text-sm font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-1 rounded"
+                                  aria-label={`View course details for ${pathway.title} (opens in new tab)`}
+                                >
+                                  <ExternalLink className="w-3 h-3 mr-1" />
+                                  View Course Details
+                                </a>
                               </div>
                             )}
                           </div>

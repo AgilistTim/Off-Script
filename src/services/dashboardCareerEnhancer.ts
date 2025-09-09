@@ -696,14 +696,22 @@ export class DashboardCareerEnhancer {
   }
 
   /**
-   * Convert structured education data to our format
+   * Convert structured education data to our format with validation and categorization
    */
   private convertStructuredEducationData(data: PerplexityStructuredCareerData): EnhancedCareerData['currentEducationPathways'] {
     const educationData = data.enhancedData?.currentEducationPathways || [];
+    const sources = data.sources || [];
     
-    return educationData
+    // Map pathways and include URLs from sources where possible
+    const processedPathways = educationData
       .map(pathway => {
         const cost = this.parseEducationCost(pathway.cost);
+        
+        // Try to find matching URL from sources
+        const matchingSource = sources.find(source => 
+          source.title.toLowerCase().includes(pathway.title.toLowerCase().slice(0, 10)) ||
+          source.title.toLowerCase().includes(pathway.provider.toLowerCase())
+        );
         
         return {
           type: pathway.type as 'University' | 'Apprenticeship' | 'Professional' | 'Online',
@@ -712,10 +720,13 @@ export class DashboardCareerEnhancer {
           duration: pathway.duration,
           cost,
           entryRequirements: pathway.entryRequirements || [],
-          url: '',
+          url: matchingSource?.url || '',
           verified: pathway.verified || false
         };
       });
+    
+    // Apply validation and categorization using the new methods
+    return this.processEducationPathways(processedPathways);
   }
 
   /**
@@ -1431,6 +1442,152 @@ export class DashboardCareerEnhancer {
       console.error('❌ Manual merge failed:', error);
       throw error;
     }
+  }
+
+  /**
+   * Validation and categorization methods for education pathways
+   */
+
+  /**
+   * Categorize and score education pathway for accessibility
+   */
+  private categorizeEducationPathway(pathway: any): any {
+    const categories = {
+      'Free': this.isFreePathway(pathway),
+      'Bootcamp': this.isBootcampPathway(pathway),
+      'Apprenticeship': this.isApprenticeshipPathway(pathway),
+      'Fast-track': this.isFastTrackPathway(pathway),
+      'Online': this.isOnlinePathway(pathway),
+      'University': this.isUniversityPathway(pathway)
+    };
+    
+    return {
+      ...pathway,
+      categories: Object.keys(categories).filter(key => categories[key]),
+      accessibilityScore: this.calculateAccessibilityScore(pathway),
+      validated: this.isValidUrl(pathway.url)
+    };
+  }
+
+  /**
+   * Check if pathway is free or low-cost
+   */
+  private isFreePathway(pathway: any): boolean {
+    if (pathway.cost?.min === 0 || pathway.cost?.max === 0) return true;
+    const title = pathway.title?.toLowerCase() || '';
+    const description = pathway.description?.toLowerCase() || '';
+    return title.includes('free') || description.includes('free') || 
+           title.includes('no cost') || description.includes('no cost');
+  }
+
+  /**
+   * Check if pathway is a bootcamp or intensive program
+   */
+  private isBootcampPathway(pathway: any): boolean {
+    const title = pathway.title?.toLowerCase() || '';
+    const type = pathway.type?.toLowerCase() || '';
+    return type === 'bootcamp' || title.includes('bootcamp') || 
+           title.includes('intensive') || title.includes('immersive');
+  }
+
+  /**
+   * Check if pathway is an apprenticeship
+   */
+  private isApprenticeshipPathway(pathway: any): boolean {
+    const title = pathway.title?.toLowerCase() || '';
+    const type = pathway.type?.toLowerCase() || '';
+    return type === 'apprenticeship' || title.includes('apprentice') || 
+           title.includes('traineeship');
+  }
+
+  /**
+   * Check if pathway is fast-track (short duration)
+   */
+  private isFastTrackPathway(pathway: any): boolean {
+    const duration = pathway.duration?.toLowerCase() || '';
+    return duration.includes('week') || 
+           (duration.includes('month') && !duration.includes('6 month') && !duration.includes('12 month'));
+  }
+
+  /**
+   * Check if pathway is online/remote
+   */
+  private isOnlinePathway(pathway: any): boolean {
+    const location = pathway.location?.toLowerCase() || '';
+    const title = pathway.title?.toLowerCase() || '';
+    return location === 'online' || location.includes('remote') || 
+           title.includes('online') || title.includes('remote');
+  }
+
+  /**
+   * Check if pathway is university-based
+   */
+  private isUniversityPathway(pathway: any): boolean {
+    const provider = pathway.provider?.toLowerCase() || '';
+    const type = pathway.type?.toLowerCase() || '';
+    const title = pathway.title?.toLowerCase() || '';
+    return type === 'university' || provider.includes('university') || 
+           provider.includes('college') || title.includes('degree') || 
+           title.includes('masters') || title.includes('bachelor');
+  }
+
+  /**
+   * Calculate accessibility score (0-100, higher = more accessible)
+   */
+  private calculateAccessibilityScore(pathway: any): number {
+    let score = 0;
+    
+    // Cost factor (40 points max)
+    if (this.isFreePathway(pathway)) {
+      score += 40;
+    } else if (pathway.cost?.min < 1000) {
+      score += 25;
+    } else if (pathway.cost?.min < 5000) {
+      score += 15;
+    }
+    
+    // Duration factor (30 points max)
+    if (this.isFastTrackPathway(pathway)) {
+      score += 30;
+    } else if (pathway.duration?.includes('month')) {
+      score += 20;
+    } else if (pathway.duration?.includes('year')) {
+      score += 10;
+    }
+    
+    // Type factor (30 points max)
+    if (this.isBootcampPathway(pathway) || this.isApprenticeshipPathway(pathway)) {
+      score += 30;
+    } else if (this.isOnlinePathway(pathway)) {
+      score += 20;
+    } else if (this.isUniversityPathway(pathway)) {
+      score += 10;
+    }
+    
+    return Math.min(score, 100);
+  }
+
+  /**
+   * Validate URL format and basic accessibility
+   */
+  private isValidUrl(url: string): boolean {
+    if (!url || typeof url !== 'string') return false;
+    try {
+      const urlObj = new URL(url);
+      return urlObj.protocol === 'http:' || urlObj.protocol === 'https:';
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Process and enhance education pathways with validation and categorization
+   */
+  private processEducationPathways(pathways: any[]): any[] {
+    return pathways
+      .map(pathway => this.categorizeEducationPathway(pathway))
+      .filter(pathway => pathway.validated || !pathway.url) // Include pathways without URLs or with valid URLs
+      .sort((a, b) => b.accessibilityScore - a.accessibilityScore); // Sort by accessibility
   }
 }
 
